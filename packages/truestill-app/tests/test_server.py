@@ -113,7 +113,7 @@ def test_library_stats_reports_custody_and_shape(client: TestClient, tmp_path: P
             original_name="a.jpg",
             sha256="sha-a",
             copy_sha256="sha-a",
-            perceptual="phash-1",
+            perceptual="aaaa00000000000f",  # a real hex hash; `(ahq)` now parses it
             size=100,
             captured_at="2020-01-01T10:00:00",
             category="Camera",
@@ -125,7 +125,7 @@ def test_library_stats_reports_custody_and_shape(client: TestClient, tmp_path: P
             original_name="b.mp4",
             sha256="sha-b",
             copy_sha256="sha-b",
-            perceptual="phash-1",
+            perceptual="aaaa00000000000f",  # a real hex hash; `(ahq)` now parses it
             size=200,
             captured_at="2021-01-01T10:00:00",
             category="Camera",

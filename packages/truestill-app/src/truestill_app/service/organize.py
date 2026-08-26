@@ -533,9 +533,12 @@ class Uncompared(TypedDict):
     ⚠ **COUNTED, unlike `SkippedFolders`.** These files were held and read; the number is known
     exactly. Same report, two rules, resting on two different states of knowledge.
 
-    `label` and `remedy` arrive already worded, so the browser maps nothing.
+    `label` and `remedy` arrive already worded, so the browser maps nothing. ``reason`` is the
+    enum VALUE and exists so a surface can key on the group without parsing its heading - the
+    browser renders it as an attribute, never as text. `(ahq)` added the second member.
     """
 
+    reason: str
     label: str
     remedy: str
     files: list[str]
@@ -559,18 +562,30 @@ class SuppressedDiagnostics(TypedDict):
     total: int
 
 
-def _uncompared(resolutions: list[Resolution]) -> Uncompared | None:
-    """Photos a perceptual pass could not decode, from core's one home. ``None`` when there are
-    none, so the browser renders nothing rather than a zero row."""
-    found = uncompared_photos(resolutions)
-    if found is None:
+def _uncompared(resolutions: list[Resolution]) -> list[Uncompared] | None:
+    """Photos that got no near-duplicate check, from core's one home, grouped by why.
+
+    ``None`` rather than ``[]`` when there are none, so the browser renders nothing rather than a
+    zero row - and so `if (!uncompared)` keeps working, which an empty array would not: `[]` is
+    truthy in JavaScript and would have printed an empty banner. `(ahq)`
+
+    The app has no threshold control, so `DEFAULT_PHASH_THRESHOLD` is what its runs apply and is
+    therefore what its report must name - the same constant this module already hands
+    `DedupIndex.from_catalog_rows`, never a second copy of the decision.
+    """
+    found = uncompared_photos(resolutions, phash_threshold=DEFAULT_PHASH_THRESHOLD)
+    if not found:
         return None
-    return {
-        "label": found.label,
-        "remedy": found.remedy,
-        "files": list(found.files),
-        "total": found.total,
-    }
+    return [
+        {
+            "reason": group.reason.value,
+            "label": group.label,
+            "remedy": group.remedy,
+            "files": list(group.files),
+            "total": group.total,
+        }
+        for group in found
+    ]
 
 
 def _suppressed_diagnostics() -> SuppressedDiagnostics | None:
@@ -829,7 +844,7 @@ class OrganizePreviewEmpty(TypedDict):
     #: Named folders that could not be listed. Present here too: "no media found" is exactly
     #: the answer a user must not receive when the reason is that a folder could not be opened.
     skipped_folders: list[SkippedFolders]
-    uncompared: Uncompared | None
+    uncompared: list[Uncompared] | None
     suppressed_diagnostics: SuppressedDiagnostics | None
     #: **No `unreadable_files` here, on purpose.** An unreadable *file* was still found by the
     #: walk and classified by its extension, so it is in `scan.media` and this branch - reached
@@ -865,7 +880,7 @@ class OrganizePreviewSummary(OrganizeDedupCore):
     #: exactly what could not be read. Distinct from `skipped`, which counts files truestill
     #: decided about.
     skipped_folders: list[SkippedFolders]
-    uncompared: Uncompared | None
+    uncompared: list[Uncompared] | None
     suppressed_diagnostics: SuppressedDiagnostics | None
     #: Source files that could not be read, named with a reason each. Its sibling above carries
     #: no count on purpose; this one does, because for a file the number is known exactly.

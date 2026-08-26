@@ -22,6 +22,78 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ahq) A HASH THAT CARRIES NO SIGNAL IS NOT COMPARED.** Shipped 2026-08-26, the last of the
+  six. A photograph of a flat surface produces an **honest** all-zero dHash, and everything within
+  the matching threshold of all-zero is within it of everything else there - measured at **89 files
+  across 16 distinct hashes** on one real library, 13 of them real photographs, mutually
+  near-duplicate by construction.
+  🔑 **THE FLOOR IS DERIVED, NOT PICKED, and that is what made it buildable.** The Hamming distance
+  from a hash to all-zero **is** that hash's bit population, so "within the threshold of all-zero"
+  is exactly `bit_count(h) <= threshold` - **the floor IS the threshold**, whatever the caller
+  sets. No constant was invented. Symmetric, because an all-one hash is a monotonic gradient and
+  clusters identically: `min(popcount, 64 - popcount)`. Costs no decode, no column, and
+  `np.bitwise_count` was already imported.
+  **Applied at BOTH sites.** Fixing only the index would have left the browser headline - where the
+  defect was most visible - unchanged. Measured end to end: **415 -> 336** files in the headline
+  (5 groups, 19%), **97 of 10,138** excluded from the index. ⚠ **The two definitions of
+  "near-duplicate" are recorded and NOT unified**: the run means a Hamming distance, the headline
+  means exact string equality. Unifying them changes what every library reports and needs its own
+  measurement. **Fourth instance in a week of one concept defined twice**, after `(ahu)`, `(ahw)`
+  and `(ahz)`.
+  ⚠ **THE COST IS STATED, NOT ASSUMED AWAY.** Two photographs three seconds apart pair today at
+  distance 3 and are now unindexed - but both hashes carry **four set bits**, so that distance
+  means agreement on one or two bits of sixty-four. **Not lost evidence; never evidence.** The pair
+  is right for a reason the hash cannot see.
+  ⚠ **The threshold's own rationale was VOID.** It justified 5 by "a real, distinct photo is
+  treated as a duplicate and never backed up (silent data loss)" - which cannot happen, because
+  `should_upload` is `exact_duplicate is None` and a near-duplicate is always kept. The asymmetry
+  is inverted here and neither side is data loss. **So the number rests on nothing, which is not
+  the same as being wrong** - recorded rather than changed, because nobody has re-derived it.
+  ⚠ **And `dedup.py`'s own guard named the defect it missed**: its comment warns of "the whole
+  library collapsing into one match, silently" while testing **provenance** (`is None`) and never
+  **value**. The synthetic route was closed and the photographic one open.
+  🔑 **SIX TEST FILES, AND THREE DID NOT KNOW.** Three already built noise deliberately. Three more
+  tripped over it here - including `conftest._gradient`, the repo's canonical near-duplicate
+  fixture, which was a **monotonic ramp hashing to `ffffffffffffffff`** and **paired only because
+  two copies of nothing are equal**. Given structure it now hashes at popcount 35/34 and still
+  pairs at distance 1.
+  ⚠ **Corrections to the entry**: there is **no review queue** - a count, an uncapped CLI list, and
+  a 200-item disclosure with no actions, 627 of 827 never named in the browser. Both poles, not
+  one. And **nothing destructive consumes the signal** - seven delete paths all keyed on SHA-256 or
+  a filename, eleven `DELETE FROM`s with zero on `perceptual` - so this was ranked as trust harm,
+  correctly.
+  ⚠ **The field does none of this**, checked: no competitor filters on hash entropy or variance,
+  and the all-zero-for-blank behaviour is a documented dHash edge case. Unprecedented raised the
+  bar rather than lowering it. `(aib)` was split out of the same comment audit.
+  🔑 **AND THE EXCLUSION IS NAMED, WHICH THIS COMMIT SHIPPED WITHOUT ON ITS FIRST WRITING.**
+  97 files were silently dropped from comparison against `IMPLEMENTATION_STANDARDS.md`'s
+  never-silent rule - *"a skipped, refused, degraded or unverifiable outcome is counted and
+  named"* - by the commit whose subject was a trust defect. **`make check` was green the whole
+  time, because nothing tested for it.** The fix has one home: `models.UncomparedReason` turns
+  `(aev)`'s single heading into a two-member table (`UNDECODABLE`, `NO_SIGNAL`) with its wording
+  beside it, `organizer.uncompared_photos` returns a group per reason and **takes the run's
+  threshold as an argument** - `--phash-threshold` moves what is excluded, so a report reading
+  the default would be right on the app and wrong on the CLI - and both surfaces render every
+  group. An empty group is **absent**, not a zero row.
+  ⚠ **THE GUARD IS AIMED AT BEHAVIOUR, NOT AT A DECLARATION**, which is the fourth time in a week
+  that distinction decided a finding. `test_a_refused_comparison_is_named.py` registers files into
+  a **real `DedupIndex`**, reads back what it indexed, and asserts the reported set **equals** the
+  refused set - both directions. A test that recomputed `carries_no_signal` and compared it with
+  itself would prove nothing and pass forever.
+  ⚠ **ONE MUTATION SURVIVED AND WROTE ITS OWN TEST.** Replacing `args.phash_threshold` with
+  `DEFAULT_PHASH_THRESHOLD` at the CLI's call site passed **342 CLI tests** - not one moved the
+  flag. `test_the_report_states_the_threshold_this_run_applied` is what that mutation bought, and
+  it kills it. Three others were caught first time; a fourth was **inert** (a `NameError`, not a
+  behaviour change) and was re-aimed rather than counted.
+  ⚠ **AND A SEVENTH FIXTURE DID NOT KNOW.** `test_the_run_says_what_it_could_not_compare.py`'s
+  `_photo` was `Image.new("RGB", (48, 48), colour)` - a **solid fill** - so the file asserting a
+  photograph *"hashed perfectly well"* and was compared used a frame with no picture in it. It
+  landed in the group correctly and the **fixture** moved, not the assertion. Same finding as
+  `conftest._gradient`, one package over: the repo's default synthetic photograph is blank.
+  ⚠ **Shipped UNVERIFIED by CI**: GitHub Actions in a major outage. `make check` green locally,
+  3,253 passed - **3,259 after the never-silent half was amended in**, once Actions returned.
+  Body: [`research/backlog/ahq.md`](research/backlog/ahq.md).
+
 - **(ahw) TIMELINE MEMBERSHIP IS A SIDE-BIN TEST, NOT THE WORD "CAMERA".** Shipped 2026-08-26.
   Four SQL predicates asked `category = 'Camera'` - the device rule's DEFAULT label - so on a
   `--by-device` library, where the label is the hardware name, they matched **nothing**:

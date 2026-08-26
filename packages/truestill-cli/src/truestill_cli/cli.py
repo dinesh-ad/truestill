@@ -3117,7 +3117,7 @@ def _run_pipeline(
         # Nothing was copied, so nothing can have FAILED: a preview names every unreadable
         # source, or no one does.
         unreadable = _print_unreadable(resolutions)
-        _print_uncompared(resolutions)
+        _print_uncompared(resolutions, args.phash_threshold)
         _print_suppressed_noise()
         # What a move will NOT take, stated before the user commits to it and above the DRY RUN
         # banner so it is read as part of the plan. A move only: a copy leaves every original
@@ -3154,7 +3154,7 @@ def _run_pipeline(
     # unreadable file whose cached hashes made it an exact duplicate, so it was never copied
     # and never failed, and would otherwise be the one file nobody mentions.
     named = _print_unreadable(resolutions, failed)
-    _print_uncompared(resolutions)
+    _print_uncompared(resolutions, args.phash_threshold)
     _print_suppressed_noise()
     return code or (1 if named else 0)
 
@@ -3221,23 +3221,28 @@ def _print_unreadable(
     return len(named)
 
 
-def _print_uncompared(resolutions: Sequence[Resolution]) -> None:
+def _print_uncompared(resolutions: Sequence[Resolution], phash_threshold: int) -> None:
     """Photos that were organized but never compared for near-duplicates. `(aev)`
 
     ⚠ **COUNTED, unlike the folder block above.** These files were held and read; the number is
     known exactly. A folder the walk never entered is the opposite case, and the two lines sit in
     the same report on purpose - see `organizer.UncomparedPhotos`.
+
+    ⚠ **ONE HEADING, N GROUPS, and the threshold is the RUN\'s.** `(ahq)` added a second reason a
+    file lands here - a hash carrying no distinguishing signal - and `--phash-threshold` decides
+    how many qualify, so reading the default would report a number this run did not apply.
     """
-    uncompared = uncompared_photos(resolutions)
-    if uncompared is None:
+    groups = uncompared_photos(resolutions, phash_threshold=phash_threshold)
+    if not groups:
         return
     print("\nNot compared for near-duplicates:")
-    print(f"  {uncompared.label}: {uncompared.total:,}")
-    for name in uncompared.files:
-        print(f"      {name}")
-    if uncompared.total > len(uncompared.files):
-        print(f"      ... and {uncompared.total - len(uncompared.files):,} more.")
-    print(f"    ({uncompared.remedy})")
+    for group in groups:
+        print(f"  {group.label}: {group.total:,}")
+        for name in group.files:
+            print(f"      {name}")
+        if group.total > len(group.files):
+            print(f"      ... and {group.total - len(group.files):,} more.")
+        print(f"    ({group.remedy})")
 
 
 def _print_suppressed_noise() -> None:

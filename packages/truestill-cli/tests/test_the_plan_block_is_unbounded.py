@@ -30,6 +30,7 @@ from pathlib import Path
 import pytest
 from truestill_cli.cli import _print_report, _print_skipped_undated, _print_uncompared
 from truestill_core.categorize import CategoryMatch, Confidence
+from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD
 from truestill_core.models import (
     DateSource,
     Decision,
@@ -136,17 +137,20 @@ def test_the_uncompared_sample_is_capped_at_the_source() -> None:
     the cap lives where the data is built, and `total` carries the truth the sample cannot.
     """
     many = [_resolution(f"c{i}.jpg", undecodable=True) for i in range(FOLDER_PREVIEW + 25)]
-    uncompared = uncompared_photos(many)
-    assert uncompared is not None
-    assert uncompared.total == FOLDER_PREVIEW + 25, "the count is exact and uncapped"
-    assert len(uncompared.files) == FOLDER_PREVIEW, "the sample is bounded"
+    groups = uncompared_photos(many, phash_threshold=DEFAULT_PHASH_THRESHOLD)
+    assert len(groups) == 1, "one reason fired, so one group - an empty group is absent"
+    assert groups[0].total == FOLDER_PREVIEW + 25, "the count is exact and uncapped"
+    assert len(groups[0].files) == FOLDER_PREVIEW, "the sample is bounded"
 
 
 def test_the_uncompared_block_costs_the_same_at_any_size() -> None:
     """The rendered block does not grow, because the cap is upstream of it. Slope zero."""
 
     def render(n: int) -> None:
-        _print_uncompared([_resolution(f"c{i}.jpg", undecodable=True) for i in range(n)])
+        _print_uncompared(
+            [_resolution(f"c{i}.jpg", undecodable=True) for i in range(n)],
+            DEFAULT_PHASH_THRESHOLD,
+        )
 
     assert _slope(render, FOLDER_PREVIEW + 5, FOLDER_PREVIEW + 500) == 0.0, (
         "a capped block must cost the same for 25 files as for 520"

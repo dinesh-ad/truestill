@@ -25,10 +25,15 @@ def test_exact_duplicate_by_sha() -> None:
 
 
 def test_perceptual_duplicate_within_threshold() -> None:
+    # ⚠ **This registered `0000000000000000` and matched `...0007` until `(ahq)`** - the all-zero
+    # hash against a 3-bit one, which is the DEFECT written down as the specification: neither
+    # carries enough signal for a distance of 3 to mean anything. Both hashes now carry 16 bits
+    # clear of either pole, and the property under test - a 3-bit difference is within 5 - is
+    # unchanged.
     index = DedupIndex(threshold=5)
-    index.register("/orig.jpg", "sha-1", "0000000000000000")
+    index.register("/orig.jpg", "sha-1", "aaaa000000000000")
     # differs in 3 bits -> within threshold
-    match = index.check("sha-2", "0000000000000007")
+    match = index.check("sha-2", "aaaa000000000007")
     assert match is not None
     assert match.kind is DuplicateKind.PERCEPTUAL
     assert match.matched_path == "/orig.jpg"

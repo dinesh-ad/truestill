@@ -30,6 +30,17 @@ from PIL import Image, UnidentifiedImageError
 # photography, and above it a truly pathological/gigapixel image is *skipped* for perceptual
 # hashing rather than risking an OOM -- SHA-256 exact dedup still applies, and the skip is never
 # silent (perceptual_hash returns None, which the report surfaces).
+#
+# ⚠ **THE SKIP IS AT 600 MP, NOT AT THIS NUMBER.** Pillow's `_decompression_bomb_check` is TWO
+# tiers: it *warns* above `MAX_IMAGE_PIXELS` and only *raises* above **2x** it. So this constant
+# sets the suspicion line and the refusal is at twice it - an image between 300 and 600 MP is
+# warned about and hashed anyway. `test_hashing.py` already encodes the doubling (it monkeypatches
+# the limit to 100 and uses a 144-pixel image annotated "warn band"); this comment did not.
+# ⚠ **Whether 300 or 600 is the intended ceiling is UNRULED** - filed separately, because a
+# memory-safety number should be measured rather than picked inside a commit about flat images.
+# Measured while filing it: the largest real photograph in the library is **39.5 MP**, and the only
+# corpus files above 300 MP are five fuzzed TIFFs that are all above 600 too - so the 300-600 band
+# is empty in practice and this falsehood has had no observed consequence.
 MAX_PERCEPTUAL_PIXELS = 300_000_000  # 300 MP
 Image.MAX_IMAGE_PIXELS = MAX_PERCEPTUAL_PIXELS
 
@@ -68,10 +79,24 @@ _HASH_SIDE = 8
 #: Default Hamming-distance threshold for calling two perceptual hashes "the same photo".
 #:
 #: Tuning rationale: with a 64-bit dHash, re-encodes/resizes of one image typically differ
-#: by 0-6 bits, while genuinely different photos differ by 20+. The risk is asymmetric --
-#: a false positive means a real, distinct photo is treated as a duplicate and never
-#: backed up (silent data loss), whereas a false negative merely keeps a redundant copy.
-#: So the default is deliberately conservative; raise it only after reviewing a dry run.
+#: by 0-6 bits, while genuinely different photos differ by 20+.
+#:
+#: ⚠ **THIS PARAGRAPH USED TO JUSTIFY THE NUMBER 5 WITH A HARM THAT CANNOT HAPPEN.** `(ahq)` It
+#: said a false positive means a photo "is treated as a duplicate and never backed up (silent data
+#: loss)". A perceptual match does not suppress the copy: `models.Resolution.should_upload` is
+#: `exact_duplicate is None` and never consults the near-duplicate field, and the policy is stated
+#: at `models.Resolution` - "Still uploaded, only flagged, so an original can never be silently
+#: dropped in favour of a lower-quality look-alike."
+#:
+#: **The asymmetry is real but INVERTED for this tier.** A false positive costs a wrong row in a
+#: list the user cannot act on; a false negative costs a redundant kept copy. Both are cheap, and
+#: **neither is data loss** - the cost is whether the near-duplicate report can be believed. That
+#: sentence describes the EXACT tier, which suppresses the copy and has no threshold to tune.
+#:
+#: ⚠ **SO THE NUMBER ITSELF IS UNJUSTIFIED, AND THAT IS NOT THE SAME AS WRONG.** 5 may well be
+#: right; the reasoning that produced it was about a different failure, so **nobody has re-derived
+#: it against the harm that actually applies.** Until someone does, treat it as inherited rather
+#: than chosen, and raise it only after reviewing a dry run.
 DEFAULT_PHASH_THRESHOLD = 5
 
 Algorithm = Literal["dhash", "phash"]

@@ -33,7 +33,7 @@ from truestill_core.dates import (
     parse_exif_datetime,
     resolve_capture_datetime,
 )
-from truestill_core.dedup import DedupIndex
+from truestill_core.dedup import DedupIndex, carries_no_signal
 from truestill_core.destinations.base import CrossDeviceError, Destination, DestinationError
 from truestill_core.drive import LEGACY_MARKER_NAMES, MARKER_NAME
 from truestill_core.drive_unwritable import persists_for_the_run
@@ -52,8 +52,6 @@ from truestill_core.layout import (
     normalize_everyday_day_threshold,
 )
 from truestill_core.models import (
-    UNCOMPARED_LABEL,
-    UNCOMPARED_REMEDY,
     ActionResult,
     ActionStatus,
     CaptureContext,
@@ -67,9 +65,12 @@ from truestill_core.models import (
     FolderSkip,
     Resolution,
     RuleName,
+    UncomparedReason,
     folder_skip_label,
     folder_skip_remedy,
     status_label,
+    uncompared_label,
+    uncompared_remedy,
 )
 from truestill_core.naming import dated_filename
 from truestill_core.progress import Phase, Progress, ProgressCallback
@@ -496,27 +497,45 @@ class UncomparedPhotos:
 
     ⚠ **COUNTED, unlike `SkippedFolderGroup`, and the asymmetry is the point.** A folder the walk
     never entered has an unknown number of files inside, so any figure would be invented. Here the
-    number is known exactly: these are files the run held, tried to decode and could not. Same
-    report, two rules, because they rest on two different states of knowledge.
+    number is known exactly: these are files the run held and read. Same report, two rules,
+    because they rest on two different states of knowledge.
     """
 
+    reason: UncomparedReason
     label: str
     remedy: str
     files: tuple[str, ...]
     total: int
 
 
-def uncompared_photos(resolutions: Iterable[Resolution]) -> UncomparedPhotos | None:
-    """Image files a perceptual pass ran over and could not decode. ``None`` when there are none.
+def uncompared_photos(
+    resolutions: Iterable[Resolution], *, phash_threshold: int
+) -> tuple[UncomparedPhotos, ...]:
+    """Image files that got no near-duplicate check, grouped by why. Empty when there are none.
 
     **The fact was already in the data and nobody asked the question**, which is `(aer)`'s shape
     again. `FileHashes.perceptual_computed` exists because *"`perceptual=None` answers two
     different questions - not an image and nobody looked - and a report that cannot tell them
     apart told users their photographs were not images"*. That settled two of three. The third -
-    an image a pass **tried** to decode and could not - is the conjunction below, derivable since
-    the field shipped and read by nothing.
+    an image a pass **tried** to decode and could not - is the first conjunction below, derivable
+    since the field shipped and read by nothing.
 
-    ⚠ **THREE EXCLUSIONS, AND EACH ONE IS A CRY-WOLF THIS WOULD OTHERWISE BE.**
+    ⚠ **AND A FOURTH ARRIVED WITH `(ahq)`, SHIPPED SILENT.** `dedup.carries_no_signal` refuses to
+    index a hash carrying less distinguishing information than the threshold tolerates - a flat
+    frame, honestly decoded, whose dHash is all-zero or all-one. That file is neither matched nor
+    matchable, which is exactly what this report is for, and it reached no surface at all:
+    **97 files on one real 10,138-image library.** `IMPLEMENTATION_STANDARDS.md`'s never-silent
+    rule binds a *skipped, refused or degraded* outcome to be **counted and named**, and an
+    exclusion the product performs on its own initiative is the case that rule most exists for.
+
+    🔑 **THE THRESHOLD IS AN ARGUMENT, NOT A DEFAULT, AND THAT IS THE WHOLE POINT.** The report
+    must name what THIS run excluded. `analyze` takes `--phash-threshold`, so a report that read
+    `DEFAULT_PHASH_THRESHOLD` here would be right on the app and wrong on any CLI run that moved
+    it - a number derived from a different rule than the one the run applied, which is `(aev)`'s
+    cheaper-proxy finding wearing a new hat. Passing it is what makes the two impossible to
+    diverge.
+
+    ⚠ **THREE EXCLUSIONS ON THE DECODE GROUP, AND EACH ONE IS A CRY-WOLF THIS WOULD OTHERWISE BE.**
 
     * ``perceptual_computed`` false - nobody looked, so nothing failed. Analyze's tier 2a runs
       this way over an entire library.
@@ -528,22 +547,39 @@ def uncompared_photos(resolutions: Iterable[Resolution]) -> UncomparedPhotos | N
     RAW files are deliberately **not** excluded. Truestill genuinely cannot compare a `.CR3` for
     near-duplicates, and a user with a RAW library wants that said rather than hidden behind a
     format list that would rot the first time a decoder gains support.
+
+    The no-signal group needs none of those guards: a file only reaches it by HAVING a hash, so
+    every one of them decoded, is an image, and was read.
     """
-    named = [
-        str(r.decision.source.name)
-        for r in resolutions
-        if r.hashes.perceptual_computed
-        and r.hashes.perceptual is None
-        and r.hashes.unreadable is None
-        and r.decision.source.suffix.lower() in IMAGE_EXTENSIONS
-    ]
-    if not named:
-        return None
-    return UncomparedPhotos(
-        label=UNCOMPARED_LABEL,
-        remedy=UNCOMPARED_REMEDY,
-        files=tuple(named[:FOLDER_PREVIEW]),
-        total=len(named),
+    held = list(resolutions)
+    named: dict[UncomparedReason, list[str]] = {
+        UncomparedReason.UNDECODABLE: [
+            str(r.decision.source.name)
+            for r in held
+            if r.hashes.perceptual_computed
+            and r.hashes.perceptual is None
+            and r.hashes.unreadable is None
+            and r.decision.source.suffix.lower() in IMAGE_EXTENSIONS
+        ],
+        UncomparedReason.NO_SIGNAL: [
+            str(r.decision.source.name)
+            for r in held
+            if r.hashes.perceptual is not None
+            and carries_no_signal(r.hashes.perceptual, phash_threshold)
+        ],
+    }
+    # A group with nothing in it is **absent**, not a zero row - the same rule
+    # `skipped_folder_groups` states above, for the same reason.
+    return tuple(
+        UncomparedPhotos(
+            reason=reason,
+            label=uncompared_label(reason),
+            remedy=uncompared_remedy(reason),
+            files=tuple(files[:FOLDER_PREVIEW]),
+            total=len(files),
+        )
+        for reason, files in named.items()
+        if files
     )
 
 

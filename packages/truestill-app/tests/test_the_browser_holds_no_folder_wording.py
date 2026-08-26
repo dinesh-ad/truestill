@@ -21,11 +21,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from truestill_core.models import (
-    UNCOMPARED_LABEL,
-    UNCOMPARED_REMEDY,
     FolderSkip,
+    UncomparedReason,
     folder_skip_label,
     folder_skip_remedy,
+    uncompared_label,
+    uncompared_remedy,
 )
 
 _APP_JS = Path(__file__).resolve().parents[1] / "src" / "truestill_app" / "static" / "app.js"
@@ -82,17 +83,25 @@ def test_the_browser_holds_no_uncompared_wording() -> None:
     ⚠ **Checked against `models`' REAL strings**, not a phrase copied into this file. A guard
     written against a remembered sentence stops guarding the moment the real one is reworded, and
     goes green while doing it - which is how `(aer)`'s browser copy survived a mutation.
+
+    ⚠ **AND IT LOOPS THE ENUM, so a THIRD reason is covered the day it is declared.** This
+    asserted two module constants until `(ahq)` made the wording a table; a guard naming its
+    subjects one by one covers exactly the members somebody remembered to add it for.
+    §4's seventy-second member - loop the derived inventory, assert into the declaration.
     """
     source = _APP_JS.read_text(encoding="utf-8")
 
-    assert UNCOMPARED_LABEL not in source, (
-        f"app.js holds its own copy of the label ({UNCOMPARED_LABEL!r}). It must print the "
-        f"payload's `label`, which core worded once."
-    )
-    assert UNCOMPARED_REMEDY not in source, (
-        f"app.js holds its own copy of the remedy ({UNCOMPARED_REMEDY!r}). Two surfaces wording "
-        f"one sentence is exactly what (aer) removed."
-    )
+    for reason in UncomparedReason:
+        label = uncompared_label(reason)
+        remedy = uncompared_remedy(reason)
+        assert label not in source, (
+            f"app.js holds its own copy of the {reason.value} label ({label!r}). It must print "
+            f"the payload's `label`, which core worded once."
+        )
+        assert remedy not in source, (
+            f"app.js holds its own copy of the {reason.value} remedy ({remedy!r}). Two surfaces "
+            f"wording one sentence is exactly what (aer) removed."
+        )
 
 
 def test_the_browser_reads_both_new_fields() -> None:
@@ -109,4 +118,31 @@ def test_the_browser_reads_both_new_fields() -> None:
     assert "suppressed_diagnostics" in source, (
         "the suppressed-noise tally reaches the browser and stops there, so a run that removed "
         "787 lines looks identical to one that removed none"
+    )
+
+
+def test_the_browser_renders_every_uncompared_group_not_only_the_first() -> None:
+    """`(ahq)` made `uncompared` a LIST, and a renderer that kept indexing it as one object
+    would show the first reason and drop the rest - silently, which is the failure the whole
+    group exists to end.
+
+    ⚠ **A SOURCE CHECK, AND ITS LIMIT IS THE FILE'S LIMIT** (see the module docstring): it proves
+    the payload is treated as a collection, not that a person sees two headings. The browser lane
+    proves the flow. What it does catch is the exact regression - reverting to `uncompared.label`.
+    """
+    source = _APP_JS.read_text(encoding="utf-8")
+
+    for indexed in (
+        "uncompared.label",
+        "uncompared.remedy",
+        "uncompared.total",
+        "uncompared.files",
+    ):
+        assert indexed not in source, (
+            f"app.js reads `{indexed}` off the payload as a single object. `uncompared` is a list "
+            f"of groups; the second reason would render as nothing at all."
+        )
+    maps = "uncompared\n    .map(" in source or "uncompared.map(" in source
+    assert maps, (
+        "app.js does not map over the uncompared groups, so at most one of them can reach a screen"
     )

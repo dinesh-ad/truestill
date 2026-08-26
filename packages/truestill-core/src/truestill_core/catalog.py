@@ -26,6 +26,8 @@ from typing import Self, cast
 from truestill_core import catalog_backup
 from truestill_core.catalog_busy import CatalogUnwritableError
 from truestill_core.categorize import deterministic_side_bin_labels
+from truestill_core.dedup import carries_no_signal
+from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD
 from truestill_core.models import CaptureContext, DateSource
 
 
@@ -2143,25 +2145,39 @@ class Catalog:
             )
         )
 
-    def stats_near_duplicate_flagged_count(self) -> int:
+    def stats_near_duplicate_flagged_count(self, threshold: int = DEFAULT_PHASH_THRESHOLD) -> int:
         """How many catalog files are in a perceptual-hash collision group.
 
         This is a cheap, indexed proxy for "near-duplicates flagged": ``idx_files_perceptual``
         powers the grouping and no image bytes are read.
+
+        ⚠ **A HASH CARRYING NO SIGNAL IS EXCLUDED**, the same rule `DedupIndex` applies. `(ahq)`
+        Measured on a real library: **415 files in 124 groups became 336 in 119** - the single
+        largest group was the all-zero hash at 66 files, **16% of the headline being one lens cap**,
+        and 19% once the all-one pole is counted too. Grouping in Python because SQLite has no
+        popcount and the grouped set is small (124 rows for 10,138 files).
+
+        ⚠ **AND THIS IS A DIFFERENT DEFINITION FROM THE ONE THE CLI PRINTS**, which is a finding in
+        its own right and is NOT resolved here. This counts an **exact** hash collision; the run's
+        own near-duplicate count is a **Hamming distance within the threshold**. Two populations,
+        one word, neither citing the other. Unifying them would change what this reports on every
+        library and needs its own before/after measurement - `(ahw)`'s precedent. All that changed
+        here is which hashes are eligible, on both sides of one rule.
         """
-        row = self._conn.execute(
+        rows = self._conn.execute(
             """
-            SELECT COALESCE(SUM(group_count), 0) AS total
-            FROM (
-                SELECT COUNT(*) AS group_count
-                FROM files
-                WHERE perceptual IS NOT NULL
-                GROUP BY perceptual
-                HAVING COUNT(*) > 1
-            )
+            SELECT perceptual, COUNT(*) AS group_count
+            FROM files
+            WHERE perceptual IS NOT NULL
+            GROUP BY perceptual
+            HAVING COUNT(*) > 1
             """
-        ).fetchone()
-        return int(row["total"] if row is not None else 0)
+        ).fetchall()
+        return sum(
+            int(row["group_count"])
+            for row in rows
+            if not carries_no_signal(str(row["perceptual"]), threshold)
+        )
 
     def files_in_date_tier(
         self, date_source: str | None, *, limit: int

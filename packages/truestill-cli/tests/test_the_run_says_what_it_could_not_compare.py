@@ -26,21 +26,41 @@ worth a line.
 
 from __future__ import annotations
 
+import io
 import shutil
 import subprocess
 import sys
+from contextlib import redirect_stdout
 from pathlib import Path
 
 import pytest
 from PIL import Image
 from truestill_cli.cli import main
+from truestill_core.models import UncomparedReason, uncompared_label
 
 _EXIFTOOL = pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
 
 
 def _photo(path: Path, colour: tuple[int, int, int]) -> None:
+    """A photograph with STRUCTURE, tinted by ``colour``. Never a solid fill.
+
+    ⚠ **THIS WAS `Image.new("RGB", (48, 48), colour)` UNTIL `(ahq)`**, and the whole file asserted
+    that such a photo *"hashed perfectly well"* and was compared. A flat frame dHashes to all
+    zeros, so once `dedup.carries_no_signal` shipped the fixture landed in the very group these
+    tests prove it stays out of - **correctly**, which is why the fixture moved and the assertion
+    did not. Same finding as `truestill-core/tests/conftest.py`'s `_gradient`, one package over:
+    the repo's default synthetic photograph carries no picture in it.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    Image.new("RGB", (48, 48), colour).save(path, "JPEG")
+    red, green, blue = colour
+    image = Image.new("RGB", (48, 48))
+    pixels = image.load()
+    assert pixels is not None
+    for x in range(48):
+        for y in range(48):
+            block = 90 if (x // 6 + y // 6) % 2 else 0
+            pixels[x, y] = ((red + block) % 256, (green + x * 3) % 256, (blue + y * 3) % 256)
+    image.save(path, "JPEG", quality=95)
 
 
 def _undecodable_photo(path: Path) -> None:
@@ -66,9 +86,18 @@ def _palette_with_byte_transparency(path: Path) -> None:
     to RGBA images"* is advice to a programmer using Pillow, and the file itself is fine - it
     hashes, it is compared, nothing is lost. It exists here so the terminal test has a
     deterministic trigger and so the report test can prove this file is **not** listed.
+
+    ⚠ **The pixels carry structure for the reason `_photo`'s do** - an all-zero palette image is
+    a flat frame, and `(ahq)` would exclude it from comparison for that rather than for anything
+    to do with transparency, which is this fixture's actual subject.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     image = Image.new("P", (64, 64))
+    pixels = image.load()
+    assert pixels is not None
+    for x in range(64):
+        for y in range(64):
+            pixels[x, y] = (x * 4 + (30 if (x // 8 + y // 8) % 2 else 0)) % 256
     image.putpalette(b"".join(bytes((i, i, i)) for i in range(256)))
     image.save(path, "PNG", transparency=bytes(range(256)))
 
@@ -104,6 +133,55 @@ def _section_of(report: str) -> str:
     if _SECTION not in report:
         return ""
     return report.split(_SECTION, 1)[1].split("\n\n", 1)[0]
+
+
+def _organize_with(root: Path, source: Path, *extra: str) -> str:
+    """Run a preview and hand back everything it printed. Used for the threshold proof below."""
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main(
+            [
+                "organize",
+                str(source),
+                str(root / "dest"),
+                "--db",
+                str(root / "c.sqlite"),
+                *extra,
+            ]
+        )
+    return buffer.getvalue()
+
+
+def test_the_report_states_the_threshold_this_run_applied(tmp_path: Path) -> None:
+    """`--phash-threshold` moves what is excluded, so it must move what is reported. `(ahq)`
+
+    ⚠ **WRITTEN BECAUSE A MUTATION SURVIVED.** Replacing `args.phash_threshold` with
+    `DEFAULT_PHASH_THRESHOLD` at the CLI's one call site passed **342 CLI tests**: not one of them
+    moved the flag, so the whole suite proved the report agreed with a rule no run had applied.
+    That is the declaration-shaped guard this week keeps producing, and this is the behaviour half.
+
+    At **32** the two poles meet - `min(popcount, 64 - popcount) <= 32` is true of every possible
+    hash - so every photograph in the source is excluded from comparison and the report has to say
+    so. At the default, none of them is. The bound is derived from the hash's width, not picked.
+    """
+    for name in ("wide", "narrow"):
+        source = tmp_path / name / "plain"
+        _photo(source / "a.jpg", (10, 120, 200))
+        _photo(source / "b.jpg", (200, 40, 60))
+
+    wide = _organize_with(tmp_path / "wide", tmp_path / "wide" / "plain", "--phash-threshold", "32")
+    assert uncompared_label(UncomparedReason.NO_SIGNAL) in wide, (
+        "at a threshold of 32 every hash is within reach of a pole, so every file was excluded "
+        "from comparison and the report said nothing about it"
+    )
+    section = _section_of(wide)
+    assert "a.jpg" in section
+    assert "b.jpg" in section
+
+    narrow = _organize_with(tmp_path / "narrow", tmp_path / "narrow" / "plain")
+    assert _SECTION not in narrow, (
+        "at the default threshold these photographs carry signal and are compared normally"
+    )
 
 
 def _organize(tmp_path: Path, source: Path) -> int:

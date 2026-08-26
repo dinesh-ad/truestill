@@ -287,7 +287,28 @@ _FOLDER_SKIP_REMEDIES: dict[FolderSkip, str] = {
 }
 
 
-#: What the user is told about a photograph Truestill could not decode, and what it cost them.
+class UncomparedReason(StrEnum):
+    """Why a photograph got no near-duplicate check. The sibling of :class:`FolderSkip`. `(aev)`
+
+    ⚠ **TWO REASONS, NOT ONE, AND THE SECOND ARRIVED WITH `(ahq)`.** A single label was correct
+    while the only way to miss the comparison was to fail decoding. `dedup.carries_no_signal` then
+    added a file that decoded **perfectly** and is still never compared, and shipping that
+    exclusion with no name is the failure `IMPLEMENTATION_STANDARDS.md` §"Never-silent" exists to
+    stop: *"A skipped, refused, degraded or unverifiable outcome is counted and named."* Measured
+    on one real 10,138-image library, the unnamed group was **97 files**.
+
+    The two are separate members because they are two different FACTS about the file - one could
+    not be read, one was read and carries no distinguishing detail. That the remedy happens to be
+    identical is not a reason to merge them; the remedy is the same because the consequence is.
+    """
+
+    UNDECODABLE = "undecodable"  # a perceptual pass ran and Pillow could not decode the file
+    NO_SIGNAL = "no_signal"  # decoded fine, and the hash carries less signal than the threshold
+
+
+#: What the user is told about a photograph that got no near-duplicate check, and what it cost
+#: them. Kept here for the reason `_FOLDER_SKIP_LABELS` is here: §9's "one source of outcome
+#: wording", so no surface may hold its own copy.
 #:
 #: ⚠ **DERIVED FROM THE OUTCOME, NEVER FROM A WARNING**, which is `(aev)`'s whole finding. The
 #: entry was filed as *"131 raw Pillow warnings reached the terminal"*; measured on the format
@@ -296,10 +317,39 @@ _FOLDER_SKIP_REMEDIES: dict[FolderSkip, str] = {
 #: 478 and implied the rest were fine. §4's forty-second member: a check measuring the cheaper
 #: proxy. The warning is evidence; the CONSEQUENCE is what a person needs.
 #:
+#: ⚠ **`NO_SIGNAL` SAYS *"too little detail"*, NEVER *"blank"* OR *"failed"*.** The frame may be
+#: a perfectly good photograph of fog, a wall or a lens cap; nothing about it is broken, and a
+#: word implying damage would send someone looking for a file that is fine.
+_UNCOMPARED_LABELS: dict[UncomparedReason, str] = {
+    UncomparedReason.UNDECODABLE: "photos whose contents could not be decoded",
+    UncomparedReason.NO_SIGNAL: "photos with too little detail to compare",
+}
+
 #: **The remedy states what still worked**, because the honest answer here is *nothing is broken
 #: and nothing is required of you*. A line that only says what failed reads as data loss.
-UNCOMPARED_LABEL = "photos whose contents could not be decoded"
-UNCOMPARED_REMEDY = "organized normally, and identical copies are still found by content"
+#:
+#: ⚠ **BOTH MEMBERS CARRY THE SAME SENTENCE, DELIBERATELY.** The consequence is identical -
+#: the file is organized, and byte-identical copies are still caught by the exact tier - so
+#: wording them differently would be drift invented to fill a table. The LABELS differ because
+#: the facts differ; the remedies do not because the outcome does not.
+_UNCOMPARED_REMEDIES: dict[UncomparedReason, str] = {
+    UncomparedReason.UNDECODABLE: (
+        "organized normally, and identical copies are still found by content"
+    ),
+    UncomparedReason.NO_SIGNAL: (
+        "organized normally, and identical copies are still found by content"
+    ),
+}
+
+
+def uncompared_label(reason: UncomparedReason) -> str:
+    """The heading a person reads for this group. Never the raw enum value."""
+    return _UNCOMPARED_LABELS[reason]
+
+
+def uncompared_remedy(reason: UncomparedReason) -> str:
+    """What to do about it, in one place, so no surface can word it differently."""
+    return _UNCOMPARED_REMEDIES[reason]
 
 
 def folder_skip_label(reason: FolderSkip) -> str:

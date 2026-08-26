@@ -19,7 +19,8 @@ import time
 
 import numpy as np
 import pytest
-from truestill_core.dedup import HASH_BITS, DedupIndex, pack_hash
+from truestill_core.catalog import Catalog
+from truestill_core.dedup import HASH_BITS, DedupIndex, carries_no_signal, pack_hash
 from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD, hamming_distance
 from truestill_core.models import DuplicateKind
 
@@ -28,6 +29,13 @@ T = DEFAULT_PHASH_THRESHOLD
 
 def _hex(value: int) -> str:
     return f"{value:016x}"
+
+
+#: 16 set bits well clear of either pole, so a fixture hash is never mistaken for a flat frame.
+#: `(ahq)` - three test files already constructed noise for this reason; these are the fourth and
+#: fifth, and they tripped over it rather than anticipating it.
+_SIGNAL_MASK = 0xAAAA_0000_0000_0000
+_SIGNAL = _hex(_SIGNAL_MASK | 0x0F0F)
 
 
 def _reference_match(
@@ -153,18 +161,53 @@ def test_a_file_with_no_perceptual_hash_matches_nothing_perceptually() -> None:
     near-duplicate chain, silently, with the files never backed up.
     """
     index = DedupIndex(threshold=T)
-    index.register("/p/zero.jpg", "sha-zero", _hex(0))
+    # ⚠ **This registered `_hex(0)` until `(ahq)`** - the all-zero hash - to prove a `None` did not
+    # collide with it. That fixture is now itself refused, so the subject is asserted against a
+    # hash that carries signal, and the all-zero case is asserted separately below where it is the
+    # point rather than the scenery.
+    index.register("/p/real.jpg", "sha-real", _SIGNAL)
     index.register("/p/movie.mov", "sha-movie", None)
 
     assert index.check("sha-other", None) is None, "no hash cannot mean 'matches everything'"
     assert index._count == 1, "an unhashable file must not occupy a slot in the packed array"
-    assert index._phash_paths == ["/p/zero.jpg"]
+    assert index._phash_paths == ["/p/real.jpg"]
 
     # And it is still found by content, which is the tier that does apply to it.
     exact = index.check("sha-movie", None)
     assert exact is not None
     assert exact.kind is DuplicateKind.EXACT
     assert exact.matched_path == "/p/movie.mov"
+
+
+def test_a_hash_that_carries_no_signal_is_not_indexed_either() -> None:
+    """⚠ **The value half of the guard above, which tested provenance only.** `(ahq)`
+
+    A photograph of a flat surface produces an HONEST all-zero hash - opened, decoded, hashed - so
+    `is None` never fired and it did exactly what that guard's own comment warns of: measured at
+    **89 files within the default threshold of all-zero** on one real library, mutually
+    near-duplicate by construction.
+    """
+    index = DedupIndex(threshold=T)
+    index.register("/p/flat.jpg", "sha-flat", _hex(0))
+    index.register("/p/inverse.jpg", "sha-inv", _hex((1 << 64) - 1))
+    index.register("/p/nearly-flat.jpg", "sha-nf", _hex(0b10001))
+
+    assert index._count == 0, "a hash carrying no signal occupied a slot in the packed array"
+    assert index.check("sha-other", _hex(0)) is None, "a flat frame matched something"
+
+
+def test_both_poles_are_refused_because_both_are_degenerate() -> None:
+    """dHash compares each pixel with its right neighbour: a gradient-free image gives all zeros,
+    a monotonic left-to-right gradient gives all ones. **Both cluster; neither distinguishes.**
+
+    Measured on a real library: 89 files within 5 of all-zero and **8 within 5 of all-one**. A
+    floor written against zero alone would leave the mirror case open.
+    """
+    assert carries_no_signal(_hex(0), T)
+    assert carries_no_signal(_hex((1 << 64) - 1), T)
+    assert carries_no_signal(_hex(0b11111), T), "five set bits is within the threshold of all-zero"
+    assert not carries_no_signal(_hex(0b111111), T), "six set bits carries more than 5 of signal"
+    assert not carries_no_signal(_SIGNAL, T)
 
 
 def test_the_earliest_of_several_equally_near_images_still_wins() -> None:
@@ -210,12 +253,15 @@ def test_growing_past_the_initial_capacity_keeps_every_entry_findable() -> None:
     """
     index = DedupIndex(threshold=T)
     count = 2_500  # past the 1,024 initial capacity, twice
+    # ⚠ `_hex(i << 8)` gave small `i` a bit population of 0-5, which `(ahq)`'s floor now refuses -
+    # the fixture was unknowingly generating flat-frame hashes. The mask puts 16 bits of signal in
+    # every entry while leaving `i` the discriminator, so what this test measures is unchanged.
     for i in range(count):
-        index.register(f"/p/{i}.jpg", f"sha-{i}", _hex(i << 8))
+        index.register(f"/p/{i}.jpg", f"sha-{i}", _hex(_SIGNAL_MASK | (i << 8)))
 
     assert index._count == count
     for i in (0, 1, 1_023, 1_024, 2_047, 2_048, count - 1):
-        match = index.check(None, _hex(i << 8))
+        match = index.check(None, _hex(_SIGNAL_MASK | (i << 8)))
         assert match is not None, f"entry {i} fell out of the index"
         assert match.matched_path == f"/p/{i}.jpg"
         assert match.distance == 0
@@ -252,4 +298,46 @@ def test_matching_a_realistic_library_is_fast_enough_to_be_a_regression_guard() 
     assert elapsed < 10.0, (
         f"perceptual matching took {elapsed:.1f}s for 20,000 images; the per-pair comparison "
         f"has regressed to something like the hex-parsing loop this replaced"
+    )
+
+
+def test_the_library_headline_excludes_the_same_hashes_the_index_does(tmp_path) -> None:
+    """⚠ **Both sites, one rule** - and a mutation is why this test exists. `(ahq)`
+
+    `stats_near_duplicate_flagged_count` is a SECOND definition of "near-duplicate": it counts
+    exact hash-string collisions, where the run counts a Hamming distance within the threshold.
+    Fixing only the index would have left the browser headline unchanged - and the headline is
+    where the defect was most visible, at **16% of it being one lens cap**.
+
+    ⚠ **The two definitions are NOT unified here.** That would change what this counts on every
+    library, not only flat ones, and needs its own before/after measurement. All that is shared is
+    which hashes are eligible.
+    """
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="D")
+        for i, (sha, perceptual) in enumerate(
+            [
+                ("a" * 64, _hex(0)),  # two flat frames: a collision that means nothing
+                ("b" * 64, _hex(0)),
+                ("c" * 64, _SIGNAL),  # two real ones: a collision that means something
+                ("d" * 64, _SIGNAL),
+            ]
+        ):
+            catalog.record_uploaded(
+                source_path=f"/src/{i}.jpg",
+                original_name=f"{i}.jpg",
+                sha256=sha,
+                copy_sha256=sha,
+                perceptual=perceptual,
+                size=10,
+                captured_at="2015-07-05T11:55:16",
+                category="Camera",
+                relative=f"2015/{i}.jpg",
+                drive_uuid="D1",
+            )
+        counted = catalog.stats_near_duplicate_flagged_count()
+
+    assert counted == 2, (
+        f"expected only the two signal-carrying files, got {counted} - the flat pair is counted "
+        "as a near-duplicate group in the headline while the index refuses it"
     )

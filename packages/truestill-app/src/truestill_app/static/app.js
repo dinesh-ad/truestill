@@ -2421,9 +2421,9 @@ function renderUnreadable(s) {
   const groups = s.skipped_folders || [];
   // `(aev)`: photos that were organized but never compared for near-duplicates, and the tally of
   // library chatter this run kept out of its own output. Both arrive already worded.
-  const uncompared = s.uncompared || null;
+  const uncompared = s.uncompared || [];
   const noise = s.suppressed_diagnostics || null;
-  if (!files.total && !groups.length && !uncompared && !noise) return "";
+  if (!files.total && !groups.length && !uncompared.length && !noise) return "";
   const fileRows = files.shown
     .map((f) => `<div class="mono">${esc(f.name)} - ${esc(f.reason)}</div>`)
     .join("");
@@ -2463,14 +2463,19 @@ function renderUnreadable(s) {
   // ⚠ COUNTED HERE, UNLIKE THE FOLDERS ABOVE, and the two sit side by side on purpose. A folder
   // the walk never entered has an unknown number of files inside; these files were held and read,
   // so the number is known exactly. `(aev)`
+  // ⚠ N GROUPS, NOT ONE. `(ahq)` added a second reason a photo lands here - a hash carrying no
+  // distinguishing detail - and a renderer that read `.label` off the payload directly would
+  // have shown the first group and silently dropped the rest. `data-reason` carries the enum so
+  // a test can key on the group without matching its heading; the heading itself is never
+  // built here.
   const uncomparedBlock = uncompared
-    ? `<div class="b-title">${esc(uncompared.label)}: ${nfmt(uncompared.total)}</div>
-       ${uncompared.files.map((f) => `<div class="mono">${esc(f)}</div>`).join("")}
-       ${uncompared.total > uncompared.files.length
-         ? `<div class="k">… and ${nfmt(uncompared.total - uncompared.files.length)} more.</div>`
+    .map((u) => `<div class="b-title" data-reason="${esc(u.reason)}">${esc(u.label)}: ${nfmt(u.total)}</div>
+       ${u.files.map((f) => `<div class="mono">${esc(f)}</div>`).join("")}
+       ${u.total > u.files.length
+         ? `<div class="k">… and ${nfmt(u.total - u.files.length)} more.</div>`
          : ""}
-       <div class="k">${sentence(esc(uncompared.remedy))}.</div>`
-    : "";
+       <div class="k">${sentence(esc(u.remedy))}.</div>`)
+    .join("");
   // ⚠ SAID RATHER THAN SWALLOWED. Discarding silently would make a run over damaged files look
   // identical to a clean one - the instrument would be silent in the case it exists for. The two
   // numbers stay apart because two different mechanisms remove them, and the decoder half is the

@@ -73,6 +73,44 @@ def pack_hash(perceptual: str) -> np.uint64:
     return np.uint64(value)
 
 
+def carries_no_signal(perceptual: str, threshold: int) -> bool:
+    """Whether a hash carries less distinguishing information than ``threshold`` tolerates. `(ahq)`
+
+    🔑 **DERIVED, NEVER PICKED.** The Hamming distance from a hash to the all-zero hash **is** that
+    hash's bit population, so *"within the matching threshold of all-zero"* is exactly
+    ``bit_count(h) <= threshold``. The floor is not a new constant - **it is the threshold**,
+    whatever the caller sets. A number nobody measured becoming a rule is a shape this repo has
+    filed before; this one follows from the hash's own definition.
+
+    **Both poles, because the mirror case is equally degenerate.** dHash compares each pixel with
+    its right neighbour, so a gradient-free image gives all zeros and a monotonic left-to-right
+    gradient gives all ones. Both carry no *distinguishing* structure and both cluster. Hence
+    ``min(popcount, 64 - popcount)``, not ``popcount``.
+
+    ⚠ **What this costs, measured rather than assumed away.** On a real 10,138-image library it
+    excludes **97 files (0.96%)**, 13 of them real photographs - and among those,
+    ``IMG_20150901_123909`` and ``IMG_20150901_123912``, three seconds apart, pair today at
+    distance 3. **That pairing is not lost evidence; it was never evidence.** Those two hashes
+    carry **four set bits each**, so a distance of 3 means they agree on one or two bits out of
+    sixty-four. Agreement that thin is the absence of signal, not the presence of similarity - the
+    pair is right for a reason the hash cannot see, and the hash should not take the credit.
+
+    ⚠ **Nobody in the field does this**, checked: no competitor filters on hash entropy or
+    variance, and the literature discusses threshold tuning and nothing else. Unprecedented raises
+    the bar rather than lowering it, which is why this is derived, costs no decode and no column,
+    and is one predicate with one home.
+
+    ⚠ **Assumes a well-formed hash and raises on anything else**, via :func:`pack_hash` - which is
+    that function's own rule and not softened here. The stats path now parses every distinct hash
+    where it used to compare strings, so a hand-corrupted `files.perceptual` would raise where it
+    once rendered. **Left strict deliberately**: the product writes only `imagehash` output, and a
+    tolerant branch for a value it cannot produce is a compat path. Two test fixtures carrying
+    fake values were corrected rather than accommodated.
+    """
+    population = int(pack_hash(perceptual)).bit_count()
+    return min(population, HASH_BITS - population) <= threshold
+
+
 class DedupIndex:
     """Accumulating index of known file hashes, queried before each file is accepted."""
 
@@ -109,6 +147,15 @@ class DedupIndex:
         decode. **Those must never reach the packed comparison.** A missing hash is not the
         number zero, and packing it as one would make every file without a perceptual hash a
         near-duplicate of every other - the whole library collapsing into one match, silently.
+
+        ⚠ **AND THE SENTENCE ABOVE DESCRIBED A FAILURE THIS GUARD COULD NOT SEE.** `(ahq)` It
+        tested **provenance** - ``is None``, "no hash exists" - and never **value**. A photograph
+        of a flat surface produces an *honest* all-zero hash: `perceptual_hash` opened it, decoded
+        it, and returned `"0000000000000000"`. That is not ``None``, so it walked straight past
+        this check and did exactly what the paragraph warns of - measured at **89 files within the
+        default threshold of the all-zero hash on one real library**, mutually near-duplicate by
+        construction. The synthetic route was closed and the photographic one was open.
+        :func:`carries_no_signal` is the value half, and it is why the two are now tested together.
         """
         existing = self._by_sha.get(sha256) if sha256 is not None else None
         if existing is not None:
@@ -118,7 +165,11 @@ class DedupIndex:
                 origin=self._origin_of(existing),
             )
 
-        if perceptual is not None and self._count:
+        if (
+            perceptual is not None
+            and not carries_no_signal(perceptual, self._threshold)
+            and self._count
+        ):
             known = self._packed[: self._count]
             distances = np.bitwise_count(np.bitwise_xor(known, pack_hash(perceptual)))
             # `argmin` returns the FIRST position holding the minimum, and a match exists
@@ -152,10 +203,15 @@ class DedupIndex:
         A ``None`` sha (unique-size, unhashed) is not indexed for exact matching -- there is
         nothing it could exact-match -- but its perceptual hash still participates. A ``None``
         perceptual hash is not indexed at all: see :meth:`check`.
+
+        ⚠ **Nor is one that carries no signal** (:func:`carries_no_signal`). Refused at
+        REGISTRATION rather than at comparison, deliberately: a flat frame must neither match nor
+        be matched, and excluding it here does both with one test. It keeps the hash it honestly
+        computed - the exclusion is a fact about the comparison, not about the file.
         """
         if sha256 is not None:
             self._by_sha.setdefault(sha256, path)
-        if perceptual is not None:
+        if perceptual is not None and not carries_no_signal(perceptual, self._threshold):
             if self._count == self._packed.size:
                 grown = np.empty(self._packed.size * 2, dtype=np.uint64)
                 grown[: self._count] = self._packed

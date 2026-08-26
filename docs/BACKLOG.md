@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aia). Next free: (aib).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aib). Next free: (aic).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -185,6 +185,19 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(aib) THE PERCEPTUAL PIXEL CEILING IS 600 MP, NOT THE 300 MP THE CONSTANT NAMES.** Filed
+  2026-08-26 (P116), split out of `(ahq)`'s comment audit. **A ruling, not a fix.** Pillow's
+  `_decompression_bomb_check` is two-tier - it *warns* above `MAX_IMAGE_PIXELS` and only *raises*
+  above **2x** it - so `MAX_PERCEPTUAL_PIXELS = 300_000_000` sets the suspicion line and the skip
+  is at 600 MP. ⚠ **The test already encoded the doubling and the comment did not.** Neither
+  reading is established: either the constant means what it says and the doubling was inherited by
+  accident, or it is the suspicion line and is misnamed. ⚠ **And the stated purposes differ** -
+  `hashing.py` says OOM, Pillow says decompression bomb - which decides whether the number should
+  track memory or stay fixed. Measured: largest real photograph **39.5 MP**; the only files over
+  300 MP are **5 fuzzed TIFFs, all over 600 too**, so the band is empty in practice and the
+  falsehood has had no observed consequence. Body:
+  [`research/backlog/aib.md`](research/backlog/aib.md).
+
 - **(ahz) RECOVERING A LOST CATALOG DESTROYS THE NAMES IT IS RECOVERING, AND THE GUARD AGAINST IT IS BLIND.** Filed
   2026-08-26 (P106a), measured. A rebuild registers the recovery folder as a drive and publishes a decisions
   document to it; re-naming during recovery auto-publishes there, **newer** than the original, and
@@ -242,21 +255,6 @@ is invisible here is retired, not free.**
   source.
   [Full entry](research/backlog/aht.md)
 
-- **(ahq) FLAT PHOTOGRAPHS ARE ALL NEAR-DUPLICATES OF EACH OTHER.** Filed 2026-08-25 (P95).
-  **89 files** sit within the default threshold (5) of the all-zero perceptual hash, across 16
-  distinct hashes, and are mutually near-duplicate **by construction**. **Ten are real
-  photographs** - `DSC05501.JPG` (Sony) and `DSCN0407.JPG` (Nikon) among them, unrelated frames
-  from different cameras.
-  ⚠ **NOT a bug in the hashing, and that was checked by LOOKING**: the 1.36 MB
-  `IMG_20190719_153609.jpg` was opened and is a near-black frame, so its all-zero dHash is honest.
-  Every flat image lands on that value whatever it depicts.
-  ⚠ **The null**: nothing in the product or the documents addresses low-variance images -
-  `grep` over `hashing.py` returns one hit and it is about *flatbed scans*; `docs/*.md` returns
-  nothing. `PERFORMANCE.md` documents this comparison's cost and not what it returns.
-  **The harm**: a user shown two unrelated photographs as duplicates stops trusting every pair the
-  product reports, including the true ones - and 827 files went into that review queue.
-  [Full entry](research/backlog/ahq.md)
-
 - **(aho) THE JOB ENVELOPE IS THE ONLY SUCCESS PAYLOAD WITH NOTHING TO NARROW ON.** Filed
   2026-08-25 (P93/P94), split out of `(ahn)` stage 4b because the fix is a **wire change**.
   Every arm of every response union in this app carries a `Literal`-tagged key - `ok`, `armed`,
@@ -281,7 +279,7 @@ is invisible here is retired, not free.**
   measured different surface sets, so the delta measured neither. Corrected when the guard had to
   assert on it.
   ⚠ **34 is a FLOOR, not a count.** A key-name census cannot see a collided field:
-  `BakePreview.absent` is rendered at `app.js:4131` while `BakeSummary.absent` is not read by
+  `BakePreview.absent` is rendered at `app.js:4158` while `BakeSummary.absent` is not read by
   `bakeCompletion` at all, so the name never enters the list. `apollo-kotlin#991`, open since 2018,
   is the same limit in another language.
   ⚠ **The document disagrees with itself**: `PROJECT_STATUS.md` said **3 sites** in one place and

@@ -33,9 +33,9 @@
   ## ⚠ 34 IS A FLOOR, NOT A COUNT
 
   **A key-name census cannot see a collided field.** `absent` is declared twice with opposite
-  fates: `BakePreview.absent` (`service/bake.py:238`) **is** rendered at `app.js:4131`;
+  fates: `BakePreview.absent` (`service/bake.py:238`) **is** rendered at `app.js:4158`;
   `BakeSummary.absent` (`service/bake.py:166`, emitted `:217`) is not read by `bakeCompletion`
-  (`app.js:4172`) at all. Because the name is *"read somewhere"*, it never enters the 34. So a bake
+  (`app.js:4194`) at all. Because the name is *"read somewhere"*, it never enters the 34. So a bake
   run names what failed and stays silent about what it could not find, and this census is
   structurally blind to it.
 
@@ -139,8 +139,8 @@
   | key | declared | why nothing reads it |
   |---|---|---|
   | `modes` | `organize.py:649` | the mode list is rendered from the radio group's own markup |
-  | `uses_rename` | `organize.py:788` | the screen branches on the mode name |
-  | `requires_destination` | `organize.py:789` | as `uses_rename` |
+  | `uses_rename` | `organize.py:804` | the screen branches on the mode name |
+  | `requires_destination` | `organize.py:805` | as `uses_rename` |
   | `still_armed` | `organize_undo.py:64` | the screen re-fetches state instead of reading the echo |
   | `named_events` | `trips.py:475` | the apply result is rendered as one count |
   | `named_trips` | `trips.py:476` | as `named_events` |
