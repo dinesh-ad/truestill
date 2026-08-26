@@ -322,16 +322,36 @@ def test_a_photo_that_could_not_be_compared_reaches_the_screen(ui: Page) -> None
 
     ⚠ **COUNTED, unlike the folder block.** These files were held and read, so the number is
     known exactly - which is why the count is asserted here and forbidden there.
+
+    ⚠ **N GROUPS SINCE `(ahq)`, AND THE SECOND ONE IS THE POINT OF THIS TEST NOW.** `uncompared`
+    was a single object; a file can now miss the comparison for two different reasons and the
+    payload is a **list**. Nothing under `make check` can see whether the browser renders past the
+    first entry - a source check proves the shape, not the screen - so the second group is
+    asserted here, where a person would actually miss it.
     """
     _preview(
         ui,
         _summary(
-            uncompared={
-                "label": "photos whose contents could not be decoded",
-                "remedy": "organized normally, and identical copies are still found by content",
-                "files": ["SPADE.BMP", "damaged.tif"],
-                "total": 478,
-            }
+            uncompared=[
+                {
+                    "reason": "undecodable",
+                    "label": "photos whose contents could not be decoded",
+                    "remedy": (
+                        "organized normally, and identical copies are still found by content"
+                    ),
+                    "files": ["SPADE.BMP", "damaged.tif"],
+                    "total": 478,
+                },
+                {
+                    "reason": "no_signal",
+                    "label": "photos with too little detail to compare",
+                    "remedy": (
+                        "organized normally, and identical copies are still found by content"
+                    ),
+                    "files": ["lens-cap.jpg"],
+                    "total": 97,
+                },
+            ]
         ),
     )
 
@@ -342,6 +362,12 @@ def test_a_photo_that_could_not_be_compared_reaches_the_screen(ui: Page) -> None
     expect(block).to_contain_text("and 476 more")
     # The remedy states what STILL worked. A line that only says what failed reads as data loss.
     expect(block).to_contain_text("identical copies are still found by content")
+
+    # The second reason, which shipped SILENT: 97 files excluded from comparison with nothing
+    # said about them anywhere. `(ahq)`
+    expect(block).to_contain_text("photos with too little detail to compare: 97")
+    expect(block).to_contain_text("lens-cap.jpg")
+    expect(block.locator("[data-reason='no_signal']")).to_be_visible()
 
 
 def test_the_run_says_how_much_library_noise_it_removed(ui: Page) -> None:

@@ -484,6 +484,18 @@ def test_trip_apply_completion_reports_empty_folders_and_offers_clean_flow(ui: P
     expect(ui.locator("#ev-disk-result [data-clean-stage] [data-typed-confirm]")).to_be_visible()
 
 
+#: A REAL 16-hex-digit dHash, and it has to be one. ⚠ **This seed was `"phash-1"` until
+#: 2026-08-26**, a string the product cannot produce: `dedup.pack_hash` parses `perceptual` as
+#: base-16 and refuses anything wider than 64 bits, so `record_uploaded` was the only door wide
+#: enough to write it - the fixture went round the contract rather than through it. `(ahq)` then
+#: put a hex parse on the **stats** path, which had been pure SQL, and one unparseable row took
+#: the whole Stats screen down with a `ValueError`. Popcount **32** - as far from either degenerate
+#: pole as a 64-bit hash gets - so the two rows sharing it stay one near-duplicate group.
+#: Third fixture this week that was not the thing it claimed to be, after `conftest._gradient` and
+#: `_photo`.
+_SEEDED_PHASH = "3c5a7e1b2d4f6809"
+
+
 def test_stats_view_renders_seeded_catalog_numbers(page: Page, app_server: AppServer) -> None:
     with Catalog(app_server.db) as catalog:
         catalog.upsert_drive(uuid="A", label="Drive A")
@@ -493,7 +505,7 @@ def test_stats_view_renders_seeded_catalog_numbers(page: Page, app_server: AppSe
             original_name="a.jpg",
             sha256="sha-a",
             copy_sha256="sha-a",
-            perceptual="phash-1",
+            perceptual=_SEEDED_PHASH,
             size=100,
             captured_at="2020-01-01T10:00:00",
             category="Camera",
@@ -505,7 +517,7 @@ def test_stats_view_renders_seeded_catalog_numbers(page: Page, app_server: AppSe
             original_name="b.mp4",
             sha256="sha-b",
             copy_sha256="sha-b",
-            perceptual="phash-1",
+            perceptual=_SEEDED_PHASH,
             size=200,
             captured_at="2021-01-01T10:00:00",
             category="Camera",
