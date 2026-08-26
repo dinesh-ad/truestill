@@ -555,6 +555,7 @@ class RestoreNote(StrEnum):
     LOST_UNDATED = "lost_undated"
     OVERRULED_BY_NAMED_ROOT = "overruled_by_named_root"
     DRIVE_HOLDS_MORE = "drive_holds_more"
+    DRIVE_NAMES_DIFFERENTLY = "drive_names_differently"
     DRIVE_WRITTEN = "drive_written"
 
 
@@ -688,6 +689,16 @@ RESTORE_WORDING: Final[dict[RestoreNote, RestoreWording]] = {
     # sections "exist there and NOT here", which is false whenever the catalog holds some of them.
     RestoreNote.DRIVE_HOLDS_MORE: RestoreWording(
         "The drive holds {sections} this catalog does not, and they will be gone.", actionable=True
+    ),
+    # ⚠ **A RENAME IS NOT A DISAPPEARANCE, and one sentence cannot honestly cover both.** Since
+    # `would_lose` widened, a drive naming an event differently at the SAME signature counts as a
+    # loss - correctly - and the sentence above would have described it as *"the drive holds events
+    # this catalog does not"*, which is false: the catalog has that event, under another name. This
+    # is that case, named, with both values so the reader can tell which one is theirs. `(ahz)`
+    RestoreNote.DRIVE_NAMES_DIFFERENTLY: RestoreWording(
+        "The drive names {count} {section} differently: {swaps}.\n"
+        "    Discarding replaces the drive's names with this catalog's.",
+        actionable=True,
     ),
     # Checked: the write returned success. ⚠ "The drive now matches this catalog" was contradicted
     # by `merge_onto_drive`, which deliberately PRESERVES sections this version does not know -
@@ -1306,13 +1317,91 @@ def _interpret(document: Any) -> DocumentOnDrive:
 #: Sections compared before a write, to refuse one that would lose decisions the drive already
 #: holds. `settings` is deliberately absent: UI preferences churn per machine and per version, so
 #: a difference there is not evidence of another catalog's work.
-_LOSS_KEYS: tuple[tuple[str, Callable[[Decisions], set[str]]], ...] = (
-    ("trips", lambda d: {str(t.get("name")) for t in d.trips}),
-    ("events", lambda d: {str(e.get("signature")) for e in d.events}),
-    ("skipped_clusters", lambda d: {str(s) for s in d.skipped_clusters}),
-    ("date_confirmations", lambda d: {str(c.get("sha256")) for c in d.date_confirmations}),
-    ("albums", lambda d: {str(a.get("name")) for a in d.albums}),
+#: ⚠ **IDENTITY -> VALUE, and both halves matter.** `(ahz)` step 3
+#:
+#: This was identity ALONE, a set of keys, so *"the drive holds nothing this catalog is missing"*
+#: was true of a drive holding `Morning Market` while the catalog held `placeholder B` **at the
+#: same signature** - and the save overwrote the real name without a word. A name regression under
+#: an unchanged identity is a loss; it was invisible because nothing compared values.
+#:
+#: 🔑 **The keys match the MERGE's keys**, deliberately. Trips key on the day set (`_trip_key`),
+#: not the name - keying them by name is what made a rename look like a disappearance, and one
+#: concept keyed two ways in one module is the shape this repo keeps filing letters about. ⚠ The
+#: cost, stated: dayless trips all key to `()` and collapse together here, exactly as they do in
+#: the merge. `ApplyReport.trips_without_days` is where that is reported.
+_LOSS_KEYS: tuple[tuple[str, Callable[[Decisions], dict[object, str]]], ...] = (
+    ("trips", lambda d: {_trip_key(t): str(t.get("name") or "") for t in d.trips}),
+    ("events", lambda d: {str(e.get("signature")): str(e.get("name") or "") for e in d.events}),
+    # No value of its own: a skipped cluster IS its signature, so it can go missing but not change.
+    ("skipped_clusters", lambda d: {str(s): "" for s in d.skipped_clusters}),
+    (
+        "date_confirmations",
+        lambda d: {
+            str(c.get("sha256")): str(c.get("captured_at") or "") for c in d.date_confirmations
+        },
+    ),
+    ("albums", lambda d: {str(a.get("name")): str(a.get("name") or "") for a in d.albums}),
 )
+
+
+@dataclass(frozen=True, slots=True)
+class DriveHolds:
+    """What one section on a drive has that a catalog does not. **Two facts, never merged.**
+
+    ⚠ *"The drive holds events this catalog does not"* is FALSE of a rename - the catalog has that
+    event, under another name - and printing it anyway is the assert-what-you-did-not-check defect
+    this arc is about. So the two are carried apart and worded apart.
+    """
+
+    section: str
+    #: Values whose identity the catalog has never seen.
+    missing: tuple[str, ...] = ()
+    #: Identities both hold, where the drive's value differs. `lost` is the drive's.
+    changed: tuple[NameSwap, ...] = ()
+
+    def any(self) -> bool:
+        """Whether this section has anything at all to report."""
+        return bool(self.missing or self.changed)
+
+
+def drive_holdings(existing: Decisions, fresh: Decisions) -> tuple[DriveHolds, ...]:
+    """Per section, what ``existing`` holds that ``fresh`` does not - **missing and changed apart**.
+
+    Sections with nothing to say are omitted, so a caller can test the tuple itself.
+    """
+    holdings: list[DriveHolds] = []
+    for section, of in _LOSS_KEYS:
+        theirs, ours = of(existing), of(fresh)
+        missing = tuple(value for key, value in theirs.items() if key not in ours)
+        changed = tuple(
+            NameSwap(lost=value, kept=ours[key])
+            for key, value in theirs.items()
+            if key in ours and ours[key] != value
+        )
+        if missing or changed:
+            holdings.append(DriveHolds(section, missing, changed))
+    return tuple(holdings)
+
+
+def refusal_detail(existing: Decisions, fresh: Decisions) -> str:
+    """Why a save to this drive was refused, in one sentence. `(ahz)` step 3
+
+    ⚠ **"this drive holds events this catalog does not" is FALSE of a rename** - the catalog has
+    that event, under another name - and since `would_lose` widened, a rename reaches this
+    sentence. It is the line the app renders on the drive card and the only thing a user is told
+    about a refused write, so the two kinds get their own clause rather than the commoner one
+    standing in for both.
+    """
+    holdings = drive_holdings(existing, fresh)
+    clauses: list[str] = []
+    gone = [h.section.replace("_", " ") for h in holdings if h.missing]
+    if gone:
+        clauses.append(f"holds {', '.join(gone)} this catalog does not")
+    renamed = [h for h in holdings if h.changed]
+    if renamed:
+        named = ", ".join(f"{len(h.changed)} {h.section.replace('_', ' ')}" for h in renamed)
+        clauses.append(f"names {named} differently")
+    return f"this drive {' and '.join(clauses)}; restore first"
 
 
 def would_lose(existing: Decisions, fresh: Decisions) -> tuple[str, ...]:
@@ -1326,8 +1415,15 @@ def would_lose(existing: Decisions, fresh: Decisions) -> tuple[str, ...]:
     Its one false positive is a decision the user DELETED locally: the drive still holds it, so
     the write refuses until a restore reconciles the two. Reported rather than silently resolved,
     because guessing which side is intentional is how the other direction loses data.
+
+    ⚠ **A CHANGED value counts, not only a missing key.** `(ahz)` step 3 This compared identities
+    alone until 2026-08-26, so a drive holding `Morning Market` while the catalog held
+    `placeholder B` **at the same signature** returned `()` and the save overwrote the real name
+    without a word - destroying the last copy rather than merely outranking it, which is worse than
+    the sequence `(ahz)` measured. Callers that need to say WHICH kind ask
+    :func:`drive_holdings`; this answers only *is there anything*, which is all a refusal needs.
     """
-    return tuple(name for name, of in _LOSS_KEYS if of(existing) - of(fresh))
+    return tuple(holds.section for holds in drive_holdings(existing, fresh))
 
 
 def merge_onto_drive(existing: Decisions | None, fresh: Decisions) -> Decisions:
@@ -1426,14 +1522,13 @@ def save_decisions_to_reachable_drives(
 
         fresh = _with_drive(shared, row, uuid)
         if found.decisions is not None:
-            lost = would_lose(found.decisions, fresh)
-            if lost:
+            if would_lose(found.decisions, fresh):
                 results.append(
                     DriveSave(
                         uuid,
                         label,
                         SaveOutcome.WOULD_LOSE,
-                        f"this drive holds {', '.join(lost)} this catalog does not; restore first",
+                        refusal_detail(found.decisions, fresh),
                     )
                 )
                 continue

@@ -120,6 +120,6 @@ the undated pile, the CLI must not say something different about the same files.
 cross-surface pointer before writing either sentence.**
 
 Separately, and stated so nobody widens this entry onto it: the CLI's `_print_skipped_undated`
-(`cli.py:2172`) covers only the `--skip-undated` case - files *not copied at all* - which is a
+(`cli.py:2265`) covers only the `--skip-undated` case - files *not copied at all* - which is a
 different report from *"these were copied to `Undated/`"*. Both surfaces name the pile; only the
 app has somewhere to send the user.

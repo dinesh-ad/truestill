@@ -7,7 +7,7 @@
 
   ## 1. THIS IS TERRITORY THE REPO ALREADY CLAIMED, AND THE CLAIM DOES NOT HOLD
 
-  `would_lose` (`decisions.py:1282`) exists for exactly this, and says so:
+  `would_lose` (`decisions.py:1407`) exists for exactly this, and says so:
 
   > A re-attached drive carries names a rebuilt catalog has never seen; writing over them destroys
   > the only copy, **which is precisely what this feature exists to prevent**.
@@ -153,6 +153,62 @@
   **The three real names come back**, the overruled placeholders are named in the actionable
   register, and the direction is reversed. With the authority reverted, the same run says
   *"3 events on dest were written earlier and were not used"* - the defect, restored.
+
+  ## ⚠ STEP 3 SHIPPED 2026-08-26 (P114) - AND THE POLARITY CLAIM WAS WRONG
+
+  ⚠ **`_discard_to_drive` has no polarity bug, and this entry said it did.** Read in full: a
+  non-empty `would_lose` is a gate meaning *there is something to discard*, followed by an accurate
+  message, **preview-only**, an explicit `--apply`, **and a typed `discard` confirmation**. Calling
+  that *"permission to proceed"* is true of the control flow and misleading as a description,
+  because it omits three gates. Corrected here rather than left standing.
+
+  🔑 **What actually had to ship beside the widening is the WORDING.** Once a name regression
+  counts as a loss, *"the drive holds events this catalog does not"* is **false** - the catalog has
+  that event, under another name - and that sentence is the only thing a user is told before
+  agreeing to overwrite the last copy of their own names. Demonstrated: with the widened predicate
+  and the old wording, the refusal asserted a disappearance that had not happened.
+
+  **The hole, reproduced.** Drive holds `Morning Market`; catalog holds `placeholder B` at the
+  **same signature**; drive reachable. Before: `would_lose` returned `()`, the drive's document
+  became `placeholder B`, and **no refusal was recorded at all**. After: the write is refused, the
+  real name survives, and the message reads *"this drive names 1 events differently; restore
+  first"*.
+
+  ⚠ **`_LOSS_KEYS` keyed trips by NAME while the merge keys them by DAY SET** - one concept keyed
+  two ways in one module, so a renamed trip read as a trip that had vanished. The keys now match
+  `_trip_key`. Cost, stated: dayless trips collapse to one key here exactly as they do in the
+  merge, which `trips_without_days` reports.
+
+  ## ⚠ REACHABILITY - THIS HOLE IS REACHED BY THE MOST NATURAL ACT AFTER LOSING A CATALOG
+
+  The precondition is a `path_hint`, which `restore` never writes. Seven sites do:
+  `verify` (CLI and app), `migrate-layout`, `reclaim`, `drives --init`, organize's destination, and
+  the app's `attach_drive` link scan.
+
+  🔑 **`truestill verify <drive>` is the one that matters.** *"Did I lose my photos too?"* is the
+  first thing a person does after losing a catalog, and the app's Drives screen runs a link scan
+  simply by being opened. **So this is reachable in practice, not only in principle** - and it
+  ranks above the sequence this entry measured, because that one outranked the names while this
+  one destroys them.
+
+  ## ⚠ THE STUCK USER NOW HAS A WAY FORWARD - FOR EVENTS
+
+  This entry recorded that *"restore first"* was a **fixed point**: restore re-read both documents
+  and re-lost the names, so the advice looped and `--discard` was the only exit. **Measured after
+  steps 2 and 3:**
+
+  1. the save refuses, and the drive keeps `Morning Market`;
+  2. `truestill restore <drive> --apply` - **1 event restored**, the catalog now holds
+     `Morning Market`;
+  3. the next save records **no refusal**. The state is resolved.
+
+  **The loop is broken.** ⚠ **For trips it is not**: there is no `rename_trip`, so a trip whose
+  days are already claimed under another name lands in `conflicting_trips` - loud and honest, and
+  still a dead end. That is the residual, and it is the trip half's real answer.
+
+  ⚠ **One rough edge, said rather than tidied**: the restore run's own close prints a refusal note
+  for the state it is in the middle of fixing, so the user reads *"decisions were not saved …
+  restore first"* on the very command that resolves it. Confusing, not wrong.
 
   ## ⚠ WHAT STILL LOSES, NAMED RATHER THAN IMPLIED
 

@@ -26,10 +26,15 @@ from truestill_core.catalog import Catalog
 from truestill_core.decisions import (
     DECISIONS_NAME,
     DECISIONS_SAVED_AT_KEY,
+    Decisions,
+    NameSwap,
     SaveOutcome,
+    drive_holdings,
     ensure_decisions_on_drives,
     read_decisions,
+    refusal_detail,
     save_decisions_to_reachable_drives,
+    would_lose,
 )
 from truestill_core.drive import DriveMarker, drive_path_hint, write_marker
 
@@ -397,3 +402,128 @@ def test_a_format_that_is_not_a_number_is_refused_rather_than_crashing(tmp_path:
     assert found.error is not None
     assert found.decisions is None
     assert (root / DECISIONS_NAME).read_text(encoding="utf-8") == before
+
+
+def test_a_name_regression_under_an_unchanged_signature_is_a_loss() -> None:
+    """⚠ **The last copy, destroyed silently.** `(ahz)` step 3
+
+    `would_lose` compared IDENTITIES alone until 2026-08-26, so a drive holding `Morning Market`
+    while the catalog held `placeholder B` **at the same signature** returned `()` - and the save
+    overwrote the real name without a word. That is worse than the sequence `(ahz)` measured,
+    which merely outranked it: here the drive's copy is gone.
+
+    Demonstrated end to end before this test existed: with the widening reverted, the drive's
+    document went from 'Morning Market' to 'placeholder B' and no refusal was recorded.
+    """
+    theirs = Decisions(
+        events=(
+            {"name": "Morning Market", "slug": "m", "start": "2015-10-25", "signature": "a" * 64},
+        )
+    )
+    mine = Decisions(
+        events=(
+            {"name": "placeholder B", "slug": "p", "start": "2015-10-25", "signature": "a" * 64},
+        )
+    )
+
+    assert would_lose(theirs, mine) == ("events",), "a renamed event is not seen as a loss"
+
+    holdings = drive_holdings(theirs, mine)
+    assert len(holdings) == 1
+    assert holdings[0].missing == (), "a rename is not a disappearance"
+    assert holdings[0].changed == (NameSwap(lost="Morning Market", kept="placeholder B"),)
+
+
+def test_the_refusal_says_which_kind_it_is() -> None:
+    """⚠ **"the drive holds events this catalog does not" is FALSE of a rename.**
+
+    The catalog HAS that event, under another name. This is the only sentence a user is told about
+    a refused write and the line the app renders on the drive card, so the two kinds get their own
+    clause. Demonstrated: with the widened predicate and the old wording, the message asserted a
+    disappearance that had not happened.
+    """
+    same = {"slug": "m", "start": "2015-10-25", "signature": "a" * 64}
+    theirs = Decisions(events=({"name": "Morning Market", **same},))
+    mine = Decisions(events=({"name": "placeholder B", **same},))
+    assert refusal_detail(theirs, mine) == "this drive names 1 events differently; restore first"
+
+    absent = Decisions()
+    assert refusal_detail(theirs, absent) == (
+        "this drive holds events this catalog does not; restore first"
+    )
+
+
+def test_a_trip_rename_reads_as_a_rename_and_not_a_disappearance() -> None:
+    """⚠ **`_LOSS_KEYS` keyed trips by NAME while the merge keys them by DAY SET.**
+
+    One concept keyed two ways in one module, so a renamed trip looked like a trip that had
+    vanished - and was worded that way. The keys now match `_trip_key`.
+    """
+    days = ["2013-01-01", "2013-01-02"]
+    theirs = Decisions(trips=({"name": "Bangalore Dec 2009", "slug": "b", "days": days},))
+    mine = Decisions(trips=({"name": "placeholder A", "slug": "p", "days": days},))
+
+    holdings = drive_holdings(theirs, mine)
+    assert holdings[0].missing == (), "a renamed trip was reported as one the catalog never had"
+    assert holdings[0].changed == (NameSwap(lost="Bangalore Dec 2009", kept="placeholder A"),)
+
+
+def test_an_identical_document_is_not_a_loss() -> None:
+    """⚠ Cry-wolf half. One save writes the same document to every drive, so most comparisons are
+    identical - reporting those would refuse every ordinary write."""
+    same = Decisions(
+        trips=({"name": "Ooty", "slug": "o", "days": ["2013-01-01"]},),
+        events=({"name": "Sam", "slug": "s", "start": "2015-10-25", "signature": "a" * 64},),
+    )
+    assert would_lose(same, same) == ()
+    assert drive_holdings(same, same) == ()
+
+
+def test_the_save_refuses_a_rename_and_says_so_in_the_users_words(tmp_path: Path) -> None:
+    """⚠ **The BEHAVIOUR half of the refusal, and a mutation is why it exists.** `(ahz)` step 3
+
+    Asserting `refusal_detail` directly proves the SENTENCE. It does not prove the save path USES
+    it - swapping the call site back to the old wording changed what a user reads and killed no
+    test. The declaration and the behaviour are different properties, and that is the third entry
+    in a row where the gap was found by mutation rather than by reading.
+
+    This drives `save_decisions_to_reachable_drives` end to end: a drive holding the user's real
+    event name, a catalog holding a placeholder at the SAME signature.
+    """
+    root = tmp_path / "drive"
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _register(catalog, root, _UUID_A, "Backup")
+        (root / DECISIONS_NAME).write_text(
+            json.dumps(
+                {
+                    "format": 1,
+                    "written": _STAMP,
+                    "drive": {"uuid": _UUID_A, "label": "Backup", "notes": None},
+                    "events": [
+                        {
+                            "name": "Morning Market",
+                            "slug": "m",
+                            "start": "2015-10-25",
+                            "signature": "a" * 64,
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        catalog.record_event(
+            name="placeholder B",
+            slug="p",
+            start_date="2015-10-25",
+            file_count=3,
+            signature="a" * 64,
+        )
+        results = save_decisions_to_reachable_drives(catalog)
+
+    assert [r.outcome for r in results] == [SaveOutcome.WOULD_LOSE], (
+        "the save overwrote the last copy of the user's own event name"
+    )
+    assert results[0].detail == "this drive names 1 events differently; restore first", (
+        f"the refusal asserted a disappearance that did not happen: {results[0].detail!r}"
+    )
+    assert _document_at(root)["events"][0]["name"] == "Morning Market", "the real name was replaced"

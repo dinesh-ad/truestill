@@ -89,6 +89,7 @@ from truestill_core.decisions import (
     RestoreReport,
     SaveOutcome,
     apply_documents,
+    drive_holdings,
     gather_decisions,
     merge_onto_drive,
     nothing_applied_note,
@@ -99,7 +100,6 @@ from truestill_core.decisions import (
     superseded_note,
     unmatched_events_note,
     withheld_count,
-    would_lose,
     write_decisions,
 )
 from truestill_core.dedup import DedupIndex
@@ -1607,6 +1607,16 @@ def _discard_to_drive(root: Path, catalog: object, *, apply: bool) -> int:
     saying "mine is right". One forced write, after which the drive matches the catalog and the
     guard has nothing left to fire on. No override flag is stored, so there is no state to go
     stale.
+
+    ⚠ **AND SINCE `(ahz)` STEP 3 IT CAN REACH A CASE IT COULD NOT BEFORE.** `would_lose` now counts
+    a name REGRESSION under an unchanged identity, so this branch is offered where the drive holds
+    the user's own name and the catalog holds a placeholder - the exact state a rebuilt catalog
+    produces. Running it there destroys the last copy of that name. **That is still the right
+    command for `(aby)`'s case and the wrong one here**, and nothing in the code can tell them
+    apart: both are "the drive and the catalog disagree". So the preview names the values on both
+    sides, and the two kinds are worded apart - a user who reads *"names 1 events differently:
+    'Morning Market' -> 'placeholder B'"* can see which is theirs, where *"holds events this
+    catalog does not"* told them nothing.
     """
     found = read_decisions(root)
     theirs = found.decisions
@@ -1614,13 +1624,30 @@ def _discard_to_drive(root: Path, catalog: object, *, apply: bool) -> int:
     uuid = marker.uuid if marker is not None else ""
     mine = gather_decisions(catalog, uuid)
 
-    losing = would_lose(theirs, mine) if theirs is not None else ()
-    if not losing:
+    holdings = drive_holdings(theirs, mine) if theirs is not None else ()
+    if not holdings:
         print("\nThis drive holds nothing this catalog is missing. Nothing to discard.")
         return 0
 
     print(f"\nDISCARD will overwrite the decisions on {root} with this catalog's.")
-    print(RESTORE_WORDING[RestoreNote.DRIVE_HOLDS_MORE].text.format(sections=", ".join(losing)))
+    # ⚠ **Two facts, worded apart.** A section can be here because the drive holds something this
+    # catalog never had, or because it NAMES something differently - and since `(ahz)` widened
+    # `would_lose`, the second is reachable. Printing "the drive holds events this catalog does
+    # not" about a rename would be false, and it is the one sentence a user reads before agreeing
+    # to overwrite the last copy of their own names.
+    gone = [h.section.replace("_", " ") for h in holdings if h.missing]
+    if gone:
+        print(RESTORE_WORDING[RestoreNote.DRIVE_HOLDS_MORE].text.format(sections=", ".join(gone)))
+    for holds in holdings:
+        if holds.changed:
+            print(
+                "\n"
+                + RESTORE_WORDING[RestoreNote.DRIVE_NAMES_DIFFERENTLY].text.format(
+                    count=len(holds.changed),
+                    section=holds.section.replace("_", " "),
+                    swaps=render_swaps(holds.changed),
+                )
+            )
     if not apply:
         print(f"\nPreview only. Discard with:  truestill restore {root} --discard --apply")
         return 0
