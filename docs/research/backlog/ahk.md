@@ -37,7 +37,7 @@
 
   ## THE TWIN PATH IS HARDENED AGAINST THE NEIGHBOURING SHAPE
 
-  `decisions.py:457-458`, verbatim:
+  `decisions.py:463-464`, verbatim:
 
   > `# Day -> the name of the trip holding it. Read once and kept in step as trips are created, so`
   > `# a document that names one day twice cannot make `create_trip` fail on the day primary key.`

@@ -29,7 +29,7 @@ _DAYS = ["2014-08-14", "2014-08-15"]
 def _drive_with_decisions(tmp_path: Path, **overrides: object) -> Path:
     """A drive carrying a document, and a catalog that has never heard of either."""
     root = tmp_path / "drive"
-    root.mkdir()
+    root.mkdir(parents=True, exist_ok=True)
     marker = create_marker(root, "Output")
     document: dict[str, object] = {
         "format": 1,
@@ -260,3 +260,84 @@ def test_a_second_discard_has_nothing_to_do_and_does_not_ask(
 
     assert code == 0
     assert "nothing to discard" in capsys.readouterr().out.lower()
+
+
+def test_every_withheld_decision_is_named_in_the_output(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """⚠ **The behaviour half of the loop, and a mutation is why it exists.** `(ahx)`
+
+    `test_every_report_field_reaches_the_reader` proves the two tables PARTITION the dataclass's
+    fields. It does not prove the printer prints them - making the loop skip `not_applied` killed
+    no test until this one existed. The declaration and the behaviour are different properties,
+    and the guard for one is not the guard for the other.
+
+    Three of these were computed and printed by nobody before this entry.
+    """
+    # ⚠ **The conflict must already be in the CATALOG, not in the document.** Two trips over the
+    # same days inside one document collapse at `_merge_section`, whose identity key for a trip is
+    # its DAY SET (`_trip_key`) - so the second is superseded and `_apply_trips` never sees it.
+    # A first restore puts "Wayanad" over those days; the second document then clashes with it.
+    first = _drive_with_decisions(tmp_path)
+    db = tmp_path / "c.sqlite"
+    monkeypatch.setattr("builtins.input", lambda *_: "restore")
+    assert main(["restore", str(first), "--db", str(db), "--apply"]) == 0
+    capsys.readouterr()
+
+    root = _drive_with_decisions(
+        tmp_path / "second",
+        trips=[
+            # Same days, different name -> `conflicting_trips`.
+            {"name": "Doubled", "slug": "d", "start": _DAYS[0], "end": _DAYS[1], "days": _DAYS},
+            # No days at all -> `trips_without_days`.
+            {"name": "Dayless", "slug": "x", "start": _DAYS[0], "end": _DAYS[0]},
+        ],
+        albums=[{"name": "Favourites"}],
+    )
+
+    main(["restore", str(root), "--db", str(db)])
+    out = capsys.readouterr().out
+
+    assert "Doubled" in out, "a trip whose days are already claimed was not named"
+    assert "Dayless" in out, "a trip the document carries no days for was not named"
+    assert "albums" in out, "a section this version cannot restore was not named"
+
+
+def test_the_summary_names_both_halves_including_the_zero(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`CPF3773`'s shape: never a count of successes without the count of omissions beside it.
+
+    The zero is the point. IBM's `RSTOBJ` restores 74 of 75 and says *"74 restored"*; a second
+    number the reader always sees is the difference between "nothing was left out" and "nobody
+    looked".
+    """
+    root = _drive_with_decisions(tmp_path)
+    db = tmp_path / "c.sqlite"
+
+    main(["restore", str(root), "--db", str(db)])
+    out = capsys.readouterr().out
+
+    summary = next(line for line in out.splitlines() if "would come back" in line)
+    assert "0 would not" in summary, f"the second half was omitted or non-zero: {summary!r}"
+
+
+def test_a_real_restore_reports_its_own_outcome(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """⚠ **The apply-time report was computed and DISCARDED**, so "Restored into X." was the whole
+    of what a user saw. Measured: it is identical to the preview's in the ordinary case - so this
+    is not a corrected number, it is that the omissions are unchanged by applying and were never
+    said at the moment they became permanent."""
+    root = _drive_with_decisions(tmp_path, albums=[{"name": "Favourites"}])
+    db = tmp_path / "c.sqlite"
+    monkeypatch.setattr("builtins.input", lambda *_: "restore")
+
+    assert main(["restore", str(root), "--db", str(db), "--apply"]) == 0
+    out = capsys.readouterr().out
+
+    assert "Restored into" in out
+    assert "restored," in out, "a completed restore reported no counts at all"
+    assert "albums" in out.split("Restored into")[1], (
+        "the apply arm said nothing about what did NOT come back"
+    )

@@ -22,6 +22,35 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ahx) EVERY FIELD THE RESTORE REPORT COMPUTES REACHES THE READER, BY LOOP.** Shipped
+  2026-08-26, widened on the day it shipped. ⚠ **The entry's own census was ONE THIRD COMPLETE**:
+  `not_applied` was one of three, with `conflicting_trips` and `trips_without_days` computed by
+  core and printed by nobody - against `_print_restore_plan`'s docstring promising *"the half that
+  is easy to leave out"*. The first census searched for the field it already knew about instead of
+  enumerating what the report carries; **a search shaped like the known instance cannot see the
+  unknown ones**, which is `(ahu)`'s, `(ahw)`'s and `(ahz)`'s shape a fourth time.
+  🔑 **THE FIX IS THE LOOP, NOT THE THREE LINES.** `_print_omissions` walks
+  `dataclasses.fields(ApplyReport)` and indexes `REPORT_FIELD_NOTE`; `REPORT_FIELD_EXCEPTIONS`
+  declares the three fields a loop cannot render **with the reason for each**. Naming five produced
+  three omissions; naming eight would produce the ninth. A field in neither table now fails a test.
+  **This is the industry norm, which is the argument for a loop over three more lines**: IBM
+  `RSTOBJ` restores 74 of 75 and says *"74 restored"* - IBM's own manual notes the user *"is not
+  notified"*; Veeam VBO's explorer says *"1 skipped"* while its log and API say *"restored
+  successfully"* for both; Spectrum Protect Plus APAR IT31203; Adobe CC twice. **None was fixed by
+  adding one more field.** ⚠ **The inverse is IBM's own remedy** and is what shipped: `CPF3773`
+  reports *"&1 restored. &2 not restored"* as a PAIR, so restore now prints both halves in one
+  sentence **including the zeroes** - silence made structurally impossible rather than unlikely.
+  ⚠ **The apply-time report was computed and discarded**, so *"Restored into X."* was all a user
+  saw. **Measured: the two reports are IDENTICAL** in the ordinary case, so this is not a corrected
+  number - it is that the omissions are unchanged by applying and were never said at the moment
+  they became permanent.
+  **`(ahz)`'s value half is NOT closed here**: `Superseded` still carries no values, and that is a
+  change to what the merge RECORDS rather than to what the printer loops over.
+  🔑 **A mutation found the real gap again.** Making the loop skip a field killed no test: the
+  guard proved the two tables PARTITION the dataclass and never that the printer PRINTS. The
+  declaration and the behaviour are different properties. Five mutations, all biting after.
+  Body: [`research/backlog/ahx.md`](research/backlog/ahx.md).
+
 - **(aia) RESTORE SAID WHY WHEN IT ONLY KNEW THAT - SIX SENTENCES, ONE WORDING HOME.** Shipped
   2026-08-26, found by `(ahv)`'s census. Six sentences stated a cause the code had not established
   - the worst told a user whose catalog had just been rebuilt that *"its photos have changed"*,

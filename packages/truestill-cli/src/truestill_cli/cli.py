@@ -16,6 +16,7 @@ import uuid
 from collections import Counter
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
+from dataclasses import fields
 from dataclasses import replace as _dataclass_replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -78,8 +79,11 @@ from truestill_core.cleanup import (
 )
 from truestill_core.decisions import (
     PROBLEM_OUTCOMES,
+    REPORT_FIELD_EXCEPTIONS,
+    REPORT_FIELD_NOTE,
     RESTORE_WORDING,
     SUPERSEDED_NOTE,
+    ApplyReport,
     Decisions,
     DriveSave,
     RestoreNote,
@@ -91,7 +95,9 @@ from truestill_core.decisions import (
     nothing_applied_note,
     notice_for,
     read_decisions,
+    restored_count,
     unmatched_events_note,
+    withheld_count,
     would_lose,
     write_decisions,
 )
@@ -1458,11 +1464,40 @@ def _say(note: RestoreNote, **fields: object) -> None:
     print(f"\n  {marker} {wording.text.format(**fields)}")
 
 
+def _print_omissions(applied: ApplyReport) -> None:
+    """Every field `ApplyReport` computes that is not the restored half. **Looped, never listed.**
+
+    🔑 **The loop IS the fix.** `not_applied`, `conflicting_trips` and `trips_without_days` were
+    computed and printed by nobody, because this function named five fields and there were eight.
+    Naming eight would produce the ninth omission. So the DERIVED inventory - the dataclass's own
+    fields - is walked, and the DECLARATION - `REPORT_FIELD_NOTE` plus `REPORT_FIELD_EXCEPTIONS` -
+    is indexed. `ENGINEERING_STANDARD.md` §4's seventy-second member, and a field in neither table
+    raises `KeyError` here rather than being silently unprinted. `(ahx)`
+    """
+    for field in fields(applied):
+        if field.name in REPORT_FIELD_EXCEPTIONS:
+            continue
+        note = REPORT_FIELD_NOTE[field.name]
+        value = getattr(applied, field.name)
+        if isinstance(value, dict):
+            for section, count in sorted(value.items()):
+                _say(note, count=count, section=section.replace("_", " "))
+        else:
+            for name in value:
+                _say(note, name=name, section=str(name).replace("_", " "))
+
+
 def _print_restore_plan(report: RestoreReport, documents: int) -> None:
     """What would come back, and - the half that is easy to leave out - what would not.
 
     A restore that reports 40 applied and says nothing about 12 corrections it could not place
     lets the user confirm on the good half only.
+
+    ⚠ **THE PROMISE ABOVE WAS BROKEN BY THIS FUNCTION FOR AS LONG AS IT EXISTED**, which is why it
+    is kept rather than softened: three fields were computed and printed by nobody. It is true as
+    written because `_print_omissions` LOOPS the report's fields instead of naming them, and
+    `test_every_report_field_reaches_the_reader` fails if one is neither worded nor a declared
+    exception. `(ahx)`
     """
     print(f"\nRead {documents} decisions document(s).")
     applied = report.applied
@@ -1475,11 +1510,7 @@ def _print_restore_plan(report: RestoreReport, documents: int) -> None:
     note = unmatched_events_note(applied)
     for name in applied.unmatched_events:
         _say(note, name=name)
-    for section, count in sorted(applied.awaiting_content.items()):
-        print(f"\n  ! {count} {section.replace('_', ' ')} are waiting for photos this catalog")
-        print("    has not scanned. Plug in the drive holding them, scan, and restore again.")
-    for section, count in sorted(applied.already_newer_locally.items()):
-        _say(RestoreNote.ALREADY_HELD, count=count, section=section.replace("_", " "))
+    _print_omissions(applied)
     for loss in report.reconciled.superseded:
         _say(
             SUPERSEDED_NOTE[loss.reason],
@@ -1494,6 +1525,20 @@ def _print_restore_plan(report: RestoreReport, documents: int) -> None:
     for label in report.reconciled.undated:
         if label not in said:
             print(f"\n  - {label}'s document carries no date, so it could not overrule any other.")
+    _print_restore_summary(applied, RestoreNote.SUMMARY_PREVIEW)
+
+
+def _print_restore_summary(applied: ApplyReport, note: RestoreNote) -> None:
+    """Both halves in one sentence, **including the zeroes**. `(ahx)`
+
+    Taken from the one place the industry gets this right: IBM's `CPF3773` reports *"&1 objects
+    restored. &2 not restored"* in a single message. A count of successes with no count of
+    omissions beside it is what let `RSTOBJ` restore 74 of 75 and say *"74 restored"* - IBM's own
+    manual notes the user *"is not notified that 1 object was not restored"*. Printing the second
+    number always, zero included, makes that silence structurally impossible: a zero the reader
+    sees is the difference between "nothing was left out" and "nobody looked".
+    """
+    _say(note, restored=restored_count(applied), withheld=withheld_count(applied))
 
 
 def _cmd_restore(args: argparse.Namespace) -> int:
@@ -1525,8 +1570,15 @@ def _cmd_restore(args: argparse.Namespace) -> int:
             print("Nothing was restored.", file=sys.stderr)
             return 1
 
+        # ⚠ **The apply-time report was computed here and DISCARDED**, so the user saw the
+        # preview's numbers and then the word "Restored" with nothing behind it. Measured: the two
+        # reports are IDENTICAL in the ordinary case, so this is not a corrected number - it is
+        # that the omissions are unchanged by applying and were never said at the moment they
+        # became permanent. `(ahx)`
         report = apply_documents(catalog, documents, apply=True)
         print(f"\nRestored into {args.db}.")
+        _print_restore_summary(report.applied, RestoreNote.SUMMARY_DONE)
+        _print_omissions(report.applied)
         return 0
 
 

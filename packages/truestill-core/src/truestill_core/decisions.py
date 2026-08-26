@@ -442,7 +442,13 @@ class RestoreNote(StrEnum):
     NOTHING_APPLIED = "nothing_applied"
     NO_EVENTS_HERE = "no_events_here"
     NO_SUCH_GROUP = "no_such_group"
+    CONFLICTING_TRIP = "conflicting_trip"
+    TRIP_WITHOUT_DAYS = "trip_without_days"
+    NOT_APPLIED = "not_applied"
+    SUMMARY_PREVIEW = "summary_preview"
+    SUMMARY_DONE = "summary_done"
     ALREADY_HELD = "already_held"
+    AWAITING_CONTENT = "awaiting_content"
     LOST_OLDER = "lost_older"
     LOST_TIE = "lost_tie"
     LOST_UNDATED = "lost_undated"
@@ -502,6 +508,40 @@ RESTORE_WORDING: Final[dict[RestoreNote, RestoreWording]] = {
         "    Its name is safe in the drive's decisions document.",
         actionable=True,
     ),
+    # Checked: `knows_content` is false - this catalog has not scanned the photo the correction
+    # belongs to. The only sentence here that always had a remedy and was always honest; it moves
+    # into the table so the CLI holds no sentences at all, not because it was wrong.
+    RestoreNote.AWAITING_CONTENT: RestoreWording(
+        "{count} {section} are waiting for photos this catalog has not scanned.\n"
+        "    Plug in the drive holding them, scan, and restore again.",
+        actionable=True,
+    ),
+    # Checked: every day this trip claims is already held by a DIFFERENTLY-NAMED trip here.
+    # `trip_days.day` is a primary key, so this cannot be applied at all - it is not a partial.
+    RestoreNote.CONFLICTING_TRIP: RestoreWording(
+        "trip '{name}' could not be applied: its days already belong to a different trip\n"
+        "    in this catalog. Its name is safe in the drive's decisions document.",
+        actionable=True,
+    ),
+    # Checked: the document carries no days for this trip, so there is nowhere to put it.
+    # Distinct from a conflict - nothing is competing.
+    RestoreNote.TRIP_WITHOUT_DAYS: RestoreWording(
+        "trip '{name}' could not be applied: the document does not say which days it covers.",
+        actionable=True,
+    ),
+    # Checked: this version gathers the section onto a drive and cannot read it back.
+    RestoreNote.NOT_APPLIED: RestoreWording(
+        "{section} are carried on the drive but this version cannot restore them.\n"
+        "    They are not lost - they stay in the drive's decisions document.",
+        actionable=True,
+    ),
+    # ⚠ **BOTH HALVES IN ONE SENTENCE, ALWAYS** - including the zeroes. See `_SUMMARY_RULE`.
+    RestoreNote.SUMMARY_PREVIEW: RestoreWording(
+        "{restored} decision(s) would come back, {withheld} would not.", actionable=False
+    ),
+    RestoreNote.SUMMARY_DONE: RestoreWording(
+        "{restored} decision(s) restored, {withheld} not restored.", actionable=False
+    ),
     # Checked: a confirmation held here is the same age or newer. ⚠ The old sentence said "were
     # older than this machine's"; the comparison is `>=`, and ties count as already-held.
     RestoreNote.ALREADY_HELD: RestoreWording(
@@ -548,6 +588,76 @@ SUPERSEDED_NOTE: Final[dict[SupersededReason, RestoreNote]] = {
     SupersededReason.TIE: RestoreNote.LOST_TIE,
     SupersededReason.UNDATED: RestoreNote.LOST_UNDATED,
 }
+
+
+#: ⚠ **EVERY FIELD `ApplyReport` COMPUTES REACHES THE READER, BY LOOP AND NOT BY LIST.** `(ahx)`
+#:
+#: `not_applied`, `conflicting_trips` and `trips_without_days` were computed by this module and
+#: printed by **nobody** - against `_print_restore_plan`'s own docstring, which promises *"the half
+#: that is easy to leave out"*. Naming five fields is what produced three omissions; naming eight
+#: would produce the fourth. So a surface loops `dataclasses.fields(ApplyReport)` and indexes this
+#: table, and a field that is in neither this table nor `REPORT_FIELD_EXCEPTIONS` fails at import.
+#:
+#: 🔑 **This is the industry norm, not a local slip, which is the argument for the loop over three
+#: more lines.** IBM's `RSTOBJ` restores 74 of 75 and reports *"74 restored"* - IBM's own manual
+#: says *"You are not notified that 1 object was not restored."* Veeam VBO's explorer says
+#: *"1 skipped, 1 restored"* while the job log and the API say *"restored successfully"* for
+#: **both** - two surfaces disagreeing, and the trusted one wrong. IBM Spectrum Protect Plus
+#: APAR IT31203: a partial-successful backup does not report the missing objects on restore. Adobe
+#: Creative Cloud, twice: a green *"successfully restored"* for files that never appear. **Every
+#: one is a report that names what it did and stays silent about what it did not, and none was
+#: fixed by adding one more field.**
+REPORT_FIELD_NOTE: Final[dict[str, RestoreNote]] = {
+    "conflicting_trips": RestoreNote.CONFLICTING_TRIP,
+    "trips_without_days": RestoreNote.TRIP_WITHOUT_DAYS,
+    "not_applied": RestoreNote.NOT_APPLIED,
+    "already_newer_locally": RestoreNote.ALREADY_HELD,
+    "awaiting_content": RestoreNote.AWAITING_CONTENT,
+}
+
+#: Fields the loop cannot render, each with **why**. ⚠ **A declared exception is a decision; an
+#: unhandled field is the shape that regrows** - so this is a table with reasons rather than a
+#: skip-list, and the guard requires every field to be in exactly one of the two.
+REPORT_FIELD_EXCEPTIONS: Final[dict[str, str]] = {
+    "applied": (
+        "a dict of section -> count rendered as an aligned table, not a sentence: it is the "
+        "restored half, and the only field that is not an omission"
+    ),
+    "unmatched_events": (
+        "needs the per-event sentence chosen by `unmatched_events_note`, because the reason is "
+        "knowable only when `events_here` is zero - one field, two sentences. `(aia)`"
+    ),
+    "events_here": (
+        "a DISCRIMINATOR, not a report: it exists to pick between the two sentences above and is "
+        "never shown on its own, exactly as `BakePlan.confirmed_anywhere` is not"
+    ),
+}
+
+#: ⚠ **THE PAIR RULE, taken from the one place the industry gets this right.** IBM's restore
+#: messages report both halves in a single message - `CPF3773` *"&1 objects restored. &2 not
+#: restored"*, and `CPF3839`/`CPF9003` the same shape. **Never a count of successes without the
+#: count of omissions beside it, in the same sentence**, so silence is structurally impossible
+#: rather than merely unlikely. Printed even when the second number is zero: a zero the user reads
+#: is the difference between "nothing was left out" and "nobody looked".
+_SUMMARY_RULE = "both halves, one sentence, zeroes included"
+
+
+def withheld_count(report: ApplyReport) -> int:
+    """How many decisions did NOT come back. The second half of every summary sentence.
+
+    Derived from the fields themselves rather than a list, for `REPORT_FIELD_NOTE`'s reason: a new
+    omission field joins this count without anyone remembering to add it.
+    """
+    total = len(report.unmatched_events)
+    for name in REPORT_FIELD_NOTE:
+        value = getattr(report, name)
+        total += sum(value.values()) if isinstance(value, dict) else len(value)
+    return total
+
+
+def restored_count(report: ApplyReport) -> int:
+    """How many decisions DID come back. The first half."""
+    return sum(report.applied.values())
 
 
 def nothing_applied_note(report: ApplyReport) -> RestoreNote:

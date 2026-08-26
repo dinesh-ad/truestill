@@ -220,14 +220,6 @@ is invisible here is retired, not free.**
   the fix is not a strict repair. **P104.** Body:
   [`research/backlog/ahw.md`](research/backlog/ahw.md).
 
-- **(ahx) `not_applied` REACHES NO CONSUMER, SO A RESTORE NEVER SAYS THE ALBUMS WERE DROPPED.** Filed 2026-08-26 (P103). `apply_decisions` returns
-  `not_applied=("albums",)` (`decisions.py:590`) and `_print_restore_plan` (`cli.py:1440`) prints
-  five other fields and not this one - against its own docstring at `cli.py:1440`-`:1443`
-  promising *"the half that is easy to leave out - what would not [come back]"*. **A user
-  restoring is never told the albums section was discarded**, on either surface. No test asserts
-  it. Checked: four hits repo-wide, one of them a name collision. Body:
-  [`research/backlog/ahx.md`](research/backlog/ahx.md).
-
 - **(ahy) AN IN-PLACE ORGANIZE AGAINST AN EMPTY CATALOG REBUILDS NOTHING, AND REPORTS SUCCESS.** Filed 2026-08-26
   (P103). An organized 353-file drive, fresh catalog, `organize <drive> <drive> --in-place
   --apply`: **`353 already in place`, exit 0, and 0 files / 0 copies recorded** - plus no
@@ -355,7 +347,7 @@ is invisible here is retired, not free.**
   does not race two OS processes.** A true collision has a known *shape* and a reproduced
   *window*, not an occurrence observed in the wild.
   🔑 **THE TWIN PATH WAS HARDENED AGAINST THE NEIGHBOURING SHAPE, WHICH IS THE EVIDENCE THIS IS
-  REAL.** `decisions.py:457-458`, verbatim:
+  REAL.** `decisions.py:463-464`, verbatim:
   > `# Day -> the name of the trip holding it. Read once and kept in step as trips are created, so`
   > `# a document that names one day twice cannot make `create_trip` fail on the day primary key.`
   ⚠ **That defends the WITHIN-RUN duplicate and not the cross-process one** - and because it reads
@@ -729,7 +721,7 @@ is invisible here is retired, not free.**
   2026-08-23 by the open-entry sweep, because this index carried a headline its own body calls
   FALSE.** It read *"`write_decisions` exists with ZERO CALLERS, so no decisions document has ever
   been written"* and added *"the write trigger is not [built]"* - and `acc.md` has recorded since
-  2026-08-22 that `write_decisions` has **two callers** (`decisions.py:981`, `cli.py:1515`) and
+  2026-08-22 that `write_decisions` has **two callers** (`decisions.py:1091`, `cli.py:1515`) and
   that **`catalog_session.open_catalog` is the standing trigger**, writing on the first open after
   upgrade and on every clean exit that dirtied the catalog. **Documents are written to drives.**
   🔑 **An index that contradicts its own body is worse than either being wrong**, because the index

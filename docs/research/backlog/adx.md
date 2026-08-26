@@ -23,7 +23,7 @@
     (`drive.py:47`, `:471`), so it **travels with the data** rather than describing the volume
     under it.
   - **A wholesale move self-heals with one command.** After `A -> B`: `truestill verify B` reported
-    **25 verified, 0 missing**, and rewrote the remembered path (`cli.py:1301` (`remember_drive_root`)) - after which
+    **25 verified, 0 missing**, and rewrote the remembered path (`cli.py:1307` (`remember_drive_root`)) - after which
     `truestill drives` read `connected` again. **No repair step, no reconnect flow, no data
     surgery.** `source_repoint.py:3-8` asserts exactly this; it is now measured rather than
     claimed.

@@ -25,10 +25,13 @@ words survive a round trip - and **not** the words themselves.
 
 from __future__ import annotations
 
+from dataclasses import fields
 from pathlib import Path
 
 import pytest
 from truestill_core.decisions import (
+    REPORT_FIELD_EXCEPTIONS,
+    REPORT_FIELD_NOTE,
     RESTORE_WORDING,
     SUPERSEDED_NOTE,
     ApplyReport,
@@ -37,7 +40,9 @@ from truestill_core.decisions import (
     SupersededReason,
     nothing_applied_note,
     reconcile_documents,
+    restored_count,
     unmatched_events_note,
+    withheld_count,
 )
 
 _CLI = Path(__file__).resolve().parents[3] / "packages/truestill-cli/src/truestill_cli/cli.py"
@@ -183,3 +188,61 @@ def test_the_reason_a_value_lost_is_classified_not_assumed(
     loss = report.superseded[0]
     assert loss.drive_label == "Drive B"
     assert loss.reason is expected
+
+
+def test_every_report_field_reaches_the_reader() -> None:
+    """The DERIVED inventory is the dataclass; the DECLARATION is the two tables. `(ahx)`
+
+    ⚠ **This is the guard the loop needs to be a fix rather than a repair.** Three fields were
+    computed and printed by nobody because the printer named five and there were eight. A new field
+    now fails here rather than being silently unprinted, which is the only difference between this
+    and the state it replaced.
+    """
+    names = {f.name for f in fields(ApplyReport)}
+    declared = set(REPORT_FIELD_NOTE) | set(REPORT_FIELD_EXCEPTIONS)
+
+    unhandled = sorted(names - declared)
+    assert not unhandled, (
+        f"{unhandled} is computed by ApplyReport and reaches no reader. Give it a wording in "
+        "REPORT_FIELD_NOTE, or declare it in REPORT_FIELD_EXCEPTIONS WITH the reason it cannot "
+        "be looped - a declared exception is a decision, an unhandled field is the defect."
+    )
+    stale = sorted(declared - names)
+    assert not stale, f"{stale} is declared and no longer exists on ApplyReport"
+
+
+def test_no_field_is_both_worded_and_excepted() -> None:
+    """⚠ Anti-vacuity: the two tables must partition, or the count above can be met by overlap."""
+    both = sorted(set(REPORT_FIELD_NOTE) & set(REPORT_FIELD_EXCEPTIONS))
+    assert not both, f"{both} is in both tables, so neither says what happens to it"
+
+
+def test_every_declared_exception_states_a_reason() -> None:
+    """A skip-list with empty strings would pass every assertion above and mean nothing."""
+    for name, reason in REPORT_FIELD_EXCEPTIONS.items():
+        assert len(reason) > 40, f"{name} is excepted without a reason worth reading"
+
+
+def test_every_worded_field_has_wording() -> None:
+    """The second hop: a field mapped to a note that has no sentence still reaches nobody."""
+    for name, note in REPORT_FIELD_NOTE.items():
+        assert note in RESTORE_WORDING, f"{name} maps to {note}, which has no wording"
+
+
+def test_both_halves_are_counted_from_the_fields_not_a_list() -> None:
+    """The pair rule's second number must move when a new omission appears. `CPF3773`'s shape."""
+    empty = ApplyReport()
+    assert restored_count(empty) == 0
+    assert withheld_count(empty) == 0
+
+    full = ApplyReport(
+        applied={"trips": 2, "settings": 1},
+        unmatched_events=("Sam",),
+        conflicting_trips=("Ooty",),
+        trips_without_days=("Dayless",),
+        not_applied=("albums",),
+        awaiting_content={"date_confirmations": 3},
+    )
+    assert restored_count(full) == 3
+    # 1 event + 1 conflict + 1 dayless + 1 not-applied + 3 awaiting
+    assert withheld_count(full) == 7
