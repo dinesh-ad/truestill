@@ -65,6 +65,18 @@ def _seeded(db: Path) -> Catalog:
     )
     catalog.record_skip("b" * 64)
     catalog.confirm_date(_SHA, "2015-07-05T09:00:00", confirmed_by="user")
+    # ⚠ **`confirmed_at` is pinned, because `confirm_date` stamps it with the CURRENT time and the
+    # leak test below is a substring scan.** A live timestamp renders as
+    # `...T06:45:10.790587+00:00`, so whenever the seconds are `10` and the microseconds open `79`
+    # the document literally contains `10.79` - the banned GPS latitude seeded above. Roughly one
+    # run in six thousand: it went red on Windows on 2026-08-26, on a commit that touched none of
+    # this. **A substring assertion needs a deterministic subject**, so the fixture supplies one
+    # rather than the test excluding a field - excluding it would also stop the scan from ever
+    # seeing a real leak into that column.
+    catalog._conn.execute(
+        "UPDATE date_confirmations SET confirmed_at = ?", ("2026-01-02T03:04:05.000006+00:00",)
+    )
+    catalog._conn.commit()
     return catalog
 
 
