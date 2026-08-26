@@ -10,7 +10,7 @@
 
   ## THE DEFECT
 
-  `commit_trips` (`trip_review.py:363-392`) iterates the reviewed decisions and **catches
+  `commit_trips` (`trip_review.py:328`) iterates the reviewed decisions and **catches
   nothing**. Each catalog write is atomic on its own through `Catalog._tx` - `create_trip` writes
   `trips` and `trip_days` in one transaction - but that is **per call, not per apply**. A raise on
   the seventh trip therefore leaves the first six committed, and **nothing anywhere records that
@@ -54,7 +54,7 @@
   * It is a **reporting** defect. The catalog stays consistent; the half-state is discoverable
     through `ExistingNames`; **a re-run converges** (proved: a second apply named the remaining
     four, the first six taking `update_trip_days`); and the session survives, because
-    `discard_session` runs only at `server.py:887`.
+    `discard_session` runs only at `server.py:941`.
   * The user is told the save **failed** while six succeeded - the inverse of `(afa)`, and the
     **safe** direction. **So it ranks below `(abm)`-shaped defects**, not above `(ahi)`/`(ahj)`.
 

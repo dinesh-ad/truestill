@@ -94,7 +94,7 @@ because somebody went looking, and this table still cannot show an app-only capa
 
 Recorded because *"organize is covered"* is true and hides them: `--all-files`, `--by-device`,
 `--no-rename`, `--no-timestamps`, `--phash-threshold`, `--pool` / `--workers`, `--report` (all
-`_add_common_options`, `cli.py:352-419`), `verify --pool/--workers` (`cli.py:634-635`), and
+`_add_common_options`, `cli.py:384-453`), `verify --pool/--workers` (`cli.py:661-662`), and
 `undo-organize --run-id` / `--list` (`cli.py:429-430`). `--rclone` is **out of scope by design**:
 *"The app always writes to a local drive - there is no rclone path here"* (`service/organize.py:1046`).
 

@@ -73,3 +73,20 @@ three weeks. **A record is not paperwork about the past; it is the thing that ke
 unfinished half visible.** That is the argument for writing one on the day, and this reconstruction
 is what it costs not to - a shorter document, missing two of seven steps, written by someone
 reading commits instead of by someone who was there.
+
+## ⚠ DATED CORRECTION - 2026-08-27
+
+**A record, so the text above is not edited.** Two facts in it have moved:
+
+- *"Two of soak one's six findings are still open, and they are the only soak findings that
+  are"* - **`(aep)` shipped**, and soak six (2026-08-25) raised three more. Derived from
+  `BACKLOG.md`'s open section on 2026-08-27, the open soak findings are **four**: `(ael)` from
+  this run, and `(ahs)`, `(aht)`, `(ahv)` from soak six.
+- *"Everything soaks two, three and four raised is closed"* - still true, and now also true of
+  soak five. Soak six is the one with open findings.
+
+🔑 **The argument the passage makes is untouched and is the reason this correction sits beside it
+rather than replacing it.** `(ael)` and `(aep)` sat open for three weeks because they lived in
+bullets rather than in a record with a *"what is still open"* section. That is why this file was
+written, and it is why the correction is dated rather than folded in - a record edited to stay
+correct stops being one.

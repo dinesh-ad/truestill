@@ -35,7 +35,7 @@
 
   Three is a pattern rather than a coincidence, so the fix is probably **one decision about how
   refusal is reported everywhere** - a single vocabulary, worded once in `models` the way
-  `folder_skip_remedy` and `UNCOMPARED_LABEL` already are - and not three separate wordings
+  `folder_skip_remedy` and `uncompared_remedy` already are - and not three separate wordings
   invented at three call sites. Starting from the wording would be a mistake here; starting from
   *what a person does about it* is what made `(aer)` work.
 

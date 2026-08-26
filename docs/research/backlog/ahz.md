@@ -35,7 +35,7 @@
   recovery document genuinely *is* newer, the sentence is now accurate, and the loss still happens.
   Wording it correctly does not stop it.
 
-  ⚠ **And the trip half is ruled the other way, deliberately.** `_trip_key` (`decisions.py:392`):
+  ⚠ **And the trip half is ruled the other way, deliberately.** `_trip_key` (`decisions.py:427`):
 
   > A trip's identity is its DAY SET, not its name. `(ack)` ... **same days with a different name
   > is a RENAME** - the newer name wins - rather than two trips or a conflict to escalate.
@@ -266,7 +266,7 @@
   Events rename on a signature match (`decisions.py:943`). **Trips never rename at all.**
   `_apply_trips` finds every day already claimed by a differently-named local trip, so
   `holders != {None}` (`decisions.py:534`) and the trip lands in `conflicting.append(name)`
-  (`decisions.py:550`) - reaching `conflicting_trips`, **a field no surface prints**. Checked:
+  (`decisions.py:929`) - reaching `conflicting_trips`, **a field no surface prints**. Checked:
   `grep -rn "conflicting_trips" packages/*/src` returns its definition and construction only.
 
   🔑 **The measurement's most reassuring result was an artefact of the setup, not a property of the
@@ -326,7 +326,7 @@
   | **A** | the recovery destination is not registered as a drive | ⛔ **RULED OUT.** `IMPLEMENTATION_STANDARDS.md` §3.1 binds creation on **both** surfaces; `cli.py:2606` rules that an identity minted afterwards *"leaves the run's own files unattached"*; `(aei)` makes destination identity an input to dedup. An opt-out flag was already refused at `cli.py:2552` |
   | **B** | suppress publishing while the catalog is known-rebuilt | ⚠ **PARTLY RULED OUT, and needs a concept that does not exist.** No rebuilt/young/age notion anywhere; `test_catalog_session.py` rules the trigger deliberately coarse and calls the refreshed organize stamp intended; `decisions-on-drive-research.md` states every reachable drive is meant to hold every decision. And `(aci)`/`would_lose` is the already-recorded remedy - B would be a second one |
   | **C** | `restore` reads one root only, behind a flag | ✅ **NOT RULED ON.** The ruling is only *"the named root is read from the PATH, never from a lookup"* (`cli.py:1408`). Reading the others is stated as a **convenience**, justified by *"on a fresh machine that list is simply empty"* - which this scenario falsifies. Constraint: `apply_documents` owns the per-drive loop structurally; a flag must not move it |
-  | **D** | creation-date-aware ranking | ✅ **NOT RULED ON, but needs new data.** A per-section override precedent exists - `_merge_confirmations` (`decisions.py:344`) resolves on the row's stamp, not the document's. ⚠ But drive age is **not derivable**: `marker.created` exists (`drive.py:947`) and is never written to the catalog or read during reconcile, and `drives.first_seen` is when *this* catalog first saw the drive, so on a rebuilt catalog it is the rebuild day - **actively wrong in the one case restore exists for** |
+  | **D** | creation-date-aware ranking | ✅ **NOT RULED ON, but needs new data.** A per-section override precedent exists - `_merge_confirmations` (`decisions.py:379`) resolves on the row's stamp, not the document's. ⚠ But drive age is **not derivable**: `marker.created` exists (`drive.py:947`) and is never written to the catalog or read during reconcile, and `drives.first_seen` is when *this* catalog first saw the drive, so on a rebuilt catalog it is the rebuild day - **actively wrong in the one case restore exists for** |
   | **E** | widen `_LOSS_KEYS` so a name regression under an unchanged signature is a loss | ✅ **NOT RULED ON.** Repairs the guard already ruled to cover this case rather than adding a mechanism. The evidence points here; it is written down, not chosen |
 
   ## RELATED

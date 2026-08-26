@@ -46,7 +46,7 @@
 
   | | after a lost catalog |
   |---|---|
-  | trips | **restored** - `_apply_trips` (`decisions.py:442`) creates them from the days the document carries |
+  | trips | **restored** - `_apply_trips` (`decisions.py:897`) creates them from the days the document carries |
   | events | **lost** - restore renames by signature and cannot create; that is `(ahv)` |
   | albums | **never** - `decisions.py:590`, ruled at [`acg.md`](acg.md) |
 

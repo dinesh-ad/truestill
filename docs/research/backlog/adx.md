@@ -59,7 +59,7 @@
     logical drive (**built**), `drives init --relabel` for a diverged clone (**built**, as
     `--force-new-identity`), and **"warn when one uuid is seen at two distinct mount paths in a
     single run"** - which exists **only on the registration path**. `_print_adoption_refusal`
-    (`cli.py:1165` (`_init_drive`)) refuses and explains both ways forward when someone registers a folder that
+    (`cli.py:1191` (`_init_drive`)) refuses and explains both ways forward when someone registers a folder that
     already holds a recorded library. **`verify` has no equivalent check**: it proves the content,
     moves the hint, and says nothing about the path it just stopped pointing at.
   - **What a user could do before this shipped:** nothing they would find. The remedy existed
@@ -110,7 +110,7 @@
     **`offline`**, and `truestill status` listed all 25 files with **no error and no mention that
     anything had moved**. The catalog was completely intact; the only thing wrong was a stale
     hint.
-  - **Why it stays stuck.** `drive_reach` (`drive.py:200-215`) reads the marker **at the remembered
+  - **Why it stays stuck.** `drive_reach` (`drive.py:569-606`) reads the marker **at the remembered
     path and nowhere else** - by design, since searching for a drive is not something a custody
     tool should do speculatively. So the state persists until someone happens to run
     `truestill verify <new path>`, **and nothing anywhere names that command.** A user is told
@@ -125,7 +125,7 @@
   drive that is gone. Milder here: it produces no error, and the non-clearing is deliberate.
 
   - **Measured** with both keys pointed at the vanished `A`: `library_path` cleared **itself** to
-    `None` (`take_live_path_hint`, `drive_support.py:122-137`), while `library_root` kept the dead
+    `None` (`take_live_path_hint`, `drive_support.py:175`), while `library_root` kept the dead
     path and `needs_library_root` stayed `False`.
   - The browser prefills the organize destination with `library_path || library_root`
     (`app.js:1700`), so the field offers **the path that no longer exists**.

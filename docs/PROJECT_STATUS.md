@@ -55,8 +55,12 @@ Notes:
   `(kk)`'s `GPSDateStamp` half was in scope and was **not** built.
 - ⚠ **THE FIRST SOAK RAN ON 2026-08-20 AND THE LINE ABOVE THIS ONE IS WHAT IT OVERTURNED.** Seven
   steps against **4,111 real photos and videos**, 11 GB, with the corpus counted independently
-  before the product was allowed an opinion. **It produced five entries** - `(aei)`, `(aej)`,
-  `(aek)`, `(aem)`, `(ael)` - and **four are shipped**; `(ael)` alone is open.
+  before the product was allowed an opinion. **It produced SIX entries** - `(aei)`, `(aej)`,
+  `(aek)`, `(aem)`, `(ael)`, `(aep)` - and **five are shipped**; `(ael)` alone is open.
+  ⚠ **This said *"five entries … four are shipped"* until 2026-08-27**, and the missing one is
+  `(aep)`, split out of `(aek)` on 2026-08-21 as its third finding.
+  [`soak-one-record.md`](soak-one-record.md) has listed six since it was written; this bullet
+  predates the split and never absorbed it. `(aep)` has since shipped.
   - ⚠ **CORRECTION, 2026-08-21: THOSE 4,111 FILES INCLUDED `Input/Testing-new`, WHICH
     `IMPLEMENTATION_STANDARDS.md` §5 EXCLUDES.** Measured that day: `Input/2013` + `Input/2014` is
     **2,276 files / 6.3 GB**, `Testing-new` is **1,836 / 5.0 GB**, and `Input` entire is
@@ -85,14 +89,25 @@ Notes:
   - ✅ **What the soak also proved sound:** the `.partial` -> rename -> record write path survived
     both a `SIGKILL` and a full disk with no corrupt file and no phantom row, and `(adx)` gap 1's
     clone disclosure fired correctly on an 11 GB clone.
-- ⚠ **THREE MORE SOAKS RAN, AND THE BULLET ABOVE WAS THE ONLY ONE HERE UNTIL 2026-08-22.** Soak
-  one is above because it overturned a claim in this file; two, three and four are here because a
-  *"where does the project stand"* document that knows about one of four soaks is stale in the
-  direction that costs most. Each has a **plan** and a **record**, both mapped in `CLAUDE.md`.
+- ⚠ **FIVE MORE SOAKS RAN, AND THE BULLET ABOVE WAS THE ONLY ONE HERE UNTIL 2026-08-22.** Soak
+  one is above because it overturned a claim in this file; the rest are here because a
+  *"where does the project stand"* document that knows about one of six soaks is stale in the
+  direction that costs most. Each has a **record**, and soaks two to four also have a **plan**;
+  all are mapped in `CLAUDE.md`.
+  ⚠ **THIS BULLET ENUMERATED FOUR SOAKS UNTIL 2026-08-27, AND SIX HAD RUN.** Soak five and soak
+  six both ran 2026-08-25 ([`soak-five-record.md`](soak-five-record.md),
+  [`soak-six-record.md`](soak-six-record.md)) and neither had a line here - which is this bullet's
+  own failure, one iteration on, in the paragraph written to name it. **Soak five** covered the
+  whole library and every feature: zero resolver decisions changed across 10,745 files, `Input/`
+  byte-identical after every run. **Soak six** covered the reversal paths and a rebuild drill, and
+  **falsified the founding *"categories are recomputable"***.
   ⚠ **Soak one's record is a RECONSTRUCTION** ([`soak-one-record.md`](soak-one-record.md), written
   2026-08-22): none was kept on the day, so two of its seven steps are unrecoverable. The bullets
-  above were its only account for three weeks, which is why its two open findings are the only
-  soak findings still open.
+  above were its only account for three weeks, which is why its two findings sat open longest.
+  ⚠ **This clause read *"its two open findings are the only soak findings still open"* until
+  2026-08-27.** `(aep)` has since shipped and soak six raised three more, so the open set is
+  `(ael)`, `(ahs)`, `(aht)`, `(ahv)` - see the correction above. The argument the clause was
+  making survives; only its arithmetic was time-bound.
   - **Soak two** (2026-08-21, `soak-two-record.md`) - scale and sequence on 2,276 files / 6.3 GB.
     **Five findings**, and ⚠ **three harness defects that each nearly became a false one**. Its
     stock-take is what set the next two soaks' subjects.
@@ -112,8 +127,14 @@ Notes:
     **Twelve**, counted rather than recalled: `(aer)`-`(aev)` from soak two, `(afc)`-`(afe)` from
     three, `(afh)`-`(afk)` from four - all in `SHIPPED.md` as of 2026-08-22. Four more were **split
     out while fixing them** and are also shipped: `(afl)`, `(afm)`, `(afn)`, `(afo)`.
-    ⚠ **Soak ONE's `(ael)` is the one soak finding still open**, so *"the soaks are all
-    closed"* is false and this bullet is the correction to it. **The pattern is not "the product
+    ⚠ **FOUR soak findings are still open**, so *"the soaks are all closed"* is false and this
+    bullet is the correction to it. Derived from `BACKLOG.md`'s open section rather than recalled:
+    `(ael)` from soak one, and `(ahs)`, `(aht)`, `(ahv)` from soak six.
+    ⚠ **This read *"soak ONE's `(ael)` is the one soak finding still open"* until 2026-08-27, and
+    it was wrong in both directions.** It was wrong when written - `soak-one-record.md` says
+    *"two of soak one's six findings are still open"*, `(ael)` **and `(aep)`** - and it is right
+    about `(ael)` today only by accident, because `(aep)` shipped while soak six raised three more.
+    A count nobody derives is a count that is correct twice a day. **The pattern is not "the product
     is broken"**: across four soaks the safety invariants held every time they were tested, and
     nearly every finding was in what the product **reports** - a run that could not say what it
     did, a folder described as full when it could not be opened, an identity minted on evidence
@@ -191,8 +212,8 @@ This is the whole point of the order, and it is what `app.js` failed. Live evide
 | computed by a service | read by the surface |
 |---|---|
 | `BakeSummary.absent` (`service/bake.py:166`, emitted `:217`) | **0** in `bakeCompletion` (`app.js:4194`). ⚠ Its sibling `BakePreview.absent` (`:238`) **is** read, at `app.js:4158` |
-| `DriveAttachment.unmatched` (`service/drives.py:131`) | **0**, and correctly so since `(abm)` shipped: the fact is named by `truestill rescan`, not counted twice |
-| `DriveAttachment.unreadable_dirs` (`service/drives.py:136`) | ✅ **surfaced by `(abm)`** 2026-08-25. It was the worst of the four: a file under such a folder gets no copy row, so both surfaces said the backup was complete |
+| `DriveAttachment.unmatched` (`service/drives.py:132`) | **0**, and correctly so since `(abm)` shipped: the fact is named by `truestill rescan`, not counted twice |
+| `DriveAttachment.unreadable_dirs` (`service/drives.py:137`) | ✅ **surfaced by `(abm)`** 2026-08-25. It was the worst of the four: a file under such a folder gets no copy row, so both surfaces said the backup was complete |
 | `migrate.py`'s `stopped` and `refused` | **0** until `(ahc)` closed it 2026-08-25 - a stopped run read as *"Moved N files."* |
 
 ⚠ **THE TWO `absent` ROWS ABOVE USED TO BE ONE, AND IT WAS COUNTED THREE DIFFERENT WAYS.** This
@@ -224,8 +245,8 @@ what stops is changing *what a route returns* under a consumer that already read
    it counts files and names only drives, so its `files` would be `[]` at any size, while
    `file_copies.date_baked_at` holds which copies it wrote permanently. A condition that a correct
    run fails is a condition that gets quietly ignored, so the wording follows the ruling rather
-   than the other way round. Six of the nine operations meet it; `trip apply`, `clean empty` and
-   `archive unpack` remain (`(ahi)`). Pinned by `test_the_app_records_what_a_run_did.py`, which
+   than the other way round. Six of the nine operations meet it; `clean empty`,
+   `archive unpack` and **`undo`** remain (`(ahi)`). ⚠ **THE ABSENT THREE READ *"trip apply, clean empty, archive unpack"* UNTIL 2026-08-27 AND `trip apply` WAS NEVER ONE OF THEM.** Derived from `server.py` by AST rather than recalled: `trip apply` calls `service.migration_apply`, which records - the maintainer established this on 2026-08-26 by reading the ROUTE's call graph rather than the module sharing its name. The operation that actually writes nothing is **migrate's `undo`**: `migration_undo` READS the reversible run's id (`service/migrate.py:395`) and writes no record of its own. Absent from a run history, an undo is the one operation whose absence makes the history lie about the state of the disk. Pinned by `test_the_app_records_what_a_run_did.py`, which
    lists each surface *with its reason*.
 2. **Every surface reports its own stop.** `(ahc)` closed migrate's last one.
 3. **No route computes a field no consumer reads.** ⚠ **BLOCKED ON `(ahn)`, not on any count.**
@@ -245,7 +266,7 @@ what stops is changing *what a route returns* under a consumer that already read
 
 | | condition | status |
 |---|---|---|
-| 1 | every mutating run leaves a line in the run history | ❌ **6 of 9** since `(agm)` - `trip apply`, `clean empty` and `archive unpack` remain, which is `(ahi)`. ⚠ Reworded 2026-08-25: *"writes a record"* could not be met by bake, which correctly writes a line and no detail |
+| 1 | every mutating run leaves a line in the run history | ❌ **6 of 9** since `(agm)` - `clean empty`, `archive unpack` and **`undo`** remain, which is `(ahi)`; see §1b's note on why `trip apply` was named here wrongly until 2026-08-27. ⚠ Reworded 2026-08-25: *"writes a record"* could not be met by bake, which correctly writes a line and no detail |
 | 2 | every surface reports its own stop | ✅ `(ahc)` closed migrate's last one |
 | 3 | no route computes a field no consumer reads | ❌ **BLOCKED ON AN UNTYPED CONSUMER**, and that is a different blocker from *"nothing declares the join"* - `(ahn)` stages 1, 2 and 4a built it, and **4a left no route payload untyped**: the seven dict literals are gone and the guard's ceiling is zero. The CONSUMED end is still a text search over `app.js`, so **no number here is a ceiling** - both methods err toward calling a dead field live. ⚠ **Stage 4b STOPPED at its own gate** (re-derived count 25, not 3) and is where the next turn starts. **Ticks at stage 5**, when a read is a type reference |
 | 4 | no mutating behaviour lives only in the app | ✅ **met AND GUARDED** since `(ahj)` - every mutating operation names a CLI subcommand the parser defines, or a recorded deferral |
@@ -257,9 +278,15 @@ what stops is changing *what a route returns* under a consumer that already read
   subcommand that exists, **not** that the subcommand does the same work; a route naming `verify`
   while copying files would pass. And the one genuinely deferred capability - naming a trip - is
   **invisible to it**, because that route declares no operation at all.
-* **Condition 1** has `test_the_app_records_what_a_run_did.py`, covering **6 of 9** operations
-  (`(ahi)`), and what it proves is **wiring**: that the code contains a call to a record entry
-  point, not that a record is written on every run. `(agj)` is the defect it would not catch.
+* **Condition 1** has `test_the_app_records_what_a_run_did.py`, covering **5 of 9** operations
+  (`(ahi)`) while **6 of 9** meet the condition - `trip apply` records and has no row - and what
+  it proves is **wiring**: that the code contains a call to a record entry point, not that a
+  record is written on every run.
+  🔑 **AND ITS TABLE IS KEYED DIFFERENTLY FROM THE CODE IT GUARDS, WHICH IS WHY THE ARITHMETIC
+  NEVER LINED UP.** Two of its five rows are the same operation under another name: `bake` is
+  `operation="set dates"` (`server.py:683`, added by the bake-as-a-job commit) and
+  `organize_undo` is `operation="undo organize"`. A guard whose keys are not the strings the
+  routes declare cannot be checked against them by anything, and nothing does. `(agj)` is the defect it would not catch.
   ⚠ **All five of its rows now read `True`**, so the table no longer demonstrates its own
   negative; the floor was moved onto the DETECTOR, which must answer `False` for the three
   services that still write nothing. A table that legitimately goes uniform must not cost a guard

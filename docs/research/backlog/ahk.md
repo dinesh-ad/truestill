@@ -12,7 +12,7 @@
   `create_trip` (`:378`). **Two transactions.** `BEGIN IMMEDIATE` serialises each of them and does
   nothing about the gap between them.
 
-  The route around it holds nothing. `events_apply` (`server.py:823-842`) is a plain handler: no
+  The route around it holds nothing. `events_apply` (`server.py:876`) is a plain handler: no
   `_start_drive_job`, no `jobs.claim`, no `lock_for`. ⚠ **Established by reading the handler, not
   by grepping three symbol names** - the handler's whole body is `sessions.get`, a
   `run_in_threadpool` call and a `JSONResponse`.

@@ -6,7 +6,7 @@
   grouping (`trip-grouping-research.md` §5), and the scope is much wider than trips.
   - ✅ **CORRECTED 2026-08-09: THE CAPTURE HALF SHIPPED AT v17 AND THIS ENTRY WAS WRONG.**
     Traced end to end rather than assumed: `exif.py:72-73` requests `GPSLatitude`/`GPSLongitude`,
-    `models.py:310` converts them into `CaptureContext`, `catalog.py` writes
+    `models.py:477` (`CaptureContext.from_metadata`) converts them, `catalog.py` writes
     `files.gps_latitude`/`gps_longitude`. Measured on the real catalog: of 395 files ingested
     after v17, **388 carry a camera and 138 carry coordinates**; the 2,300 ingested before it
     carry neither, because v17 deliberately does no backfill. `GPSDateStamp` is still not stored.

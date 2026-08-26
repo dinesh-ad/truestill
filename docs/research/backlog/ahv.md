@@ -40,7 +40,7 @@
   (`catalog.py:2703`) runs only when a human names a proposed cluster - so **every** name lands in
   `unmatched`, whatever the photos did.
 
-  Contrast trips, which restore unconditionally because `_apply_trips` (`decisions.py:442`)
+  Contrast trips, which restore unconditionally because `_apply_trips` (`decisions.py:897`)
   **creates** them from the days the document carries, and `trip_days.day` is a primary key, so a
   day list is an identity rather than a hint. Events carry a `signature` and no members
   (`decisions.py:601-604`) - the document has no material to create from.

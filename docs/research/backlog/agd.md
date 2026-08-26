@@ -58,7 +58,7 @@
   ## THE WORDING, ALREADY RULED
 
   Settled during `(aft)` so it is not re-derived. A label/remedy pair in `models.py`, in the
-  register of `UNCOMPARED_LABEL`/`UNCOMPARED_REMEDY` (`models.py:301-302`) - the existing
+  register of `uncompared_label`/`uncompared_remedy` (`models.py:345`, `:350`) - the existing
   degraded-but-fine notice, whose remedy deliberately states what still worked.
 
   ```
@@ -86,7 +86,7 @@
   - `run_record.py` `build_run_record`'s `"run"` block - today `stopped` is the only slot and it
     is stop-only. `RUN_RECORD_FORMAT = 1` (`run_record.py:30`) is documented as *"bumped when a
     reader would have to change"*.
-  - `cli._print_run_reports` (`cli.py:2628-2658`), beside `_print_uncompared` /
+  - `cli._print_run_reports` (`cli.py:2779-2810`), beside `_print_uncompared` /
     `_print_suppressed_noise`.
   - The app payload, the way `uncompared` was added - and §9 `:1290` requires the group be
     **absent, not zero**, when there is nothing to say.

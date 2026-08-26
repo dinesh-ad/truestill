@@ -8,13 +8,19 @@
   that alters what gets written into a marker on a user's disk. Mixing them would put a change of
   behaviour inside a fix.
   - ⚠ **RE-COUNTED 2026-08-22: FIVE SITES, NOT THREE**, and the line numbers below have all moved
-    - `service/drives.py:336`, `:345`, `:346`, `service/organize.py:1087`, `cli.py:2689`. The
+    - `service/drives.py:364`, `:382`, `:383`, `service/organize.py:1126`, `cli.py:2730`. The
     registration work since (`(afc)`, `(afn)`) added paths without changing this default, which is
     the entry's own point arriving twice: a literal repeated at each site grows a site every time
     someone adds one. **Cited by symbol from here on**; the original count is kept below because a
     figure that grew is evidence and a figure quietly corrected is not.
   - Three of the four registration sites mint `label=path.name or "Library"`
-    (`service/drives.py:381`, `service/organize.py:847`, `cli.py:2033`). `Path("/").name` is `""`,
+    (`service/drives.py:382`, `service/organize.py:1126`, `cli.py:2730`).
+    ⚠ **THOSE THREE READ `:381`, `:847` AND `:2033` UNTIL 2026-08-27, AND THE MIDDLE ONE WAS
+    279 LINES OUT.** The bullet above says *"cited by symbol from here on"* and the numbers six
+    lines below it were then repaired twice by OFFSET - `cli.py` went 2017 -> 2025 -> 2033 in one
+    day while the real site was 2730. `cli-app-parity.md`'s ruling covers exactly this: *"an
+    offset is a guess about a diff, and a citation repaired from a guess is a citation nobody has
+    read"*. Re-resolved by grepping the literal. `Path("/").name` is `""`,
     so **organizing to a filesystem root** - or any path whose final component is empty - produces
     the literal label `Library`. Two of them are indistinguishable by name, and unlike a folder
     called `Backup` this one was never a name the user chose.

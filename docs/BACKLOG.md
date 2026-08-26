@@ -374,7 +374,7 @@ is invisible here is retired, not free.**
   *reported*, this is the collision.
   `commit_trips` reads `catalog.trip_for_day` for every day (`trip_review.py:373`) and then
   inserts (`:378`) - **two transactions**, so `BEGIN IMMEDIATE` does not close the window. The
-  route around it holds **nothing**: `events_apply` (`server.py:823-842`) has no
+  route around it holds **nothing**: `events_apply` (`server.py:876`) has no
   `_start_drive_job`, no `jobs.claim` and no `lock_for`. Meanwhile `truestill restore` reaches
   `create_trip` through `decisions.py:477` in another process.
   ⚠ **The window is reproduced, and the reproduction's limit is stated**: with a second real
@@ -429,7 +429,7 @@ is invisible here is retired, not free.**
   named and the four return as proposals; **a re-run converges** - proved, a second apply named
   the remaining four and the first six took `update_trip_days` rather than re-create; and the
   **session survives**, because `discard_session` is called from exactly one place
-  (`server.py:887`, the apply-to-**disk** `on_started`), so the typed names are still there.
+  (`server.py:941`, the apply-to-**disk** `on_started`), so the typed names are still there.
   ⚠ **The user is told the save FAILED while six succeeded** - `events_apply` is a plain route, a
   non-busy `sqlite3.Error` keeps its 500 by design (`server.py:105-108`), and `guarded` renders a
   fatal banner. That is **failure hiding a partial success**: the inverse of `(afa)`, and the
@@ -758,7 +758,7 @@ is invisible here is retired, not free.**
   2026-08-23 by the open-entry sweep, because this index carried a headline its own body calls
   FALSE.** It read *"`write_decisions` exists with ZERO CALLERS, so no decisions document has ever
   been written"* and added *"the write trigger is not [built]"* - and `acc.md` has recorded since
-  2026-08-22 that `write_decisions` has **two callers** (`decisions.py:1091`, `cli.py:1515`) and
+  2026-08-22 that `write_decisions` has **two callers** (`decisions.py:1537`, `cli.py:1659`) and
   that **`catalog_session.open_catalog` is the standing trigger**, writing on the first open after
   upgrade and on every clean exit that dirtied the catalog. **Documents are written to drives.**
   🔑 **An index that contradicts its own body is worse than either being wrong**, because the index
