@@ -91,8 +91,9 @@
   - **RESIDUE 3, and what changed about it: the perceptual tier's overloaded `None`.** Recorded
     2026-08-02 while verifying a proposed HEIC feature that turned out not to exist.
     `perceptual_hash` returns `None` and discards the reason, so one sentinel carried four
-    meanings: a video (correct - none exists for it), not an image at all, above the 300 MP
-    ceiling, or **could not be decoded**. `DedupIndex.check` skips the tier on `None` and
+    meanings: a video (correct - none exists for it), not an image at all, above the perceptual
+    pixel ceiling (**600 MP**, not the 300 MP the constant names - `(aib)`), or **could not be
+    decoded**. `DedupIndex.check` skips the tier on `None` and
     `register` omits the file, both silently.
     **The scan fix evacuated the unreadable meaning from those four**: a file that cannot be
     opened is now named by the probe, so its perceptual `None` is no longer the only trace of it.

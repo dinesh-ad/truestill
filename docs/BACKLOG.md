@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aib). Next free: (aic).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aie). Next free: (aif).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -198,28 +198,78 @@ is invisible here is retired, not free.**
   falsehood has had no observed consequence. Body:
   [`research/backlog/aib.md`](research/backlog/aib.md).
 
+- **(aic) EXIFTOOL'S OUTPUT IS DECODED WITH THE MACHINE'S CODE PAGE, SO A NON-ASCII FILENAME LANDS IN `Undated/`.** Filed
+  2026-08-26 (P118), read from source. Every text-mode subprocess in the workspace passes
+  `text=True` with **no `encoding=`**, so Python decodes with `locale.getpreferredencoding()` -
+  **cp1252 on Windows**, the platform D9 launches on. 🔑 **The INPUT side is armoured and the
+  OUTPUT side is not**: `_read_chunk` passes `-charset filename=utf8` (`exif.py:315`) and then
+  reads the reply at `exif.py:320` with no encoding at all. A mojibaked `SourceFile` misses
+  `by_name` (`exif.py:340`), falls through to `or Path(source)` - **a path that does not exist** -
+  so `metadata.get(path, {})` returns `{}` and a correctly-dated photograph takes the handling
+  designed for an unreadable one: **`Undated/`**. Silent, and wrong in the direction that looks
+  like the product failing at its one job. ⚠ **This repo already knows the rule and applied it
+  everywhere else**: three test files carry the comment *"`encoding="utf-8"` IS LOAD-BEARING …
+  Windows defaults to cp1252"*, aimed at file reads. **Subprocess is the one seam that was
+  missed.** **Four call sites, one home**: `exif.py:270`, `exif.py:320`, `selfcheck.py:169`,
+  `destinations/rclone.py:49` - and `binaries.run`/`binaries.popen` is the single door all
+  subprocess traffic goes through, so the fix is there, not at four call sites.
+  Body: [`research/backlog/aic.md`](research/backlog/aic.md).
+
+- **(aid) THE ORIGINAL FILENAME IS NEVER SANITIZED, AND THEN GAINS SIXTEEN CHARACTERS.** Filed
+  2026-08-26 (P118), read from source. `layout.py`'s four defences - illegal characters, reserved
+  device names, trailing dots, the 255-byte cap - apply to **token values only** (the event name,
+  the category), which `filename-safety-research.md` scopes correctly as *"user-supplied names"*.
+  But `dated_filename` returns `f"{stamp}_{original_name}"` untouched (`naming.py:104`).
+  `Trip: day 1.jpg` and `nul.jpg` are legal on ext4 and **refuse on NTFS**; a 248-byte name
+  becomes 264 and refuses everywhere. ⚠ **`PATH_LENGTH_WARN` exists (`layout.py:99`) and organize
+  never imports it** - the two readers are `layout.py:517` and `migrate.py:623`, so the one screen
+  that warns about length is the settings preview, where nothing is being moved.
+  `ENAMETOOLONG` and `EINVAL` are not in the errno table, so what the user gets is raw OS words.
+  Body: [`research/backlog/aid.md`](research/backlog/aid.md).
+
+- **(aie) A COPY ONTO FUSE OR VFAT WRITES THE BYTES, FAILS ON THE TIMESTAMP, AND BLAMES THE DRIVE.** Filed
+  2026-08-26 (P118), read from source. `safe_copy` stages through a temporary and calls
+  `shutil.copy2` (`safe_copy.py:189`); `copystat`'s `utime` is unguarded and its `chmod` catches
+  only `NotImplementedError`, never `EPERM`. On a FUSE mount or a vfat stick the bytes land, the
+  metadata copy raises, and the **complete** staged file is discarded. ⚠ **And the message is
+  false**: `EPERM` maps to *"the drive is read-only, or this account cannot write to it"* - the
+  drive was writable, and the product just proved it. The stop predicate narrows to `EROFS`, so
+  the run does not halt: **one identical false line per file**, for as many files as there are.
+  `moving-machines.md` documents organizing into a cloud FUSE mount and `BACKLOG.md`'s *What
+  works* lists SMB/NFS/mounted-cloud, so this is a supported path, not an exotic one.
+  Body: [`research/backlog/aie.md`](research/backlog/aie.md).
+
 - **(ahz) RECOVERING A LOST CATALOG DESTROYS THE NAMES IT IS RECOVERING, AND THE GUARD AGAINST IT IS BLIND.** Filed
   2026-08-26 (P106a), measured. A rebuild registers the recovery folder as a drive and publishes a decisions
   document to it; re-naming during recovery auto-publishes there, **newer** than the original, and
   `restore` then reports the user's real names as *"older and were not used"*. Measured: `dest`
   written **14:07:32** with the real names, `rebuilt` **14:08:27** with placeholders, **event
-  signatures byte-identical**. ⚠ **`would_lose` exists to prevent exactly this** and is blind,
-  because `_LOSS_KEYS` keys events on **signature** not name (`decisions.py:860`) - the first
-  defect class under the one place it was ruled to hold (`(aci)`). ⚠ **`--discard` makes it
-  permanent**: it is catalog -> drive, so it overwrites the last surviving copy and stamps it
-  newest. ⚠ **Trips never rename at all** - `conflicting_trips` reaches no surface - so the
-  measurement's *"the trip came back"* was an artefact of the setup. **The ranking is correct**;
-  recency is a proxy for authority and a recovery copy breaks it. Five fix shapes, none chosen.
+  signatures byte-identical**. ⚠ **`would_lose` existed to prevent exactly this and was blind**,
+  because `_LOSS_KEYS` keyed events on **signature** not name - the first defect class under the
+  one place it was ruled to hold (`(aci)`). ⚠ **`--discard` makes it permanent**: it is catalog ->
+  drive, so it overwrites the last surviving copy and stamps it newest.
+  **STEPS 1-3 SHIPPED 2026-08-26**: `_LOSS_KEYS` is identity-to-value (`decisions.py:1332`), so a
+  changed name counts as a loss; the drive you name is authoritative per key; and `Superseded`
+  names the swaps it withheld. ⚠ **Two residuals keep this entry open** - restore still cannot
+  **create** an event (that is `(ahv)`) and `rename_trip` is unbuilt. ⚠ **Three claims this entry
+  made are withdrawn**: *"trips never rename at all"* (closed by `(ahx)`), the `_discard_to_drive`
+  polarity bug (there is none - three gates stand between `would_lose` and a write), and *"five
+  fix shapes, none chosen"* (E was widened and per-key authority shipped). **The ranking is
+  correct**; recency is a proxy for authority and a recovery copy breaks it.
   Body: [`research/backlog/ahz.md`](research/backlog/ahz.md).
 
 - **(ahv) RESTORE CANNOT CREATE AN EVENT, ONLY RENAME ONE - AND IT BLAMES THE PHOTOS.** Filed
   2026-08-26 (P103). After a catalog rebuild the `events` table is empty, so `apply_decisions`
-  finds nothing by signature (`decisions.py:526`-`:531`) and **every event name is lost**.
+  finds nothing by signature (`ApplyReport.unmatched_events`, `decisions.py:522`) and **every event
+  name is lost**.
   Measured: 353 files, 1 trip + 3 events named through the app's HTTP routes - the trip came back,
-  all three events did not. ⚠ **The stated reason is false**: the product says *"its photos have
-  changed"* while the content was byte-identical and the re-derived signatures matched the
-  document's exactly, so **clustering is idempotent and the signature is stable**. Trips survive
-  because `_apply_trips` (`decisions.py:442`) creates them from days. Body:
+  all three events did not. ⚠ **The stated reason WAS false and `(aia)` FIXED IT on 2026-08-26**: the product said *"its
+  photos have changed"* while the content was byte-identical and the re-derived signatures matched
+  the document's exactly, so **clustering is idempotent and the signature is stable**. It now
+  chooses between *"this catalog holds no events yet"* and *"no group here has its fingerprint"*
+  on `ApplyReport.events_here` (`unmatched_events_note`, `decisions.py:826`). **The create is what
+  remains open** - saying the true reason does not put the name back. Trips survive because
+  `_apply_trips` (`decisions.py:897`) creates them from days. Body:
   [`research/backlog/ahv.md`](research/backlog/ahv.md).
 
 - **(ahy) AN IN-PLACE ORGANIZE AGAINST AN EMPTY CATALOG REBUILDS NOTHING, AND REPORTS SUCCESS.** Filed 2026-08-26

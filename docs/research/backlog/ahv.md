@@ -46,8 +46,14 @@
   (`decisions.py:601-604`) - the document has no material to create from.
 
   ⚠ **A category flip would break it too, and could not be reached to prove it.** The events query
-  filters `f.category = 'Camera'` (`catalog.py:1289`), so a flipped label removes a file from the
-  cluster and changes the signature (`events.py:187-190`). Attempted: re-organizing an
+  tests timeline membership (`camera_copies_for_events`, `catalog.py:1327`, via
+  `catalog.timeline_label_sql`), so a label flipped **into a side bin** removes a file from the
+  cluster and changes the signature (`events.py:187-190`). ⚠ **This paragraph said the query
+  filters `f.category = 'Camera'` until 2026-08-26** - true when the entry was filed and replaced
+  by `(ahw)` the same day, with the sense INVERTED: the test is now `category NOT IN (<side
+  bins>)`, so an unrecognised label is on the timeline rather than off it. **The trap survives the
+  correction and its shape narrows** - only a flip into a side bin can now drop a member, not any
+  flip at all. Attempted: re-organizing an
   already-organized library with `--by-device` **deduped to 0 files and never re-categorised**, so
   this path is currently unreachable and is recorded as a latent trap rather than a live defect.
   `min_files` (default 8, `events.py:95`) is a second-order amplifier: one lost member can drop a
@@ -67,7 +73,10 @@
   is `(ahz)`, and it is why this entry's remedies must not mention a two-step.
 
   Measured the same day: the premise below still holds exactly - same three signatures, same
-  dropped names, same sentence.
+  dropped names. ⚠ **NOT the same sentence, from 2026-08-26**: `(aia)` replaced it, and the
+  clause reading *"same sentence"* is corrected here rather than left to mislead a reader who
+  greps for it. `grep -rn "photos have changed" packages/` now returns exactly one hit - a comment
+  in `decisions.py` recording what the old sentence said.
 
   ## THE OPTIONS - A RULING, NOT A FIX
 
@@ -75,12 +84,17 @@
      document; the parser already round-trips an entry carrying `members` (`decisions.py:162`), so
      the shape is not new.
   2. **Re-propose before applying**, and match names to freshly clustered signatures.
-  3. **Say the true reason.** Cheapest, and independent of the other two: distinguish *"no event
-     here has that signature because this catalog holds no events at all"* from *"the photos
-     changed"*. Today one sentence covers both and only one of them is ever true after a rebuild.
+  3. ~~**Say the true reason.**~~ **SHIPPED 2026-08-26 in `4981d3e` as `(aia)`.** It was the
+     cheapest and independent of the other two: distinguish *"no event here has that signature
+     because this catalog holds no events at all"* from *"the photos changed"*, where one sentence
+     covered both and only one is ever true after a rebuild. `RestoreNote` now has two arms chosen
+     by `unmatched_events_note` (`decisions.py:826`) on `ApplyReport.events_here` -
+     `NO_EVENTS_HERE` and `NO_SUCH_GROUP`.
 
-  ⚠ **Option 3 is not optional.** A user told their photos changed will go looking for a problem
-  that does not exist - and what every soak has found is a failure in what the product **says**.
+  ⚠ **Option 3 was not optional and is now done. THE ENTRY STAYS OPEN ON OPTIONS 1 AND 2**, and
+  the distinction matters: a user told their photos changed goes looking for a problem that does
+  not exist, and that is fixed - but **saying the true reason does not put the name back**. The
+  create is the remaining half, and it is the data-loss half.
 
   ## RELATED
 

@@ -15,10 +15,15 @@
   [`aci.md`](aci.md) records it as the ruled protection for the rebuilt-catalog case, its deletion
   false positive accepted as the price.
 
-  🔑 **It cannot see this.** `_LOSS_KEYS` keys events on **signature**, not name -
-  `decisions.py:1275`. Identical signatures make `of(existing) - of(fresh)` empty
-  (`decisions.py:1294`), `would_lose` returns `()`, and the write proceeds. **Nothing anywhere rules
-  on a name regression under an unchanged signature.**
+  🔑 **It could not see this, and STEP 3 CLOSED IT on 2026-08-26 - the paragraph is kept because
+  the defect is what the entry is about, not because it is still live.** As filed: `_LOSS_KEYS`
+  keyed events on **signature**, not name, so identical signatures made the difference empty,
+  `would_lose` returned `()`, and the write proceeded - **nothing anywhere ruled on a name
+  regression under an unchanged signature.** Today `_LOSS_KEYS` is identity-to-**value**
+  (`decisions.py:1332-1345`) and `drive_holdings` (`decisions.py:1367`) computes `missing` **and**
+  `changed` as `NameSwap` pairs, so a changed value counts. §"STEP 3 SHIPPED" below has the
+  detail. ⚠ **This correction is written HERE rather than appended to the end** - a retraction a
+  reader reaches thirty lines after the false claim is not a retraction.
 
   That is [`../../handoff-2026-08-25.md`](../../handoff-2026-08-25.md) §1's first defect class - a
   guard that resolves and does nothing - sitting under the one place it was ruled to hold.
@@ -51,12 +56,15 @@
     surviving copy of the real names** - with the catalog's wrong ones, stamped `written=now`
     (`cli.py:1407`), making them the newest document anywhere and **unbeatable by any later
     reconcile**.
-  - ⚠ **Its guard misreads the situation, because it uses a different identity than the merge
-    does.** `_LOSS_KEYS` keys trips by **name** (`decisions.py:1274`); `reconcile_documents` keys
-    them by **day set** (`_trip_key`, `decisions.py:392`). So a drive holding *"Grandma's 90th"*
-    for the days the catalog calls *"Trip 2019"* registers as a loss, and the preview prints
-    *"These sections exist there and NOT here, and will be gone: trips"* (`cli.py:1555`) - which
-    reads as a warning about the drive when it is a description of a rename.
+  - ⚠ **Its guard misread the situation, because it used a different identity than the merge
+    did - AND STEP 3 CLOSED BOTH HALVES on 2026-08-26.** As filed: `_LOSS_KEYS` keyed trips by
+    **name** while `reconcile_documents` keyed them by **day set** (`_trip_key`), so a drive
+    holding *"Grandma's 90th"* for the days the catalog called *"Trip 2019"* registered as a loss,
+    and the preview printed *"These sections exist there and NOT here, and will be gone: trips"* -
+    a warning about the drive that was really a description of a rename. Today `_LOSS_KEYS` keys
+    trips by `_trip_key` (`decisions.py:1333`), the same function the merge uses, and **that
+    sentence no longer exists anywhere in the tree**: `_discard_to_drive` (`cli.py:1601`) prints
+    `RESTORE_WORDING[RestoreNote.DRIVE_HOLDS_MORE]` and words a rename apart from a loss.
 
   🔑 **Two keyings of one concept in one module is the third instance of one shape in a week**, and
   it is a `ENGINEERING_STANDARD.md` §4 **member candidate**, recorded here rather than claimed:
@@ -121,8 +129,13 @@
   document holds nothing to regress from. The measurement proves it - `dest`'s stamp stayed
   **14:07:32** throughout, so no write to it was ever attempted. **E still lands, for a different
   and worse hole**: if the original drive WERE reachable, today's signature keying returns `()` and
-  the save silently *overwrites* the real names rather than outranking them. ⚠ And E must ship with
-  a fix to `_discard_to_drive`, which treats a non-empty `would_lose` as **permission to proceed**.
+  the save silently *overwrites* the real names rather than outranking them. ⚠ **AND THIS SENTENCE ENDED
+  *"E must ship with a fix to `_discard_to_drive`, which treats a non-empty `would_lose` as
+  permission to proceed"* UNTIL 2026-08-26. THERE IS NO POLARITY BUG AND THERE NEVER WAS.**
+  Calling it *"permission to proceed"* is true of the control flow and misleading as a
+  description, because it omits three gates: preview-only by default (`cli.py:1652`), an explicit
+  `--apply`, and a typed `discard` confirmation (`cli.py:1656`). The retraction lived thirty-four
+  lines below this claim, where a reader meets it second; it is here now.
 
   ## ⚠ STEP 2 SHIPPED 2026-08-26 (P113) - THE NAMED ROOT IS AUTHORITATIVE
 
@@ -225,9 +238,10 @@
     catalog already holds for those days, step 2 converts a silent supersede into a **loud, honest
     dead end** - `_apply_trips` refuses it into `conflicting_trips`, which now prints. Strictly
     better, and clearly not sufficient.
-  - **Step 3 is unbuilt**: `_LOSS_KEYS` still keys events on signature, so a reachable original
-    drive can still be *overwritten* rather than outranked - and it must ship with the
-    `_discard_to_drive` polarity fix.
+  - ~~**Step 3 is unbuilt**~~ - **SHIPPED 2026-08-26 in `72f5075`**, see the section below.
+    `_LOSS_KEYS` no longer keys events on signature alone, so a reachable original drive is
+    outranked rather than overwritten. The clause about a `_discard_to_drive` polarity fix was
+    **withdrawn**: there is no such bug (see §"E still lands" above).
 
   ## ⚠ THE INDUSTRY MODEL, AND MY FIRST READING OF IT WAS BACKWARDS
 
@@ -299,9 +313,11 @@
   **`(aia)` closed the register half the same day.** The marker is now derived from
   `RestoreWording.actionable` (`decisions.py:531`) in one place (`cli.py:1457`) rather than typed
   at each site, so a loss can no longer be printed in the "nothing to do" register by accident.
-  ⚠ **The value half is still open and belongs to this entry**: `Superseded` carries
-  `section, drive_label, count, reason` and no values, so no surface can name which trip or event
-  was lost. That is a `Superseded` shape change, not a wording one.
+  ⚠ **The value half WAS open and STEP 1 CLOSED IT** (`98c1d1f`, 2026-08-26). It read *"`Superseded`
+  carries `section, drive_label, count, reason` and no values, so no surface can name which trip or
+  event was lost"*. Today `Superseded` (`decisions.py:205`) also carries `swaps: tuple[NameSwap,
+  ...]` and `by_authority: bool`, and `render_swaps` (`decisions.py:726`) names each lost/kept
+  pair. It was a `Superseded` shape change, as this paragraph said.
 
   ## 7. FIX SHAPES - NONE CHOSEN
 
