@@ -59,6 +59,16 @@
   mechanism end to end and says nothing about how often a user meets it - though the trigger is a
   catalog rebuild, so the rate is the rate of catalog loss, not of any drift.
 
+  ## ⚠ DATED NOTE - 2026-08-26 (P106a): THE TWO-STEP IS MEASURED NOT TO WORK
+
+  Re-running review and restoring again does **not** bring the names back, and reaching for it
+  makes things worse. The rebuild publishes a decisions document to the recovery drive, so the
+  names typed during recovery are **newer** than the originals and outrank them permanently. That
+  is `(ahz)`, and it is why this entry's remedies must not mention a two-step.
+
+  Measured the same day: the premise below still holds exactly - same three signatures, same
+  dropped names, same sentence.
+
   ## THE OPTIONS - A RULING, NOT A FIX
 
   1. **Carry members in the document** so restore can create the event, as trips do. Widens the

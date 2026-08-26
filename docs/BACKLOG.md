@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ahy). Next free: (ahz).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ahz). Next free: (aia).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -184,6 +184,20 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(ahz) RECOVERING A LOST CATALOG DESTROYS THE NAMES IT IS RECOVERING, AND THE GUARD AGAINST IT IS BLIND.** Filed
+  2026-08-26 (P106a), measured. A rebuild registers the recovery folder as a drive and publishes a decisions
+  document to it; re-naming during recovery auto-publishes there, **newer** than the original, and
+  `restore` then reports the user's real names as *"older and were not used"*. Measured: `dest`
+  written **14:07:32** with the real names, `rebuilt` **14:08:27** with placeholders, **event
+  signatures byte-identical**. ⚠ **`would_lose` exists to prevent exactly this** and is blind,
+  because `_LOSS_KEYS` keys events on **signature** not name (`decisions.py:860`) - the first
+  defect class under the one place it was ruled to hold (`(aci)`). ⚠ **`--discard` makes it
+  permanent**: it is catalog -> drive, so it overwrites the last surviving copy and stamps it
+  newest. ⚠ **Trips never rename at all** - `conflicting_trips` reaches no surface - so the
+  measurement's *"the trip came back"* was an artefact of the setup. **The ranking is correct**;
+  recency is a proxy for authority and a recovery copy breaks it. Five fix shapes, none chosen.
+  Body: [`research/backlog/ahz.md`](research/backlog/ahz.md).
 
 - **(ahv) RESTORE CANNOT CREATE AN EVENT, ONLY RENAME ONE - AND IT BLAMES THE PHOTOS.** Filed
   2026-08-26 (P103). After a catalog rebuild the `events` table is empty, so `apply_decisions`

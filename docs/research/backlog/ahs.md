@@ -58,6 +58,14 @@
   when the destination was typed as a relative path (`(ahu)`), and the in-place arm of the
   re-organize this entry recommends rebuilds **nothing** (`(ahy)`).
 
+  ## ⚠ DATED NOTE - 2026-08-26 (P106a): RE-ORGANIZE HAS A MEASURED COST THIS ENTRY DOES NOT CARRY
+
+  One of the options below is *"write down that re-organize is the recovery path"*. Measured
+  2026-08-26: that path **registers the recovery folder as a drive and publishes a decisions
+  document to it**, so any name typed during recovery outranks the original drive's permanently.
+  `(ahz)`. Whichever way this entry is ruled, re-organize is not a neutral recovery until `(ahz)`
+  is answered.
+
   ## WHAT THIS ENTRY DOES NOT DECIDE
 
   Whether that is acceptable. It may be: a re-organize is safe, idempotent in placement, and a
