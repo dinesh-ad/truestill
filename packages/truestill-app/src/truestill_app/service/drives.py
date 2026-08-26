@@ -29,6 +29,7 @@ from truestill_core.drive import (
     path_is_usable_dir,
     reach_of,
     read_marker,
+    remember_drive_path,
 )
 from truestill_core.drive_adoption import AdoptionOffer, inspect_root, recorded_drive
 from truestill_core.hash_cache import HashCache
@@ -385,7 +386,7 @@ def attach_drive(
     with open_catalog(db) as catalog:
         if write and marker is not None:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
-            catalog.set_setting(drive_path_hint(marker.uuid), str(path))
+            remember_drive_path(catalog, marker.uuid, path)
         on_drive = (
             {str(row["relative"]) for row in catalog.copies_on_drive(marker.uuid)}
             if marker is not None

@@ -27,6 +27,7 @@ from truestill_core.drive import (
     ghost_drive_refusal,
     reach_of,
     read_marker,
+    remember_drive_path,
 )
 from truestill_core.duplicate_explain import explain_duplicate, split_by_origin
 from truestill_core.event_review import EventDecision, commit, propose
@@ -1111,7 +1112,7 @@ def _register_destination(catalog: Catalog, destination: Path) -> DriveMarker:
     )
     catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
     # Remember where it was seen, so its card can offer to check it.
-    catalog.set_setting(drive_path_hint(marker.uuid), str(destination))
+    remember_drive_path(catalog, marker.uuid, destination)
     return marker
 
 

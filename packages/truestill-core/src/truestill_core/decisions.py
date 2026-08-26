@@ -741,8 +741,18 @@ def write_decisions(root: Path, decisions: Decisions) -> WriteOutcome:
     if not root.is_absolute():
         # `Path("")` normalises to `Path(".")`, which IS a directory - so an `is_dir` check alone
         # lets an empty root write the document into the working directory. Caught by this
-        # module's own test doing exactly that. A drive root is always absolute in practice;
-        # requiring it turns a silent misfile into a reported refusal.
+        # module's own test doing exactly that; requiring it turns a silent misfile into a
+        # reported refusal.
+        #
+        # ⚠ **This said "a drive root is always absolute in practice" and that was FALSE**, which
+        # is why nobody checked. `truestill organize src dest` stored `dest` verbatim and every
+        # save here refused for the life of that drive - the document was never written and the
+        # only durable copy of a user's trip and event names stayed in the catalog. `(ahu)`
+        #
+        # What makes the claim true now is `drive.remember_drive_path`, the single writer of
+        # `path_hint.`, which stores `Path(...).absolute()` - and `test_no_site_writes_a_drive_
+        # path_hint_directly` keeps it the only one. An invariant asserted here and enforced
+        # nowhere is what this comment used to be.
         return WriteOutcome(written=False, error="a drive root must be a full path")
     if not root.is_dir():
         return WriteOutcome(written=False, error="the drive is not there any more")

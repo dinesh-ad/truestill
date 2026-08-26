@@ -160,6 +160,46 @@ def drive_path_hint(uuid: str) -> str:
     return f"path_hint.drive.{uuid}"
 
 
+class _SettingsWriter(Protocol):
+    """The one thing :func:`remember_drive_path` needs. See :class:`_SettingsReader` for why."""
+
+    def set_local_setting(self, key: str, value: str) -> None: ...
+
+
+def remember_drive_path(settings: _SettingsWriter, uuid: str, path: Path | str) -> str:
+    """Record where a drive was last seen. **The stored path is always absolute.** Returns it.
+
+    🔑 **The single home for this write**, which is the fix rather than a tidiness preference.
+    **Seven** call sites each turned a user-supplied path into a string with `str(...)`, none made
+    it absolute, and two spelled the setter differently from the other five - so
+    `truestill organize src dest` stored `dest`, a path whose meaning depends on the working
+    directory of whoever reads it next. `(ahu)`
+
+    **`Path.absolute()`, and both alternatives were rejected for stated reasons.** `resolve()`
+    follows symlinks, which is wrong for removable media: a user reaching a drive through a stable
+    `~/backup-drive` symlink would have the volatile mount point stored instead, and the hint would
+    go stale the next time that volume was assigned a different node. Drive identity is the marker
+    uuid and never the path - :func:`drive_reach` checks the marker - so canonicalising through
+    symlinks buys nothing and costs the stable handle. `os.path.abspath` avoids symlinks but
+    rewrites `..` **lexically**, which is unsound when a `..` crosses one: `a/link/../b` is not
+    `a/b` on disk. `absolute()` does neither - it prepends the working directory and changes
+    nothing else, which is exactly and only what was missing.
+
+    ⚠ **So a stored hint may contain `..`** when the user typed one. Cosmetic: it is absolute,
+    `read_marker` opens it, and it names the place the user named. ⚠ **ruff PTH100 suggests
+    `resolve()` as the replacement for `abspath()`, which is not an equivalence** - a known
+    upstream defect in that rule, and neither call is used here.
+
+    ⚠ **`set_local_setting`, which `(afc)` already ruled.** A `path_hint.` write through
+    `set_setting` marks the catalog dirty, and a dirty close publishes the decisions document to
+    every reachable drive - so recording where a drive was found would turn a read-only command
+    into one that writes to the user's disks.
+    """
+    absolute = str(Path(path).absolute())
+    settings.set_local_setting(drive_path_hint(uuid), absolute)
+    return absolute
+
+
 #: Days after which the custody claim SOFTENS and names its age. `(abg)` Stage 3.
 #:
 #: **A judgement informed by an industry cadence, not a measurement**, recorded the way
@@ -535,8 +575,18 @@ def drive_reach(hint: str | None, uuid: str) -> DriveReach:
 
     A *different* drive at the remembered path is ``OFFLINE``, not ``CONNECTED``: the question is
     whether **this** drive is reachable, and someone else's marker is not a yes.
+
+    ⚠ **A RELATIVE hint is ``UNKNOWN``, not a path to try.** `(ahu)` Catalogs written before
+    :func:`remember_drive_path` existed can hold one, and its meaning depends on the working
+    directory of whoever reads it - so one drive read ``CONNECTED`` from the directory a command
+    happened to run in and ``OFFLINE`` from anywhere else. **``UNKNOWN`` is not a concession, it
+    is the only true answer**: the working directory it was written from was never recorded, so
+    the product cannot say where that drive is. That is
+    `catalog._make_the_inplace_journal_an_intent_log`'s rule one layer up - never assert an outcome
+    you did not observe - and it is why `(ahu)` repairs old catalogs here rather than in a
+    migration, which the no-backfill rule would have refused.
     """
-    if not hint:
+    if not hint or not Path(hint).is_absolute():
         return DriveReach.UNKNOWN
     marker = read_marker(Path(hint))
     if marker is None:

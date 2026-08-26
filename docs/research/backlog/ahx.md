@@ -11,9 +11,9 @@
   `apply_decisions` returns `not_applied=("albums",)` whenever a document carries albums
   (`decisions.py:590`); the field is declared at `decisions.py:373`.
 
-  `_print_restore_plan` (`cli.py:1439`) prints `unmatched_events`, `awaiting_content`,
+  `_print_restore_plan` (`cli.py:1440`) prints `unmatched_events`, `awaiting_content`,
   `already_newer_locally`, `superseded` and `undated` - **and not this one**. Its own docstring, at
-  `cli.py:1440-1443`, promises *"What would come back, and - the half that is easy to leave out -
+  `cli.py:1441-1444`, promises *"What would come back, and - the half that is easy to leave out -
   what would not."*
 
   ⚠ **So a user restoring is never told the albums section was discarded**, on either surface:
@@ -37,7 +37,7 @@
 
   ## THE ASYMMETRY NOTHING RULES ON
 
-  `decisions.py:853` puts `albums` in `_LOSS_KEYS`, so an album name is **protected from being
+  `decisions.py:863` puts `albums` in `_LOSS_KEYS`, so an album name is **protected from being
   overwritten on the drive** while still never being readable back into a catalog. Written,
   guarded against loss, and unreadable. No document rules on that combination.
 

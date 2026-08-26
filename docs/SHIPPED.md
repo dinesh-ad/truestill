@@ -22,6 +22,47 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ahu) A DRIVE PATH IS REMEMBERED ABSOLUTE, FROM ONE HOME.** Shipped 2026-08-26, found by
+  `(ahv)`'s measurement. `truestill organize src dest` stored the destination **unresolved**, so
+  `write_decisions` refused every save for the life of that drive (`decisions.py:741`) and **the
+  only durable copy of a user's trip and event names was never written**. Measured, one variable,
+  353 files: relative gave `decisions.problem` = *"a drive root must be a full path"*; absolute
+  gave a document carrying all four names.
+  **The fix is `drive.remember_drive_path`**, the single writer of `path_hint.`, storing
+  `Path(...).absolute()`. ⚠ **`resolve()` was refused with a reason**: it follows symlinks, so a
+  drive reached through a stable `~/backup-drive` would have its volatile mount point stored
+  instead - and drive identity is the marker uuid, never the path. `os.path.abspath` was refused
+  too: it rewrites `..` lexically, which is unsound across a symlink. `absolute()` does neither.
+  ⚠ **THE CENSUS WAS WRONG TWICE AND THE SECOND MISS IS THE INTERESTING ONE.** `(ahu)` said five
+  writers; a grep for `set_setting(` could not see `set_local_setting(`, and the true count is
+  **seven** call sites across **six** functions. Found by reading imports rather than by trusting
+  the grep. The guard is written against the **key**, which cannot be spelled two ways.
+  ⚠ **And the two spellings were not equivalent**: `(afc)` had already ruled `path_hint.` must use
+  `set_local_setting`, because a `set_setting` write marks the catalog dirty and a dirty close
+  publishes the document to every reachable drive - so five sites were turning a location note
+  into a write to the user's disks. One concept, two spellings, neither absolute.
+  **Existing catalogs are repaired at the READ**, not by a migration: `drive_reach` answers
+  `UNKNOWN` for a relative hint. The working directory it was written from was never recorded, so
+  `UNKNOWN` is the only true answer - `catalog._make_the_inplace_journal_an_intent_log`'s rule one
+  layer up, and the no-backfill guard would have refused a DML migration anyway.
+  ⚠ **The blast radius was wider than the document.** `drive_reach` did `read_marker(Path(hint))`,
+  so a relative hint resolved against **whoever read it**: the same drive answered `CONNECTED` from
+  the directory a command happened to run in and `OFFLINE` from everywhere else, which reaches
+  `verify`, `status`, `where`, backup preflight and the app's drive cards.
+  ⚠ **The guard's own comment was part of the defect** - *"a drive root is always absolute in
+  practice"*, asserted at the refusal and enforced nowhere. Corrected in place with what makes it
+  true now.
+  🔑 **THE CONTROL IS THE EVIDENCE.** With the fix reverted the **entire pre-existing suite passed
+  - 3,199 tests** - so it could never have caught this. Every existing test that wrote the hint
+  passed an absolute `tmp_path`; the new one drives `main(["organize", "src", "dest"])` from a real
+  working directory. Three mutations, each caught by a different test; two cry-wolf halves (an
+  absolute destination still writes the document, a missing drive still refuses).
+  ⚠ **An existing guard caught the refactor**, which is why the sites were not silently dropped
+  from `(adx)`'s exhaustiveness check: `test_every_hint_write_checks_for_a_second_place` had
+  already learned a second write shape for `(afc)` and now knows a third. Its `(afc)` note
+  predicted exactly this.
+  Body: [`research/backlog/ahu.md`](research/backlog/ahu.md).
+
 - **(ahr) ORGANIZE IS NOW IDEMPOTENT: THE CATEGORISER RECOGNISES ITS OWN RENAME.** Shipped
   2026-08-25, found by soak six's rebuild drill. Re-organizing an already-organized library gave a
   **different category** for some files: `naming.py` prefixes `%Y%m%d_%H%M%S_` and every name rule

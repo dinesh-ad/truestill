@@ -59,7 +59,7 @@
     logical drive (**built**), `drives init --relabel` for a diverged clone (**built**, as
     `--force-new-identity`), and **"warn when one uuid is seen at two distinct mount paths in a
     single run"** - which exists **only on the registration path**. `_print_adoption_refusal`
-    (`cli.py:1159` (`_init_drive`)) refuses and explains both ways forward when someone registers a folder that
+    (`cli.py:1160` (`_init_drive`)) refuses and explains both ways forward when someone registers a folder that
     already holds a recorded library. **`verify` has no equivalent check**: it proves the content,
     moves the hint, and says nothing about the path it just stopped pointing at.
   - **What a user could do before this shipped:** nothing they would find. The remedy existed

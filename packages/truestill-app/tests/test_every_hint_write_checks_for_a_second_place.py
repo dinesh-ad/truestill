@@ -91,6 +91,11 @@ _ASKS = {"second_location_for", "_say_if_two_places"}
 #: so a second helper cannot inherit the exemption by accident.
 _THE_WRITER = "truestill_cli/cli.py::remember_drive_root"
 
+#: The shared writers, by name. `remember_drive_root` is the CLI's; `remember_drive_path` is
+#: core's, which it and the app's sites all call. Named rather than shape-matched for
+#: `_THE_WRITER`'s reason: a second helper must not inherit the exemption by accident.
+_SHARED_WRITERS = {"remember_drive_root", "remember_drive_path"}
+
 
 def _writes_and_calls(module: Path) -> dict[str, tuple[bool, set[str]]]:
     """`function -> (writes the hint?, names it calls)`, attributing each call to its OWN function.
@@ -126,12 +131,18 @@ def _writes_and_calls(module: Path) -> dict[str, tuple[bool, set[str]]]:
         writes, called = functions.get(name, (False, set()))
         if isinstance(node.func, ast.Name):
             called = called | {node.func.id}
-        # ⚠ TWO SHAPES COUNT AS A WRITE, and the second was added when the first stopped being
+        # ⚠ THREE SHAPES COUNT AS A WRITE, each added when the one before stopped being
         # exhaustive. `(afc)` half E moved the CLI's writes behind `remember_drive_root`, so
         # `drive_path_hint` left three function bodies at once and this guard's own count test
         # went from six writers to five - it noticed, which is the only reason the sites were not
         # silently dropped from the exhaustiveness check. A shared writer is the right shape; a
         # detector that only knows the inline one is not.
+        #
+        # ⚠ The THIRD is `remember_drive_path`, core's single writer, added by `(ahu)`: the inline
+        # shape had drifted into TWO setter spellings across seven call sites and none made the
+        # path absolute. This guard went red on that refactor and is the reason the sites were not
+        # silently dropped from the exhaustiveness check a second time - which is precisely what
+        # its `(afc)` note above predicted would matter.
         is_write = (
             isinstance(node.func, ast.Attribute)
             and node.func.attr in {"set_setting", "set_local_setting"}
@@ -139,7 +150,7 @@ def _writes_and_calls(module: Path) -> dict[str, tuple[bool, set[str]]]:
             and isinstance(node.args[0], ast.Call)
             and isinstance(node.args[0].func, ast.Name)
             and node.args[0].func.id == "drive_path_hint"
-        ) or (isinstance(node.func, ast.Name) and node.func.id == "remember_drive_root")
+        ) or (isinstance(node.func, ast.Name) and node.func.id in _SHARED_WRITERS)
         functions[name] = (writes or is_write, called)
     return functions
 

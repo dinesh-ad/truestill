@@ -115,6 +115,7 @@ from truestill_core.drive import (
     path_is_usable_dir,
     reach_of,
     read_marker,
+    remember_drive_path,
     second_location_for,
     upgrade_marker,
     was_ever_checked,
@@ -1222,7 +1223,7 @@ def _init_drive(args: argparse.Namespace, catalog: Catalog) -> int:
         return 4
     _say_if_two_places(catalog, marker, args.init)
     catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
-    catalog.set_setting(drive_path_hint(marker.uuid), str(args.init))
+    remember_drive_path(catalog, marker.uuid, args.init)
     verb = "re-attached" if adopt else "initialised"
     print(f"Drive '{marker.label}' {verb} at {args.init}  (uuid {marker.uuid}).")
     _print_drive_notice(args.init, gather_decisions(catalog, marker.uuid), "This drive")
@@ -1317,7 +1318,7 @@ def remember_drive_root(catalog: Catalog, marker: DriveMarker, root: Path) -> No
     A **hint, never identity** (§3.1): a drive that remounts elsewhere is the same drive, and this
     key is simply stale until something sees it again.
     """
-    catalog.set_local_setting(drive_path_hint(marker.uuid), str(root))
+    remember_drive_path(catalog, marker.uuid, root)
 
 
 def _print_repoint_preview(plan: RepointPlan) -> None:
@@ -1577,7 +1578,7 @@ def _cmd_verify(args: argparse.Namespace) -> int:
         # at all and `truestill drives` can only ever say "unknown" - which is honest but
         # useless. Written here and at `--init` because those are the two moments the CLI holds
         # a resolved drive root and a catalog at the same time. It is a hint, never identity.
-        catalog.set_local_setting(drive_path_hint(marker.uuid), str(root))
+        remember_drive_path(catalog, marker.uuid, root)
         rows = catalog.copies_on_drive(marker.uuid)
         if not rows:
             print(f"Drive '{marker.label}' has no recorded copies in the catalog.")
@@ -2613,7 +2614,7 @@ def _register_destination(
         # Record WHERE, not just that it happened. Five other sites write this hint and this one
         # did not, which is why a CLI-only user accumulates drives whose location is unknown -
         # and why nothing could tell an unmounted mountpoint from a new folder.
-        catalog.set_setting(drive_path_hint(created.uuid), str(root))
+        remember_drive_path(catalog, created.uuid, root)
     print(f"Registered '{created.label}' as a drive so its copies can be verified.")
     return created
 

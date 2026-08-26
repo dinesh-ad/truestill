@@ -35,14 +35,13 @@ from pathlib import Path
 from typing import NotRequired, TypedDict
 
 from truestill_core.catalog_session import open_catalog
-from truestill_core.drive import read_marker, second_location_for
+from truestill_core.drive import read_marker, remember_drive_path, second_location_for
 from truestill_core.progress import ProgressCallback
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
 from truestill_app.jobs import JobTarget
 from truestill_app.service.drive_support import (
     DriveUnavailablePayload,
-    drive_path_hint,
     drive_unavailable,
 )
 
@@ -93,7 +92,7 @@ def verify_run(path: Path, db: Path) -> JobTarget[VerifyJobSummary] | DriveUnava
                 catalog, uuid=marker.uuid, label=marker.label, here=path
             )
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
-            catalog.set_setting(drive_path_hint(marker.uuid), str(path))
+            remember_drive_path(catalog, marker.uuid, path)
             rows = catalog.copies_on_drive(marker.uuid)
             copies = [CopyToVerify.from_row(r) for r in rows]
             results = verify_copies(copies, path, progress=progress, cancel=cancel)
