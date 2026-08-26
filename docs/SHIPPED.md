@@ -22,6 +22,34 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aia) RESTORE SAID WHY WHEN IT ONLY KNEW THAT - SIX SENTENCES, ONE WORDING HOME.** Shipped
+  2026-08-26, found by `(ahv)`'s census. Six sentences stated a cause the code had not established
+  - the worst told a user whose catalog had just been rebuilt that *"its photos have changed"*,
+  measured false against 353 byte-identical files whose re-derived signatures matched the drive
+  document exactly. 🔑 **A test pinning any of them would have passed throughout**: each was a
+  correct STRING about a situation nobody had checked, which is why the fix is a structure.
+  **`RESTORE_WORDING`** (`decisions.py:474`) is `STOP_WORDING`'s shape, and each entry's comment
+  names what the code checked. ⚠ **Core's own prose was seeded with the same causes** - the field
+  doc, an inline comment, and `Superseded`'s docstring **offering a model phrasing the CLI had
+  copied verbatim** - so all three are fixed, or the next surface copies them again.
+  **The discriminator did not exist**: `ApplyReport.events_here` is `BakePlan.confirmed_anywhere`'s
+  equivalent, so "no events here at all" is now worded differently from "this one group is
+  missing". ⚠ **Both arms name the event** - a first draft aggregated the zero case to a count,
+  dropping the names the user came for, and an existing test caught it.
+  **Sentence 3 split deliberately**: ties and undated documents are `(aia)`'s and now have their
+  own sentences via `SupersededReason`; the recovery case is `(ahz)`'s, where the sentence is
+  accurate and the loss happens anyway. The marker is now derived from `actionable`, closing
+  `(ahz)`'s register half - **not** its value half.
+  ⚠ **The test says what it CANNOT see**: whether a sentence asserts a cause at all is a human
+  read. A regex over "because"/"so" was refused - it would miss the two worst instances and cry
+  wolf on the two clean ones, and shipping it would be a guard-shaped object.
+  🔑 **Two of five mutations found real gaps.** The forbidden-phrase guard read `cli.py` only, so
+  putting the claim back into core killed nothing - **a guard shaped like the old location cannot
+  see the new one**, `(ahu)`'s and `(ahw)`'s shape a third time. And asserting the three sentences
+  *differ* never checked the right one is *chosen*: `_why_it_lost` could be replaced by a bare
+  `return OLDER` with nothing failing. Both closed, then caught.
+  Body: [`research/backlog/aia.md`](research/backlog/aia.md).
+
 - **(ahu) A DRIVE PATH IS REMEMBERED ABSOLUTE, FROM ONE HOME.** Shipped 2026-08-26, found by
   `(ahv)`'s measurement. `truestill organize src dest` stored the destination **unresolved**, so
   `write_decisions` refused every save for the life of that drive (`decisions.py:741`) and **the

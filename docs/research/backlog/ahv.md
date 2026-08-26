@@ -43,7 +43,7 @@
   Contrast trips, which restore unconditionally because `_apply_trips` (`decisions.py:442`)
   **creates** them from the days the document carries, and `trip_days.day` is a primary key, so a
   day list is an identity rather than a hint. Events carry a `signature` and no members
-  (`decisions.py:401-404`) - the document has no material to create from.
+  (`decisions.py:601-604`) - the document has no material to create from.
 
   ⚠ **A category flip would break it too, and could not be reached to prove it.** The events query
   filters `f.category = 'Camera'` (`catalog.py:1289`), so a flipped label removes a file from the

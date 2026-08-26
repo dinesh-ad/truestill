@@ -23,7 +23,7 @@
     (`drive.py:47`, `:471`), so it **travels with the data** rather than describing the volume
     under it.
   - **A wholesale move self-heals with one command.** After `A -> B`: `truestill verify B` reported
-    **25 verified, 0 missing**, and rewrote the remembered path (`cli.py:1296` (`remember_drive_root`)) - after which
+    **25 verified, 0 missing**, and rewrote the remembered path (`cli.py:1301` (`remember_drive_root`)) - after which
     `truestill drives` read `connected` again. **No repair step, no reconnect flow, no data
     surgery.** `source_repoint.py:3-8` asserts exactly this; it is now measured rather than
     claimed.
@@ -59,7 +59,7 @@
     logical drive (**built**), `drives init --relabel` for a diverged clone (**built**, as
     `--force-new-identity`), and **"warn when one uuid is seen at two distinct mount paths in a
     single run"** - which exists **only on the registration path**. `_print_adoption_refusal`
-    (`cli.py:1160` (`_init_drive`)) refuses and explains both ways forward when someone registers a folder that
+    (`cli.py:1165` (`_init_drive`)) refuses and explains both ways forward when someone registers a folder that
     already holds a recorded library. **`verify` has no equivalent check**: it proves the content,
     moves the hint, and says nothing about the path it just stopped pointing at.
   - **What a user could do before this shipped:** nothing they would find. The remedy existed

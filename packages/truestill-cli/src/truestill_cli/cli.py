@@ -78,15 +78,20 @@ from truestill_core.cleanup import (
 )
 from truestill_core.decisions import (
     PROBLEM_OUTCOMES,
+    RESTORE_WORDING,
+    SUPERSEDED_NOTE,
     Decisions,
     DriveSave,
+    RestoreNote,
     RestoreReport,
     SaveOutcome,
     apply_documents,
     gather_decisions,
     merge_onto_drive,
+    nothing_applied_note,
     notice_for,
     read_decisions,
+    unmatched_events_note,
     would_lose,
     write_decisions,
 )
@@ -1437,6 +1442,22 @@ def _restore_documents_for(root: Path, catalog: object) -> tuple[list[Decisions]
     return documents, None
 
 
+def _note(note: RestoreNote) -> str:
+    """The words for one note. The CLI holds no sentences of its own - `RESTORE_WORDING` does."""
+    return RESTORE_WORDING[note].text
+
+
+def _say(note: RestoreNote, **fields: object) -> None:
+    """Print one note, with the marker its `actionable` flag decides.
+
+    ⚠ **The marker is DERIVED, not typed at each site.** A real loss printed with the `-` used for
+    "nothing to do" is reassurance where a warning belongs, and that is how it read before. `(aia)`
+    """
+    wording = RESTORE_WORDING[note]
+    marker = "!" if wording.actionable else "-"
+    print(f"\n  {marker} {wording.text.format(**fields)}")
+
+
 def _print_restore_plan(report: RestoreReport, documents: int) -> None:
     """What would come back, and - the half that is easy to leave out - what would not.
 
@@ -1449,24 +1470,30 @@ def _print_restore_plan(report: RestoreReport, documents: int) -> None:
         for section, count in sorted(applied.applied.items()):
             print(f"  {count:>4}  {section.replace('_', ' ')}")
     else:
-        print("  nothing this catalog does not already have")
+        print(f"  {_note(nothing_applied_note(applied))}")
 
+    note = unmatched_events_note(applied)
     for name in applied.unmatched_events:
-        print(f"\n  ! event '{name}' does not match anything here - its photos have changed,")
-        print("    so its name is reported rather than guessed at.")
+        _say(note, name=name)
     for section, count in sorted(applied.awaiting_content.items()):
         print(f"\n  ! {count} {section.replace('_', ' ')} are waiting for photos this catalog")
         print("    has not scanned. Plug in the drive holding them, scan, and restore again.")
     for section, count in sorted(applied.already_newer_locally.items()):
-        print(f"\n  - {count} {section.replace('_', ' ')} on the drive were older than this")
-        print("    machine's and were ignored. Nothing to do.")
+        _say(RestoreNote.ALREADY_HELD, count=count, section=section.replace("_", " "))
     for loss in report.reconciled.superseded:
-        print(
-            f"\n  - {loss.count} {loss.section.replace('_', ' ')} on {loss.drive_label} were"
-            " older and were not used."
+        _say(
+            SUPERSEDED_NOTE[loss.reason],
+            count=loss.count,
+            section=loss.section.replace("_", " "),
+            label=loss.drive_label,
         )
+    # ⚠ **Only documents with nothing superseded are listed here.** An undated document that also
+    # lost a value already said so through `LOST_UNDATED`, and printing both is how one drive got
+    # two contradicting lines in one output. `(aia)`
+    said = {loss.drive_label for loss in report.reconciled.superseded}
     for label in report.reconciled.undated:
-        print(f"\n  - {label}'s document carries no date, so it could not overrule any other.")
+        if label not in said:
+            print(f"\n  - {label}'s document carries no date, so it could not overrule any other.")
 
 
 def _cmd_restore(args: argparse.Namespace) -> int:
@@ -1525,7 +1552,7 @@ def _discard_to_drive(root: Path, catalog: object, *, apply: bool) -> int:
         return 0
 
     print(f"\nDISCARD will overwrite the decisions on {root} with this catalog's.")
-    print(f"These sections exist there and NOT here, and will be gone: {', '.join(losing)}.")
+    print(RESTORE_WORDING[RestoreNote.DRIVE_HOLDS_MORE].text.format(sections=", ".join(losing)))
     if not apply:
         print(f"\nPreview only. Discard with:  truestill restore {root} --discard --apply")
         return 0
@@ -1540,7 +1567,7 @@ def _discard_to_drive(root: Path, catalog: object, *, apply: bool) -> int:
     if not outcome.written:
         print(f"error: {outcome.error}", file=sys.stderr)
         return 2
-    print("\nThe drive now matches this catalog.")
+    print(f"\n{RESTORE_WORDING[RestoreNote.DRIVE_WRITTEN].text}")
     return 0
 
 

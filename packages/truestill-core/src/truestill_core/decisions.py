@@ -40,7 +40,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 from truestill_core.drive import DriveReach, drive_path_hint, drive_reach
 from truestill_core.drive_unwritable import explain_unwritable_drive
@@ -165,18 +165,45 @@ def from_document(document: dict[str, Any]) -> Decisions:
     )
 
 
+class SupersededReason(StrEnum):
+    """WHY a value lost, which is not always "it was older". `(aia)`
+
+    ⚠ **The model phrasing this class used to offer was "3 trip names on Backup B were older and
+    were not used", and the CLI copied it verbatim into a sentence that is false twice over.**
+    `_ranked` orders on `written` descending with `drive_uuid` ascending as a tiebreak, and its own
+    docstring says ties are *"ordinary, not exotic ... most reconciles are entirely ties"* - so a
+    loser is frequently not older at all, it merely sorts later on a hex string. An **undated**
+    document loses for a third reason again, and was being told so twice in one output: once here
+    as "older", once by `ReconcileReport.undated` as carrying no date.
+
+    Recorded per loss so a surface can say which happened instead of asserting the common case.
+    """
+
+    #: The winner's document was genuinely written later.
+    OLDER = "older"
+    #: Same stamp. `drive_uuid` broke the tie - deterministic, and nothing to do with age.
+    TIE = "tie"
+    #: This document carries no date at all, so it cannot overrule one that does.
+    UNDATED = "undated"
+
+
 @dataclass(frozen=True, slots=True)
 class Superseded:
-    """One drive's values for one section that were older and were not used.
+    """One drive's values for one section that were not used, and why.
 
     Structured rather than a sentence: `IMPLEMENTATION_STANDARDS` §2 leaves wording to the
-    surfaces, and "3 trip names on Backup B were older and were not used" is one phrasing of
-    this, not the only one a screen might want.
+    surfaces. ⚠ **A model phrasing used to live in this docstring and the CLI copied it**, which
+    is how one unchecked cause reached a user - so the wording lives in `RESTORE_WORDING` and this
+    type carries facts only.
     """
 
     section: str
     drive_label: str
     count: int
+    #: Which of the three orderings put this value second. See :class:`SupersededReason`.
+    #: **Required, with no default**: a default would let a new construction site describe a loss
+    #: it never established, which is the whole defect this field exists to close.
+    reason: SupersededReason
 
 
 @dataclass(frozen=True, slots=True)
@@ -216,6 +243,19 @@ def _ranked(documents: Sequence[Decisions]) -> list[Decisions]:
     return ordered
 
 
+def _why_it_lost(winner: Decisions, loser: Decisions) -> SupersededReason:
+    """Which of `_ranked`'s three orderings put `loser` second. Pure.
+
+    Mirrors `_ranked` exactly - undated first because `""` sorts below every stamp there too, so
+    an undated document is never reported as merely "older".
+    """
+    if not loser.written:
+        return SupersededReason.UNDATED
+    if loser.written == winner.written:
+        return SupersededReason.TIE
+    return SupersededReason.OLDER
+
+
 def _merge_section(
     ranked: Sequence[Decisions],
     section: str,
@@ -232,18 +272,24 @@ def _merge_section(
     document to every drive, so most reconciles see several identical copies, and calling each a
     superseded loser would bury the one real disagreement in a list of non-events.
     """
-    chosen: dict[object, dict[str, Any]] = {}
-    beaten: dict[str, int] = {}
+    chosen: dict[object, tuple[dict[str, Any], Decisions]] = {}
+    beaten: dict[tuple[str, SupersededReason], int] = {}
     for document in ranked:
         for row in rows_of(document):
             key = key_of(row)
             if key not in chosen:
-                chosen[key] = row
-            elif chosen[key] != row:
+                chosen[key] = (row, document)
+            elif chosen[key][0] != row:
                 label = document.drive_label or document.drive_uuid
-                beaten[label] = beaten.get(label, 0) + 1
-    losses.extend(Superseded(section, label, count) for label, count in beaten.items())
-    return tuple(chosen.values())
+                # The winning DOCUMENT is kept beside the winning row for this one reason: "why
+                # did this lose" is a question about the two stamps, and the row does not carry
+                # one. Reported rather than assumed - see `SupersededReason`.
+                seat = (label, _why_it_lost(chosen[key][1], document))
+                beaten[seat] = beaten.get(seat, 0) + 1
+    losses.extend(
+        Superseded(section, label, count, reason) for (label, reason), count in beaten.items()
+    )
+    return tuple(row for row, _ in chosen.values())
 
 
 def _merge_confirmations(
@@ -280,7 +326,13 @@ def _merge_confirmations(
             elif row != current[2]:
                 lost(label)
 
-    losses.extend(Superseded("date_confirmations", label, n) for label, n in beaten.items())
+    # OLDER is stated rather than defaulted, and it is genuinely true here: this merge orders on
+    # the ROW's `confirmed_at` (see the docstring above), so a loser really did carry an earlier
+    # correction. The document stamps play no part, so TIE and UNDATED cannot arise.
+    losses.extend(
+        Superseded("date_confirmations", label, n, SupersededReason.OLDER)
+        for label, n in beaten.items()
+    )
     return tuple(row for _, _, row in (best[sha] for sha in sorted(best)))
 
 
@@ -359,9 +411,19 @@ class ApplyReport:
     #: hitting both produced one indistinguishable line for two situations needing opposite
     #: words. Counted rather than named, so a surface can say how many are waiting.
     awaiting_content: dict[str, int] = field(default_factory=dict)
-    #: Event names whose signature matched nothing here, so membership changed. Reported, never
-    #: guessed at.
+    #: Event names whose signature matched nothing in this catalog. Reported, never guessed at.
+    #:
+    #: ⚠ **This said "so membership changed" until 2026-08-26, and that is an unchecked cause.**
+    #: What is observed is only that `event_by_signature` returned nothing. It is equally
+    #: consistent with this catalog holding no events at all - which is the case `restore` exists
+    #: for - or holding the cluster unnamed, or a category flip. The CLI read this line and
+    #: printed the guess. `(aia)`
     unmatched_events: tuple[str, ...] = ()
+    #: How many events this catalog holds AT ALL, named or not. Distinguishes the two ways
+    #: `unmatched_events` can be non-empty, exactly as `BakePlan.confirmed_anywhere` tells two
+    #: zeroes apart: with none here, every document event misses and the reason is this catalog,
+    #: not those photographs.
+    events_here: int = 0
     #: Trips whose days are already claimed by a DIFFERENT trip here. A day belongs to at most one
     #: trip, so these cannot be applied at all - and a skip with no channel is how the absorbed-
     #: days defect stayed invisible. One meaning per field, deliberately.
@@ -371,6 +433,144 @@ class ApplyReport:
     trips_without_days: tuple[str, ...] = ()
     #: Sections this version carries but cannot yet apply.
     not_applied: tuple[str, ...] = ()
+
+
+class RestoreNote(StrEnum):
+    """Every sentence `restore` prints that could state a CAUSE. `(aia)`"""
+
+    NOTHING_NEW = "nothing_new"
+    NOTHING_APPLIED = "nothing_applied"
+    NO_EVENTS_HERE = "no_events_here"
+    NO_SUCH_GROUP = "no_such_group"
+    ALREADY_HELD = "already_held"
+    LOST_OLDER = "lost_older"
+    LOST_TIE = "lost_tie"
+    LOST_UNDATED = "lost_undated"
+    DRIVE_HOLDS_MORE = "drive_holds_more"
+    DRIVE_WRITTEN = "drive_written"
+
+
+@dataclass(frozen=True, slots=True)
+class RestoreWording:
+    """One sentence a person reads, and whether it asks them to do something."""
+
+    #: The words. `{}` placeholders are filled by the surface, never by this table.
+    text: str
+    #: True when the reader is being asked to act. Decides the CLI's marker - `!` against `-` -
+    #: so a real loss cannot be printed in the "nothing to do" register by accident.
+    actionable: bool
+
+
+#: ⚠ **ONE WORDING HOME FOR EVERY SURFACE**, `STOP_WORDING`'s ruling applied to restore. `(aia)`
+#:
+#: **Every sentence here used to state a cause the code had not established.** They were not
+#: mis-typed strings - each was a correct sentence about a situation that had not been checked,
+#: which is why a test pinning the old words would have passed throughout. The census that found
+#: them is in `research/backlog/aia.md`.
+#:
+#: ⚠ **A table rather than a derivation**, for `STOP_WORDING`'s reason (`migrate.py:160`): a member
+#: added tomorrow raises `KeyError` here rather than being worded by an `else` nobody wrote for it,
+#: and `test_restore_states_only_what_it_checked` asserts the table covers the enum.
+#:
+#: **Each entry names what the code actually checked.** If a wording asserts more than its comment
+#: can justify, the wording is wrong - that is the standing rule this table exists to keep.
+RESTORE_WORDING: Final[dict[RestoreNote, RestoreWording]] = {
+    # Checked: `applied` is empty AND nothing was refused. Nothing to do is the whole truth.
+    RestoreNote.NOTHING_NEW: RestoreWording(
+        "nothing this catalog does not already have", actionable=False
+    ),
+    # Checked: `applied` is empty because every section was refused. ⚠ The old sentence covered
+    # BOTH zeroes with the reassuring one - `NOTHING_CONFIRMED_NOTE`'s defect, in another command.
+    RestoreNote.NOTHING_APPLIED: RestoreWording(
+        "nothing was applied - see the reasons below", actionable=True
+    ),
+    # Checked: `event_by_signature` missed AND this catalog holds no events at all. The reason is
+    # this catalog, and it is knowable - so it is said.
+    # ⚠ **Per event, and it names the event.** A first draft aggregated this case to a count,
+    # which said the knowable reason and dropped the names - and the names are the thing the user
+    # came for. `test_restore_cli.py` caught it. Both arms name the event; only the reason differs.
+    RestoreNote.NO_EVENTS_HERE: RestoreWording(
+        "event '{name}' could not be matched: this catalog holds no events yet.\n"
+        "    Its name is safe in the drive's decisions document.",
+        actionable=True,
+    ),
+    # Checked: `event_by_signature` missed while other events DO exist here. Why is not known -
+    # the photos may have been regrouped, or this group may never have been named on this machine.
+    # ⚠ The old sentence picked one: "its photos have changed".
+    RestoreNote.NO_SUCH_GROUP: RestoreWording(
+        "event '{name}' has no match here: no group in this catalog has its fingerprint.\n"
+        "    Its name is safe in the drive's decisions document.",
+        actionable=True,
+    ),
+    # Checked: a confirmation held here is the same age or newer. ⚠ The old sentence said "were
+    # older than this machine's"; the comparison is `>=`, and ties count as already-held.
+    RestoreNote.ALREADY_HELD: RestoreWording(
+        "{count} {section} on the drive are the same age or older than this machine's\n"
+        "    and were not applied. Nothing to do.",
+        actionable=False,
+    ),
+    # Checked: ranked lower on a genuinely later stamp.
+    RestoreNote.LOST_OLDER: RestoreWording(
+        "{count} {section} on {label} were written earlier and were not used.", actionable=False
+    ),
+    # Checked: the SAME stamp, ordered by `drive_uuid`. ⚠ Reported as "older" until 2026-08-26,
+    # and `_ranked` says ties are the ordinary case - so this was the common wrong answer.
+    RestoreNote.LOST_TIE: RestoreWording(
+        "{count} {section} on {label} were written at the same moment as another drive's\n"
+        "    and were not used. Not an age: the drives are ordered by identity to keep the\n"
+        "    answer stable.",
+        actionable=False,
+    ),
+    # Checked: the document carries no stamp. ⚠ Was reported as "older" AND separately as undated,
+    # so one drive got two contradicting lines in one output.
+    RestoreNote.LOST_UNDATED: RestoreWording(
+        "{count} {section} on {label} were not used: that document carries no date, so it\n"
+        "    cannot overrule one that does.",
+        actionable=False,
+    ),
+    # Checked: a SET DIFFERENCE of identity keys is non-empty. ⚠ The old sentence said the
+    # sections "exist there and NOT here", which is false whenever the catalog holds some of them.
+    RestoreNote.DRIVE_HOLDS_MORE: RestoreWording(
+        "The drive holds {sections} this catalog does not, and they will be gone.", actionable=True
+    ),
+    # Checked: the write returned success. ⚠ "The drive now matches this catalog" was contradicted
+    # by `merge_onto_drive`, which deliberately PRESERVES sections this version does not know -
+    # asserted by `test_restore_cli.py`'s own captions case. So state the act, not an end state.
+    RestoreNote.DRIVE_WRITTEN: RestoreWording(
+        "The drive's decisions were replaced with this catalog's.", actionable=False
+    ),
+}
+
+#: `SupersededReason` -> the note for it. Separate from the table so the mapping is data too, and
+#: a new reason with no note fails the exhaustiveness test rather than falling through.
+SUPERSEDED_NOTE: Final[dict[SupersededReason, RestoreNote]] = {
+    SupersededReason.OLDER: RestoreNote.LOST_OLDER,
+    SupersededReason.TIE: RestoreNote.LOST_TIE,
+    SupersededReason.UNDATED: RestoreNote.LOST_UNDATED,
+}
+
+
+def nothing_applied_note(report: ApplyReport) -> RestoreNote:
+    """Which of the two zeroes this is. `NOTHING_CONFIRMED_NOTE`'s shape, for restore.
+
+    An empty `applied` means "there was nothing new" only when nothing was refused. A document of
+    albums alone, or of events none of which match, produces the same empty dict - and saying
+    *"nothing this catalog does not already have"* to that user is the reassuring half of a
+    situation that has an unreassuring half.
+    """
+    refused = (
+        report.unmatched_events
+        or report.conflicting_trips
+        or report.trips_without_days
+        or report.not_applied
+        or report.awaiting_content
+    )
+    return RestoreNote.NOTHING_APPLIED if refused else RestoreNote.NOTHING_NEW
+
+
+def unmatched_events_note(report: ApplyReport) -> RestoreNote:
+    """Whether the reason for an unmatched event is knowable. See `ApplyReport.events_here`."""
+    return RestoreNote.NO_SUCH_GROUP if report.events_here else RestoreNote.NO_EVENTS_HERE
 
 
 def _shared_decisions(catalog: Any) -> Decisions:
@@ -526,8 +726,10 @@ def apply_decisions(catalog: Any, decisions: Decisions, *, apply: bool = True) -
         signature = str(event["signature"])
         existing = catalog.event_by_signature(signature)
         if existing is None:
-            # Membership changed, so this is not that event. Reported, never guessed at - the same
-            # distinction the screen makes when it declines to claim a grown cluster is named.
+            # ⚠ **Nothing here has that signature. WHY is not established and must not be
+            # asserted** - this said "Membership changed, so this is not that event" and the CLI
+            # printed it as fact. An empty `events` table produces this branch for every event in
+            # the document, and that is the ordinary case after a catalog loss. `(aia)`
             unmatched.append(str(event["name"]))
             continue
         if existing["name"] != event["name"]:
@@ -578,6 +780,7 @@ def apply_decisions(catalog: Any, decisions: Decisions, *, apply: bool = True) -
 
     return ApplyReport(
         applied=applied,
+        events_here=catalog.event_count(),
         already_newer_locally=newer_locally,
         awaiting_content=awaiting,
         unmatched_events=tuple(unmatched),

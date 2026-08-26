@@ -132,7 +132,7 @@ Notes:
   this project refuses. `(afp)` closed with it: a cold start no longer offers to delete a catalog
   another process is writing.
   ⚠ **Not covered, on purpose**: the app's synchronous settings writes, which is `(adt)`.
-- **Schema is at v21** (`catalog.CURRENT_SCHEMA_VERSION`); `organize_runs` arrived at v20 (`(aem)`), the in-place intent columns at v21 (`(agk)`).
+- **Schema is at v22** (`catalog.CURRENT_SCHEMA_VERSION`); `organize_runs` arrived at v20 (`(aem)`), the in-place intent columns at v21 (`(agk)`), and `file_copies.bake_started_at` at v22 so an interrupted bake is not read as damage. ⚠ **This line said v21 until 2026-08-26** and was noticed twice without being fixed - a third notice with no fix is the half-refresh `ENGINEERING_STANDARD.md` §4's seventy-first member is about. Read `CURRENT_SCHEMA_VERSION` rather than this sentence.
 - **`(aad)` installers remain the launch gate**, and its two largest items are now built AND
   proven: the release lane and the Windows installer both work on both platforms
   (run 32555392424, 2026-08-22). What is left of it is the **download page** and the
@@ -151,7 +151,7 @@ Notes:
   detail beside it - because an undo record written to the old path **destroyed the organize
   record of the run it had just reversed**. Undo is now the fourth surface that writes one;
   migrate and bake are deliberately undecided (`(agm)`).
-- **Catalog schema is v21 since 2026-08-23** (`(agk)`). The in-place journal is an **intent log**:
+- **Catalog schema REACHED v21 on 2026-08-23** (`(agk)`); it is v22 today, see above. The in-place journal is an **intent log**:
   the row is written *before* the rename, not after, so a crash in that window leaves a file that
   undo can still put back. Measured before the fix: 2 of 8 `SIGKILL`s left a photograph moved
   with no undo row, and `undo-organize` reported success. Undo now verifies **identity** before

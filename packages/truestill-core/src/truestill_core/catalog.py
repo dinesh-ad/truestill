@@ -2639,6 +2639,16 @@ class Catalog:
             )
         )
 
+    def event_count(self) -> int:
+        """How many events this catalog holds, named or not. **O(1)-ish**, one COUNT.
+
+        Exists to tell two situations apart for `decisions.apply_decisions`: a document event that
+        matches nothing because the membership changed, and one that matches nothing because this
+        catalog has no events at all. `(aia)`
+        """
+        row = self._conn.execute("SELECT count(*) FROM events").fetchone()
+        return 0 if row is None else int(row[0])
+
     def named_event_signatures(self) -> dict[str, str]:
         """``{event signature: that event's name}`` for every named event. **O(named events).**
 

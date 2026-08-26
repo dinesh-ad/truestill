@@ -9,7 +9,7 @@
   ## THE FIELD, AND THE DOCSTRING IT CONTRADICTS
 
   `apply_decisions` returns `not_applied=("albums",)` whenever a document carries albums
-  (`decisions.py:590`); the field is declared at `decisions.py:373`.
+  (`decisions.py:590`); the field is declared at `decisions.py:435`.
 
   `_print_restore_plan` (`cli.py:1440`) prints `unmatched_events`, `awaiting_content`,
   `already_newer_locally`, `superseded` and `undated` - **and not this one**. Its own docstring, at
@@ -18,7 +18,7 @@
 
   ⚠ **So a user restoring is never told the albums section was discarded**, on either surface:
   grep for `not_applied` across `packages/` returns four hits total - the declaration
-  (`decisions.py:373`), the write (`decisions.py:590`), one documentation line, and a test whose
+  (`decisions.py:435`), the write (`decisions.py:590`), one documentation line, and a test whose
   name collides and is about date corrections. **No test asserts it, so deleting `decisions.py:590`
   breaks nothing.**
 

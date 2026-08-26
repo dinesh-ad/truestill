@@ -126,6 +126,14 @@ def test_it_reports_what_it_would_not_do_before_asking(
     assert "scan" in out.lower(), "the awaiting-content remedy was not explained"
     assert "1 date confirmations" in out, "the awaiting-content count was not given"
 
+    # ⚠ **A lost name is printed in the ACTIONABLE register.** `(aia)` derives the marker from
+    # `RestoreWording.actionable` rather than typing it at each site, because a real loss rendered
+    # with the `-` used for "Nothing to do" is reassurance where a warning belongs - which is how
+    # it read before, and what `(ahz)` recorded. A mutation forcing every marker to `-` killed no
+    # test until this line existed.
+    lost = next(line for line in out.splitlines() if "Sam Wedding" in line)
+    assert lost.lstrip().startswith("!"), f"a lost name was not flagged as actionable: {lost!r}"
+
 
 def test_a_document_from_a_newer_truestill_names_the_remedy(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
