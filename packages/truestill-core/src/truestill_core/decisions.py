@@ -223,10 +223,15 @@ class Superseded:
     #: names - the one detail that would have made the line alarming, withheld by the one line that
     #: could have alerted them. `(ahz)`
     swaps: tuple[NameSwap, ...] = ()
-    #: ⚠ **The loser was the drive the user NAMED.** `restore <root>` is an explicit act - the user
-    #: typed that path - so a document found by a stored hint overruling it is the case worth
-    #: saying out loud. Reported here; **acted on nowhere yet**, which is `(ahz)` step 2.
-    from_named_root: bool = False
+    #: ⚠ **AUTHORITY decided this, not rank**: the drive the user named claimed the key over a
+    #: document that OUTRANKED it. ⚠ **This field was `from_named_root` for one day** - "the loser
+    #: was the drive you named" - which was the right report while rank still won. Step 2 made the
+    #: named root authoritative, so it can no longer lose a key it holds and that reading became
+    #: unreachable. The disagreement it marks is the same one; the direction reversed. `(ahz)`
+    #:
+    #: 🔑 **It is the only channel for the risk an authoritative restore carries**: a value that
+    #: was genuinely newer, made on another machine, and has just been overruled.
+    by_authority: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -257,6 +262,16 @@ def _ranked(documents: Sequence[Decisions]) -> list[Decisions]:
     **An undated document sorts last, and is not dropped.** Hand-edited or truncated, it is still
     someone's names, so it supplies anything nothing else has - but it cannot be trusted to
     overrule a document that says when it was written.
+
+    ⚠ **AND SINCE `(ahz)`, RANK IS NOT THE LAST WORD** - `_merge_section` lets the drive the user
+    NAMED claim its keys ahead of this order. **That is not the objection above returning.** The
+    ruling here is about tie-breaking: falling back to *argument order* would make the answer
+    depend on the order drives happened to be listed in, and it still would. What overrides rank is
+    a **stated authority** - `restore <root>` is an explicit act, the user typed that path, and
+    `_restore_documents_for` already rules that root special (*"read from the PATH, never from a
+    lookup"*). A named root is a fact about intent; a list position is an accident of iteration.
+    Both sentences are true, and they are here together so the next reader does not think the
+    first one was quietly dropped.
     """
     ordered = sorted(documents, key=lambda d: d.drive_uuid)
     # `""` is lexicographically below every stamp, so descending order puts undated documents
@@ -303,7 +318,7 @@ def _merge_section(
     *,
     named_root_uuid: str = "",
 ) -> tuple[dict[str, Any], ...]:
-    """First value per identity key wins, in ranked order. **Per decision, never per document.**
+    """First value per identity key wins. **Per decision, never per document.**
 
     That is the whole distinction: "take the newest document's sections" would let a freshly
     formatted drive - whose empty document is by definition the newest - erase a full one.
@@ -311,32 +326,52 @@ def _merge_section(
     A later document holding an **identical** value is not reported. One save writes the same
     document to every drive, so most reconciles see several identical copies, and calling each a
     superseded loser would bury the one real disagreement in a list of non-events.
+
+    🔑 **THE DRIVE THE USER NAMED CLAIMS ITS KEYS FIRST, ahead of rank.** `(ahz)` `restore <root>`
+    is an explicit act - the user typed that path - and until 2026-08-26 a document found through a
+    stored *hint* could outrank it purely by carrying a fresher clock. That is how re-organizing to
+    recover from a lost catalog destroyed the names it was recovering: the recovery folder is
+    registered as a drive, its document is published seconds later, and last-write-wins did the
+    rest.
+
+    ⚠ **PER KEY, NOT PER SECTION**, and the difference is the whole design. Authority is claimed
+    one identity at a time, so another drive still contributes every trip the named root has never
+    heard of. Per-section authority would silently discard those - the named root would answer for
+    decisions it does not carry, which is the freshly-formatted-drive failure with a different
+    name.
     """
+    named = next((d for d in ranked if named_root_uuid and d.drive_uuid == named_root_uuid), None)
+    # Rank position is kept so a loss can say whether AUTHORITY decided it: a value that lost to
+    # the named root while OUTRANKING it is the one case a user may need to overrule.
+    rank_of = {id(document): position for position, document in enumerate(ranked)}
+    order = ranked if named is None else [named, *(d for d in ranked if d is not named)]
+
     chosen: dict[object, tuple[dict[str, Any], Decisions]] = {}
     beaten: dict[tuple[str, SupersededReason, bool], list[NameSwap]] = {}
-    for document in ranked:
+    for document in order:
         for row in section.rows_of(document):
             key = section.key_of(row)
             if key not in chosen:
                 chosen[key] = (row, document)
             elif chosen[key][0] != row:
                 label = document.drive_label or document.drive_uuid
+                winner = chosen[key][1]
                 # The winning DOCUMENT is kept beside the winning row for this one reason: "why
                 # did this lose" is a question about the two stamps, and the row does not carry
                 # one. Reported rather than assumed - see `SupersededReason`.
                 seat = (
                     label,
-                    _why_it_lost(chosen[key][1], document),
-                    bool(named_root_uuid) and document.drive_uuid == named_root_uuid,
+                    _why_it_lost(winner, document),
+                    winner is named and rank_of[id(document)] < rank_of[id(winner)],
                 )
-                # ⚠ The VALUES, not a tally. Grouped by (drive, reason, named-root) so one line can
-                # name every swap it covers - a count alone is what `(ahz)` §6 was about.
+                # ⚠ The VALUES, not a tally. Grouped by (drive, reason, by-authority) so one line
+                # can name every swap it covers - a count alone is what `(ahz)` §6 was about.
                 beaten.setdefault(seat, []).append(
                     NameSwap(lost=section.name_of(row), kept=section.name_of(chosen[key][0]))
                 )
     losses.extend(
-        Superseded(section.name, label, len(swaps), reason, tuple(swaps), named)
-        for (label, reason, named), swaps in beaten.items()
+        Superseded(section.name, label, len(swaps), reason, tuple(swaps), by_authority)
+        for (label, reason, by_authority), swaps in beaten.items()
     )
     return tuple(row for row, _ in chosen.values())
 
@@ -518,7 +553,7 @@ class RestoreNote(StrEnum):
     LOST_OLDER = "lost_older"
     LOST_TIE = "lost_tie"
     LOST_UNDATED = "lost_undated"
-    LOST_FROM_NAMED_ROOT = "lost_from_named_root"
+    OVERRULED_BY_NAMED_ROOT = "overruled_by_named_root"
     DRIVE_HOLDS_MORE = "drive_holds_more"
     DRIVE_WRITTEN = "drive_written"
 
@@ -634,11 +669,12 @@ RESTORE_WORDING: Final[dict[RestoreNote, RestoreWording]] = {
     # the recovery inversion `(ahz)` measured, AND its mirror - a genuinely newer rename made on a
     # second machine, which SHOULD win and which the user must be able to recognise as legitimate.
     # Naming both values is what lets them tell the two apart; a count never could.
-    RestoreNote.LOST_FROM_NAMED_ROOT: RestoreWording(
-        "{count} {section} on {label} - the drive you named - were not used.\n"
-        "    Another drive's copy overruled them: {swaps}.\n"
-        "    If that copy is a change you made elsewhere, this is correct. If it came from\n"
-        "    rebuilding this catalog, the names on {label} are the ones you typed.",
+    RestoreNote.OVERRULED_BY_NAMED_ROOT: RestoreWording(
+        "{count} {section} on {label} were written later and were still not used:\n"
+        "    {swaps}.\n"
+        "    The drive you named holds the ones on the right, and a drive you name wins.\n"
+        "    If the newer copy is a change you made on another machine, restore from THAT\n"
+        "    drive instead - this run would replace it.",
         actionable=True,
     ),
     # Checked: the document carries no stamp. ⚠ Was reported as "older" AND separately as undated,
@@ -667,12 +703,12 @@ RESTORE_WORDING: Final[dict[RestoreNote, RestoreWording]] = {
 def superseded_note(loss: Superseded) -> RestoreNote:
     """The sentence for one superseded group.
 
-    ⚠ **The named-root case outranks the reason**, deliberately. *Why* it lost - older, tie,
-    undated - is the smaller fact when the loser is the drive the user pointed at; that it lost at
-    all is the thing they need to read. `(ahz)`
+    ⚠ **The authority case outranks the reason**, deliberately. *Why* the loser ranked lower is the
+    smaller fact when it did not lose on rank at all - it outranked the winner and was overruled by
+    the drive the user named. That is the one case a user may need to reverse. `(ahz)`
     """
-    if loss.from_named_root:
-        return RestoreNote.LOST_FROM_NAMED_ROOT
+    if loss.by_authority:
+        return RestoreNote.OVERRULED_BY_NAMED_ROOT
     return SUPERSEDED_NOTE[loss.reason]
 
 

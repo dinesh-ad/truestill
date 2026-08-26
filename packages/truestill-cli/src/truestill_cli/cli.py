@@ -1424,7 +1424,15 @@ def _restore_documents_for(root: Path, catalog: object) -> tuple[list[Decisions]
     by asking the catalog would work for everybody except the person who needs it.
 
     Other registered drives join in when there are any, because two drives that disagree is the
-    case the reconciliation was written for - and on a fresh machine that list is simply empty.
+    case the reconciliation was written for.
+
+    ⚠ **THEY JOIN IN; THEY DO NOT OUTRANK.** This said *"on a fresh machine that list is simply
+    empty"* until 2026-08-26, and `(ahz)` falsified it: recovering from a lost catalog by
+    re-organizing REGISTERS the recovery folder as a drive and publishes a document to it seconds
+    later, so on exactly the machine this command exists for the list is **not** empty - it holds
+    a document derived from the very drive the user is restoring from, with a fresher stamp.
+    Since `(ahz)`, the named root claims its own keys and the others fill only what it does not
+    carry. Reading them is still right; letting them win was not.
     """
     found = read_decisions(root)
     if found.error is not None:

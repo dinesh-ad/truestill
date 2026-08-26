@@ -124,6 +124,55 @@
   the save silently *overwrites* the real names rather than outranking them. ⚠ And E must ship with
   a fix to `_discard_to_drive`, which treats a non-empty `would_lose` as **permission to proceed**.
 
+  ## ⚠ STEP 2 SHIPPED 2026-08-26 (P113) - THE NAMED ROOT IS AUTHORITATIVE
+
+  `_merge_section` lets the drive the user named claim its keys **ahead of rank**; other drives
+  fill only what it does not carry. **Per KEY, not per section** - per-section authority would let
+  the named root answer for decisions it does not hold, discarding every trip another drive has
+  that it has never heard of. A mutation proves it.
+
+  **Step 5, re-run end to end and measured.** Recorded when filed:
+
+  ```
+    - 1 trips on dest were older and were not used.
+    - 3 events on dest were older and were not used.
+  ```
+
+  Today, same five steps, recovery document 37 seconds newer:
+
+  ```
+       3  events
+
+    ! 3 events on rebuilt were written later and were still not used:
+      'placeholder B' -> 'Morning Market', 'placeholder C' -> 'Temple Visit', ...
+      The drive you named holds the ones on the right, and a drive you name wins.
+      If the newer copy is a change you made on another machine, restore from THAT
+      drive instead - this run would replace it.
+  ```
+
+  **The three real names come back**, the overruled placeholders are named in the actionable
+  register, and the direction is reversed. With the authority reverted, the same run says
+  *"3 events on dest were written earlier and were not used"* - the defect, restored.
+
+  ## ⚠ WHAT STILL LOSES, NAMED RATHER THAN IMPLIED
+
+  **Step 2 is not the whole of this entry, and a partial fix on this path must say which part it
+  does not cover.**
+
+  - ⚠ **Events cannot be CREATED.** A rebuilt catalog whose `events` table is empty still drops
+    every event name at step 3, whichever document wins - `apply_decisions` renames an event found
+    by signature and cannot make one. That is `(ahv)`, and the re-cluster-then-match path already
+    exists shipped. In the run above, step 3 reported *"2 restored, 3 not restored"*; the names
+    only returned at step 5 **because step 3's re-naming had put the rows there first.**
+  - ⚠ **Trips cannot be RENAMED.** There is no `rename_trip`; a trip name is write-once for the
+    life of the row, on both surfaces. Where the named root's trip name differs from one the
+    catalog already holds for those days, step 2 converts a silent supersede into a **loud, honest
+    dead end** - `_apply_trips` refuses it into `conflicting_trips`, which now prints. Strictly
+    better, and clearly not sufficient.
+  - **Step 3 is unbuilt**: `_LOSS_KEYS` still keys events on signature, so a reachable original
+    drive can still be *overwritten* rather than outranked - and it must ship with the
+    `_discard_to_drive` polarity fix.
+
   ## ⚠ THE INDUSTRY MODEL, AND MY FIRST READING OF IT WAS BACKWARDS
 
   Microsoft's default is **NON-authoritative**: a restored replica loses to replication and does
@@ -202,7 +251,7 @@
 
   | | shape | verdict |
   |---|---|---|
-  | **A** | the recovery destination is not registered as a drive | ⛔ **RULED OUT.** `IMPLEMENTATION_STANDARDS.md` §3.1 binds creation on **both** surfaces; `cli.py:2606` rules that an identity minted afterwards *"leaves the run's own files unattached"*; `(aei)` makes destination identity an input to dedup. An opt-out flag was already refused at `cli.py:2544` |
+  | **A** | the recovery destination is not registered as a drive | ⛔ **RULED OUT.** `IMPLEMENTATION_STANDARDS.md` §3.1 binds creation on **both** surfaces; `cli.py:2606` rules that an identity minted afterwards *"leaves the run's own files unattached"*; `(aei)` makes destination identity an input to dedup. An opt-out flag was already refused at `cli.py:2552` |
   | **B** | suppress publishing while the catalog is known-rebuilt | ⚠ **PARTLY RULED OUT, and needs a concept that does not exist.** No rebuilt/young/age notion anywhere; `test_catalog_session.py` rules the trigger deliberately coarse and calls the refreshed organize stamp intended; `decisions-on-drive-research.md` states every reachable drive is meant to hold every decision. And `(aci)`/`would_lose` is the already-recorded remedy - B would be a second one |
   | **C** | `restore` reads one root only, behind a flag | ✅ **NOT RULED ON.** The ruling is only *"the named root is read from the PATH, never from a lookup"* (`cli.py:1408`). Reading the others is stated as a **convenience**, justified by *"on a fresh machine that list is simply empty"* - which this scenario falsifies. Constraint: `apply_documents` owns the per-drive loop structurally; a flag must not move it |
   | **D** | creation-date-aware ranking | ✅ **NOT RULED ON, but needs new data.** A per-section override precedent exists - `_merge_confirmations` (`decisions.py:344`) resolves on the row's stamp, not the document's. ⚠ But drive age is **not derivable**: `marker.created` exists (`drive.py:947`) and is never written to the catalog or read during reconcile, and `drives.first_seen` is when *this* catalog first saw the drive, so on a rebuilt catalog it is the rebuild day - **actively wrong in the one case restore exists for** |

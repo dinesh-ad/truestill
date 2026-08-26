@@ -30,7 +30,7 @@
 
   `DestinationPreflight` (`filesystem.py:192-237`) has **no field carrying "this was not
   measured"**. So an unmeasurable destination becomes *exactly enough*, `may_proceed` is `True`,
-  and `cli._print_preflight` (`cli.py:2157-2175`) prints **nothing**.
+  and `cli._print_preflight` (`cli.py:2165-2183`) prints **nothing**.
 
   🔑 **The conflation was removed where it was MEASURED and reappeared where it is REPORTED.** The
   `int | None` lands, does its job for one expression, and is collapsed back into a number before

@@ -268,36 +268,77 @@ def test_a_superseded_loss_names_the_values_it_withheld() -> None:
     assert render_swaps(loss.swaps) == "'Beaten' -> 'Kept'"
 
 
-def test_the_drive_the_user_named_losing_is_said_differently() -> None:
-    """⚠ **`restore <root>` is an explicit act - the user typed that path.**
+def test_the_drive_the_user_named_wins_its_keys_over_a_newer_document() -> None:
+    """⚠ **The fix.** `(ahz)` step 2.
 
-    A document found through a stored hint overruling it is the case `(ahz)` measured, and it read
-    exactly like any other loss: a `-` marker in the nothing-to-do register. It now has its own
-    sentence, chosen ahead of the reason, because *that* it lost matters more than *why*.
-
-    ⚠ Reported here and **acted on nowhere** - the merge still ranks by stamp. That is step 2.
+    `restore <root>` is an explicit act - the user typed that path - and until this, a document
+    found through a stored *hint* outranked it by carrying a fresher clock. That is how
+    re-organizing to recover from a lost catalog destroyed the names it was recovering.
     """
     named = _doc("aaa", "Your drive", "2026-01-01T00:00:00+00:00", "Bangalore Dec 2009")
-    other = _doc("bbb", "Rebuilt", "2026-01-02T00:00:01+00:00", "placeholder A")
+    newer = _doc("bbb", "Rebuilt", "2026-01-02T00:00:01+00:00", "placeholder A")
 
-    _, report = reconcile_documents([named, other], named_root_uuid="aaa")
+    merged, report = reconcile_documents([named, newer], named_root_uuid="aaa")
+    assert [t["name"] for t in merged.trips] == ["Bangalore Dec 2009"], (
+        "the drive the user named did not win its own key"
+    )
+
+    # ⚠ And the overruled newer value is REPORTED, not swallowed: it is the one case a user may
+    # need to reverse, because it may be a change they made on another machine.
     loss = report.superseded[0]
-    assert loss.from_named_root is True
-    assert superseded_note(loss) is RestoreNote.LOST_FROM_NAMED_ROOT
-    assert RESTORE_WORDING[RestoreNote.LOST_FROM_NAMED_ROOT].actionable
-
-    # The mirror: with no named root declared, it is an ordinary loss again.
-    _, plain = reconcile_documents([named, other])
-    assert plain.superseded[0].from_named_root is False
-    assert superseded_note(plain.superseded[0]) is RestoreNote.LOST_OLDER
+    assert loss.by_authority is True
+    assert loss.swaps == (NameSwap(lost="placeholder A", kept="Bangalore Dec 2009"),)
+    assert superseded_note(loss) is RestoreNote.OVERRULED_BY_NAMED_ROOT
+    assert RESTORE_WORDING[RestoreNote.OVERRULED_BY_NAMED_ROOT].actionable
 
 
-def test_the_named_root_winning_is_not_reported_as_a_loss() -> None:
-    """⚠ Anti-vacuity: the bit must track the LOSER, not merely be set whenever a uuid is passed."""
+def test_without_a_named_root_the_ranking_is_unchanged() -> None:
+    """⚠ Anti-vacuity, and the cry-wolf half: authority applies only when a root was named."""
+    a = _doc("aaa", "Drive A", "2026-01-01T00:00:00+00:00", "Older")
+    b = _doc("bbb", "Drive B", "2026-01-02T00:00:01+00:00", "Newer")
+    merged, report = reconcile_documents([a, b])
+    assert [t["name"] for t in merged.trips] == ["Newer"], "rank stopped deciding"
+    assert report.superseded[0].by_authority is False
+    assert superseded_note(report.superseded[0]) is RestoreNote.LOST_OLDER
+
+
+def test_the_named_root_winning_on_rank_is_not_called_authority() -> None:
+    """`by_authority` marks a DISAGREEMENT between rank and authority, not merely a named root."""
     named = _doc("aaa", "Your drive", "2026-01-02T00:00:01+00:00", "Bangalore Dec 2009")
-    other = _doc("bbb", "Rebuilt", "2026-01-01T00:00:00+00:00", "placeholder A")
-    _, report = reconcile_documents([named, other], named_root_uuid="aaa")
-    assert report.superseded[0].from_named_root is False, "the WINNER was flagged as the loser"
+    older = _doc("bbb", "Rebuilt", "2026-01-01T00:00:00+00:00", "placeholder A")
+    _, report = reconcile_documents([named, older], named_root_uuid="aaa")
+    assert report.superseded[0].by_authority is False, (
+        "the named root won on rank; calling that authority would cry wolf on every ordinary merge"
+    )
+
+
+def test_authority_is_per_key_so_another_drive_still_contributes() -> None:
+    """🔑 **PER KEY, NOT PER SECTION**, and a mutation is why this test is here. `(ahz)`
+
+    Per-section authority would let the named root answer for decisions it does not carry - every
+    trip another drive holds and it has never heard of would vanish. That is the
+    freshly-formatted-drive failure `_merge_section` already refuses, arriving by a new route.
+    """
+    named = Decisions(
+        drive_uuid="aaa",
+        drive_label="Your drive",
+        written="2026-01-01T00:00:00+00:00",
+        trips=({"name": "Ooty", "slug": "o", "days": ["2013-01-01"]},),
+    )
+    other = Decisions(
+        drive_uuid="bbb",
+        drive_label="Rebuilt",
+        written="2026-01-02T00:00:01+00:00",
+        trips=(
+            {"name": "placeholder", "slug": "p", "days": ["2013-01-01"]},
+            {"name": "Wayanad", "slug": "w", "days": ["2014-08-14"]},
+        ),
+    )
+    merged, _ = reconcile_documents([named, other], named_root_uuid="aaa")
+    names = sorted(t["name"] for t in merged.trips)
+    assert names == ["Ooty", "Wayanad"], (
+        f"a trip only the other drive holds was discarded: {names}. Authority is per key."
+    )
 
 
 def test_the_sentence_serves_the_legitimate_case_too() -> None:
@@ -309,6 +350,7 @@ def test_the_sentence_serves_the_legitimate_case_too() -> None:
     named root would beat that legitimate newer change. The sentence has to serve both readings, so
     it names both values and lets the reader decide which is theirs.
     """
-    words = RESTORE_WORDING[RestoreNote.LOST_FROM_NAMED_ROOT].text
+    words = RESTORE_WORDING[RestoreNote.OVERRULED_BY_NAMED_ROOT].text
     assert "{swaps}" in words, "the values are not shown, so the two cases cannot be told apart"
-    assert "elsewhere" in words, "the legitimate case is not offered to the reader at all"
+    assert "another machine" in words, "the legitimate case is not offered to the reader at all"
+    assert "restore from THAT" in words, "the reader is told the risk and given no way to act"
