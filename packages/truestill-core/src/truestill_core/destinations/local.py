@@ -23,8 +23,8 @@ from truestill_core.destinations.base import (
     check_contained,
 )
 from truestill_core.drive_unwritable import (
-    explain_metadata_not_preserved,
     explain_unwritable_drive,
+    metadata_not_preserved_note,
 )
 from truestill_core.filesystem import (
     DestinationPreflight,
@@ -92,19 +92,6 @@ def _upload_failure(local: Path, target: Path, relative_path: str, outcome: Copy
         return f"could not copy {local.name} to {relative_path!r}, and no reason was recorded{left}"
     return (
         f"could not copy {local.name} to {relative_path!r}: {explain_unwritable_drive(exc)}{left}"
-    )
-
-
-def _metadata_warning(local: Path, relative_path: str, error: OSError) -> str:
-    """The sentence for a copy that arrived without its timestamps. `(aie)`
-
-    **Says the file is safe first.** `explain_metadata_not_preserved` deliberately words only
-    what did not happen, so the reassurance has to be added by whoever knows the file landed -
-    and this is the only place that does.
-    """
-    return (
-        f"{local.name} was copied to {relative_path!r} and is safe, but "
-        f"{explain_metadata_not_preserved(error)}"
     )
 
 
@@ -192,7 +179,7 @@ class LocalDestination(Destination):
             # ⚠ **Returned, not raised, and that is the whole of `(aie)`.** The bytes are at
             # `target` and verify against the source; only `copystat` was refused. Raising here
             # would put a complete photograph on the failure path, where the caller deletes it.
-            return _metadata_warning(local, relative_path, outcome.metadata_error)
+            return metadata_not_preserved_note(local.name, relative_path, outcome.metadata_error)
         return None
 
     def set_timestamp(self, relative_path: str, captured_at: datetime) -> None:

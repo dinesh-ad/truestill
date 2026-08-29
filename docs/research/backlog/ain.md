@@ -1,6 +1,15 @@
 # (ain) A REFUSED TIMESTAMP AFTER A COMMITTED RENAME LEAVES A FILE ON THE DRIVE WITH NO CATALOG ROW.
 
-*Body of backlog entry `(ain)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(ain)`, **SHIPPED 2026-08-29 (P143)** - its index row is in
+[`SHIPPED.md`](../../SHIPPED.md), not [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is
+shared between the two.*
+
+> ⚠ **This body was filed as a SOURCE READING and said so. It was reproduced before it was
+> touched, and every clause held** - three files on the drive, zero catalog rows, exit 1 - **with
+> one correction the reading could not have made**: `(afe)`'s *"exits 0"* is true only once the
+> refusal clears. While the mount keeps refusing, each run exits 1 **and still writes the
+> duplicate**, so the exit code is not the tell. The measurement, the ruling and the census the
+> fix produced are in `SHIPPED.md`'s row; this body is left as the reading it was.
 
 - **(ain) A REFUSED TIMESTAMP AFTER A COMMITTED RENAME LEAVES A FILE ON THE DRIVE WITH NO CATALOG
   ROW.** Filed 2026-08-29 (P141), from code. **`(aie)`'s mirror image on the same mount, and

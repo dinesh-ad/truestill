@@ -12,6 +12,13 @@ All notable changes to this project are documented here. The format follows
   history of every run beside your catalog, with the full file-by-file detail of recent ones.
 
 ### Fixed
+- **A photo the drive accepted is now always written into your catalog.** If the drive took the
+  file but refused to set its timestamp - shared folders, a NAS, and phone-style mounts all do
+  this - Truestill reported the photo as failed and never recorded it, so the copy sitting on your
+  drive was one it had no memory of. The next run could not recognise it and wrote a *second*
+  copy beside it, then a third: three photos became nine across three runs, and the last run
+  reported success. The copy is now kept, recorded, and named as one whose timestamp could not be
+  set. A copy that is genuinely not on the drive is still reported as a failure.
 - **Photos organized onto a network drive are no longer thrown away.** On a shared folder, a NAS,
   a phone-style mount or a memory stick formatted FAT32, the drive can take the file but refuse to
   set its timestamp. Truestill could not tell that apart from a copy that failed halfway, so it

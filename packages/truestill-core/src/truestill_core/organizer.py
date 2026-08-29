@@ -36,7 +36,7 @@ from truestill_core.dates import (
 from truestill_core.dedup import DedupIndex, carries_no_signal
 from truestill_core.destinations.base import CrossDeviceError, Destination, DestinationError
 from truestill_core.drive import LEGACY_MARKER_NAMES, MARKER_NAME
-from truestill_core.drive_unwritable import persists_for_the_run
+from truestill_core.drive_unwritable import metadata_not_preserved_note, persists_for_the_run
 from truestill_core.exif import WRITE_BATCH_SIZE, build_metadata_args, write_metadata_batch
 from truestill_core.filesystem import DestinationPreflight, sizes_of
 from truestill_core.hash_cache import HashCache
@@ -1410,8 +1410,49 @@ def _upload_copy(
     """
     warning = destination.upload(source, final_relative)
     if set_timestamps and captured_at is not None:
-        destination.set_timestamp(final_relative, captured_at)
+        warning = _stamp_or_warn(source, destination, final_relative, captured_at) or warning
     return warning
+
+
+def _stamp_or_warn(
+    source: Path, destination: Destination, final_relative: str, captured_at: datetime
+) -> str | None:
+    """Set the copy's capture date, or say it could not be set. **Never fails a placed file.**
+
+    ⚠ **`(ain)`, and it is `(aie)`'s mirror image one step later.** `upload` has already
+    **committed the file by rename** when this runs. Letting a refused `os.utime` propagate put a
+    complete photograph on the failure path - where the catalog row is never written, because it
+    is written *after* this returns - so the drive held a file the catalog had never heard of.
+    Measured: three files landed, three `FAILED` lines, `files` and `file_copies` **both empty**.
+
+    🔑 **The next run then made it worse, and that was measured too rather than inferred.** With
+    no row for the sha, `_free_relative` finds the name occupied by a file it cannot recognise as
+    its own and suffixes around it: run two wrote `…_1.jpg`, run three `…_2.jpg`. **Nine files on
+    the drive from three photographs, and the third run exited 0** with a clean summary, because
+    by then the stamp succeeded. Six of the nine are orphans no catalog will ever mention.
+    `(afe)`'s shape, confirmed live.
+
+    **The file is kept and recorded rather than rolled back**, which is the ruling and not a
+    convenience. Deleting a committed, complete copy to tidy up after a cosmetic failure is the
+    one thing this product refuses everywhere else - `_move_source` *"never deletes on doubt"*,
+    and `safe_copy`'s whole design is that nothing at the target is ours to remove. `(aie)` ruled
+    exactly this for the copy that had **not** committed; the case where it **has** cannot be the
+    one that deletes.
+
+    ⚠ **The destination is ASKED whether the copy is there, rather than the errno inferred from.**
+    `ENOENT` would mean the file is gone, and a `file_copies` row for a copy that does not exist
+    is a false custody claim - the failure this whole entry is about, inverted. `exists` answers
+    the actual question in one call and **raises** on a filesystem that will not say (`(aey)`), so
+    an unknown never reads as a yes. That is the same reason `(aie)` refused an errno
+    discriminator, applied to a different question.
+    """
+    try:
+        destination.set_timestamp(final_relative, captured_at)
+    except DestinationError as error:
+        if not destination.exists(final_relative):
+            raise
+        return metadata_not_preserved_note(source.name, final_relative, error)
+    return None
 
 
 def _move_source(

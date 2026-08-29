@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ain). Next free: (aio).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aip). Next free: (aiq).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -256,17 +256,33 @@ is invisible here is retired, not free.**
   backup's tense and the app's `will_organize`/`_completion` split.
   Body: [`research/backlog/aim.md`](research/backlog/aim.md).
 
-- **(ain) A REFUSED TIMESTAMP AFTER A COMMITTED RENAME LEAVES A FILE ON THE DRIVE WITH NO CATALOG ROW.**
-  Filed 2026-08-29 (P141), from source. `_upload_and_stamp` uploads and **then** calls
-  `LocalDestination.set_timestamp`, a bare `os.utime`. On a mount refusing it the file **lands and
-  is committed by rename**, the exception propagates, the file is reported `FAILED`, and **no
-  `file_copies` row is written** - so the drive holds a photograph the catalog has never heard of.
-  🔑 **That is `(afe)`'s self-worsening orphan**: the next organize finds no row, allocates a
-  suffix, writes `…_1.jpg` and **exits 0**. **Worse than `(aie)` and a different fix** - there the
-  drive and catalog agree (both empty), here they disagree. ⚠ **`--no-timestamps` escapes THIS and
-  not `(aie)`**, which is the proof they are separate. **Not measured** - a source reading, and
-  `(aid)`/`(aie)` are the precedent for what that is worth until run.
-  Body: [`research/backlog/ain.md`](research/backlog/ain.md).
+- **(aio) RELEASING THE BAKED TEMPORARY SITS BETWEEN THE COMMITTED COPY AND ITS CATALOG ROW.**
+  Filed 2026-08-29 (P143), from the census `(ain)` asked for. **`(ain)`'s shape on the bake path,
+  and the only other live instance of it.** `_upload_with_metadata_write` calls
+  `staged.unlink(missing_ok=True)` after `upload` has committed by rename and before the caller
+  writes the catalog row, so any `OSError` other than the absorbed `FileNotFoundError` leaves an
+  orphan. ⚠ **Narrower, and the reason is worth keeping**: the temporary is on this computer, not
+  the user's mount, so the realistic trigger is **Windows** - `PermissionError` while an antivirus
+  holds the file open - which is the platform nothing here can test locally. **Not reproduced**,
+  and filed rather than fixed for exactly that reason.
+  🔑 **The rest of the census is recorded in the body so nobody re-runs it**: four other
+  commit-before-catalog sites, all already closed, by three different mechanisms - `(agk)`'s
+  intent row, the migration journal, `(agv)`'s in-flight column - and `backup`, which has nothing
+  that can raise in the window at all.
+  Body: [`research/backlog/aio.md`](research/backlog/aio.md).
+
+- **(aip) MIGRATE AND BACKUP KEEP A COPY WHOSE METADATA WAS REFUSED AND NEVER SAY SO.**
+  Filed 2026-08-29 (P143). **The residue of `(aie)`, and its own letter because it is different
+  work.** That fix reached `relocate` and `backup` for free - both go through
+  `copy_leaving_nothing` - so migrate no longer fails every file in a library and backup no longer
+  discards a verified copy. **Only `organize` reports it.** `upload` returns a warning; `relocate`
+  returns `None` and reports through `MigrationOutcome`, `backup` through `CopyVerdict`. Three
+  outcome shapes, three decisions. ⚠ **A degradation from silence, not from correctness** - and
+  bounded: nothing Truestill decides is computed from a copy's mtime. ⚠ **`relocate` may be
+  unreachable in practice** - a layout migration's source and destination share a filesystem, so a
+  mount that refuses `copystat` never gave the incumbent its metadata either. Check before
+  building; that is a real possible answer.
+  Body: [`research/backlog/aip.md`](research/backlog/aip.md).
 
 - **(aig) AN INVALID-UTF-8 POSIX FILENAME MISFILES ON READ: EXIFTOOL'S JSON WRITER ECHOES `?` FOR THE BYTE.**
   Filed 2026-08-29 (P121); **cause corrected in place same day (P122), measured** - the entry

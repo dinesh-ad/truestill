@@ -93,6 +93,23 @@ _FOLDER_WORDS: dict[Unwritable, str] = {
 }
 
 
+def underlying_oserror(error: BaseException) -> OSError | None:
+    """The ``OSError`` behind a wrapper, or ``None`` if there is not one. `(agi)`, `(ain)`
+
+    ⚠ **The CAUSE CHAIN, not the exception handed in**, and that was learned the hard way: the
+    write paths raise `DestinationError(...) from outcome.error`, so a caller catching one never
+    sees an `OSError` at all - and `(agi)`'s first draft, which tested `isinstance` on what it was
+    given, was **inert on the surface that runs most**.
+
+    Extracted when the second caller arrived rather than copied into it: `(ain)` has to word a
+    refused `set_timestamp`, which reaches it wrapped exactly the same way.
+    """
+    found: BaseException | None = error
+    while found is not None and not isinstance(found, OSError):
+        found = found.__cause__
+    return found if isinstance(found, OSError) else None
+
+
 def persists_for_the_run(error: BaseException) -> bool:
     """Will the NEXT file hit this too? `(agi)`
 
@@ -126,12 +143,10 @@ def persists_for_the_run(error: BaseException) -> bool:
     # `OSError` at all - and the first draft of `(agi)`, which took an `OSError` and tested
     # `isinstance`, was therefore **inert on the surface that runs most**. Caught by its own
     # end-to-end test rather than in review, which is the only reason it is not shipped.
-    underlying: BaseException | None = error
-    while underlying is not None and not isinstance(underlying, OSError):
-        underlying = underlying.__cause__
-    if underlying is None:
+    found = underlying_oserror(error)
+    if found is None:
         return False
-    error = underlying
+    error = found
     kind = classify_unwritable(error)
     if kind is Unwritable.NO_SPACE:
         # 🔑 **The strongest row, and it is a mechanism rather than an inference.** A disk does not
@@ -199,6 +214,28 @@ def explain_metadata_not_preserved(error: OSError) -> str:
     if kind is Unwritable.FAILING:
         return "the drive stopped responding while they were being set"
     return error.strerror or str(error)
+
+
+def metadata_not_preserved_note(name: str, relative_path: str, error: BaseException) -> str:
+    """The whole sentence for a copy that arrived without its timestamps. `(aie)`, `(ain)`
+
+    ⚠ **One home, because there are now TWO ways to reach this state and they must not word it
+    differently.** `copystat` can be refused inside the copy (`safe_copy`, `(aie)`) and
+    `os.utime` can be refused on the committed file afterwards (`LocalDestination.set_timestamp`,
+    `(ain)`) - different call sites, different exception wrappers, **the same fact for the user**:
+    the photograph is on the drive and its date stamp is not. Two sentences for one fact is the
+    drift this module's docstring exists to prevent.
+
+    **Says the file is safe FIRST.** `explain_metadata_not_preserved` deliberately words only what
+    did not happen, because on its own it cannot know; a caller reaching this one is asserting
+    that it does.
+
+    Takes a ``BaseException`` and unwraps it, so a caller holding a `DestinationError` does not
+    have to remember that the errno is one `__cause__` further down.
+    """
+    found = underlying_oserror(error)
+    reason = explain_metadata_not_preserved(found) if found is not None else str(error)
+    return f"{name} was copied to {relative_path!r} and is safe, but {reason}"
 
 
 def explain_unwritable_folder(error: OSError) -> str:

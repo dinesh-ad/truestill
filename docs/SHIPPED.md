@@ -22,6 +22,40 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ain) A REFUSED TIMESTAMP AFTER A COMMITTED RENAME LEFT AN ORPHAN ON THE DRIVE.** Shipped
+  2026-08-29 (P143). Filed the day before as a **source reading** and reproduced before it was
+  touched: `_upload_copy` uploaded and **then** called `set_timestamp`, a bare `os.utime`, so a
+  mount refusing it raised **after** the rename had committed - and the catalog row is written
+  after the bytes. Verbatim: three `FAILED` lines, **three files on the drive, zero rows in
+  `files` and `file_copies`**, exit 1.
+  🔑 **THE SELF-WORSENING HALF WAS MEASURED RATHER THAN INFERRED, and it is worse than `(afe)`
+  predicted.** With no row, `_free_relative` suffixes around a file it cannot recognise: run two
+  wrote `…_1.jpg`, run three - refusal lifted - wrote `…_2.jpg` **and exited 0 with a clean
+  summary**. **Nine files on the drive from three photographs**, six of them orphans no catalog
+  will ever mention. ⚠ **`(afe)`'s *"exits 0"* clause is true only once the condition clears**;
+  while the mount keeps refusing, each run exits 1 and still writes the duplicate.
+  **The ruling was keep-and-record, never roll back.** Deleting a committed, complete copy to
+  tidy up after a cosmetic failure is what this product refuses everywhere else - `_move_source`
+  *"never deletes on doubt"*, `safe_copy` is built so nothing at the target is ours to remove, and
+  `(aie)` ruled exactly this for the copy that had **not** committed.
+  ⚠ **The destination is ASKED whether the copy is there rather than the errno inferred from.**
+  `ENOENT` means the file is gone, and a `file_copies` row for a copy that does not exist is a
+  false custody claim - this defect inverted, and the worse direction. `exists` answers the real
+  question and **raises** where the filesystem will not say (`(aey)`), so an unknown never reads
+  as a yes. Same reasoning as `(aie)`'s refusal of an errno discriminator, different question.
+  **It reuses `(aie)`'s machinery entirely** - `metadata_not_preserved_note` (now one home for
+  both routes, since two ways to reach one fact must not word it twice), `ActionResult.metadata_ok`,
+  the `METADATA NOT SET` block. No new mechanism.
+  ⚠ **The census asked for - where else does a commit precede a catalog write?** Five sites, and
+  **`(ain)` was the only live one**: organize's relocation path is covered by `(agk)`'s
+  intent-before-the-rename, migrate's apply and undo by the migration journal that replays them,
+  the bake's read-back by `(agv)`'s `bake_started_at` column, and `backup` has nothing that can
+  raise between `commit()` and `record_copy`. **One narrow sibling remains open as `(aio)`**: the
+  bake path's `staged.unlink` sits in the same window.
+  ⚠ **Scope worth knowing: an UNDATED file never reaches this defect**, because `set_timestamp` is
+  only called when `captured_at` is not `None`.
+  Body: [`research/backlog/ain.md`](research/backlog/ain.md).
+
 - **(aie) A COPY ONTO FUSE OR VFAT WROTE THE BYTES, FAILED ON THE TIMESTAMP, AND BLAMED THE
   DRIVE.** Shipped 2026-08-29 (P142). `staged_copy` called `shutil.copy2` - which **is**
   `copyfile` then `copystat` - inside one `except OSError`, so a refused `copystat` was
