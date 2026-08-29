@@ -174,11 +174,27 @@ def _decodable(path: Path) -> bool:
     happened to draw one killed the first real run at the re-encode. The derived shapes (strip,
     resize, rotate) all decode their subject, so the sample must be drawn from what decodes -
     filtering here rather than at each shape keeps one rule in one place.
+
+    ⚠ **`Exception` is deliberate here, and it is the narrow reading rather than the lazy one.**
+    The question this function asks is *"can Pillow read this file"*, so **every** failure is a
+    ``False`` - the answer does not depend on which exception a malformed file happens to
+    produce. A named tuple was tried first and was wrong twice against the real fuzzed corpus:
+    ``(OSError, ValueError, SyntaxError)`` missed an ``IndexError`` raised from inside
+    ``PngImagePlugin.verify`` on a truncated tile list. Enumerating what a fuzzer can provoke
+    from a decoder is not a list anyone can finish, which is the argument for the boundary
+    rather than for the names.
+
+    ⚠ **It DECODES rather than calling ``verify()``, and that distinction cost a run.**
+    ``Image.verify()`` checks structure without decoding pixels, so it answers a different
+    question from the one the shapes ask: a fuzzed TIFF passed ``verify()`` and then raised
+    ``OSError: decoder error -2`` from ``convert("RGB")`` half way through a 2,000-file build.
+    The derived shapes decode their subject, so the filter must decode too - the check has to be
+    the work, not a cheaper proxy for it.
     """
     try:
         with Image.open(path) as image:
-            image.verify()
-    except (OSError, ValueError, SyntaxError):
+            image.convert("RGB").load()
+    except Exception:  # any failure IS the answer - see the docstring
         return False
     return True
 
@@ -215,6 +231,31 @@ def _take_decodable(candidates: Sequence[Path], count: int) -> list[Path]:
         if len(taken) == count:
             break
     return taken
+
+
+#: What fraction of the sample each shape draws. ⚠ **Slices used to be FIXED (`sample[:20]`), so
+#: `--files` chose WHICH photographs and never HOW MANY** - a corpus built with `--files 2000` was
+#: byte-for-byte the one built with `--files 60`, 320 files either way, and `soak-seven-plan.md`
+#: carried a projection ("near 20 GB") that could never have come true. Measured and fixed
+#: 2026-08-29 during soak eight's build. Fractions rather than counts so the shape MIX is
+#: preserved at any scale: these are the proportions the 60-file corpus actually had.
+_SHARE: Final[dict[str, float]] = {
+    "S1": 1 / 3,
+    "S3": 1 / 4,
+    "S4": 1 / 5,
+    "S5": 1 / 6,
+    "S6": 2 / 15,
+    "S7": 1 / 6,
+    "S8": 1 / 10,
+    "S15": 1 / 12,
+    "S16": 1 / 4,
+    "S2t": 2 / 15,
+}
+
+
+def _share(sample: Sequence[Path], shape: str) -> Sequence[Path]:
+    """The slice of the sample this shape draws, proportional to the sample rather than fixed."""
+    return sample[: max(1, int(len(sample) * _SHARE[shape]))]
 
 
 def _reencode(
@@ -262,7 +303,7 @@ def build(writer: CorpusWriter, sample: Sequence[Path], rng: random.Random) -> N
 
 def _s1_same_photo_different_names(writer: CorpusWriter, sample: Sequence[Path]) -> None:
     """One photograph, three trees, three names. `"the same file name, but not always"`."""
-    for i, source in enumerate(sample[:20]):
+    for i, source in enumerate(_share(sample, "S1")):
         writer.copy(source, f"DriveA/Pictures/{source.name}", shape="S1", role="original")
         writer.copy(source, f"DriveB/My Pictures/photo ({i + 1}){source.suffix}", shape="S1")
         writer.copy(
@@ -277,7 +318,7 @@ def _s2_one_photo_many_times(writer: CorpusWriter, sample: Sequence[Path]) -> No
         writer.copy(
             hero, f"DriveB/Backups/set{i // 7:02d}/{hero.stem}_{i:02d}{hero.suffix}", shape="S2"
         )
-    for tail, source in enumerate(sample[1:9], start=2):
+    for tail, source in enumerate(_share(sample, "S2t")[1:], start=2):
         for i in range(tail % 5 + 2):
             writer.copy(
                 source, f"DriveB/Backups/tail/{source.stem}_{tail}_{i}{source.suffix}", shape="S2"
@@ -290,7 +331,7 @@ def _s3_exif_stripped(writer: CorpusWriter, sample: Sequence[Path]) -> None:
     The prediction is in ``docs/soak-seven-plan.md`` - the original dates from EXIF and the twin
     falls to ``FILENAME`` or ``Undated/``, while the perceptual tier pairs them at distance 0.
     """
-    for i, source in enumerate(sample[:15]):
+    for i, source in enumerate(_share(sample, "S3")):
         writer.copy(source, f"DriveA/Originals/{source.name}", shape="S3", role="original")
         writer.write_bytes(
             _reencode(source, strip_exif=True),
@@ -303,7 +344,7 @@ def _s3_exif_stripped(writer: CorpusWriter, sample: Sequence[Path]) -> None:
 
 def _s4_resolutions(writer: CorpusWriter, sample: Sequence[Path]) -> None:
     """The same photograph at several sizes. dHash normalises to 9x8, so these SHOULD pair."""
-    for source in sample[:12]:
+    for source in _share(sample, "S4"):
         writer.copy(source, f"DriveA/Full/{source.name}", shape="S4", role="original")
         for label, scale in (("half", 0.5), ("quarter", 0.25), ("web", 0.15)):
             writer.write_bytes(
@@ -317,7 +358,7 @@ def _s4_resolutions(writer: CorpusWriter, sample: Sequence[Path]) -> None:
 
 def _s5_backup_of_a_backup(writer: CorpusWriter, sample: Sequence[Path]) -> None:
     """`"75 GB of source became 220 GB of backup"` - the same tree nested inside itself."""
-    for source in sample[:10]:
+    for source in _share(sample, "S5"):
         writer.copy(source, f"DriveD/Backup/Pictures/{source.name}", shape="S5", role="original")
         writer.copy(source, f"DriveD/Backup/OldPC/Backup/Pictures/{source.name}", shape="S5")
         writer.copy(
@@ -327,14 +368,14 @@ def _s5_backup_of_a_backup(writer: CorpusWriter, sample: Sequence[Path]) -> None
 
 def _s6_crash_rescue(writer: CorpusWriter, sample: Sequence[Path]) -> None:
     """Real recovery-tool artifacts: Windows chkdsk and PhotoRec, not invented names."""
-    for i, source in enumerate(sample[:8]):
+    for i, source in enumerate(_share(sample, "S6")):
         writer.copy(source, f"DriveE/FOUND.000/FILE{i:04d}.CHK", shape="S6")
         writer.copy(source, f"DriveE/recup_dir.1/f{i * 1117:07d}.jpg", shape="S6")
 
 
 def _s7_picasa_beside_phone(writer: CorpusWriter, sample: Sequence[Path]) -> None:
     """A Picasa-era album beside an untouched phone dump - two conventions, one library."""
-    for i, source in enumerate(sample[:10]):
+    for i, source in enumerate(_share(sample, "S7")):
         writer.copy(source, f"DriveA/Picasa/Album 2009/Scan{i + 1:03d}.jpg", shape="S7")
         writer.copy(source, f"DriveF/DCIM/100ANDRO/IMG_2019{i:04d}.jpg", shape="S7")
     writer.write_bytes(
@@ -347,7 +388,7 @@ def _s7_picasa_beside_phone(writer: CorpusWriter, sample: Sequence[Path]) -> Non
 
 def _s8_second_root(writer: CorpusWriter, sample: Sequence[Path]) -> None:
     """`"eight hard drives"`. Every soak used ONE source root; the roots above are the shape."""
-    for source in sample[:6]:
+    for source in _share(sample, "S8"):
         writer.copy(source, f"DriveG/Photos/{source.name}", shape="S8")
         writer.copy(source, f"DriveH/Pictures/{source.name}", shape="S8")
 
@@ -411,7 +452,7 @@ def _s15_rotated(writer: CorpusWriter, sample: Sequence[Path]) -> None:
     ``hashing.perceptual_hash`` never calls ``exif_transpose``, so a turned copy hashes as a
     different photograph. Included to measure that, not to assert it is wrong.
     """
-    for source in sample[:5]:
+    for source in _share(sample, "S15"):
         writer.write_bytes(
             _reencode(source, rotate=90),
             f"DriveC/Rotated/{source.stem}_rot90.jpg",
@@ -426,7 +467,7 @@ def _s16_migration_folders(
 ) -> None:
     """Folder names that encode the migration, which is what `suggest_name` reads."""
     folders = ("Old PC", "Desktop backup", "To Sort", "New folder (2)", "Camera Uploads")
-    for source in sample[:15]:
+    for source in _share(sample, "S16"):
         folder = rng.choice(folders)
         writer.copy(source, f"DriveG/{folder}/{source.name}", shape="S16")
 

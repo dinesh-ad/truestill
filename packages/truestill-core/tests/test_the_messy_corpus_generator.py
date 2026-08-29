@@ -256,3 +256,21 @@ def test_the_case_collision_collapses_to_one_file(tmp_path: Path) -> None:
 
     mixed = sorted((corpus / "DriveA" / "Mixed").iterdir())
     assert len(mixed) == 1
+
+
+def test_the_corpus_grows_with_the_sample(tmp_path: Path) -> None:
+    """`--files` must decide HOW MANY, not only WHICH.
+
+    ⚠ **This is the guard for a defect that shipped.** Every shape used a fixed slice
+    (`sample[:20]`), so `--files 2000` built byte-for-byte the same 320-file corpus as
+    `--files 60` - measured while building soak eight, after `soak-seven-plan.md` had already
+    published a projection ("near 20 GB") that could never have come true. The shares in
+    `_SHARE` are proportional now, and this asserts the property rather than the arithmetic.
+    """
+    source = _library(tmp_path / "library", 60)
+    small, large = tmp_path / "small", tmp_path / "large"
+
+    make_messy_corpus.main(["--source", str(source), "--out", str(small), "--files", "12"])
+    make_messy_corpus.main(["--source", str(source), "--out", str(large), "--files", "48"])
+
+    assert len(_manifest(large)) > len(_manifest(small)) * 2

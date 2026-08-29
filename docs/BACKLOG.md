@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aig). Next free: (aih).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aik). Next free: (ail).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -197,6 +197,56 @@ is invisible here is retired, not free.**
   300 MP are **5 fuzzed TIFFs, all over 600 too**, so the band is empty in practice and the
   falsehood has had no observed consequence. Body:
   [`research/backlog/aib.md`](research/backlog/aib.md).
+
+- **(aik) NOTHING READS A META ARCHIVE'S SIDECAR, AND ITS MEDIA ARRIVES STRIPPED.** Filed
+  2026-08-29 (P135), from source. A Facebook or Instagram archive ships media with metadata
+  **stripped** and the dates **separately in JSON** (`timestamp_ms`), so the photograph carries no
+  date and the date carries no photograph. **Nothing reads that pairing**: every `json.load*` in
+  `packages/*/src` was enumerated and `takeout.py` is the only media-sidecar reader, Google-specific
+  at both ends (`photoTakenTime`/`creationTime`, and `_SUPP_RE` matching *supplemental-metadata*).
+  The prior art is inside the product - `SidecarIndex` - and the shape is **pre-ruled** by
+  `takeout.py`'s own docstring: *"if a second service ever ships a sidecar format, it gets its own
+  module beside this one"*. ⚠ Genuinely unexamined rather than refused:
+  `messenger-dates-research.md` ruled on messenger **filename conventions**, never on an archive.
+  **A gap, not a design** - the body names three things to establish before any code (format
+  stability, whether the date attaches to a *message* rather than a file, and that a Meta date under
+  `DateSource.TAKEOUT` would name the wrong producer - `(afl)`'s class, a contract consequence).
+  **Field notes first**, the way `takeout-format.md` preceded the Takeout work.
+  ⚠ The body also records the **false premise this letter was twice given** - a folder-date tier
+  that does not exist - with the four checks that establish the null, and the **midnight note**
+  (a filename date lands at 00:00:00; that is an absent time, **not** PhotoPrism #1102's invented
+  one). Body: [`research/backlog/aik.md`](research/backlog/aik.md).
+
+- **(aih) A PHOTOGRAPH WHOSE EXIF WAS STRIPPED IS FILED A YEAR FROM ITS OWN TWIN, AND THE PRODUCT ALREADY KNOWS THEY ARE THE SAME.**
+  Filed 2026-08-29 (P131, soak eight), **measured on 500 pairs**: 500 of 500 EXIF-stripped copies
+  landed in a different folder from their dated original - `WhatsApp/Undated/` against
+  `2019/2019-09/...` - **zero landed together**. 🔑 **And the pairing already exists**: the same run
+  matched 499 of those 500 at Hamming distance ≤ 5, 427 at distance 0, because the pixels are
+  untouched. `dates.resolve_capture_datetime` never reads `near_duplicate`, so the tier that knows
+  is not the tier that asks. **Nobody in the field propagates a date from a duplicate that has
+  one** - Immich #8661, PhotoPrism #1102, and `whatsapp-media-tools` existing as a separate repo to
+  do it. ⚠ **Not build-ready**: the body names what must be ruled first, including that distance ≤ 5
+  is a resemblance and `DEFAULT_PHASH_THRESHOLD` *"rests on nothing"*.
+  Body: [`research/backlog/aih.md`](research/backlog/aih.md).
+
+- **(aii) ONE PHOTOGRAPH FIFTY-TWO TIMES IS FIFTY-ONE SENTENCES, SCATTERED THROUGH A 24,000-LINE LIST.**
+  Filed 2026-08-29 (P131, soak eight), measured. On a duplicate-heavy library the preview ran to
+  **45,653 lines**, the exact-duplicate section alone **24,628 lines for 6,156 duplicates**. The
+  largest identical group was **52 files of one photograph**, reported as 51 separate blocks all
+  naming the same twin and scattered through the section. **The counts are right and the list is
+  unreadable, and those are different properties** - there is no group concept anywhere, matches
+  being pairwise against the first-seen twin. Narrower than `(aag)`: an exact group needs no
+  threshold and no review, so it is a reporting shape rather than a feature.
+  Body: [`research/backlog/aii.md`](research/backlog/aii.md).
+
+- **(aij) THE COMMAND `backup` TELLS YOU TO RUN CANNOT WORK AS PRINTED.** Filed 2026-08-29 (P131,
+  soak eight). `backup` onto an unregistered folder refuses correctly and prints
+  `truestill drives --init <path>`; running exactly that answers `error: --init requires --label`.
+  **The refusal is right and its remedy is wrong.** `(agp)`'s CLI-remedy census in one instance -
+  a suggested command is a promise, and nothing checks that a suggested command parses. A guard is
+  buildable and **not decided**: one instance is not yet the evidence `(ago)` requires, so this is
+  recorded so a second is recognised as the second.
+  Body: [`research/backlog/aij.md`](research/backlog/aij.md).
 
 - **(aig) AN INVALID-UTF-8 POSIX FILENAME MISFILES ON READ: EXIFTOOL'S JSON WRITER ECHOES `?` FOR THE BYTE.**
   Filed 2026-08-29 (P121); **cause corrected in place same day (P122), measured** - the entry
