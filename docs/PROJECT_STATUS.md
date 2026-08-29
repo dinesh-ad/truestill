@@ -266,11 +266,16 @@ what stops is changing *what a route returns* under a consumer that already read
    lists each surface *with its reason*.
 2. **Every surface reports its own stop.** `(ahc)` closed migrate's last one.
 3. **No route computes a field no consumer reads.** ⚠ **BLOCKED ON `(ahn)`, not on any count.**
-   ⚠ **The table above is EVIDENCE, not the list.** Derived from the AST on 2026-08-25 (`(ahl)`): **117** TypedDicts, **579** key slots,
-   **289** distinct key names, and **34** with no hit in `app.js` code and none in React - **21**
-   of those reach `cli.py` either. ⚠ **34 is a FLOOR rather than a count**, because a key-name
-   census cannot see a collided field: `absent` is read in one payload and dead in another, so it
-   never enters the 34.
+   ⚠ **The table above is EVIDENCE, not the list.** Derived from the AST by `(ahl)`, and ⚠ **the
+   inventory figures are DERIVED, never quoted - they rotted once already.** A 2026-08-25 snapshot
+   read *"117 TypedDicts, 579 key slots, 289 distinct key names"* and by 2026-08-29 the tree was at
+   roughly **123 / 594 / 293**, while the prose still presented the old numbers as current. The
+   guards use `>=` floors with slack so only the prose was wrong, which is exactly why a number
+   here is worse than a command. Run the census rather than trusting a figure -
+   `test_no_thirty_fifth_dead_payload_key.py` holds the derivation and its `MEASURED_*` constants.
+   **The one figure worth carrying is `34` dead keys**, and it is a FLOOR rather than a count - ⚠ **34 is a FLOOR rather than a count**, because a key-name
+   because a key-name census cannot see a collided field: `absent` is read in one payload and dead in
+   another, so it never enters the 34.
 4. ⚠ **No mutating behaviour lives only in the app** - added here because step 1's own sentence
    requires it and nothing was checking. ⚠ **This said *"Bake fails it today"* until 2026-08-25
    and named only bake.** Checking it found **three**: bake, backup and trip apply. `(ahd)` gave
@@ -334,8 +339,11 @@ what stops is changing *what a route returns* under a consumer that already read
     so a payload census cannot see it from either end. `(abm)` reached two of the five by hand.
 
   Both need **payload granularity** - which JavaScript variable holds which route's response - and
-  that is `(ahn)`'s route-to-payload join, measured absent: **50 routes, all 50 handlers annotated
-  `-> JSONResponse`**. Until it exists the honest answer is a floor, so the condition names its
+  that is `(ahn)`'s route-to-payload join, measured absent: **50 routes, and not one names a
+  payload type**. ⚠ **This said *"all 50 handlers annotated `-> JSONResponse`"* until 2026-08-29;
+  it is **46 of 50**, the other four returning HTML, SSE or bytes. The claim the number supports -
+  that nothing declares which payload a route returns - is unaffected, which is why the wording
+  now carries the claim rather than the arithmetic.** Until it exists the honest answer is a floor, so the condition names its
   blocker rather than a number that cannot reach zero.
 
 The app **lacking** a route for a CLI subcommand is a different question and belongs to step 3 -
@@ -619,6 +627,22 @@ all four artefacts from one derivation. Everything except publish.
 
 ## 4. Standing session rules (short form)
 
+- 🔑 **A BRIEF THAT ASSERTS A CAPABILITY EXISTS NAMES THE SYMBOL** (2026-08-29). Measured: over
+  five consecutive briefs, **four specified something that did not exist** - a folder-date tier, a
+  `year_only` field, a `find --duplicates` flag, and a photo dated `2019-01-01` from a `filename`
+  source. **All four died in briefs; ZERO of them exist in `BACKLOG.md`** (checked by grep), so
+  this is not backlog rot - recorded work verified fine, and the citation guard
+  `test_live_documents_cite_code_that_exists.py` is green over every live document.
+  **What the four shared:** each named a mechanism at the vocabulary layer - a tier, a field, a
+  flag, a subcommand - and asserted it **already existed** rather than that it was wanted. That
+  framing is what disabled the check: *"build X"* invites *"where would X go?"*, while *"X already
+  returns groups, route to it"* invites only *"where is the route?"*. **The false half was always
+  the premise clause, never the requested change.**
+  **So: name the symbol.** `find --duplicates` costs one grep and would not have survived being
+  written down. ⚠ **Filed here rather than in `ENGINEERING_STANDARD.md` §4 deliberately** - §4 is
+  the portable canon about how CODE is written, and this is about how work is SPECIFIED in this
+  project's briefs. A rule about session conduct in the engineering canon would be `(agc)`'s
+  shape, filing something where nothing enforces it and where a reader would not look for it.
 - **Staged workflow:** one requested step at a time; no silent run-ahead.
 - **Research-first + conflict-first:** flag spec/engineering conflicts before coding.
   Research sources: repo docs (outrank), source, free public only - **no paid third-party

@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aik). Next free: (ail).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ail). Next free: (aim).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -502,7 +502,9 @@ is invisible here is retired, not free.**
   thin clients over a documented API, so the API *is* the registry and parity is auditable.
   [Full entry](research/backlog/ahg.md)
 
-- **(ahb) THE UNDATED REPORT NAMES THE PROBLEM AND LINKS TO NOTHING.** Filed 2026-08-24 (P53).
+- **(ahb) THE UNDATED REPORT LINKS TO NOTHING - THE APP HALF SHIPPED, THE CLI HALF DID NOT.**
+  Filed 2026-08-24 (P53); ⚠ **retitled 2026-08-29**, because the body records *"THE APP HALF
+  SHIPPED 2026-08-24 (P54)"* and the title still claimed the whole of it.
   **Ranked ABOVE `(aha)`** - a route is worth more than a defect note, because it is what keeps a
   user out of the defect. The Organize result says *"No reliable date could be found, so these are
   kept together, not guessed"* and links **nowhere**; the Dates screen that fixes exactly this is
@@ -897,8 +899,12 @@ is invisible here is retired, not free.**
 - **(nn) Prove destination timestamp parity against a live rclone remote.** [Full
   entry](research/backlog/nn.md)
 - **(r) Analyze mode - the hash cache half is SHIPPED.** [Full entry](research/backlog/r.md)
-- **(kk) Persist GPS at ingest - it is read and then thrown away.** 📌 **read the entry first - a
-  premise inside it was corrected.** [Full entry](research/backlog/kk.md)
+- **(kk) Persist GPS at ingest - THE CAPTURE HALF SHIPPED AT v17; `GPSDateStamp` did not.**
+  ⚠ **Retitled 2026-08-29.** The title read *"it is read and then thrown away"*, which its own
+  body corrected on 2026-08-09 and the title outlived: `files.gps_latitude`/`gps_longitude`
+  arrived at v17, `event_review` and `trip_review` read them for the jump-cut, and **808 files
+  in the soak-five catalog carry coordinates**. What remains open is `GPSDateStamp`, and rows
+  written before v17 keep NULLs because v17 deliberately does no backfill. [Full entry](research/backlog/kk.md)
 - **(ll) Sub-day event identity that survives a changing file set.** [Full
   entry](research/backlog/ll.md)
 - **(aam) Sidebar reference: profile header, section labels, submenus.** [Full
@@ -1060,6 +1066,18 @@ rather than assumed.
   the next time the token list is reviewed.
 
 ## Consciously out of scope (recorded with reasons)
+
+- **(ail) A ROUTE TO `find --duplicates` - RETIRED 2026-08-29, unbuilt.** Proposed as *"`find
+  --duplicates` already returns exact groups; nothing points at it"*. **Every clause is false**,
+  checked five ways: no `find` subcommand (argparse rejects it), no `--duplicates` flag, no `dedup`
+  subcommand, no Duplicates card in `app.js`, and **no function anywhere returns exact-duplicate
+  groups** - the nearest are `explain_duplicate` (pairwise), a count, and a byte total.
+  🔑 **And it could not simply be built**: a route cannot point at data nobody kept.
+  `stats.py` reports `"exact_duplicates_found": None` because exact-duplicate skips are **not
+  stored in the catalog**, and `DedupIndex._by_sha` keeps one path per content. **Persisting the
+  skips is `(aii)`'s subject**, and anything reviving this starts there.
+  ⚠ Briefs called this `(aim)`; it is filed at `(ail)`, the letter that was free, and `(aim)` was
+  never allocated. Body: [`research/backlog/ail.md`](research/backlog/ail.md).
 
 - **A JavaScript FORMATTER, permanently. Ruled 2026-08-10 after measuring Biome 2.5.7.**
   Running it once would rewrite `app.js` wholesale - **3,733 source lines, 5,665 differing** - and
