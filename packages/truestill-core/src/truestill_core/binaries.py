@@ -171,8 +171,41 @@ def resolve_binary(name: str, *, override_env: str | None = None) -> str | None:
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
+def _pin_text_decoding(kwargs: dict[str, Any]) -> None:
+    """Text mode decodes as UTF-8 + surrogateescape unless the call site says otherwise.
+
+    ``text=True`` alone means ``locale.getpreferredencoding(False)`` - **cp1252 on Windows** -
+    while every text-mode consumer of this door parses machine output that is UTF-8 by its
+    producer's own documentation: exiftool's external charset defaults to UTF8, and rclone's
+    internal encoding is "unicode, so it can represent all characters in all languages", written
+    out as UTF-8. Decoding that with the console code page mojibakes ``SourceFile``, which then
+    misses the lookup keyed by the real path, and a correctly-dated photograph is filed
+    `Undated/` with no warning - the measured misfile in `docs/research/backlog/aic.md`.
+
+    ``errors="surrogateescape"`` rather than strict, ruled against the actual consumers: one
+    undecodable byte under strict is a **crashed batch** - measured, a ``UnicodeDecodeError``
+    out of ``communicate`` that costs all 200 files in the chunk - where surrogateescape
+    degrades only the record carrying the byte, and is byte-identical to strict on the valid
+    UTF-8 both producers document. It is also ``os.fsdecode``'s convention for streams that
+    carry filenames. ⚠ **The stronger hope was tested and does not hold**: an ext4 file named
+    with latin-1 ``0xE9`` does *not* round-trip into ``read_metadata``'s keys, because with
+    ``-charset filename=utf8`` exiftool replaces the undecodable byte with ``?`` in its own
+    echo before Python decodes anything (measured 2026-08-29). Such a file keys a fictitious
+    name under **every** ``errors=`` policy - the input-side residual recorded in
+    `docs/research/backlog/aif.md` - so this choice is about batch survival, not name rescue.
+
+    A call site that passes ``encoding=`` has made the whole decision and is left alone,
+    ``errors`` included; one that passes only ``errors=`` keeps it. Bytes-mode calls are
+    untouched - forcing text on them would change what their callers receive.
+    """
+    wants_text = kwargs.get("text") or kwargs.get("universal_newlines")
+    if wants_text and "encoding" not in kwargs:
+        kwargs["encoding"] = "utf-8"
+        kwargs.setdefault("errors", "surrogateescape")
+
+
 def run(command: Sequence[str | Path], **kwargs: Any) -> subprocess.CompletedProcess[Any]:
-    """`subprocess.run`, with the no-console-window flag applied.
+    """`subprocess.run`, with the no-console-window flag and the text-decoding pin applied.
 
     **Hiding the window changes nothing about output or exit codes.** ``CREATE_NO_WINDOW``
     suppresses the console *window* Windows would create; it does not touch the child's handles.
@@ -185,11 +218,13 @@ def run(command: Sequence[str | Path], **kwargs: Any) -> subprocess.CompletedPro
     caused by this flag - a packaged app has no console to inherit in the first place - but it
     means any future call site must redirect rather than assume a terminal.
     """
+    _pin_text_decoding(kwargs)
     return subprocess.run(command, creationflags=_NO_WINDOW, **kwargs)  # noqa: PLW1510
 
 
 def popen(command: Sequence[str | Path], **kwargs: Any) -> subprocess.Popen[Any]:
     """`subprocess.Popen`, with the no-console-window flag applied. See :func:`run`."""
+    _pin_text_decoding(kwargs)
     return subprocess.Popen(command, creationflags=_NO_WINDOW, **kwargs)
 
 

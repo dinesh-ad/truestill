@@ -22,6 +22,36 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aic) EXIFTOOL'S OUTPUT IS DECODED WITH THE MACHINE'S CODE PAGE, SO A NON-ASCII FILENAME LANDS IN `Undated/`.**
+  Shipped 2026-08-29 (P120). One fix at the one door: `binaries.run`/`binaries.popen` now pin
+  text mode to `encoding="utf-8"` unless the call site names its own - all four text-mode
+  consumers (`exif._read_chunk`, `exif.write_metadata_batch`, `selfcheck.exiftool_finding`,
+  `RcloneDestination._run`) are covered by it, bytes-mode calls untouched, and the existing AST
+  gate (`test_subprocess_has_one_home.py`) forces every future call site through the same door -
+  the class guard is that composition, no new census table to rot.
+  🔑 **`errors="surrogateescape"`, ruled for batch survival, not name rescue.** Measured both
+  ways: strict turns one undecodable byte into a `UnicodeDecodeError` out of `communicate` that
+  costs the whole 200-file chunk, and the hoped-for stronger property - that surrogateescape
+  would let an invalid-UTF-8 POSIX filename round-trip and key `by_name` - was **tested and
+  falsified**: with `-charset filename=utf8` exiftool replaces the byte with `?` in its own echo
+  before Python decodes anything, so such files key a fictitious name under every policy. That
+  input-side residual is `(aif)`, with the rest of the input transit question.
+  **Both census exposures closed with it**: rclone listings (filenames, compared by
+  `exists()`/`list()`) decode UTF-8 - right by rclone's own docs, which quote-replace invalid
+  bytes so output is well-formed UTF-8 by construction - and every bake argfile block now leads
+  with `-charset filename=utf8`, **per block** because options apply only to the command their
+  `-execute` closes (verified against a live two-block argfile). The bake path is thereby the one
+  path already on exiftool's documented Windows route for non-ASCII names.
+  **Proven by three mutations, control-first** (`mutate_once.py`): the door losing its injection
+  kills the hostile-locale child test; rclone opting back out kills the listing test; the argfile
+  losing its armour kills the per-block declaration guard - which says in its docstring that it
+  IS a declaration guard, and why (the behaviour is Windows-only and no lane runs Windows with a
+  hostile fixture). The hostile-locale children bite on every platform with no platform
+  conditional: `LC_ALL=C` forces the seam on POSIX that cp1252 occupies ambiently on Windows.
+  The one platform conditional in the batch is deliberate and is an *instrument*: the
+  filename-keying test is `xfail(strict=False)` on Windows because its verdict there is
+  `(aif)`'s open measurement, not `(aic)`'s.
+
 - **(ahq) A HASH THAT CARRIES NO SIGNAL IS NOT COMPARED.** Shipped 2026-08-26, the last of the
   six. A photograph of a flat surface produces an **honest** all-zero dHash, and everything within
   the matching threshold of all-zero is within it of everything else there - measured at **89 files

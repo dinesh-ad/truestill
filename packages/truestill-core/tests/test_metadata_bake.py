@@ -244,3 +244,40 @@ def test_staged_copies_do_not_outlive_the_run(tmp_path: Path) -> None:
 
     assert staged  # the batch path really ran
     assert not any(p.exists() for p in staged)  # and left nothing behind
+
+
+def test_every_argfile_block_declares_the_filename_charset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A DECLARATION guard, and it says so (`handoff-2026-08-27.md` names the convention).
+
+    The behaviour these two lines buy is only observable on Windows, which no lane runs: without
+    ``-charset filename=utf8`` exiftool reads the argfile's UTF-8 filename bytes through the
+    console code page and bakes the wrong file or none. What CAN be asserted everywhere is the
+    declaration - every ``-execute`` block leads with the charset pair, PER BLOCK, because
+    options apply only to the command their ``-execute`` closes and a single leading ``-charset``
+    would cover the first file alone (verified against a live two-block argfile, 2026-08-29).
+    """
+    captured: dict[str, str] = {}
+
+    def snoop(command: list[str | Path], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        argfile = Path(str(command[2]))
+        captured["argfile"] = argfile.read_text(encoding="utf-8")
+        blocks = captured["argfile"].count("-execute")
+        return subprocess.CompletedProcess(
+            list(command), 0, "    1 image files updated\n" * blocks, ""
+        )
+
+    monkeypatch.setattr(exif.binaries, "run", snoop)
+    photos = _photos(tmp_path, 2)
+
+    verdicts = exif.write_metadata_batch(
+        [(p, ["-DateTimeOriginal=2019:04:03 08:15:00"]) for p in photos]
+    )
+
+    assert all(verdicts.values())
+    blocks = [b for b in captured["argfile"].split("-execute") if b.strip()]
+    assert len(blocks) == len(photos)
+    for block in blocks:
+        lines = [line for line in block.strip().splitlines() if line]
+        assert lines[:2] == ["-charset", "filename=utf8"], lines

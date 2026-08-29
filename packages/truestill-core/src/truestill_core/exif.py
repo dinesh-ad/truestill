@@ -261,7 +261,13 @@ def write_metadata_batch(items: Sequence[tuple[Path, list[str]]]) -> dict[Path, 
     for chunk in _chunked(list(items), WRITE_BATCH_SIZE):
         lines: list[str] = []
         for path, args in chunk:
-            lines.extend([*args, str(path), "-execute"])
+            # The same input armour `_read_chunk` passes, and it must repeat PER BLOCK: options
+            # apply only to the command their `-execute` closes, so a single leading `-charset`
+            # would cover the first file alone. The argfile is exiftool's documented route for
+            # non-ASCII filenames on Windows - the name travels as UTF-8 bytes in this file,
+            # never through argv and the console code page. `(aic)`; verified against a
+            # two-block argfile before landing.
+            lines.extend(["-charset", "filename=utf8", *args, str(path), "-execute"])
         with tempfile.NamedTemporaryFile("w", suffix=".args", delete=False, encoding="utf-8") as fh:
             fh.write("\n".join(lines))
             argfile = Path(fh.name)

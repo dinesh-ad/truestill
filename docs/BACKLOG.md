@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aie). Next free: (aif).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aif). Next free: (aig).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -198,22 +198,20 @@ is invisible here is retired, not free.**
   falsehood has had no observed consequence. Body:
   [`research/backlog/aib.md`](research/backlog/aib.md).
 
-- **(aic) EXIFTOOL'S OUTPUT IS DECODED WITH THE MACHINE'S CODE PAGE, SO A NON-ASCII FILENAME LANDS IN `Undated/`.** Filed
-  2026-08-26 (P118), read from source. Every text-mode subprocess in the workspace passes
-  `text=True` with **no `encoding=`**, so Python decodes with `locale.getpreferredencoding()` -
-  **cp1252 on Windows**, the platform D9 launches on. 🔑 **The INPUT side is armoured and the
-  OUTPUT side is not**: `_read_chunk` passes `-charset filename=utf8` (`exif.py:315`) and then
-  reads the reply at `exif.py:320` with no encoding at all. A mojibaked `SourceFile` misses
-  `by_name` (`exif.py:340`), falls through to `or Path(source)` - **a path that does not exist** -
-  so `metadata.get(path, {})` returns `{}` and a correctly-dated photograph takes the handling
-  designed for an unreadable one: **`Undated/`**. Silent, and wrong in the direction that looks
-  like the product failing at its one job. ⚠ **This repo already knows the rule and applied it
-  everywhere else**: three test files carry the comment *"`encoding="utf-8"` IS LOAD-BEARING …
-  Windows defaults to cp1252"*, aimed at file reads. **Subprocess is the one seam that was
-  missed.** **Four call sites, one home**: `exif.py:270`, `exif.py:320`, `selfcheck.py:169`,
-  `destinations/rclone.py:49` - and `binaries.run`/`binaries.popen` is the single door all
-  subprocess traffic goes through, so the fix is there, not at four call sites.
-  Body: [`research/backlog/aic.md`](research/backlog/aic.md).
+- **(aif) A NON-ASCII FILENAME MAY NOT SURVIVE ARGV TO EXIFTOOL ON WINDOWS.** Filed 2026-08-29
+  (P120), split out of `(aic)` when its reply-side fix shipped - this is the INPUT transit, which
+  no decode fix can touch. The read path passes every filename to exiftool **as argv**
+  (`exif._read_chunk`); exiftool's own docs say filenames otherwise pass *"straight through to
+  the standard C I/O routines"*, and Windows argv reaches Perl through the ANSI code page - so a
+  character outside cp1252 (Indic scripts, CJK) is destroyed **before exiftool sees it**, and
+  even a cp1252-representable `é` arrives as cp1252 bytes while `-charset filename=utf8`
+  declares them UTF-8. The documented route is a UTF-8 **argfile**, which the bake path already
+  uses. ⚠ **Whether the pinned 13.59 launcher transits wide argv is UNESTABLISHED, and the
+  instrument already runs**: the filename-keying test is `xfail(strict=False)` on the Windows
+  lane citing this letter - an XPASS settles it, an XFAIL means the read path moves to the
+  argfile. Measured input-side residual recorded in the body: an invalid-UTF-8 POSIX filename
+  misfiles under every `errors=` policy because exiftool echoes `?` for the byte.
+  Body: [`research/backlog/aif.md`](research/backlog/aif.md).
 
 - **(aid) THE ORIGINAL FILENAME IS NEVER SANITIZED, AND THEN GAINS SIXTEEN CHARACTERS.** Filed
   2026-08-26 (P118), read from source. `layout.py`'s four defences - illegal characters, reserved

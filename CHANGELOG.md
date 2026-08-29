@@ -12,6 +12,13 @@ All notable changes to this project are documented here. The format follows
   history of every run beside your catalog, with the full file-by-file detail of recent ones.
 
 ### Fixed
+- **Photos with accented or non-English filenames no longer risk landing in `Undated/` on
+  Windows.** Truestill reads photo details through exiftool, and the reply was being decoded
+  with the machine's regional code page - on Windows that quietly garbled any non-ASCII
+  filename, so a correctly-dated photo was filed as if it had no date at all, with no warning.
+  Every reply is now read as UTF-8, the encoding exiftool actually writes, on every platform -
+  and the same fix covers cloud-backup listings, where a garbled name made Truestill re-upload
+  files it already had.
 - **A file Truestill is not allowed to look at is no longer reported as missing.** If a folder's
   permissions blocked reading, verify counted its files as gone from the drive - a loss that had
   not happened - and undo treated the blocked original location as free to move a file back onto.
