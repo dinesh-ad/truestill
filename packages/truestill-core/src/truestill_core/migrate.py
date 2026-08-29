@@ -797,6 +797,57 @@ def _record_migration(
         _log.warning("could not write the migration run record", exc_info=True)
 
 
+def _record_undo_migration(
+    catalog: Catalog,
+    destination: Destination,
+    drive_uuid: str,
+    *,
+    undid_run_id: str,
+    total: int,
+    outcome: UndoOutcome,
+) -> None:
+    """Write this reversal's record. **Never raises**, for `_record_migration`'s reason. `(ahi)`
+
+    ⚠ **An undo that leaves no line makes the history lie about the disk.** Every other record
+    says a run moved files; without this one a reader sees the migration and not its reversal, so
+    the newest thing the history describes is a state the disk is no longer in. That is the one
+    absence a run history cannot survive, which is why `(ahi)` ranked this above its two siblings.
+
+    **It carries per-file detail, and that is the opposite of `(agm)`'s bake ruling** - the same
+    question answered the other way because the durable store differs. Bake writes a line and no
+    detail because `file_copies.date_baked_at` is a **permanent** per-copy timestamp, so which
+    copies it wrote outlives every later run. A migration's per-file truth is `migration_journal`,
+    and `Catalog.start_migration_run` **deletes the previous run's journal for the drive** -
+    retention ONE. So a second migration erases the only other account of what this reversal put
+    back, and the record is then the sole durable one.
+
+    ``undid_run_id`` is the run this reversed, named for `RunHeader`'s recorded reason: without it
+    a record says *"16 files moved back"* and nothing connects it to the run that moved them.
+    Entries are failures-only, matching the forward path's `(afd)` ruling on the same data shape -
+    the successes are ``reversed_files`` and where each file returned to is the journal row that
+    produced it.
+    """
+    try:
+        payload = build_run_record(
+            RunHeader(
+                kind="migrate undo",
+                source=destination.describe(),
+                destination=destination.describe(),
+                destination_uuid=drive_uuid,
+                undid_run_id=undid_run_id,
+            ),
+            files=_refusal_entries(outcome.refused),
+            intended_total=total,
+            attempted=outcome.reversed_files + len(outcome.refused),
+            stopped=_migration_stop_block(outcome.stopped),
+        )
+        error = record_organize(catalog.path, payload)
+        if error is not None:
+            _log.warning("could not write the undo run record: %s", error)
+    except Exception:  # the record must never fail the reversal it describes
+        _log.warning("could not write the undo run record", exc_info=True)
+
+
 def run_migration(
     catalog: Catalog,
     destination: Destination,
@@ -1012,7 +1063,7 @@ def undo_migration(
     record = catalog.reversible_migration(drive_uuid)
     if record is None:
         return UndoOutcome(reversed_files=0, refused=[])
-    _, rows = record
+    undone_run_id, rows = record
     total = len(rows)
 
     refused: list[tuple[str, str]] = []
@@ -1069,4 +1120,14 @@ def undo_migration(
         if stop is None
         else MigrationStop(kind=stop[0], reason=stop[1], never_attempted=total - processed)
     )
-    return UndoOutcome(reversed_files=done, refused=refused, stopped=stopped)
+    outcome = UndoOutcome(reversed_files=done, refused=refused, stopped=stopped)
+    if apply:
+        _record_undo_migration(
+            catalog,
+            destination,
+            drive_uuid,
+            undid_run_id=undone_run_id,
+            total=total,
+            outcome=outcome,
+        )
+    return outcome

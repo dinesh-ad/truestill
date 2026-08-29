@@ -261,7 +261,7 @@ what stops is changing *what a route returns* under a consumer that already read
    it counts files and names only drives, so its `files` would be `[]` at any size, while
    `file_copies.date_baked_at` holds which copies it wrote permanently. A condition that a correct
    run fails is a condition that gets quietly ignored, so the wording follows the ruling rather
-   than the other way round. Six of the nine operations meet it; `clean empty`,
+   than the other way round. ⚠ **SEVEN** of the nine meet it since 2026-08-29, when `(ahi)`'s undo half shipped; `clean empty`,
    `archive unpack` and **`undo`** remain (`(ahi)`). ⚠ **THE ABSENT THREE READ *"trip apply, clean empty, archive unpack"* UNTIL 2026-08-27 AND `trip apply` WAS NEVER ONE OF THEM.** Derived from `server.py` by AST rather than recalled: `trip apply` calls `service.migration_apply`, which records - the maintainer established this on 2026-08-26 by reading the ROUTE's call graph rather than the module sharing its name. The operation that actually writes nothing is **migrate's `undo`**: `migration_undo` READS the reversible run's id (`service/migrate.py:395`) and writes no record of its own. Absent from a run history, an undo is the one operation whose absence makes the history lie about the state of the disk. Pinned by `test_the_app_records_what_a_run_did.py`, which
    lists each surface *with its reason*.
 2. **Every surface reports its own stop.** `(ahc)` closed migrate's last one.
@@ -287,7 +287,7 @@ what stops is changing *what a route returns* under a consumer that already read
 
 | | condition | status |
 |---|---|---|
-| 1 | every mutating run leaves a line in the run history | ❌ **6 of 9** since `(agm)` - `clean empty`, `archive unpack` and **`undo`** remain, which is `(ahi)`; see §1b's note on why `trip apply` was named here wrongly until 2026-08-27. ⚠ Reworded 2026-08-25: *"writes a record"* could not be met by bake, which correctly writes a line and no detail |
+| 1 | every mutating run leaves a line in the run history | ❌ **7 of 9** since 2026-08-29 - `clean empty` and `archive unpack` remain, which is `(ahi)`; ⚠ this read **6 of 9** until migrate's `undo` gained its record, and the guard that should have watched it could not see inside a module; see §1b's note on why `trip apply` was named here wrongly until 2026-08-27. ⚠ Reworded 2026-08-25: *"writes a record"* could not be met by bake, which correctly writes a line and no detail |
 | 2 | every surface reports its own stop | ✅ `(ahc)` closed migrate's last one |
 | 3 | no route computes a field no consumer reads | ❌ **BLOCKED ON AN UNTYPED CONSUMER**, and that is a different blocker from *"nothing declares the join"* - `(ahn)` stages 1, 2 and 4a built it, and **4a left no route payload untyped**: the seven dict literals are gone and the guard's ceiling is zero. The CONSUMED end is still a text search over `app.js`, so **no number here is a ceiling** - both methods err toward calling a dead field live. ⚠ **Stage 4b STOPPED at its own gate** (re-derived count 25, not 3) and is where the next turn starts. **Ticks at stage 5**, when a read is a type reference |
 | 4 | no mutating behaviour lives only in the app | ✅ **met AND GUARDED** since `(ahj)` - every mutating operation names a CLI subcommand the parser defines, or a recorded deferral |
@@ -300,7 +300,7 @@ what stops is changing *what a route returns* under a consumer that already read
   while copying files would pass. And the one genuinely deferred capability - naming a trip - is
   **invisible to it**, because that route declares no operation at all.
 * **Condition 1** has `test_the_app_records_what_a_run_did.py`, covering **5 of 9** operations
-  (`(ahi)`) while **6 of 9** meet the condition - `trip apply` records and has no row - and what
+  (`(ahi)`) while **7 of 9** meet the condition since 2026-08-29 - `trip apply` records and has no row - and what
   it proves is **wiring**: that the code contains a call to a record entry point, not that a
   record is written on every run.
   🔑 **AND ITS TABLE IS KEYED DIFFERENTLY FROM THE CODE IT GUARDS, WHICH IS WHY THE ARITHMETIC

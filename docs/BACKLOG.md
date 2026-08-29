@@ -472,6 +472,11 @@ is invisible here is retired, not free.**
   [Full entry](research/backlog/ahh.md)
 
 - **(ahi) THE RECORD-STATE CENSUS COVERS 5 OF 9 MUTATING OPERATIONS.** Filed 2026-08-25 (P72).
+  ⚠ **The UNDO half shipped 2026-08-29 (P139), and the guard was fixed first because it is
+  why this survived**: its floor named `trips` (which RECORDS) while missing migrate's
+  `undo`, and `_wires_a_record` was module-granular so `migrate` answered `True` on its
+  forward path. The guard now asks per entry point. **`archive unpack` and `clean empty`
+  remain**, each its own judgement.
   `test_the_app_records_what_a_run_did.py`'s `MUTATING_RUNS` has rows for organize, backup,
   migrate, bake and organize_undo. Enumerated from `server.py` by AST, there are **nine**
   `mutating=True` operations: those five plus **`trip apply`, `archive unpack`, `clean empty` and

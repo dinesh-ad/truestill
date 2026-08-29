@@ -397,6 +397,98 @@ def test_every_mutating_app_run_is_accounted_for() -> None:
         )
 
 
+#: The operations `server.py` declares that this guard can ask about **by entry point**, with the
+#: real answer. ⚠ **Keyed by (module, function), not by module** - `(ahi)`'s undo survived because
+#: `_wires_a_record` is module-granular: `service/migrate.py` reaches `record_organize` through
+#: `truestill_core.migrate._record_migration` on the FORWARD path, so `migrate` answered `True`
+#: however `undo_migration` behaved. A guard that cannot see a function cannot see a gap inside one.
+ENTRY_POINTS: dict[str, tuple[str, str, bool, str]] = {
+    "migrate": ("migrate", "migration_apply", True, "the forward path, via `_record_migration`"),
+    "undo": (
+        "migrate",
+        "migration_undo",
+        True,
+        (
+            "`(ahi)`, 2026-08-29. It wrote NOTHING until then, and the module-granular check "
+            "could not see it: its own module records on the forward path. The record carries "
+            "per-file detail - the opposite of `(agm)`'s bake ruling - because a migration's "
+            "durable per-file store is `migration_journal`, which `start_migration_run` DELETES "
+            "for the drive on the next run. Retention one, so the record is the only account "
+            "that survives a second migration"
+        ),
+    ),
+    "archive unpack": (
+        "takeout",
+        "archive_ingest_run",
+        False,
+        "`(ahi)`'s remaining set. Unbuilt, and its shape is its own judgement - see the note",
+    ),
+    "clean empty": (
+        "clean_empty",
+        "clean_empty_apply",
+        False,
+        "`(ahi)`'s remaining set. Unbuilt, and its shape is its own judgement - see the note",
+    ),
+}
+
+
+def _reaches_a_record(service: Path, module: str, function: str, *, depth: int = 3) -> bool:
+    """Whether THIS FUNCTION reaches a record entry point, following the calls it makes.
+
+    Bounded reachability rather than a module grep: from ``function``, every call it makes is
+    resolved against functions defined in the same module and in the `truestill_core` modules that
+    module imports, and followed to ``depth``. That is what lets the guard answer about
+    `migration_undo` and `migration_apply` separately when both live in one file whose sibling
+    records.
+
+    **The depth is a cap, not a claim.** Three levels reaches
+    `migration_apply -> run_migration -> _record_migration` with one to spare; a chain longer than
+    that answers `False`, which fails toward "does not record" - the direction that reports a gap
+    rather than hiding one.
+    """
+    # ⚠ **A LIST, NOT A DICT KEYED BY MODULE NAME** - `service/migrate.py` and
+    # `truestill_core/migrate.py` share the name `migrate`, so a name-keyed store silently
+    # dropped one of them and this guard reported that `migration_apply` reaches no record.
+    # Caught by the guard failing on its own rewrite.
+    head = (service / f"{module}.py").read_text(encoding="utf-8")
+    sources: list[str] = [head]
+    core = Path(truestill_core.__file__).parent
+    for node in ast.walk(ast.parse(head)):
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("truestill_core."):
+            engine = core / f"{(node.module or '').split('.', 1)[1]}.py"
+            if engine.is_file():
+                sources.append(engine.read_text(encoding="utf-8"))
+
+    functions: dict[str, ast.FunctionDef] = {}
+    for text in sources:
+        for node in ast.walk(ast.parse(text)):
+            if isinstance(node, ast.FunctionDef):
+                functions.setdefault(node.name, node)
+
+    seen: set[str] = set()
+
+    def walk(name: str, left: int) -> bool:
+        if left < 0 or name in seen:
+            return False
+        seen.add(name)
+        node = functions.get(name)
+        if node is None:
+            return False
+        for call in ast.walk(node):
+            if not isinstance(call, ast.Call):
+                continue
+            called = (
+                call.func.id if isinstance(call.func, ast.Name) else getattr(call.func, "attr", "")
+            )
+            if called in RECORD_ENTRIES:
+                return True
+            if walk(called, left - 1):
+                return True
+        return False
+
+    return walk(function, depth)
+
+
 def test_the_table_has_rows_to_check_and_both_answers_in_it() -> None:
     """Anti-vacuity. **There was none until 2026-08-25** - an emptied table iterated nothing.
 
@@ -420,11 +512,20 @@ def test_the_table_has_rows_to_check_and_both_answers_in_it() -> None:
         assert len(reason) > 20, f"{name}'s row has no reason, which is the point of the table"
 
     service = Path(__file__).resolve().parents[1] / "src" / "truestill_app" / "service"
-    for name in ("trips", "clean_empty", "takeout"):
-        assert (service / f"{name}.py").is_file(), f"service/{name}.py moved; this floor is blind"
-        assert not _wires_a_record(service, name), (
-            f"service/{name}.py now wires a run record. If that is real, it is `(ahi)`'s work "
-            "landing and this floor needs a service that still does not - not deleting"
+
+    # ⚠ **THE FLOOR USED TO NAME `("trips", "clean_empty", "takeout")` AND WAS WRONG IN BOTH
+    # DIRECTIONS.** `trip apply` RECORDS - its route reaches `service/migrate.py::migration_apply`,
+    # which reaches `_record_migration` - so it was never in `(ahi)`'s remaining set, and the row
+    # asserted the opposite. Meanwhile the operation that genuinely wrote nothing, migrate's
+    # `undo`, was invisible: the check was module-granular and its module records on the forward
+    # path. Both halves are fixed by asking per ENTRY POINT.
+    for operation, (module, function, writes, reason) in ENTRY_POINTS.items():
+        assert (service / f"{module}.py").is_file(), f"service/{module}.py moved; floor is blind"
+        assert len(reason) > 20, f"{operation}'s row has no reason, which is the point"
+        assert _reaches_a_record(service, module, function) is writes, (
+            f"operation {operation!r} ({module}.{function}) "
+            f"{'no longer' if writes else 'now'} reaches a run record. If that is real it is "
+            "`(ahi)`'s work landing or regressing, and this row is what must change with it"
         )
 
 

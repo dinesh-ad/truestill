@@ -33,3 +33,38 @@
   must have a row, the four missing here cannot stay missing. Building `(ahj)` first and letting
   it carry this is likely cheaper than filling this table and then replacing it - but that is a
   ruling, not a foregone conclusion, and it is why both are filed rather than merged.
+
+  ## ⚠ THE UNDO HALF SHIPPED 2026-08-29 (P139) - TWO REMAIN
+
+  `migrate.undo_migration` wrote nothing; it now calls `_record_undo_migration` on the applied
+  path, with `kind="migrate undo"` and the `undid_run_id` of the run it reversed, so the pair a
+  reader needs together is connected. **Ranked first of the three deliberately**: every other
+  record says a run moved files, so without this one the newest thing the history describes is a
+  state the disk is no longer in.
+
+  🔑 **It carries per-file detail, and that is `(agm)`'s bake question answered the OTHER WAY.**
+  Bake writes a line and no detail because `file_copies.date_baked_at` is a permanent per-copy
+  timestamp. A migration's per-file store is `migration_journal`, and
+  `Catalog.start_migration_run` **deletes the previous run's journal for that drive** - retention
+  ONE - so a second migration erases the only other account of what the reversal put back. Entries
+  are failures-only, matching the forward path's `(afd)` ruling on the same data shape.
+
+  ⚠ **AND THE GUARD IS WHY THIS SURVIVED, SO IT WAS FIXED FIRST.**
+  `test_the_app_records_what_a_run_did.py`'s floor named `("trips", "clean_empty", "takeout")` and
+  was **wrong in both directions**: `trip apply` RECORDS - its route reaches
+  `service/migrate.py::migration_apply` then `_record_migration` - so it was never in this entry's
+  remaining set; while the operation that genuinely wrote nothing was **invisible**, because
+  `_wires_a_record` asked about a MODULE and `service/migrate.py` records on the forward path. The
+  guard now asks per **entry point** (`ENTRY_POINTS`, `_reaches_a_record`), a bounded call-graph
+  walk. **Reproduced to prove it**: with the record deleted, the old module-granular question still
+  answers `True` for `migrate`.
+
+  ⚠ **A limit of the fixed guard, stated rather than discovered later**: it sees a CALL, not
+  whether the branch runs. A first mutation that disabled the call with `and False` survived it;
+  deleting the call is what it catches. Static reachability cannot answer the other question, and
+  the behavioural half is `test_migrate.py`'s undo tests.
+
+  **`archive unpack` and `clean empty` remain**, declared `False` in the guard with their reasons
+  rather than left invisible. Each needs its own judgement about what its line says and what
+  detail it honestly holds - they are not this fix repeated, because neither has a durable
+  per-file store to reason from the way migrate's journal gave one here.

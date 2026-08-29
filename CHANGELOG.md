@@ -12,6 +12,10 @@ All notable changes to this project are documented here. The format follows
   history of every run beside your catalog, with the full file-by-file detail of recent ones.
 
 ### Fixed
+- **Undoing a layout migration now appears in your run history.** Truestill keeps a permanent
+  one-line history of every run beside your catalog, and reversing a migration was the one
+  operation that left no trace - so the newest thing the history described was a state your disk
+  was no longer in. The reversal now records what it put back, and names the run it reversed.
 - **Restoring after a lost catalog now brings your event names back.** If your catalog was
   rebuilt, `truestill restore` could only re-attach names to events the catalog already knew -
   and a rebuilt catalog knows none, so every event name was reported unmatched and lost. Restore
