@@ -109,3 +109,50 @@
   while `EXECUTED` reports *"3 failed"*. The summary describes the plan and the executed block
   describes reality, so a reader who stops at the summary sees three files organized that are not
   there.
+
+  ## ⚠ THE COPYSTAT CENSUS, AND A CORRECTION TO MY OWN FIRST TABLE (P141)
+
+  Read from the venv stdlib rather than assumed. **TWO calls inside `shutil.copystat` are
+  unguarded, not one** - and the second is the correction:
+
+  | step | stdlib guard | propagates? |
+  |---|---|---|
+  | **`os.utime`** | **none at all**, and it runs **first** | every errno |
+  | `_copyxattr` | filters `ENOTSUP`/`ENODATA`/`EINVAL`/`EPERM`/`EACCES` | ⚠ **`ENOSPC`/`E2BIG` still propagate** |
+  | **`os.chmod`** | `except NotImplementedError: pass` - **not `except OSError`** | ⚠ **every `OSError`, including `EPERM`/`EROFS`/`EACCES`** |
+  | `os.chflags` | `except OSError`, filtered by errno | `EPERM` propagates (macOS/BSD) |
+
+  ⚠ **A first version of this table said `chmod` was guarded and only `utime` was exposed. That
+  was wrong, and it is corrected here rather than quietly replaced** - the guard is against
+  `NotImplementedError`, an exception type `chmod` does not raise for a *refusal*, so its exposure
+  is arguably **wider** than `utime`'s: SMB/CIFS and most FUSE mounts refuse mode changes outright,
+  as do a Windows read-only attribute, a Linux immutable inode (`chattr +i`), and NFS root-squash.
+  The next reader would otherwise trust a table that was wrong once.
+
+  **Triggers for `utime`**, from rsync's documentation of the identical failure: FAT32/exFAT,
+  NFS with `root_squash`, SMB/CIFS and FUSE/cloud mounts, and - easiest to hit on a NAS - **not
+  owning the destination file**, since *"in order to set timestamps you need to be the owner … it
+  is not sufficient to have write access."*
+
+  ## ⚠ THE BLAST RADIUS IS WIDER THAN THIS ENTRY MEASURED
+
+  `LocalDestination.relocate` calls `copy_leaving_nothing` too, so **`migrate-layout` reaches the
+  same discard** - and `migrate.py`'s own comment says what that costs: *"`relocate` is a `copy2`,
+  so this rewrites every byte of the library."* A layout migration on a library already on such a
+  mount would fail **every file in it**. This entry measured `organize` only.
+  `organizer._MetadataBaker._bake_next_chunk` and `catalog_move.py` share the shape.
+
+  ## THE FIX'S CONSTRAINTS, ESTABLISHED BEFORE ANYONE BUILDS IT
+
+  - **The discriminator must be STRUCTURAL, not errno-based** - call `copyfile` and `copystat`
+    separately, or compare sizes. A naive *"keep on any `OSError`"* reopens `(abu)` and breaks four
+    existing tests that stage **partial** writes.
+  - **No test pins discarding a complete file**, so the fix is unobstructed: every stub in
+    `test_safe_copy.py` writes a partial and then raises.
+  - ⚠ **`staged_copy`'s signature is pinned** by
+    `test_the_staged_name_is_derived_here_and_never_passed_in`, so an *"mtime not preserved"*
+    signal must ride on the returned `StagedCopy`/`CopyOutcome`, never on a new parameter.
+  - **The field is unanimous** and the stdlib names the remedy: rsync keeps the file and exits 23,
+    restic ignores the error, robocopy separates data from metadata, and Python documents that
+    *"`copy2()` never raises an exception because it cannot preserve file metadata"* while naming
+    `shutil.copy` for callers that cannot tolerate metadata errors.

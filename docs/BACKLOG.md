@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ail). Next free: (aim).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ain). Next free: (aio).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -238,6 +238,35 @@ is invisible here is retired, not free.**
   being pairwise against the first-seen twin. Narrower than `(aag)`: an exact group needs no
   threshold and no review, so it is a reporting shape rather than a feature.
   Body: [`research/backlog/aii.md`](research/backlog/aii.md).
+
+- **(aim) THE SUMMARY PRINTS A PLAN-DERIVED COUNT IN OUTCOME TENSE, BEFORE THE OUTCOME EXISTS.**
+  Filed 2026-08-29 (P141). `_print_summary` computes *"organized (unique): N"* from
+  `partition_for_report` - the **plan** - while `_print_execution` computes *"N failed"* from
+  `ActionStatus` - the **outcome**. Two objects, no shared arithmetic, no cross-check, and the
+  summary prints **before `execute(...)`, unconditionally including under `--apply`**.
+  **A shape, not a bug list**: four letters recorded it with four different causes (`(aac)`
+  overlapping buckets, `(aer)` silent scope exclusion, `(afe)` an uncounted duplicate, `(aie)` a
+  post-count failure). ⚠ **That census is NOT complete** - the unit was *what somebody wrote
+  down*. Traced against code the count diverges by **eight routes**, two with **no failure at
+  all** (`--skip-undated`, cancel), and on **four of them the correcting block never prints**, so
+  the plan number is the only count on screen. ⚠ **But the class is NOT codebase-wide**: `backup`
+  (*"to copy"*/*"Copied"*), `reclaim` (*"would be freed"*), `verify` (read-only) and `repoint`
+  (a preview by name) are all correct - `organize` is the outlier, established by reading which
+  object each number comes from rather than by grep. **The fix exists twice in-repo already**:
+  backup's tense and the app's `will_organize`/`_completion` split.
+  Body: [`research/backlog/aim.md`](research/backlog/aim.md).
+
+- **(ain) A REFUSED TIMESTAMP AFTER A COMMITTED RENAME LEAVES A FILE ON THE DRIVE WITH NO CATALOG ROW.**
+  Filed 2026-08-29 (P141), from source. `_upload_and_stamp` uploads and **then** calls
+  `LocalDestination.set_timestamp`, a bare `os.utime`. On a mount refusing it the file **lands and
+  is committed by rename**, the exception propagates, the file is reported `FAILED`, and **no
+  `file_copies` row is written** - so the drive holds a photograph the catalog has never heard of.
+  🔑 **That is `(afe)`'s self-worsening orphan**: the next organize finds no row, allocates a
+  suffix, writes `…_1.jpg` and **exits 0**. **Worse than `(aie)` and a different fix** - there the
+  drive and catalog agree (both empty), here they disagree. ⚠ **`--no-timestamps` escapes THIS and
+  not `(aie)`**, which is the proof they are separate. **Not measured** - a source reading, and
+  `(aid)`/`(aie)` are the precedent for what that is worth until run.
+  Body: [`research/backlog/ain.md`](research/backlog/ain.md).
 
 - **(aig) AN INVALID-UTF-8 POSIX FILENAME MISFILES ON READ: EXIFTOOL'S JSON WRITER ECHOES `?` FOR THE BYTE.**
   Filed 2026-08-29 (P121); **cause corrected in place same day (P122), measured** - the entry
