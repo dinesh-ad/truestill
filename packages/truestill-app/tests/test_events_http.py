@@ -296,7 +296,7 @@ def test_organize_applies_a_previously_saved_trip(client: TestClient, tmp_path: 
 
     # Record the event for this source's cluster WITHOUT cataloguing the files.
     resolutions, metadata = service.plan_resolve(src, db)
-    cluster = core_propose(resolutions, metadata)[0]
+    cluster = core_propose(resolutions, metadata, min_files=8)[0]
     with Catalog(db) as catalog:
         catalog.record_event(
             name="Goa",

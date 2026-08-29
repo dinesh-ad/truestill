@@ -70,7 +70,7 @@ def test_merge_then_commit_places_all_under_one_event(tmp_path: Path) -> None:
     resolutions += [_camera(20 + i, week2 + timedelta(minutes=20 * i)) for i in range(10)]
 
     with Catalog(tmp_path / "c.sqlite") as catalog:
-        clusters = propose(resolutions, {})
+        clusters = propose(resolutions, {}, min_files=8)
         assert len(clusters) == 2  # two separate proposals
         merged = merge_candidates(clusters)
         out = commit(resolutions, [EventDecision(merged, "Summer")], catalog)

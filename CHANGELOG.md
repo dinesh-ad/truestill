@@ -12,6 +12,10 @@ All notable changes to this project are documented here. The format follows
   history of every run beside your catalog, with the full file-by-file detail of recent ones.
 
 ### Fixed
+- **Lowering the event-grouping threshold now holds everywhere.** If you set a smaller minimum
+  group size and named an event with fewer photos than the old default of eight, re-importing
+  those photos quietly ignored your setting and skipped re-filing them under the event's folder.
+  Every place that proposes event groups now reads the threshold you chose.
 - **Photos with accented or non-English filenames no longer risk landing in `Undated/` on
   Windows.** Truestill reads photo details through exiftool, and the reply was being decoded
   with the machine's regional code page - on Windows that quietly garbled any non-ASCII

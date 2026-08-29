@@ -266,7 +266,13 @@ is invisible here is retired, not free.**
   chooses between *"this catalog holds no events yet"* and *"no group here has its fingerprint"*
   on `ApplyReport.events_here` (`unmatched_events_note`, `decisions.py:826`). **The create is what
   remains open** - saying the true reason does not put the name back. Trips survive because
-  `_apply_trips` (`decisions.py:897`) creates them from days. Body:
+  `_apply_trips` (`decisions.py:897`) creates them from days.
+  ⚠ **Stage 1 shipped 2026-08-29 (P125), and it was a live defect of its own, not scaffolding**:
+  the propose layer clustered at a hard default of 8 while `events.min_files` sat in the catalog,
+  so a lowered floor plus a below-default named event was **silently skipped on every re-import**
+  through `_reapply_named_events` - which also gained its first direct test. `propose` now
+  requires the floor; the catalog-owning entry points read `EventSettings.from_catalog`. The body
+  carries the section. Body:
   [`research/backlog/ahv.md`](research/backlog/ahv.md).
 
 - **(ahy) AN IN-PLACE ORGANIZE AGAINST AN EMPTY CATALOG REBUILDS NOTHING, AND REPORTS SUCCESS.** Filed 2026-08-26

@@ -78,6 +78,28 @@
   greps for it. `grep -rn "photos have changed" packages/` now returns exactly one hit - a comment
   in `decisions.py` recording what the old sentence said.
 
+  ## ⚠ STAGE 1 SHIPPED 2026-08-29 (P125) - A LIVE DEFECT IN ITS OWN RIGHT, NOT SCAFFOLDING
+
+  **The floor the user set was ignored on re-import.** `event_review.propose` and
+  `propose_from_catalog` clustered at the hard default of 8 while `events.min_files` sat in the
+  catalog - so a user who lowered the floor and named a six-file event had it **silently skipped
+  by `_reapply_named_events` on every subsequent import**: the function returns its input
+  unchanged when nothing proposes, which at its call site is indistinguishable from "no events
+  recur here". Found by P124's call-graph pass while planning option 2, fixed before it:
+  `propose` now **requires** `min_files` (a default here would repeat the defect one layer out),
+  and the three catalog-owning entry points - `propose_from_catalog`, `run_event_stage`,
+  `_reapply_named_events` - read `EventSettings.from_catalog` themselves. The app's trip-review
+  path already did (`service/trips.py`), which is how one surface honoured the floor while the
+  others dropped it: one concept, read in one place and defaulted in three.
+  **`_reapply_named_events` gained its first direct test** with this
+  (`test_reapply_honours_the_event_floor.py`) - call-site-only coverage could never catch a
+  silent no-op that needs a lowered floor plus a below-default named event to exist. Census run
+  with the fix: `heavy_days_for_organize` reads its threshold from the catalog and every
+  production caller threads `resolve_scheme` - no second instance of the bypass; the residual
+  same-shape risk is the `scheme=DEFAULT_SCHEME` parameter defaults, unexercised in production
+  today. Matters for option 2: restore-side re-clustering must use the restored document's
+  floor, which this stage makes reachable.
+
   ## THE OPTIONS - A RULING, NOT A FIX
 
   1. **Carry members in the document** so restore can create the event, as trips do. Widens the

@@ -147,7 +147,7 @@
   | `existing_names` | `trips.py:353` | collision avoidance happens server-side |
   | `source_hints` | `trips.py:355` | the suggestion is shown, not its provenance |
   | `missing_sidecar` | `takeout.py:48`, `:68` | the ingest summary does not distinguish this cause |
-  | `distance` | `organize.py:154` | the duplicate sample shows the match, not how near |
+  | `distance` | `organize.py:160` | the duplicate sample shows the match, not how near |
   | `matched_path` | `organize.py:158` | ⚠ `app.js:2643` explains in a comment that this field **could never** answer the question the screen asks |
   | `operation` | `jobs.py:93` | the busy banner names the drive, not the job |
 

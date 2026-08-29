@@ -191,7 +191,7 @@ def test_golden_same_day_clusters_stay_separate_events(tmp_path: Path) -> None:
         _camera(100 + i, datetime(2014, 8, 16, 20, 0) + timedelta(minutes=2 * i)) for i in range(12)
     ]
     with Catalog(tmp_path / "c.sqlite") as catalog:
-        clusters = propose(morning + evening, {})
+        clusters = propose(morning + evening, {}, min_files=8)
         assert len(clusters) == 2
         assert clusters[0].start.date() == clusters[1].start.date()
         out = commit(

@@ -17,7 +17,13 @@ from datetime import datetime
 from typing import Any
 
 from truestill_core.catalog import Catalog
-from truestill_core.events import EventCandidate, EventItem, cluster_camera, slugify
+from truestill_core.events import (
+    EventCandidate,
+    EventItem,
+    EventSettings,
+    cluster_camera,
+    slugify,
+)
 from truestill_core.hashing import sha256_file
 from truestill_core.layout import DEFAULT_SCHEME, TIMELINE_RULES, LayoutScheme
 from truestill_core.models import Event, Resolution, geo_point
@@ -82,10 +88,21 @@ def gather_camera_items(
 
 
 def propose(
-    resolutions: list[Resolution], metadata: dict[Any, dict[str, Any]]
+    resolutions: list[Resolution],
+    metadata: dict[Any, dict[str, Any]],
+    *,
+    min_files: int,
 ) -> list[EventCandidate]:
-    """Return the proposed Camera event clusters (the data a UI presents for review)."""
-    return cluster_camera(gather_camera_items(resolutions, metadata))
+    """Return the proposed Camera event clusters (the data a UI presents for review).
+
+    ⚠ ``min_files`` is REQUIRED here on purpose - the floor is the user's
+    ``events.min_files`` setting, and this layer defaulting it to 8 is exactly how a
+    user who lowered the floor had a named 6-file event silently skipped on re-import
+    (`(ahv)` stage 1, 2026-08-29). A default would repeat that defect one layer out:
+    the next caller forgets it the same way this one's callers did. Entry points that
+    own a catalog read `EventSettings.from_catalog` themselves and pass it down.
+    """
+    return cluster_camera(gather_camera_items(resolutions, metadata), min_files=min_files)
 
 
 def commit(
@@ -162,7 +179,9 @@ def propose_from_catalog(catalog: Catalog, drive_uuid: str) -> list[EventCandida
         )
         for row in catalog.camera_copies_for_events(drive_uuid)
     ]
-    return cluster_camera(items)
+    # The catalog is in hand, so the user's floor is read here rather than asked of the
+    # caller - the same reason `propose` above refuses a default. `(ahv)` stage 1.
+    return cluster_camera(items, min_files=EventSettings.from_catalog(catalog).min_files)
 
 
 def commit_catalog(catalog: Catalog, decisions: list[EventDecision]) -> int:
@@ -211,7 +230,9 @@ def run_event_stage(
     apply mode each not-yet-decided cluster is put to ``prompt`` (a missing/empty answer skips).
     A UI wanting merge/split calls ``propose`` + ``commit`` directly instead.
     """
-    clusters = propose(resolutions, metadata)
+    clusters = propose(
+        resolutions, metadata, min_files=EventSettings.from_catalog(catalog).min_files
+    )
     if not clusters or not apply:
         return EventStageOutcome(resolutions, {}, clusters)
 

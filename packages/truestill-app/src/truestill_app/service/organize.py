@@ -31,6 +31,7 @@ from truestill_core.drive import (
 )
 from truestill_core.duplicate_explain import explain_duplicate, split_by_origin
 from truestill_core.event_review import EventDecision, commit, propose
+from truestill_core.events import EventSettings
 from truestill_core.exif import read_metadata
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF_EXTENSIONS
@@ -1081,9 +1082,10 @@ def _reapply_named_events(
     Only saved events are applied - unnamed clusters are left untouched, never auto-skipped, so
     they stay reviewable in the Trips screen later.
     """
+    floor = EventSettings.from_catalog(catalog).min_files
     saved = [
         EventDecision(cluster, None)
-        for cluster in propose(resolutions, metadata)
+        for cluster in propose(resolutions, metadata, min_files=floor)
         if catalog.event_by_signature(cluster.signature) is not None
     ]
     if not saved:
