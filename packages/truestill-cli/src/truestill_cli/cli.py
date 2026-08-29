@@ -1516,6 +1516,8 @@ def _print_restore_plan(report: RestoreReport, documents: int) -> None:
     else:
         print(f"  {_note(nothing_applied_note(applied))}")
 
+    for name in applied.created_events:
+        _say(RestoreNote.EVENT_CREATED, name=name)
     note = unmatched_events_note(applied)
     for name in applied.unmatched_events:
         _say(note, name=name)

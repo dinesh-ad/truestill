@@ -12,6 +12,12 @@ All notable changes to this project are documented here. The format follows
   history of every run beside your catalog, with the full file-by-file detail of recent ones.
 
 ### Fixed
+- **Restoring after a lost catalog now brings your event names back.** If your catalog was
+  rebuilt, `truestill restore` could only re-attach names to events the catalog already knew -
+  and a rebuilt catalog knows none, so every event name was reported unmatched and lost. Restore
+  now regroups your library's own photos and, when a group exactly matches one you had named,
+  recreates the event with your name and its photos - telling you each name it brought back.
+  Groups that no longer match are still reported honestly rather than guessed at.
 - **Lowering the event-grouping threshold now holds everywhere.** If you set a smaller minimum
   group size and named an event with fewer photos than the old default of eight, re-importing
   those photos quietly ignored your setting and skipped re-filing them under the event's folder.

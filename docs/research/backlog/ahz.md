@@ -30,12 +30,12 @@
 
   ⚠ **What `(aia)` closed here, and what it did not** (2026-08-26, so neither reader thinks the
   other letter covers it). `(aia)` owns the *wording*: the `"were older"* sentence is now three
-  sentences chosen by `SupersededReason` (`decisions.py:168`), so a **tie** and an **undated**
+  sentences chosen by `SupersededReason` (`decisions.py:170`), so a **tie** and an **undated**
   document are no longer called "older". **This entry owns the ruling**: in the measured case the
   recovery document genuinely *is* newer, the sentence is now accurate, and the loss still happens.
   Wording it correctly does not stop it.
 
-  ⚠ **And the trip half is ruled the other way, deliberately.** `_trip_key` (`decisions.py:427`):
+  ⚠ **And the trip half is ruled the other way, deliberately.** `_trip_key` (`decisions.py:429`):
 
   > A trip's identity is its DAY SET, not its name. `(ack)` ... **same days with a different name
   > is a RENAME** - the newer name wins - rather than two trips or a conflict to escalate.
@@ -63,7 +63,7 @@
     and the preview printed *"These sections exist there and NOT here, and will be gone: trips"* -
     a warning about the drive that was really a description of a rename. Today `_LOSS_KEYS` keys
     trips by `_trip_key` (`decisions.py:1333`), the same function the merge uses, and **that
-    sentence no longer exists anywhere in the tree**: `_discard_to_drive` (`cli.py:1601`) prints
+    sentence no longer exists anywhere in the tree**: `_discard_to_drive` (`cli.py:1603`) prints
     `RESTORE_WORDING[RestoreNote.DRIVE_HOLDS_MORE]` and words a rename apart from a loss.
 
   🔑 **Two keyings of one concept in one module is the third instance of one shape in a week**, and
@@ -134,7 +134,7 @@
   permission to proceed"* UNTIL 2026-08-26. THERE IS NO POLARITY BUG AND THERE NEVER WAS.**
   Calling it *"permission to proceed"* is true of the control flow and misleading as a
   description, because it omits three gates: preview-only by default (`cli.py:1652`), an explicit
-  `--apply`, and a typed `discard` confirmation (`cli.py:1656`). The retraction lived thirty-four
+  `--apply`, and a typed `discard` confirmation (`cli.py:1657`). The retraction lived thirty-four
   lines below this claim, where a reader meets it second; it is here now.
 
   ## ⚠ STEP 2 SHIPPED 2026-08-26 (P113) - THE NAMED ROOT IS AUTHORITATIVE
@@ -266,7 +266,7 @@
   Events rename on a signature match (`decisions.py:943`). **Trips never rename at all.**
   `_apply_trips` finds every day already claimed by a differently-named local trip, so
   `holders != {None}` (`decisions.py:534`) and the trip lands in `conflicting.append(name)`
-  (`decisions.py:929`) - reaching `conflicting_trips`, **a field no surface prints**. Checked:
+  (`decisions.py:953`) - reaching `conflicting_trips`, **a field no surface prints**. Checked:
   `grep -rn "conflicting_trips" packages/*/src` returns its definition and construction only.
 
   🔑 **The measurement's most reassuring result was an artefact of the setup, not a property of the
@@ -315,7 +315,7 @@
   at each site, so a loss can no longer be printed in the "nothing to do" register by accident.
   ⚠ **The value half WAS open and STEP 1 CLOSED IT** (`98c1d1f`, 2026-08-26). It read *"`Superseded`
   carries `section, drive_label, count, reason` and no values, so no surface can name which trip or
-  event was lost"*. Today `Superseded` (`decisions.py:205`) also carries `swaps: tuple[NameSwap,
+  event was lost"*. Today `Superseded` (`decisions.py:207`) also carries `swaps: tuple[NameSwap,
   ...]` and `by_authority: bool`, and `render_swaps` (`decisions.py:726`) names each lost/kept
   pair. It was a `Superseded` shape change, as this paragraph said.
 
@@ -326,7 +326,7 @@
   | **A** | the recovery destination is not registered as a drive | ⛔ **RULED OUT.** `IMPLEMENTATION_STANDARDS.md` §3.1 binds creation on **both** surfaces; `cli.py:2606` rules that an identity minted afterwards *"leaves the run's own files unattached"*; `(aei)` makes destination identity an input to dedup. An opt-out flag was already refused at `cli.py:2552` |
   | **B** | suppress publishing while the catalog is known-rebuilt | ⚠ **PARTLY RULED OUT, and needs a concept that does not exist.** No rebuilt/young/age notion anywhere; `test_catalog_session.py` rules the trigger deliberately coarse and calls the refreshed organize stamp intended; `decisions-on-drive-research.md` states every reachable drive is meant to hold every decision. And `(aci)`/`would_lose` is the already-recorded remedy - B would be a second one |
   | **C** | `restore` reads one root only, behind a flag | ✅ **NOT RULED ON.** The ruling is only *"the named root is read from the PATH, never from a lookup"* (`cli.py:1408`). Reading the others is stated as a **convenience**, justified by *"on a fresh machine that list is simply empty"* - which this scenario falsifies. Constraint: `apply_documents` owns the per-drive loop structurally; a flag must not move it |
-  | **D** | creation-date-aware ranking | ✅ **NOT RULED ON, but needs new data.** A per-section override precedent exists - `_merge_confirmations` (`decisions.py:379`) resolves on the row's stamp, not the document's. ⚠ But drive age is **not derivable**: `marker.created` exists (`drive.py:947`) and is never written to the catalog or read during reconcile, and `drives.first_seen` is when *this* catalog first saw the drive, so on a rebuilt catalog it is the rebuild day - **actively wrong in the one case restore exists for** |
+  | **D** | creation-date-aware ranking | ✅ **NOT RULED ON, but needs new data.** A per-section override precedent exists - `_merge_confirmations` (`decisions.py:381`) resolves on the row's stamp, not the document's. ⚠ But drive age is **not derivable**: `marker.created` exists (`drive.py:947`) and is never written to the catalog or read during reconcile, and `drives.first_seen` is when *this* catalog first saw the drive, so on a rebuilt catalog it is the rebuild day - **actively wrong in the one case restore exists for** |
   | **E** | widen `_LOSS_KEYS` so a name regression under an unchanged signature is a loss | ✅ **NOT RULED ON.** Repairs the guard already ruled to cover this case rather than adding a mechanism. The evidence points here; it is written down, not chosen |
 
   ## RELATED

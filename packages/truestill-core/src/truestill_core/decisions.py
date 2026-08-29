@@ -44,6 +44,8 @@ from typing import Any, Final
 
 from truestill_core.drive import DriveReach, drive_path_hint, drive_reach
 from truestill_core.drive_unwritable import explain_unwritable_drive
+from truestill_core.event_review import propose_from_catalog
+from truestill_core.events import EventCandidate, EventSettings
 
 #: Bumped only when a reader must REFUSE a document, never for an added field. Adding a field is
 #: forward-compatible by construction (see :func:`from_document`), so a bump would be a false alarm
@@ -534,6 +536,12 @@ class ApplyReport:
     trips_without_days: tuple[str, ...] = ()
     #: Sections this version carries but cannot yet apply.
     not_applied: tuple[str, ...] = ()
+    #: Event names this run RE-CREATED: no row held the signature, but re-clustering this
+    #: catalog's own timeline produced a group with the document's exact fingerprint, so the row
+    #: and its file links were rebuilt from that group and the document's name. The restored
+    #: half's detail - these count into ``applied["events"]``, never into ``withheld_count``.
+    #: `(ahv)` stage 2.
+    created_events: tuple[str, ...] = ()
 
 
 class RestoreNote(StrEnum):
@@ -543,6 +551,7 @@ class RestoreNote(StrEnum):
     NOTHING_APPLIED = "nothing_applied"
     NO_EVENTS_HERE = "no_events_here"
     NO_SUCH_GROUP = "no_such_group"
+    EVENT_CREATED = "event_created"
     CONFLICTING_TRIP = "conflicting_trip"
     TRIP_WITHOUT_DAYS = "trip_without_days"
     NOT_APPLIED = "not_applied"
@@ -605,11 +614,21 @@ RESTORE_WORDING: Final[dict[RestoreNote, RestoreWording]] = {
     ),
     # Checked: `event_by_signature` missed while other events DO exist here. Why is not known -
     # the photos may have been regrouped, or this group may never have been named on this machine.
-    # ⚠ The old sentence picked one: "its photos have changed".
+    # ⚠ The old sentence picked one: "its photos have changed". Since `(ahv)` stage 2 this arm is
+    # reached only after re-clustering also missed, and the sentence was already worded for
+    # exactly that check - a shifted membership and a never-named group both simply lack the
+    # fingerprint, and the code still cannot tell them apart, so it still does not say.
     RestoreNote.NO_SUCH_GROUP: RestoreWording(
         "event '{name}' has no match here: no group in this catalog has its fingerprint.\n"
         "    Its name is safe in the drive's decisions document.",
         actionable=True,
+    ),
+    # Checked: no event row had the signature, and a freshly proposed cluster of this catalog's
+    # own timeline files DID - the row and its links were created from that cluster and the
+    # document's name. Good news with nothing to do, so it must not read as a warning.
+    RestoreNote.EVENT_CREATED: RestoreWording(
+        "event '{name}' was re-created: this library's photos still form its exact group.",
+        actionable=False,
     ),
     # Checked: `knows_content` is false - this catalog has not scanned the photo the correction
     # belongs to. The only sentence here that always had a remedy and was always honest; it moves
@@ -775,6 +794,11 @@ REPORT_FIELD_EXCEPTIONS: Final[dict[str, str]] = {
     "events_here": (
         "a DISCRIMINATOR, not a report: it exists to pick between the two sentences above and is "
         "never shown on its own, exactly as `BakePlan.confirmed_anywhere` is not"
+    ),
+    "created_events": (
+        "the restored half's detail, not an omission: each name prints per event through "
+        "EVENT_CREATED beside the applied table, and counting it into `withheld_count` would "
+        "report a success as a loss. `(ahv)` stage 2"
     ),
 }
 
@@ -943,6 +967,100 @@ def _apply_trips(
     return conflicting, dayless
 
 
+@dataclass(frozen=True, slots=True)
+class _DocumentFirstSettings:
+    """``get_setting`` that prefers the DOCUMENT being restored over the catalog's value.
+
+    The floor restore re-clusters with must be the restored document's (`(ahv)` stage 2): the
+    preview pass runs before any setting is written, so reading the catalog there would honour
+    the pre-restore value on the one run where the document is authoritative - and would let
+    the preview and apply passes propose different clusters, which `_cmd_restore` depends on
+    never happening. Document first, catalog fallback, identically in both passes.
+    """
+
+    decisions: Decisions
+    catalog: Any
+
+    def get_setting(self, key: str) -> str | None:
+        if key in self.decisions.settings:
+            return str(self.decisions.settings[key])
+        return self.catalog.get_setting(key)  # type: ignore[no-any-return]
+
+
+def _restorable_clusters(catalog: Any, decisions: Decisions) -> dict[str, EventCandidate]:
+    """Every current cluster by signature, so a document event can be re-created. `(ahv)`.
+
+    Proposed over every registered drive - an event's copies live where they live - at the floor
+    the DOCUMENT carries. Free at library scale: measured 0.12s over two drives of 9,189
+    timeline rows each, so running it in both the preview and the apply pass costs nothing.
+    """
+    floor = EventSettings.from_catalog(_DocumentFirstSettings(decisions, catalog)).min_files
+    clusters: dict[str, EventCandidate] = {}
+    for row in catalog.registered_drives():
+        for candidate in propose_from_catalog(catalog, str(row["uuid"]), min_files=floor):
+            clusters.setdefault(candidate.signature, candidate)
+    return clusters
+
+
+def _apply_events(
+    catalog: Any,
+    decisions: Decisions,
+    bump: Callable[[str], None],
+    *,
+    apply: bool,
+) -> tuple[list[str], list[str]]:
+    """The events section: rename on a match, CREATE on a re-clustered match, report the rest.
+
+    `_apply_trips`'s shape, returns ``(unmatched, created)``.
+    """
+    unmatched: list[str] = []
+    created: list[str] = []
+    clusters = _restorable_clusters(catalog, decisions) if decisions.events else {}
+    for event in decisions.events:
+        signature = str(event["signature"])
+        existing = catalog.event_by_signature(signature)
+        if existing is None:
+            candidate = clusters.get(signature)
+            if candidate is not None:
+                # No row, but this catalog's own timeline still forms EXACTLY this group - the
+                # signature is a hash over member sha256s, so the match is the membership. The
+                # document supplies the one thing the cluster cannot (the human's name); the
+                # cluster supplies everything the document deliberately omits (members, count).
+                # After a rebuild the `events` table is empty and this is every named event's
+                # path back. `(ahv)` stage 2.
+                if apply:
+                    event_id = catalog.record_event(
+                        name=str(event["name"]),
+                        slug=str(event["slug"]),
+                        start_date=str(event["start"]),
+                        file_count=candidate.count,
+                        signature=signature,
+                    )
+                    catalog.set_event_id([item.sha256 for item in candidate.items], int(event_id))
+                created.append(str(event["name"]))
+                bump("events")
+                continue
+            # ⚠ **Nothing here has that signature - no event row AND, since `(ahv)` stage 2, no
+            # freshly proposed cluster either. WHY is still not established and must not be
+            # asserted** - this said "Membership changed, so this is not that event" and the CLI
+            # printed it as fact; a shifted membership and a group never named here both simply
+            # lack the fingerprint. An empty `events` table alone no longer forces this branch:
+            # only a group the library no longer forms does. `(aia)`
+            unmatched.append(str(event["name"]))
+            continue
+        if existing["name"] != event["name"]:
+            if apply:
+                catalog.record_event(
+                    name=str(event["name"]),
+                    slug=str(event["slug"]),
+                    start_date=str(event["start"]),
+                    file_count=int(existing["file_count"] or 0),
+                    signature=signature,
+                )
+            bump("events")
+    return unmatched, created
+
+
 def apply_decisions(catalog: Any, decisions: Decisions, *, apply: bool = True) -> ApplyReport:  # noqa: PLR0912
     """Write the decisions into a catalog. **Idempotent**: a second apply changes nothing.
 
@@ -952,7 +1070,6 @@ def apply_decisions(catalog: Any, decisions: Decisions, *, apply: bool = True) -
     applied: dict[str, int] = {}
     newer_locally: dict[str, int] = {}
     awaiting: dict[str, int] = {}
-    unmatched: list[str] = []
 
     def bump(section: str) -> None:
         applied[section] = applied.get(section, 0) + 1
@@ -977,26 +1094,7 @@ def apply_decisions(catalog: Any, decisions: Decisions, *, apply: bool = True) -
 
     conflicting, dayless = _apply_trips(catalog, decisions.trips, bump, apply=apply)
 
-    for event in decisions.events:
-        signature = str(event["signature"])
-        existing = catalog.event_by_signature(signature)
-        if existing is None:
-            # ⚠ **Nothing here has that signature. WHY is not established and must not be
-            # asserted** - this said "Membership changed, so this is not that event" and the CLI
-            # printed it as fact. An empty `events` table produces this branch for every event in
-            # the document, and that is the ordinary case after a catalog loss. `(aia)`
-            unmatched.append(str(event["name"]))
-            continue
-        if existing["name"] != event["name"]:
-            if apply:
-                catalog.record_event(
-                    name=str(event["name"]),
-                    slug=str(event["slug"]),
-                    start_date=str(event["start"]),
-                    file_count=int(existing["file_count"] or 0),
-                    signature=signature,
-                )
-            bump("events")
+    unmatched, created = _apply_events(catalog, decisions, bump, apply=apply)
 
     known_skips = catalog.skipped_signatures()
     for signature in decisions.skipped_clusters:
@@ -1042,6 +1140,7 @@ def apply_decisions(catalog: Any, decisions: Decisions, *, apply: bool = True) -
         conflicting_trips=tuple(conflicting),
         trips_without_days=tuple(dayless),
         not_applied=("albums",) if decisions.albums else (),
+        created_events=tuple(created),
     )
 
 

@@ -100,6 +100,29 @@
   today. Matters for option 2: restore-side re-clustering must use the restored document's
   floor, which this stage makes reachable.
 
+  ## ⚠ STAGE 2 SHIPPED 2026-08-29 (P126) - RESTORE CREATES THE EVENT IT CAN MATCH
+
+  **Option 2, built.** `apply_decisions` now re-clusters this catalog's own timeline
+  (`_restorable_clusters`: `propose_from_catalog` over every registered drive) and, on an
+  `event_by_signature` miss whose signature a freshly proposed cluster DOES carry, creates the
+  row from the document's name and the cluster's members - `record_event` then `set_event_id`,
+  both unreachable in preview. The signature is a hash over member sha256s, so the match IS the
+  membership; nothing is invented, and a signature matching neither table nor clusters falls to
+  `(aia)`'s honest arms unchanged - the code still cannot tell a shifted membership from a group
+  never named here, and still does not claim to.
+  🔑 **The floor comes from the DOCUMENT, catalog fallback** (`_DocumentFirstSettings`) - stage
+  1's thread mattered here first: the preview pass runs before any setting is written, so
+  reading the catalog would honour the pre-restore floor on the one run where the document is
+  authoritative, and would let the two passes propose different clusters. Where the create meets
+  `(ahz)`'s named-root authority: the create consumes the MERGED row, so the winning name lands
+  by construction - pinned by
+  `test_restore_creates_the_event_it_can_match.py::test_the_created_event_takes_the_name_the_authority_rule_chose`.
+  `ApplyReport.created_events` names each recreated event (`EVENT_CREATED`, non-actionable,
+  never in `withheld_count`); idempotent by the existing `ON CONFLICT(signature)`. Proven by
+  three control-first mutations: create skipped, links dropped, floor read from the catalog.
+  **What remains of this entry is stage 3** - the measured 353-file sequence end to end as a
+  regression test, re-running `(ahz)`'s five steps.
+
   ## THE OPTIONS - A RULING, NOT A FIX
 
   1. **Carry members in the document** so restore can create the event, as trips do. Widens the
@@ -110,7 +133,7 @@
      cheapest and independent of the other two: distinguish *"no event here has that signature
      because this catalog holds no events at all"* from *"the photos changed"*, where one sentence
      covered both and only one is ever true after a rebuild. `RestoreNote` now has two arms chosen
-     by `unmatched_events_note` (`decisions.py:826`) on `ApplyReport.events_here` -
+     by `unmatched_events_note` (`decisions.py:850`) on `ApplyReport.events_here` -
      `NO_EVENTS_HERE` and `NO_SUCH_GROUP`.
 
   ⚠ **Option 3 was not optional and is now done. THE ENTRY STAYS OPEN ON OPTIONS 1 AND 2**, and

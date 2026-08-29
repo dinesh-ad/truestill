@@ -158,7 +158,9 @@ def _parse_dt(value: Any) -> datetime:
     return datetime.fromisoformat(str(value))
 
 
-def propose_from_catalog(catalog: Catalog, drive_uuid: str) -> list[EventCandidate]:
+def propose_from_catalog(
+    catalog: Catalog, drive_uuid: str, *, min_files: int | None = None
+) -> list[EventCandidate]:
     """Propose trips from an *already-organized* drive's dated camera copies (no source re-read).
 
     This is the web UI's "review trips in place" path: it clusters what the catalog already knows,
@@ -180,8 +182,13 @@ def propose_from_catalog(catalog: Catalog, drive_uuid: str) -> list[EventCandida
         for row in catalog.camera_copies_for_events(drive_uuid)
     ]
     # The catalog is in hand, so the user's floor is read here rather than asked of the
-    # caller - the same reason `propose` above refuses a default. `(ahv)` stage 1.
-    return cluster_camera(items, min_files=EventSettings.from_catalog(catalog).min_files)
+    # caller - the same reason `propose` above refuses a default. `(ahv)` stage 1. The
+    # ``min_files=None`` default is NOT that defect returning: it defaults to the USER'S stored
+    # floor, never a constant. The override exists for restore, whose floor must come from the
+    # restored DOCUMENT in both of its passes - `decisions._restorable_clusters`. Stage 2.
+    if min_files is None:
+        min_files = EventSettings.from_catalog(catalog).min_files
+    return cluster_camera(items, min_files=min_files)
 
 
 def commit_catalog(catalog: Catalog, decisions: list[EventDecision]) -> int:
