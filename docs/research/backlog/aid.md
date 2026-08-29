@@ -82,3 +82,53 @@
   handling, reserved device names for **typed** values, timezone handling, WAL-is-moot, stale
   locks, and a missing exiftool. The three entries are the complement of that list, not a claim
   it is empty.
+
+  ## ⚠ REPRODUCED 2026-08-29 (P140) - REAL, AND THE ARITHMETIC UNDERSTATED IT BY 20 BYTES
+
+  Measured on ext4 (`/dev/nvme0n1p1`, 16 cores, Python 3.14.4), organize apply against a
+  constructed source. **The length half is a real defect and the character half cannot be
+  measured here** - they are two claims with different platforms, and this entry stated them as
+  one.
+
+  **What the user sees, verbatim:**
+
+  ```
+  FAILED: holidayxxx....jpg: could not copy holidayxxx....jpg to
+  'Saved/Undated/holidayxxx....jpg': File name too long 0 bytes of it are still at
+  .../holidayxxx....jpg.5580514b3be.partial, and could not be removed.
+  ```
+
+  🔑 **THE 16-CHARACTER STAMP IS NOT THE WHOLE COST - THE STAGING SUFFIX ADDS 20 MORE.**
+  `safe_copy` stages at `<name>.<token>.partial` (`safe_copy.py:65`, *"Appended LAST"*), which is
+  `.` + an 11-character token + `.partial` = **20 bytes**. Measured threshold, by bisection:
+
+  | original name | organized name (+16) | result |
+  |---|---|---|
+  | 219 bytes | 235 | organizes |
+  | **220 bytes** | 236 - still under 255 | **FAILS, `File name too long`** |
+
+  **So the real budget for an original filename is 219 bytes, not the 239 this entry implies.** A
+  name that is legal raw *and* legal after the stamp still fails, because the temporary it stages
+  through is longer than the file it becomes. A 230-byte name reproduced that exactly.
+
+  ⚠ **Two corrections to this entry's own text.** (1) *"stops the run"* is **wrong**: the run
+  continues and reports `1 failed`; it is the FILE that fails, not the run. (2) The failure
+  message runs two sentences together with no punctuation - *"File name too long 0 bytes of it
+  are still at ..."* - and then names a `.partial` path it says *"could not be removed"*, when the
+  temporary could not be created in the first place. That is a second, smaller defect inside the
+  first, and it is a wording fix rather than a length one.
+
+  ## ⚠ THE CHARACTER HALF IS A WINDOWS FACT AND DID NOT REPRODUCE HERE - BY ITS OWN PREMISE
+
+  All four NTFS-illegal names organized **successfully** on ext4, unsanitised, landing verbatim:
+
+  ```
+  20190712_103000_Trip: day 1.jpg      20190713_103000_nul.jpg
+  20190714_103000_report<v2>.jpg       20190715_103000_pipe|name.jpg
+  ```
+
+  That is the premise working, not a refutation: a colon, `<`, `|` and the reserved name `nul`
+  are legal on ext4 and refused on NTFS. **The instrument is an xfail on the Windows lane**, the
+  shape `(aif)` used to get a Windows fact no local run could reach - and `(aif)`'s xfail returned
+  a real answer on its first CI run. Until that exists, the character half stays **unproven**, and
+  this section is what stops it being read as measured.

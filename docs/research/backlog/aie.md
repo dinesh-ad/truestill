@@ -79,3 +79,33 @@
   handling, reserved device names for **typed** values, timezone handling, WAL-is-moot, stale
   locks, and a missing exiftool. The three entries are the complement of that list, not a claim
   it is empty.
+
+  ## ⚠ REPRODUCED 2026-08-29 (P140) - EVERY CLAUSE HOLDS
+
+  ⚠ **The environment was NOT staged, and that distinction is the honest part.** No FUSE or vfat
+  mount is reachable on this machine: `bindfs` and `mount.cifs` are absent, no Python FUSE binding
+  is installed (`fuse`/`pyfuse3`/`fusepy` all absent), and adding one is a dependency this does not
+  earn. So the **errno was injected at the exact syscall a network mount refuses** - `os.utime`
+  raising `EPERM` - and the run was real: real files, real organize, real destination.
+
+  **What the user sees, verbatim, for three files:**
+
+  ```
+  FAILED: IMG_0000.jpg: could not copy IMG_0000.jpg to
+  'Saved/2019/2019-07/20190711_103000_IMG_0000.jpg': the drive is read-only, or this account
+  cannot write to it
+  FAILED: IMG_0001.jpg: ... (identical)
+  FAILED: IMG_0002.jpg: ... (identical)
+  ```
+
+  | claim | measured |
+  |---|---|
+  | one identical false line per file | ✅ **3 files, 3 identical lines** |
+  | the message is false | ✅ **the destination accepted a write immediately afterwards** - the drive was writable throughout |
+  | the run does not stop | ✅ all three processed, `3 failed` at the end, exit 1 |
+  | the complete staged file is discarded | ✅ **0 files landed**, and 0 `.partial` debris - the cleanup is correct, the discard is the defect |
+
+  ⚠ **One thing found that this entry did not name**: `SUMMARY` reports *"organized (unique): 3"*
+  while `EXECUTED` reports *"3 failed"*. The summary describes the plan and the executed block
+  describes reality, so a reader who stops at the summary sees three files organized that are not
+  there.

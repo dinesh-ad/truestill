@@ -263,6 +263,13 @@ is invisible here is retired, not free.**
   never imports it** - the two readers are `layout.py:517` and `migrate.py:623`, so the one screen
   that warns about length is the settings preview, where nothing is being moved.
   `ENAMETOOLONG` and `EINVAL` are not in the errno table, so what the user gets is raw OS words.
+  ⚠ **REPRODUCED 2026-08-29 (P140), and the arithmetic understated it by 20 bytes**: `safe_copy`
+  stages at `<name>.<token>.partial`, so the real budget for an original filename is **219
+  bytes**, not 239 - a name legal raw *and* legal after the stamp still fails. Threshold pinned
+  by bisection at 219/220. ⚠ Two corrections: it fails the FILE, not the run, and the message
+  runs two sentences together. **The character half did NOT reproduce on ext4 and cannot** -
+  colon, `<`, `|` and `nul` all organized unsanitised, which is the premise working; the
+  instrument is an xfail on the Windows lane, as `(aif)` used.
   Body: [`research/backlog/aid.md`](research/backlog/aid.md).
 
 - **(aie) A COPY ONTO FUSE OR VFAT WRITES THE BYTES, FAILS ON THE TIMESTAMP, AND BLAMES THE DRIVE.** Filed
@@ -275,6 +282,12 @@ is invisible here is retired, not free.**
   the run does not halt: **one identical false line per file**, for as many files as there are.
   `moving-machines.md` documents organizing into a cloud FUSE mount and `BACKLOG.md`'s *What
   works* lists SMB/NFS/mounted-cloud, so this is a supported path, not an exotic one.
+  ⚠ **REPRODUCED 2026-08-29 (P140) - every clause holds.** Three files, three identical false
+  lines, 0 files landed, and the destination accepted a write immediately afterwards, so the
+  drive was writable throughout. ⚠ **The environment was not staged** - no FUSE or vfat mount is
+  reachable here - so the `EPERM` was injected at `os.utime`, the syscall a network mount
+  refuses; the run itself was real. Also found: `SUMMARY` says *"organized (unique): 3"* while
+  `EXECUTED` says *"3 failed"*.
   Body: [`research/backlog/aie.md`](research/backlog/aie.md).
 
 - **(ahz) RECOVERING A LOST CATALOG DESTROYS THE NAMES IT IS RECOVERING, AND THE GUARD AGAINST IT IS BLIND.** Filed
