@@ -22,6 +22,26 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aif) A NON-ASCII FILENAME MAY NOT SURVIVE ARGV TO EXIFTOOL ON WINDOWS.** Shipped 2026-08-29
+  (P121), one day after being filed reasoned and measured broken the same day: the instrument
+  filed with it came back **XFAIL on the Windows lane (run 33242186610)** with the reply decode
+  already fixed - argv to a Perl process goes through the ANSI code page, and even a
+  cp1252-representable `é` lost the read. **The fix removes the channel rather than armouring
+  it**: `exif._run_via_stdin_argfile` ships every exiftool argument as a UTF-8 argfile on stdin
+  (`-@ -`, documented), for the read path and the bake path both, so nothing exiftool receives
+  crosses argv - not even a temp argfile's own path, which retires the non-ASCII-username
+  residual `(aif)` recorded at filing instead of doubling it. Both shapes verified against a
+  live exiftool; the acceptance test is the same instrument with its `xfail` removed - a plain
+  assertion on every platform, so a Windows failure is a regression, not a question.
+  **Hot-path cost: none - it is faster.** Measured over the real library, 84,167 media files on
+  ext4, `cache=None`, warm-up pass first: argv route 566.6s (6.73 ms/file), stdin route 504.7s
+  (6.00 ms/file). The stdin pass ran second and page cache favours it, so the honest claim is
+  parity-or-better, not the -10.9%. Proven by mutation, control-first: reverting the read to
+  argv and dropping the read argfile's charset each kill the stdin declaration guard - which
+  says in its docstring that it IS a declaration guard, and that the Windows *behaviour* half of
+  its evidence is the lane's own XFAIL. The measured POSIX residual (`?`-echo for invalid-UTF-8
+  names) is filed as `(aig)` with its candidate fix.
+
 - **(aic) EXIFTOOL'S OUTPUT IS DECODED WITH THE MACHINE'S CODE PAGE, SO A NON-ASCII FILENAME LANDS IN `Undated/`.**
   Shipped 2026-08-29 (P120). One fix at the one door: `binaries.run`/`binaries.popen` now pin
   text mode to `encoding="utf-8"` unless the call site names its own - all four text-mode

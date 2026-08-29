@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aif). Next free: (aig).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aig). Next free: (aih).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -198,20 +198,17 @@ is invisible here is retired, not free.**
   falsehood has had no observed consequence. Body:
   [`research/backlog/aib.md`](research/backlog/aib.md).
 
-- **(aif) A NON-ASCII FILENAME MAY NOT SURVIVE ARGV TO EXIFTOOL ON WINDOWS.** Filed 2026-08-29
-  (P120), split out of `(aic)` when its reply-side fix shipped - this is the INPUT transit, which
-  no decode fix can touch. The read path passes every filename to exiftool **as argv**
-  (`exif._read_chunk`); exiftool's own docs say filenames otherwise pass *"straight through to
-  the standard C I/O routines"*, and Windows argv reaches Perl through the ANSI code page - so a
-  character outside cp1252 (Indic scripts, CJK) is destroyed **before exiftool sees it**, and
-  even a cp1252-representable `é` arrives as cp1252 bytes while `-charset filename=utf8`
-  declares them UTF-8. The documented route is a UTF-8 **argfile**, which the bake path already
-  uses. ⚠ **Whether the pinned 13.59 launcher transits wide argv is UNESTABLISHED, and the
-  instrument already runs**: the filename-keying test is `xfail(strict=False)` on the Windows
-  lane citing this letter - an XPASS settles it, an XFAIL means the read path moves to the
-  argfile. Measured input-side residual recorded in the body: an invalid-UTF-8 POSIX filename
-  misfiles under every `errors=` policy because exiftool echoes `?` for the byte.
-  Body: [`research/backlog/aif.md`](research/backlog/aif.md).
+- **(aig) AN INVALID-UTF-8 FILENAME ON POSIX MISFILES, BECAUSE ITS NAME IS DECLARED TO BE UTF-8.**
+  Filed 2026-08-29 (P121), split out of `(aif)`'s measured residual when `(aif)` closed. A raw
+  latin-1-named file (old cameras, FAT cards) round-trips its bytes to exiftool intact - but
+  `-charset filename=utf8` makes exiftool meet bytes that are not valid UTF-8 and **replace the
+  byte with `?` in its own `SourceFile` echo** (measured, ext4, `0xE9`), so the record keys a
+  fictitious name and the file goes to `Undated/` silently: `(aic)`'s failure shape, surviving
+  `(aic)`'s fix because it happens inside exiftool, before any decode. Candidate fix in the
+  body - the charset declaration is only *needed* on Windows, and POSIX pass-through plus the
+  door's `surrogateescape` is measured to round-trip - but it is unbuilt and needs an
+  end-to-end POSIX measurement plus a byte-named-fixture test (legitimately POSIX-only; NTFS
+  cannot hold such a name). Body: [`research/backlog/aig.md`](research/backlog/aig.md).
 
 - **(aid) THE ORIGINAL FILENAME IS NEVER SANITIZED, AND THEN GAINS SIXTEEN CHARACTERS.** Filed
   2026-08-26 (P118), read from source. `layout.py`'s four defences - illegal characters, reserved

@@ -251,18 +251,21 @@ def test_every_argfile_block_declares_the_filename_charset(
 ) -> None:
     """A DECLARATION guard, and it says so (`handoff-2026-08-27.md` names the convention).
 
-    The behaviour these two lines buy is only observable on Windows, which no lane runs: without
-    ``-charset filename=utf8`` exiftool reads the argfile's UTF-8 filename bytes through the
-    console code page and bakes the wrong file or none. What CAN be asserted everywhere is the
-    declaration - every ``-execute`` block leads with the charset pair, PER BLOCK, because
-    options apply only to the command their ``-execute`` closes and a single leading ``-charset``
-    would cover the first file alone (verified against a live two-block argfile, 2026-08-29).
+    The behaviour these two lines buy is only observable on Windows, which no lane runs with a
+    hostile fixture: without ``-charset filename=utf8`` exiftool reads the argfile's UTF-8
+    filename bytes through the console code page and bakes the wrong file or none. What CAN be
+    asserted everywhere is the declaration - every ``-execute`` block leads with the charset
+    pair, PER BLOCK, because options apply only to the command their ``-execute`` closes and a
+    single leading ``-charset`` would cover the first file alone (verified against a live
+    two-block argfile, 2026-08-29). Since `(aif)` the argfile travels on STDIN (``-@ -``) so no
+    filename - not even the argfile's own path - crosses argv; the command shape is pinned here
+    for the same reason the charset is.
     """
     captured: dict[str, str] = {}
 
-    def snoop(command: list[str | Path], **_kwargs: object) -> subprocess.CompletedProcess[str]:
-        argfile = Path(str(command[2]))
-        captured["argfile"] = argfile.read_text(encoding="utf-8")
+    def snoop(command: list[str | Path], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        assert [str(part) for part in command[1:]] == ["-@", "-"]
+        captured["argfile"] = str(kwargs["input"])
         blocks = captured["argfile"].count("-execute")
         return subprocess.CompletedProcess(
             list(command), 0, "    1 image files updated\n" * blocks, ""

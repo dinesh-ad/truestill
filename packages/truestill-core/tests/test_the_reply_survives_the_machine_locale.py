@@ -132,19 +132,15 @@ def test_rclone_listings_decode_as_utf8_regardless_of_locale(tmp_path: Path) -> 
 
 
 @_NEEDS_EXIFTOOL
-@pytest.mark.xfail(
-    sys.platform == "win32",
-    strict=False,
-    reason="(aif): how a non-ASCII filename transits argv to exiftool on Windows is "
-    "unestablished - this test IS that measurement; an XPASS settles it as safe",
-)
 def test_a_non_ascii_filename_keys_the_result_by_its_real_path(tmp_path: Path) -> None:
     """`(aic)`'s misfile, end to end: the ``é`` file's metadata lands under its real path.
 
     Runs under the AMBIENT environment deliberately - the module docstring records why the
-    hostile one cannot key by construction. On UTF-8 POSIX lanes this is a regression pin that
-    passed before the fix too; the platform it bit on is Windows, where the ambient code page
-    was the hostile condition and the mojibaked key sent the file to ``Undated/``.
+    hostile one cannot key by construction. This carried ``xfail(strict=False)`` on Windows
+    while `(aif)` was open, and the lane answered: **XFAIL on run 33242186610** - the argv
+    route really did lose the filename there. The read path now ships every argument to
+    exiftool over stdin (`exif._run_via_stdin_argfile`), so this is a plain assertion on every
+    platform: a Windows failure here is a regression of `(aif)`'s fix, not an open question.
     """
     photo = tmp_path / "Réunion.jpg"
     _photo_with_reunion_metadata(photo)
@@ -191,3 +187,37 @@ def test_the_door_injects_utf8_only_when_text_is_requested(monkeypatch: pytest.M
     binaries.popen(["x"], text=True)
     assert seen.get("encoding") == "utf-8"
     assert seen.get("errors") == "surrogateescape"
+
+
+def test_the_read_arguments_travel_on_stdin_with_the_charset_first(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A DECLARATION guard, and it says so (`handoff-2026-08-27.md` names the convention).
+
+    What it pins is only observable on Windows, which no lane runs with a non-ASCII fixture the
+    hard way: `(aif)`'s measurement (XFAIL, run 33242186610) proved a filename on argv does not
+    reach exiftool intact there. Asserted everywhere instead: the read command is ``-@ -`` with
+    nothing after it, and the stdin argfile names ``-charset filename=utf8`` BEFORE the first
+    filename line - options apply in order, so a charset after the paths armours nothing.
+    """
+    seen: dict[str, object] = {}
+
+    def snoop(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        seen["command"] = [str(part) for part in command]
+        seen["input"] = kwargs.get("input")
+        return subprocess.CompletedProcess(list(command), 0, "[]", "")
+
+    monkeypatch.setattr(binaries, "run", snoop)
+    monkeypatch.setattr("truestill_core.exif.ensure_exiftool", lambda: "exiftool")
+    photo = tmp_path / "Réunion.jpg"
+    photo.write_bytes(b"not really a jpeg; nothing here reaches a real exiftool")
+
+    read_metadata([photo])
+
+    command = seen["command"]
+    assert isinstance(command, list)
+    assert command[1:] == ["-@", "-"], command
+    lines = str(seen["input"]).splitlines()
+    charset = lines.index("-charset")
+    assert lines[charset + 1] == "filename=utf8"
+    assert lines.index(str(photo)) > charset + 1

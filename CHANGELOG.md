@@ -19,6 +19,11 @@ All notable changes to this project are documented here. The format follows
   Every reply is now read as UTF-8, the encoding exiftool actually writes, on every platform -
   and the same fix covers cloud-backup listings, where a garbled name made Truestill re-upload
   files it already had.
+- **The other half of the same defect: filenames now reach exiftool intact on Windows too.**
+  Fixing the reply was not enough - a real Windows run then proved the request was also losing
+  non-ASCII names, because Windows hands them to exiftool through the same regional code page.
+  Truestill now sends exiftool its file lists over a direct pipe instead of the command line,
+  on every platform, so what exiftool reads is byte-for-byte the name on disk.
 - **A file Truestill is not allowed to look at is no longer reported as missing.** If a folder's
   permissions blocked reading, verify counted its files as gone from the drive - a loss that had
   not happened - and undo treated the blocked original location as free to move a file back onto.

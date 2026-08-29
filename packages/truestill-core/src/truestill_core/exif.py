@@ -11,8 +11,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 import sys
-import tempfile
 import threading
 from collections.abc import Iterator, Sequence
 from datetime import datetime
@@ -263,23 +263,16 @@ def write_metadata_batch(items: Sequence[tuple[Path, list[str]]]) -> dict[Path, 
         for path, args in chunk:
             # The same input armour `_read_chunk` passes, and it must repeat PER BLOCK: options
             # apply only to the command their `-execute` closes, so a single leading `-charset`
-            # would cover the first file alone. The argfile is exiftool's documented route for
-            # non-ASCII filenames on Windows - the name travels as UTF-8 bytes in this file,
-            # never through argv and the console code page. `(aic)`; verified against a
-            # two-block argfile before landing.
+            # would cover the first file alone. The argfile - carried on stdin, see
+            # `_run_via_stdin_argfile` - is exiftool's documented route for non-ASCII filenames
+            # on Windows: the name travels as UTF-8 bytes, never through argv and the console
+            # code page. `(aic)`/`(aif)`; both shapes verified against a live two-block argfile.
             lines.extend(["-charset", "filename=utf8", *args, str(path), "-execute"])
-        with tempfile.NamedTemporaryFile("w", suffix=".args", delete=False, encoding="utf-8") as fh:
-            fh.write("\n".join(lines))
-            argfile = Path(fh.name)
         try:
-            proc = binaries.run(
-                [binary, "-@", str(argfile)], capture_output=True, text=True, check=False
-            )
+            proc = _run_via_stdin_argfile(binary, lines)
             counts = [int(m) for m in _UPDATED.findall(proc.stdout)]
         except OSError:
             counts = []  # exiftool could not be run at all -- every file in this chunk failed
-        finally:
-            argfile.unlink(missing_ok=True)
 
         for i, (path, _) in enumerate(chunk):
             # Short reply -> the process stopped early; everything past that point is unknown,
@@ -316,14 +309,38 @@ def _partition_by_cache(
     return collected, to_read
 
 
-def _read_chunk(binary: str, chunk: Sequence[Path]) -> list[dict[str, Any]]:
-    """One exiftool batch. Empty stdout or unparseable JSON yields ``[]`` (silent skip)."""
-    args = [binary, "-json", "-q", "-m", "-charset", "filename=utf8"]
-    args += [f"-{tag}" for tag in REQUESTED_TAGS]
-    args += [f"-{tag}#" for tag in _NUMERIC_TAGS]  # signed decimal degrees for GPS
-    args += [str(path) for path in chunk]
+def _run_via_stdin_argfile(binary: str, lines: Sequence[str]) -> subprocess.CompletedProcess[str]:
+    """One exiftool invocation whose every argument travels on stdin (``-@ -``), never argv.
 
-    proc = binaries.run(args, capture_output=True, text=True, check=False)
+    `(aif)`, measured on the Windows lane (run 33242186610): a filename passed as a command-line
+    argument reaches exiftool - a Perl process - through the ANSI code page, and even a
+    cp1252-representable ``é`` failed to key the read's result there. A pipe carries bytes: the
+    door encodes this text as UTF-8 + surrogateescape, so exiftool reads exactly the bytes
+    ``str(path)`` round-trips to, on every platform. Stdin rather than a temporary argfile
+    because a temp file would put its OWN path on argv - under ``C:\\Users\\<name>\\...``, a
+    non-ASCII user name lands this class in front of the argfile itself. This shape retires that
+    residual for both callers; nothing exiftool receives crosses argv but ``-@ -``.
+    """
+    return binaries.run(
+        [binary, "-@", "-"],
+        input="\n".join(lines) + "\n",
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def _read_chunk(binary: str, chunk: Sequence[Path]) -> list[dict[str, Any]]:
+    """One exiftool batch, arguments via ``-@ -`` (`(aif)` - filenames must not cross argv).
+
+    Empty stdout or unparseable JSON yields ``[]`` (silent skip).
+    """
+    lines = ["-json", "-q", "-m", "-charset", "filename=utf8"]
+    lines += [f"-{tag}" for tag in REQUESTED_TAGS]
+    lines += [f"-{tag}#" for tag in _NUMERIC_TAGS]  # signed decimal degrees for GPS
+    lines += [str(path) for path in chunk]
+
+    proc = _run_via_stdin_argfile(binary, lines)
     payload = proc.stdout.strip()
     if not payload:
         return []
