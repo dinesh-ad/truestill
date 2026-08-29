@@ -1293,7 +1293,8 @@ def _drive_or_explain(path: Path, db: Path | None = None) -> DriveMarker | None:
     # Both readings, and what the wrong guess costs.
     print(
         f"error: {path} is not a Truestill drive.\n"
-        f"       If this folder is new, register it:  truestill drives --init {path}\n"
+        f"       If this folder is new, register it:  "
+        f"truestill drives --init {path} --label <name>\n"
         f"       If this is where a drive should be mounted, connect it first - registering an\n"
         f"       empty mountpoint creates a second drive id for a library you already have.",
         file=sys.stderr,

@@ -63,7 +63,7 @@
     and the preview printed *"These sections exist there and NOT here, and will be gone: trips"* -
     a warning about the drive that was really a description of a rename. Today `_LOSS_KEYS` keys
     trips by `_trip_key` (`decisions.py:1333`), the same function the merge uses, and **that
-    sentence no longer exists anywhere in the tree**: `_discard_to_drive` (`cli.py:1603`) prints
+    sentence no longer exists anywhere in the tree**: `_discard_to_drive` (`cli.py:1604`) prints
     `RESTORE_WORDING[RestoreNote.DRIVE_HOLDS_MORE]` and words a rename apart from a loss.
 
   🔑 **Two keyings of one concept in one module is the third instance of one shape in a week**, and
@@ -134,7 +134,7 @@
   permission to proceed"* UNTIL 2026-08-26. THERE IS NO POLARITY BUG AND THERE NEVER WAS.**
   Calling it *"permission to proceed"* is true of the control flow and misleading as a
   description, because it omits three gates: preview-only by default (`cli.py:1652`), an explicit
-  `--apply`, and a typed `discard` confirmation (`cli.py:1657`). The retraction lived thirty-four
+  `--apply`, and a typed `discard` confirmation (`cli.py:1658`). The retraction lived thirty-four
   lines below this claim, where a reader meets it second; it is here now.
 
   ## ⚠ STEP 2 SHIPPED 2026-08-26 (P113) - THE NAMED ROOT IS AUTHORITATIVE

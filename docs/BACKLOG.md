@@ -239,15 +239,6 @@ is invisible here is retired, not free.**
   threshold and no review, so it is a reporting shape rather than a feature.
   Body: [`research/backlog/aii.md`](research/backlog/aii.md).
 
-- **(aij) THE COMMAND `backup` TELLS YOU TO RUN CANNOT WORK AS PRINTED.** Filed 2026-08-29 (P131,
-  soak eight). `backup` onto an unregistered folder refuses correctly and prints
-  `truestill drives --init <path>`; running exactly that answers `error: --init requires --label`.
-  **The refusal is right and its remedy is wrong.** `(agp)`'s CLI-remedy census in one instance -
-  a suggested command is a promise, and nothing checks that a suggested command parses. A guard is
-  buildable and **not decided**: one instance is not yet the evidence `(ago)` requires, so this is
-  recorded so a second is recognised as the second.
-  Body: [`research/backlog/aij.md`](research/backlog/aij.md).
-
 - **(aig) AN INVALID-UTF-8 POSIX FILENAME MISFILES ON READ: EXIFTOOL'S JSON WRITER ECHOES `?` FOR THE BYTE.**
   Filed 2026-08-29 (P121); **cause corrected in place same day (P122), measured** - the entry
   originally blamed `-charset filename=utf8`, and removing the charset **changes nothing**:

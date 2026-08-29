@@ -22,6 +22,28 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aij) THE COMMAND `backup` TELLS YOU TO RUN CANNOT WORK AS PRINTED.** Shipped 2026-08-29
+  (P136). `backup` onto an unregistered folder refused correctly and printed
+  `truestill drives --init <path>`; running exactly that answered `error: --init requires
+  --label`. **The refusal was right and its remedy was wrong** - a user who copied the line the
+  product printed got a second error from the command the product chose for them.
+  🔑 **A SECOND SITE WAS FOUND WHILE FIXING THE FIRST, AND THAT IS WHAT EARNED THE GUARD.**
+  `drive.second_location_for` suggested `truestill drives --init <other> --force-new-identity`,
+  also without `--label`, and `cli._cmd_drives` has no exemption for it. `(aij)`'s own body had
+  ruled *"one instance is not yet the evidence `(ago)` requires … recorded so a second is
+  recognised as the second"* - it was, so `test_a_suggested_command_can_be_run.py` shipped beside
+  the two-word fix.
+  ⚠ **The WIDE guard was refused on a measurement.** Asserting the parser accepts every
+  `truestill …` string in the tree reported **33 failures of 36 on a clean tree**, nearly all
+  prose. Separating a command-to-run from a sentence-mentioning-a-command is not a regex job, and
+  a guard crying wolf 33 times is one somebody switches off. Scoped to `drives --init`, with the
+  reason in its docstring. ⚠ **And it deliberately does NOT use the parser**: `--init requires
+  --label` is a **runtime** check, so `parse_args` accepts the broken form - a parser-based guard
+  would have passed while the defect stood. It also caught a bug in itself: `ast.walk` visits an
+  f-string *and* its fragments, so a split message offered a fragment carrying the subcommand
+  without the flag, and the guard failed on its own fix. Proven by two mutations, one per site.
+  [Full entry](research/backlog/aij.md)
+
 - **(ahv) RESTORE CANNOT CREATE AN EVENT, ONLY RENAME ONE - AND IT BLAMES THE PHOTOS.** Shipped
   2026-08-29 in three stages (P125-P127). Filed 2026-08-26 on a measured sequence in which **all
   three event names were lost** after a catalog rebuild: `apply_decisions` could rename an event

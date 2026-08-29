@@ -526,7 +526,7 @@ def second_location_note(
         f"       Both places carry the same drive id, so Truestill counts them as ONE drive and "
         f"your photos are in more places than it reports.\n"
         f"       If these are two real drives, give one its own identity:\n"
-        f"         truestill drives --init {other} --force-new-identity"
+        f"         truestill drives --init {other} --label <name> --force-new-identity"
     )
 
 
