@@ -95,7 +95,11 @@ def _rows(db: Path) -> list[str]:
 
 
 def _on_disk(drive: Path) -> list[str]:
-    return sorted(str(p.relative_to(drive)) for p in drive.rglob("*.jpg"))
+    # ⚠ `as_posix`, because these are compared against `_rows`, and the catalog stores a
+    # **relative** in POSIX form so a drive is readable on either OS. `str(...)` gave
+    # `Saved\\2024\\...` on the Windows lane and three of these tests failed on the separator
+    # rather than on anything the product did. Caught by CI, which is the only thing that sees it.
+    return sorted(p.relative_to(drive).as_posix() for p in drive.rglob("*.jpg"))
 
 
 def test_a_refused_stamp_still_records_the_copy(
