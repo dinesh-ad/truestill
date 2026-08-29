@@ -247,37 +247,16 @@ is invisible here is retired, not free.**
   drive, so it overwrites the last surviving copy and stamps it newest.
   **STEPS 1-3 SHIPPED 2026-08-26**: `_LOSS_KEYS` is identity-to-value (`decisions.py:1332`), so a
   changed name counts as a loss; the drive you name is authoritative per key; and `Superseded`
-  names the swaps it withheld. ⚠ **Two residuals keep this entry open** - restore still cannot
-  **create** an event (that is `(ahv)`) and `rename_trip` is unbuilt. ⚠ **Three claims this entry
+  names the swaps it withheld. ⚠ **ONE residual keeps this entry open, and it is the trip half:
+  `rename_trip` is unbuilt**, so a trip whose days a rebuilt catalog already claimed under
+  another name is a loud dead end rather than a rename. ⚠ **This read *"two residuals"* until
+  2026-08-29**: the other was *"restore still cannot create an event"*, which `(ahv)` closed
+  that day - the five steps re-run on the same corpus restore all three event names at step 3. ⚠ **Three claims this entry
   made are withdrawn**: *"trips never rename at all"* (closed by `(ahx)`), the `_discard_to_drive`
   polarity bug (there is none - three gates stand between `would_lose` and a write), and *"five
   fix shapes, none chosen"* (E was widened and per-key authority shipped). **The ranking is
   correct**; recency is a proxy for authority and a recovery copy breaks it.
   Body: [`research/backlog/ahz.md`](research/backlog/ahz.md).
-
-- **(ahv) RESTORE CANNOT CREATE AN EVENT, ONLY RENAME ONE - AND IT BLAMES THE PHOTOS.** Filed
-  2026-08-26 (P103). After a catalog rebuild the `events` table is empty, so `apply_decisions`
-  finds nothing by signature (`ApplyReport.unmatched_events`, `decisions.py:522`) and **every event
-  name is lost**.
-  Measured: 353 files, 1 trip + 3 events named through the app's HTTP routes - the trip came back,
-  all three events did not. ⚠ **The stated reason WAS false and `(aia)` FIXED IT on 2026-08-26**: the product said *"its
-  photos have changed"* while the content was byte-identical and the re-derived signatures matched
-  the document's exactly, so **clustering is idempotent and the signature is stable**. It now
-  chooses between *"this catalog holds no events yet"* and *"no group here has its fingerprint"*
-  on `ApplyReport.events_here` (`unmatched_events_note`, `decisions.py:850`). **The create is what
-  remains open** - saying the true reason does not put the name back. Trips survive because
-  `_apply_trips` (`decisions.py:897`) creates them from days.
-  ⚠ **Stage 1 shipped 2026-08-29 (P125), and it was a live defect of its own, not scaffolding**:
-  the propose layer clustered at a hard default of 8 while `events.min_files` sat in the catalog,
-  so a lowered floor plus a below-default named event was **silently skipped on every re-import**
-  through `_reapply_named_events` - which also gained its first direct test. `propose` now
-  requires the floor; the catalog-owning entry points read `EventSettings.from_catalog`.
-  ✅ **Stage 2 shipped 2026-08-29 (P126) - the create itself**: on a signature miss whose
-  fingerprint a freshly re-clustered group carries, `apply_decisions` creates the row from the
-  document's name and links the cluster's members; the floor comes from the DOCUMENT so both
-  passes agree; the merged (authority-resolved) name is what lands. **Open: stage 3**, the
-  measured 353-file sequence as an end-to-end regression. Body:
-  [`research/backlog/ahv.md`](research/backlog/ahv.md).
 
 - **(ahy) AN IN-PLACE ORGANIZE AGAINST AN EMPTY CATALOG REBUILDS NOTHING, AND REPORTS SUCCESS.** Filed 2026-08-26
   (P103). An organized 353-file drive, fresh catalog, `organize <drive> <drive> --in-place

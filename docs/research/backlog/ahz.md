@@ -228,11 +228,17 @@
   **Step 2 is not the whole of this entry, and a partial fix on this path must say which part it
   does not cover.**
 
-  - ⚠ **Events cannot be CREATED.** A rebuilt catalog whose `events` table is empty still drops
-    every event name at step 3, whichever document wins - `apply_decisions` renames an event found
-    by signature and cannot make one. That is `(ahv)`, and the re-cluster-then-match path already
-    exists shipped. In the run above, step 3 reported *"2 restored, 3 not restored"*; the names
-    only returned at step 5 **because step 3's re-naming had put the rows there first.**
+  - ~~⚠ **Events cannot be CREATED.**~~ **FALSE SINCE 2026-08-29 (`(ahv)` stage 2, `8c4d608`),
+    corrected in place because this bullet is the one a reader consults for what still loses.**
+    As written: a rebuilt catalog whose `events` table is empty dropped every event name at
+    step 3, and the names only returned at step 5 *because step 3's re-naming had put the rows
+    there first*. Today `apply_decisions` re-clusters the catalog's own timeline and **creates**
+    the row from the document's name and the cluster's members. The five steps were re-run on
+    the same corpus 2026-08-29: step 3 restores all three names at once - *"event 'Morning
+    Market' was re-created: this library's photos still form its exact group"* - and step 5,
+    which recorded *"3 events on dest were older and were not used"*, now reads *"nothing this
+    catalog does not already have"*. The placeholder re-naming of step 4 cannot even take:
+    `commit_catalog` reuses the row an existing signature already names.
   - ⚠ **Trips cannot be RENAMED.** There is no `rename_trip`; a trip name is write-once for the
     life of the row, on both surfaces. Where the named root's trip name differs from one the
     catalog already holds for those days, step 2 converts a silent supersede into a **loud, honest

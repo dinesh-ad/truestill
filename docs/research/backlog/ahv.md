@@ -1,6 +1,6 @@
 # (ahv) RESTORE CANNOT CREATE AN EVENT, ONLY RENAME ONE - AND IT BLAMES THE PHOTOS.
 
-*Body of backlog entry `(ahv)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(ahv)`, **shipped 2026-08-29** - the closure is in [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md). The trip half of the recovery story is **not** this entry's: `(ahz)` owns it, and still does.*
 
 - **(ahv) RESTORE CANNOT CREATE AN EVENT, ONLY RENAME ONE - AND IT BLAMES THE PHOTOS.** Filed
   2026-08-26 (P103).
@@ -122,6 +122,56 @@
   three control-first mutations: create skipped, links dropped, floor read from the catalog.
   **What remains of this entry is stage 3** - the measured 353-file sequence end to end as a
   regression test, re-running `(ahz)`'s five steps.
+
+  ## ⚠ STAGE 3 SHIPPED 2026-08-29 (P127) - THE SEQUENCE RE-RUN, AND THE ENTRY CLOSES
+
+  **The five steps were re-run end to end on the same corpus** (`Input/IV Bangalore`, copy mode,
+  1,062 organizable files - ⚠ the *353* recorded above was a subset used that day; the three
+  event signatures came back **byte-identical** to the recorded `562ed6c8291b`, `f41e03ca6184`,
+  `51aee3db0d41`, which is what makes the two runs comparable). Step 3, which this entry was
+  filed on:
+
+  ```
+       1  drive
+       3  events
+       1  trips
+    - event 'Morning Market' was re-created: this library's photos still form its exact group.
+    - event 'Temple Visit'   ... (same)
+    - event 'Rooftop Nine'   ... (same)
+    - 5 decision(s) would come back, 0 would not.
+  ```
+
+  All three names return **at step 3**, with 55, 26 and 9 photographs linked under them, and the
+  `-` marker is correct: nothing is being asked of the reader. Step 5, which `(ahz)` measured as
+  *"3 events on dest were older and were not used"*, now reads **"nothing this catalog does not
+  already have"** - and step 4's placeholder re-naming cannot take at all, because
+  `commit_catalog` reuses the row an existing signature already names. **The loop `(ahz)` found
+  is not merely broken but unreachable for events**: there is no longer a step 3 failure to send
+  a user into step 4.
+
+  The regression test is `test_a_lost_catalog_gets_its_names_back.py`, which writes a real
+  document to a drive root and reads it back. It fails on stage 1's tree (`6ae5219`) with
+  `assert set() == {'Morning Market', 'Temple Visit'}` - the names never returning - and its two
+  arms are deliberately in one file, because a test proving only the create would pass a fix
+  that created indiscriminately. Two mutations, dying **differently**: reverting the create
+  fails on the names, dropping `set_event_id` fails on the photographs - which is this entry's
+  own warning, a name on screen with no folder behind it.
+
+  ## ⚠ THE RECOVERY STORY, END TO END - WHAT COMES BACK AND WHAT DOES NOT
+
+  **A user loses their catalog and re-organizes to rebuild it. Back: every photograph, its
+  category and date, every trip, every event name with its photographs under it, every
+  date correction, and the settings. Not back: a trip's NAME where the rebuilt catalog already
+  minted a different one for those days** - that is `(ahz)`'s residual, `rename_trip` does not
+  exist, and the user is told loudly rather than silently. **Also not back: an event whose
+  photographs no longer form the same group** - reported by name as unmatched, never guessed at,
+  its name still safe in the drive's document.
+
+  ⚠ **The latent trap this entry recorded is now HONEST rather than silent.** A category flip
+  into a side bin drops a member and changes the signature, so the name has nowhere to land -
+  but the run now says so per event instead of misfiling. The `min_files` cliff is the same
+  shape: 56 clusters per drive sit at 8-9 members (measured P124), so a lost member can drop one
+  below the floor. Both end in the honest arm, and neither can invent a group.
 
   ## THE OPTIONS - A RULING, NOT A FIX
 

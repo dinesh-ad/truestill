@@ -153,6 +153,16 @@ Notes:
   this project refuses. `(afp)` closed with it: a cold start no longer offers to delete a catalog
   another process is writing.
   ⚠ **Not covered, on purpose**: the app's synchronous settings writes, which is `(adt)`.
+- 🔑 **THE RECOVERY STORY, in plain English - the product's central claim, and it changed three
+  times in the week to 2026-08-29.** A user loses their catalog and re-organizes to rebuild it.
+  **Back**: every photograph, its category and date, every trip, **every event name with its
+  photographs under it** (`(ahv)`, shipped 2026-08-29 - before that day every event name was
+  lost), every date correction, and the settings. **Not back**: a trip's NAME where the rebuilt
+  catalog already minted a different one for those days - `rename_trip` does not exist, so the
+  user is told loudly instead, which is `(ahz)`'s one remaining residual; and an event whose
+  photographs no longer form the same group, which is reported by name and never guessed at.
+  Proven end to end on the real corpus, not argued: `soak-six-record.md` falsified the founding
+  *"categories are recomputable"*, and this is where that arc now stands.
 - ⚠ **"The library" names two different things, so cite the subject, not the phrase**
   (2026-08-29): the soak records' **20,237 files** is `/data/TruestillLibrary/Input` alone and
   is still exact - those records are right and must not be touched - while the full tree is

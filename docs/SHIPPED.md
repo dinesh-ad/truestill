@@ -22,6 +22,41 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ahv) RESTORE CANNOT CREATE AN EVENT, ONLY RENAME ONE - AND IT BLAMES THE PHOTOS.** Shipped
+  2026-08-29 in three stages (P125-P127). Filed 2026-08-26 on a measured sequence in which **all
+  three event names were lost** after a catalog rebuild: `apply_decisions` could rename an event
+  found by signature and could not make one, and a rebuilt catalog holds none.
+  🔑 **The fix is that restore now re-clusters the library's own timeline and CREATES the row it
+  can match** - the signature is a hash over member sha256s, so a freshly proposed group carrying
+  the document's fingerprint **is** that membership; the document supplies the name it alone has,
+  the cluster supplies the members the document deliberately omits, and `set_event_id` links them
+  so the folder exists behind the name. Nothing is invented: a fingerprint neither an event row
+  nor any current cluster carries still comes back honestly unmatched.
+  **Stage 1 was a live defect found while planning stage 2** - the propose layer clustered at a
+  hard default of 8 while `events.min_files` sat in the catalog, so a lowered floor plus a
+  below-default named event was silently skipped on every re-import; `_reapply_named_events`
+  gained its first direct test with it. **Stage 2 built the create**, with the floor taken from
+  the DOCUMENT (`_DocumentFirstSettings`) so the preview and apply passes cannot disagree, and
+  the `(ahz)`-merged name landing by construction. **Stage 3 re-ran the five steps on the same
+  corpus**: step 3 now restores all three names *"was re-created: this library's photos still
+  form its exact group"* with 55, 26 and 9 photographs linked, against the recorded three
+  dropped; step 5, recorded as *"3 events on dest were older and were not used"*, now reads
+  *"nothing this catalog does not already have"*. The three event signatures came back
+  **byte-identical** to the ones recorded 2026-08-26.
+  🔑 **THE RECOVERY STORY, which is the product's central claim and changed three times this
+  week.** A user loses their catalog and re-organizes to rebuild it. **Back**: every photograph,
+  its category and date, every trip, **every event name with its photographs under it**, every
+  date correction, the settings. **Not back**: a trip's NAME where the rebuilt catalog already
+  minted a different one for those days - `(ahz)`'s residual, `rename_trip` does not exist, and
+  the user is told loudly rather than silently; and an event whose photographs no longer form
+  the same group, reported by name and never guessed at.
+  **Pinned by `test_a_lost_catalog_gets_its_names_back.py`**, which writes a real document to a
+  drive root and reads it back; it fails on stage 1's tree with `assert set() == {'Morning
+  Market', 'Temple Visit'}`. Both arms live in one file because a test proving only the create
+  would pass a fix that created indiscriminately - and the two mutations die **differently**:
+  reverting the create loses the names, dropping `set_event_id` returns a name with no
+  photographs under it, which is this entry's own warning.
+
 - **(aif) A NON-ASCII FILENAME MAY NOT SURVIVE ARGV TO EXIFTOOL ON WINDOWS.** Shipped 2026-08-29
   (P121), one day after being filed reasoned and measured broken the same day: the instrument
   filed with it came back **XFAIL on the Windows lane (run 33242186610)** with the reply decode
