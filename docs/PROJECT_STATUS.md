@@ -153,6 +153,12 @@ Notes:
   this project refuses. `(afp)` closed with it: a cold start no longer offers to delete a catalog
   another process is writing.
   ⚠ **Not covered, on purpose**: the app's synchronous settings writes, which is `(adt)`.
+- ⚠ **"The library" names two different things, so cite the subject, not the phrase**
+  (2026-08-29): the soak records' **20,237 files** is `/data/TruestillLibrary/Input` alone and
+  is still exact - those records are right and must not be touched - while the full tree is
+  **~105,125 files** once soak outputs and working copies are in, and P121's hot-path benchmark
+  measured **84,167 media files across the full tree**. Derive, don't quote:
+  `find /data/TruestillLibrary/Input -type f | wc -l` versus the same over the root.
 - **Schema is at v22** (`catalog.CURRENT_SCHEMA_VERSION`); `organize_runs` arrived at v20 (`(aem)`), the in-place intent columns at v21 (`(agk)`), and `file_copies.bake_started_at` at v22 so an interrupted bake is not read as damage. ⚠ **This line said v21 until 2026-08-26** and was noticed twice without being fixed - a third notice with no fix is the half-refresh `ENGINEERING_STANDARD.md` §4's seventy-first member is about. Read `CURRENT_SCHEMA_VERSION` rather than this sentence.
 - **`(aad)` installers remain the launch gate**, and its two largest items are now built AND
   proven: the release lane and the Windows installer both work on both platforms

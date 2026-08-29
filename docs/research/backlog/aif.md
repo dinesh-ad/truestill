@@ -31,6 +31,9 @@
     every `errors=` policy, because exiftool replaces the undecodable byte with `?` in its own
     `SourceFile` echo before Python decodes anything. Input-side, unfixed by any of this, and
     now **`(aig)`** - which also carries the candidate fix the measurement suggests.
+    ⚠ **Correction, 2026-08-29 (P122):** that candidate was falsified by measurement - the `?`
+    is exiftool's JSON writer refusing invalid UTF-8, with or without the charset flag - and
+    the defect is read-only; `(aig)`'s body carries the corrected cause and the parking ruling.
 
   ## RELATED
 

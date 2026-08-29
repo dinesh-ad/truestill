@@ -40,7 +40,10 @@ recording shipped work as unstarted, which is the more expensive direction of th
   argv and dropping the read argfile's charset each kill the stdin declaration guard - which
   says in its docstring that it IS a declaration guard, and that the Windows *behaviour* half of
   its evidence is the lane's own XFAIL. The measured POSIX residual (`?`-echo for invalid-UTF-8
-  names) is filed as `(aig)` with its candidate fix.
+  names) is filed as `(aig)` with its candidate fix. ⚠ **Correction, 2026-08-29 (P122): that
+  candidate was falsified by measurement** - the `?` is exiftool's JSON writer refusing invalid
+  UTF-8, charset flag or no - and `(aig)`, corrected in place, is parked with reachability
+  measured at zero.
 
 - **(aic) EXIFTOOL'S OUTPUT IS DECODED WITH THE MACHINE'S CODE PAGE, SO A NON-ASCII FILENAME LANDS IN `Undated/`.**
   Shipped 2026-08-29 (P120). One fix at the one door: `binaries.run`/`binaries.popen` now pin

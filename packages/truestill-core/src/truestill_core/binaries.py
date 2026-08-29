@@ -188,11 +188,12 @@ def _pin_text_decoding(kwargs: dict[str, Any]) -> None:
     degrades only the record carrying the byte, and is byte-identical to strict on the valid
     UTF-8 both producers document. It is also ``os.fsdecode``'s convention for streams that
     carry filenames. ⚠ **The stronger hope was tested and does not hold**: an ext4 file named
-    with latin-1 ``0xE9`` does *not* round-trip into ``read_metadata``'s keys, because with
-    ``-charset filename=utf8`` exiftool replaces the undecodable byte with ``?`` in its own
-    echo before Python decodes anything (measured 2026-08-29). Such a file keys a fictitious
-    name under **every** ``errors=`` policy - the input-side residual recorded in
-    `docs/research/backlog/aif.md` - so this choice is about batch survival, not name rescue.
+    with latin-1 ``0xE9`` does *not* round-trip into ``read_metadata``'s keys, because
+    exiftool's JSON writer never emits invalid UTF-8 - it replaces the byte with ``?`` in its
+    own echo, **with or without ``-charset filename=utf8``** (both measured, 2026-08-29), so
+    the raw byte never reaches this decode at all. Such a file keys a fictitious name under
+    **every** ``errors=`` policy - `docs/research/backlog/aig.md`, parked - so this choice is
+    about batch survival, not name rescue.
 
     A call site that passes ``encoding=`` has made the whole decision and is left alone,
     ``errors`` included; one that passes only ``errors=`` keeps it. Bytes-mode calls are

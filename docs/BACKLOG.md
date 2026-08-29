@@ -198,17 +198,19 @@ is invisible here is retired, not free.**
   falsehood has had no observed consequence. Body:
   [`research/backlog/aib.md`](research/backlog/aib.md).
 
-- **(aig) AN INVALID-UTF-8 FILENAME ON POSIX MISFILES, BECAUSE ITS NAME IS DECLARED TO BE UTF-8.**
-  Filed 2026-08-29 (P121), split out of `(aif)`'s measured residual when `(aif)` closed. A raw
-  latin-1-named file (old cameras, FAT cards) round-trips its bytes to exiftool intact - but
-  `-charset filename=utf8` makes exiftool meet bytes that are not valid UTF-8 and **replace the
-  byte with `?` in its own `SourceFile` echo** (measured, ext4, `0xE9`), so the record keys a
-  fictitious name and the file goes to `Undated/` silently: `(aic)`'s failure shape, surviving
-  `(aic)`'s fix because it happens inside exiftool, before any decode. Candidate fix in the
-  body - the charset declaration is only *needed* on Windows, and POSIX pass-through plus the
-  door's `surrogateescape` is measured to round-trip - but it is unbuilt and needs an
-  end-to-end POSIX measurement plus a byte-named-fixture test (legitimately POSIX-only; NTFS
-  cannot hold such a name). Body: [`research/backlog/aig.md`](research/backlog/aig.md).
+- **(aig) AN INVALID-UTF-8 POSIX FILENAME MISFILES ON READ: EXIFTOOL'S JSON WRITER ECHOES `?` FOR THE BYTE.**
+  Filed 2026-08-29 (P121); **cause corrected in place same day (P122), measured** - the entry
+  originally blamed `-charset filename=utf8`, and removing the charset **changes nothing**:
+  exiftool finds and reads the byte-named file correctly and its JSON writer sanitizes the
+  echo unconditionally, so the `?`-spelled `SourceFile` misses `by_name` and the file goes to
+  `Undated/` silently. **Read-only** - the bake on such a file is measured correct and honest.
+  The body records the one viable direction (a computed `?`-sanitized alias key, refused on
+  collision) and the caveat that parks it: the `?` behaviour is **observed, not documented**.
+  🔒 **PARKED at the bottom of the ranked list, beside `(aib)`**: reachability measured **zero**
+  across 105,125 library files and both corpora including the 1,461 fuzzed - both entries have
+  zero observed instances, but `(aib)` needs only a ruling while this needs code built against
+  undocumented behaviour for a population of zero.
+  Body: [`research/backlog/aig.md`](research/backlog/aig.md).
 
 - **(aid) THE ORIGINAL FILENAME IS NEVER SANITIZED, AND THEN GAINS SIXTEEN CHARACTERS.** Filed
   2026-08-26 (P118), read from source. `layout.py`'s four defences - illegal characters, reserved
