@@ -133,11 +133,19 @@ class Destination(ABC):
         """Return whether something already lives at ``relative_path``."""
 
     @abstractmethod
-    def upload(self, local: Path, relative_path: str) -> None:
+    def upload(self, local: Path, relative_path: str) -> str | None:
         """Copy ``local`` to ``relative_path``, creating parent structure as needed.
 
         Implementations must not overwrite silently; the caller guarantees
         ``relative_path`` is free by consulting :meth:`exists` first.
+
+        ⚠ **Returns a warning, never a status.** ``None`` is the ordinary answer and means the
+        copy is complete. A string means **the copy is complete too** and something about it is
+        worth saying out loud - today, only that the destination refused its timestamps or
+        permissions (`(aie)`). A backend that cannot fail this way returns ``None`` and needs no
+        branch. **Failure is still an exception**: a return value that could mean either would
+        put the decision back in every caller, which is what
+        :class:`~truestill_core.destinations.base.DestinationError` exists to prevent.
         """
 
     @abstractmethod

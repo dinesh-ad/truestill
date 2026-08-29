@@ -820,3 +820,11 @@ class ActionResult:
     #: hole exactly the size of the unique-size files, and the first one to ask - the organize
     #: result grid - drew two photos for a run of four.
     sha256: str | None = None
+    #: Whether the destination took this copy's timestamps and permissions. `(aie)`
+    #:
+    #: **The fact, not the words** - the sentence is in ``detail`` beside the run's other notes,
+    #: and the run record persists it there. This exists because a reader has to be able to
+    #: *select* these files without matching on prose: `False` here is what puts a counted line
+    #: on screen for a destination that refuses `copystat`, which would otherwise be an entirely
+    #: silent degradation on every file of a run onto SMB, FAT32 or a FUSE mount.
+    metadata_ok: bool = True

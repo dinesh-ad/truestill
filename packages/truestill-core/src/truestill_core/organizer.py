@@ -1083,8 +1083,8 @@ def _upload_with_metadata_write(
     *,
     baker: _MetadataBaker,
     set_timestamps: bool,
-) -> str:
-    """Take the baked copy, upload it, and return the copy's SHA-256.
+) -> tuple[str, str | None]:
+    """Take the baked copy, upload it, and return ``(copy_sha256, warning)``.
 
     The source is never modified: the metadata write happens on a temporary staged copy, so
     the invariant "originals are untouched" holds even though the uploaded copy now differs
@@ -1095,9 +1095,9 @@ def _upload_with_metadata_write(
     if set_timestamps:
         _apply_timestamp(staged, decision.captured_at)
     copy_sha = sha256_file(staged)
-    destination.upload(staged, final_relative)
+    warning = destination.upload(staged, final_relative)
     staged.unlink(missing_ok=True)  # released as soon as it is safe: a chunk is 100 files of disk
-    return copy_sha
+    return copy_sha, warning
 
 
 class MetadataBakeError(OSError):
@@ -1360,24 +1360,24 @@ def _already_at_target(source: Path, dest_root: Path, relative: str) -> bool:
 
 def _adopt_or_copy(
     source: Path, destination: Destination, final_relative: str, relocation: Relocation | None
-) -> bool:
-    """Place ``source`` at ``final_relative``. Returns whether it moved by rename.
+) -> tuple[bool, str | None]:
+    """Place ``source`` at ``final_relative``. Returns ``(moved_by_rename, warning)``.
 
     The kernel decides, not ``st_dev``: a rename is attempted and its refusal is trusted.
     A cross-device answer either falls back to the copy path or propagates, depending on
     whether the caller promised the user no copy would be made.
     """
     if relocation is None:
-        destination.upload(source, final_relative)
-        return False
+        return False, destination.upload(source, final_relative)
     try:
         destination.adopt(source, final_relative)
     except CrossDeviceError:
         if relocation.require_rename:
             raise
-        destination.upload(source, final_relative)
-        return False
-    return True
+        return False, destination.upload(source, final_relative)
+    # A rename carries the inode's own metadata across; there is nothing to set and so nothing
+    # that can be refused.
+    return True, None
 
 
 def _upload_copy(
@@ -1387,7 +1387,7 @@ def _upload_copy(
     captured_at: datetime | None,
     *,
     set_timestamps: bool,
-) -> None:
+) -> str | None:
     """Upload a pure copy, stamping the destination. **The source is not written to at all.**
 
     This used to snapshot the source's atime and mtime and put both back afterwards, "so a copy
@@ -1408,9 +1408,10 @@ def _upload_copy(
     to one is an unjournalled directory-entry update. Once per file per run, for no benefit, is
     not a tidy no-op.
     """
-    destination.upload(source, final_relative)
+    warning = destination.upload(source, final_relative)
     if set_timestamps and captured_at is not None:
         destination.set_timestamp(final_relative, captured_at)
+    return warning
 
 
 def _move_source(
@@ -1457,37 +1458,40 @@ def _write_organized_bytes(
     set_timestamps: bool,
     bakes_metadata: bool,
     relocation: Relocation | None,
-) -> tuple[str, bool]:
+) -> tuple[str, bool, str | None]:
     """Bake (if needed) and write bytes to ``final_relative``.
 
-    Returns ``(copy_sha, moved_in_place)``. Order is intentional: bake/write happen before any
-    catalog or journal mutation.
+    Returns ``(copy_sha, moved_in_place, warning)``, where the third is
+    :meth:`Destination.upload`'s arrived-but-undecorated note or ``None``. Order is intentional:
+    bake/write happen before any catalog or journal mutation.
     """
     if bakes_metadata:
-        copy_sha = _upload_with_metadata_write(
+        copy_sha, warning = _upload_with_metadata_write(
             decision,
             final_relative,
             destination,
             baker=baker,
             set_timestamps=set_timestamps,
         )
-        return copy_sha, False
+        return copy_sha, False, warning
     if relocation is None:
-        _upload_copy(
+        warning = _upload_copy(
             decision.source,
             destination,
             final_relative,
             decision.captured_at,
             set_timestamps=set_timestamps,
         )
-        return source_sha, False
+        return source_sha, False, warning
     # Relocation transfers ownership of this inode. Stamp it before the attempted
     # adopt so a rename and the verified cross-device fallback preserve the date.
     if set_timestamps:
         _apply_timestamp(decision.source, decision.captured_at)
     # byte-identical either way: a rename rewrites nothing
-    moved_in_place = _adopt_or_copy(decision.source, destination, final_relative, relocation)
-    return source_sha, moved_in_place
+    moved_in_place, warning = _adopt_or_copy(
+        decision.source, destination, final_relative, relocation
+    )
+    return source_sha, moved_in_place, warning
 
 
 def _record_or_stop(
@@ -1594,6 +1598,7 @@ def _journal_or_delete_source(
     moved_in_place: bool,
     renamed: bool,
     resolution: Resolution,
+    metadata_warning: str | None = None,
 ) -> ActionResult:
     """Journal an in-place rename, or verify-and-delete under ``--move``, then build the result.
 
@@ -1602,6 +1607,12 @@ def _journal_or_delete_source(
     """
     status = ActionStatus.RENAMED if renamed else ActionStatus.UPLOADED
     notes: list[str] = []
+    if metadata_warning is not None:
+        # ⚠ **A note on a SUCCESS, which is the shape `(aie)` was missing.** The file is placed
+        # and recorded; what could not be set is decoration. It goes in `detail` rather than in
+        # a new `ActionStatus` because the outcome is unchanged - and `detail` is what the run
+        # record persists, so the fact survives the terminal that printed it.
+        notes.append(metadata_warning)
     if renamed:
         notes.append("suffixed to avoid an unrelated name collision")
     if resolution.near_duplicate is not None:
@@ -1621,7 +1632,14 @@ def _journal_or_delete_source(
         # re-verifies. A failed verify keeps the source; a crash before this leaves both.
         status, note = _move_source(decision.source, destination, final_relative, copy_sha)
         notes.append(note)
-    return ActionResult(resolution, status, Path(final_relative), "; ".join(notes), source_sha)
+    return ActionResult(
+        resolution,
+        status,
+        Path(final_relative),
+        "; ".join(notes),
+        source_sha,
+        metadata_ok=metadata_warning is None,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1755,7 +1773,7 @@ def _execute_one_write(resolution: Resolution, run: _WriteRun) -> ActionResult:
     # A failure here stops the run with nothing moved, which is why it needs no rollback.
     _record_the_intent(run, decision, source_sha=source_sha, final=final_relative, size=size)
 
-    copy_sha, moved_in_place = _write_organized_bytes(
+    copy_sha, moved_in_place, metadata_warning = _write_organized_bytes(
         decision,
         destination=run.destination,
         final_relative=final_relative,
@@ -1810,6 +1828,7 @@ def _execute_one_write(resolution: Resolution, run: _WriteRun) -> ActionResult:
         moved_in_place=moved_in_place,
         renamed=renamed,
         resolution=resolution,
+        metadata_warning=metadata_warning,
     )
 
 

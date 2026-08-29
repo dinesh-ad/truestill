@@ -72,7 +72,7 @@ def _run(library: tuple[Path, Path, Path]) -> BackupRunSummary:
 def _fail_copies(monkeypatch: pytest.MonkeyPatch, *, which: set[int]) -> None:
     """Fail the copies at these 1-based positions, the way a source read failure arrives.
 
-    ⚠ **Injected at `shutil.copy2` inside `safe_copy`**, so the failure arrives through
+    ⚠ **Injected at `shutil.copyfile` inside `safe_copy`**, so the failure arrives through
     `staged_copy`'s own `except OSError` - the real path. Patching backup's helper would assert
     that this test can fail.
 
@@ -82,15 +82,15 @@ def _fail_copies(monkeypatch: pytest.MonkeyPatch, *, which: set[int]) -> None:
     per-file case.
     """
     seen = {"n": 0}
-    real = safe_copy.shutil.copy2
+    real = safe_copy.shutil.copyfile
 
-    def flaky(src: object, dst: object, *args: object, **kwargs: object) -> object:
+    def flaky(src: str | Path, dst: str | Path) -> str | Path:
         seen["n"] += 1
         if seen["n"] in which:
             raise OSError(errno.EACCES, "Permission denied")
-        return real(src, dst, *args, **kwargs)
+        return real(src, dst)
 
-    monkeypatch.setattr(safe_copy.shutil, "copy2", flaky)
+    monkeypatch.setattr(safe_copy.shutil, "copyfile", flaky)
 
 
 def test_two_bad_files_do_not_stop_the_other_two(
@@ -204,15 +204,17 @@ def _real_enospc(monkeypatch: pytest.MonkeyPatch, *, nth: int) -> None:
     proves only the second.
     """
     seen = {"n": 0}
-    real = safe_copy.shutil.copy2
+    real = safe_copy.shutil.copyfile
 
-    def flaky(src: object, dst: object, *args: object, **kwargs: object) -> object:
+    def flaky(src: str | Path, dst: str | Path) -> str | Path:
         seen["n"] += 1
         if seen["n"] == nth:
-            safe_copy.shutil.copyfile(str(src), "/dev/full")
-        return real(src, dst, *args, **kwargs)
+            # ⚠ **`real`, not `safe_copy.shutil.copyfile`.** Since `(aie)` the injection replaces
+            # `copyfile` itself, so reaching for it by name inside the stub calls the stub.
+            real(str(src), "/dev/full")
+        return real(src, dst)
 
-    monkeypatch.setattr(safe_copy.shutil, "copy2", flaky)
+    monkeypatch.setattr(safe_copy.shutil, "copyfile", flaky)
 
 
 @pytest.mark.skipif(not Path("/dev/full").exists(), reason="/dev/full is Linux-specific")

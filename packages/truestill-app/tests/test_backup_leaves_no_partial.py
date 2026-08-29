@@ -52,7 +52,7 @@ def test_a_failed_backup_copy_never_writes_the_destination(
         seen.append(dst.exists())
         raise OSError(5, "Input/output error")
 
-    monkeypatch.setattr(safe_copy.shutil, "copy2", stub)
+    monkeypatch.setattr(safe_copy.shutil, "copyfile", stub)
 
     # ⚠ Returns a failed verdict rather than raising since `(afw)` Stage 4 - one bad file no
     # longer aborts the batch. The PROPERTY under test is unchanged and is asserted below: the
@@ -147,7 +147,7 @@ def test_a_staged_copy_that_cannot_be_removed_is_named_and_measured(
     source = tmp_path / "a.mp4"
     source.write_bytes(b"x" * 10)
     dst = tmp_path / "organized.mp4"
-    monkeypatch.setattr(safe_copy.shutil, "copy2", _copy_that_dies_after_writing(b"y" * 802))
+    monkeypatch.setattr(safe_copy.shutil, "copyfile", _copy_that_dies_after_writing(b"y" * 802))
     monkeypatch.setattr(
         Path, "unlink", lambda *_a, **_k: (_ for _ in ()).throw(OSError(30, "Read-only"))
     )

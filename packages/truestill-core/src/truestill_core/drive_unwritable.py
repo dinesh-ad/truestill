@@ -172,6 +172,35 @@ def explain_unwritable_drive(error: OSError) -> str:
     return _DRIVE_WORDS.get(classify_unwritable(error)) or error.strerror or str(error)
 
 
+def explain_metadata_not_preserved(error: OSError) -> str:
+    """The copy arrived; its **decoration** did not. `(aie)`
+
+    ⚠ **A third phrasing rather than a third table, and the distinction is the point.** The six
+    conditions above are recognised once, by :func:`classify_unwritable`; what differs here is
+    only the sentence, exactly as `_FOLDER_WORDS` differs from `_DRIVE_WORDS`. Adding an errno
+    branch here would be the second table this module's docstring exists to prevent.
+
+    ⚠ **AND THE EXISTING WORDS ARE FALSE ON THIS PATH, WHICH IS WHY IT NEEDS ITS OWN.**
+    `explain_unwritable_drive` answers `EPERM` with *"the drive is read-only, or this account
+    cannot write to it"* - a sentence that has just been disproved by the write that succeeded
+    two lines earlier. A user told their drive is read-only about a file now sitting on it looks
+    for a hardware fault that is not there.
+
+    **The condition is still classified**, because the advice differs: a quota and a refusal
+    reach this for different reasons even though neither costs the user a photograph. What the
+    caller must add is the half this sentence deliberately leaves out - **which file, and that it
+    is safely on the drive** - because the words below say only what did not happen.
+    """
+    kind = classify_unwritable(error)
+    if kind is Unwritable.REFUSED:
+        return "this drive does not let Truestill set timestamps or permissions"
+    if kind in (Unwritable.NO_SPACE, Unwritable.QUOTA):
+        return "there was no room left on the drive to record them"
+    if kind is Unwritable.FAILING:
+        return "the drive stopped responding while they were being set"
+    return error.strerror or str(error)
+
+
 def explain_unwritable_folder(error: OSError) -> str:
     """The same six conditions, about a folder on this computer rather than a drive. `(aeo)`
 

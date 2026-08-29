@@ -12,6 +12,15 @@ All notable changes to this project are documented here. The format follows
   history of every run beside your catalog, with the full file-by-file detail of recent ones.
 
 ### Fixed
+- **Photos organized onto a network drive are no longer thrown away.** On a shared folder, a NAS,
+  a phone-style mount or a memory stick formatted FAT32, the drive can take the file but refuse to
+  set its timestamp. Truestill could not tell that apart from a copy that failed halfway, so it
+  deleted the photo it had just written in full, said *"the drive is read-only"* about a drive that
+  had plainly just accepted it - and did the same to every remaining file, because the refusal
+  belongs to the drive rather than the file. It now keeps the copy, says which files could not
+  have their timestamps set, and carries on. Files themselves are unaffected: Truestill has never
+  taken a photo's date from the file's timestamp. A copy that genuinely fails part-way through is
+  still discarded, exactly as before.
 - **Undoing a layout migration now appears in your run history.** Truestill keeps a permanent
   one-line history of every run beside your catalog, and reversing a migration was the one
   operation that left no trace - so the newest thing the history described was a state your disk

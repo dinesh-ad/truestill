@@ -45,7 +45,7 @@ def full_disk(monkeypatch: pytest.MonkeyPatch) -> None:
     """Report the destination as having no room, without needing a real full filesystem.
 
     Aimed at `truestill_core.filesystem`, which is the module that performs the call - patching
-    `shutil` globally would also reach `safe_copy.shutil.copy2` and change what the copy path does,
+    `shutil` globally would also reach `safe_copy`'s own copy and change what the copy path does,
     which is the half of this feature that already works and must not move.
     """
     monkeypatch.setattr(

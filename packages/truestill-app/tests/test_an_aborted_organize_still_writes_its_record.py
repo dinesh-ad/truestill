@@ -68,15 +68,17 @@ def _real_enospc(monkeypatch: pytest.MonkeyPatch, *, nth: int) -> None:
     exercises delivery as well as classification. `(agi)` records why those are two properties.
     """
     seen = {"n": 0}
-    real = safe_copy.shutil.copy2
+    real = safe_copy.shutil.copyfile
 
-    def flaky(src: object, dst: object, *args: object, **kwargs: object) -> object:
+    def flaky(src: str | Path, dst: str | Path) -> str | Path:
         seen["n"] += 1
         if seen["n"] == nth:
-            safe_copy.shutil.copyfile(str(src), "/dev/full")
-        return real(src, dst, *args, **kwargs)
+            # ⚠ **`real`, not `safe_copy.shutil.copyfile`.** Since `(aie)` the injection replaces
+            # `copyfile` itself, so reaching for it by name inside the stub calls the stub.
+            real(str(src), "/dev/full")
+        return real(src, dst)
 
-    monkeypatch.setattr(safe_copy.shutil, "copy2", flaky)
+    monkeypatch.setattr(safe_copy.shutil, "copyfile", flaky)
 
 
 def _record(db: Path) -> dict[str, object]:
@@ -192,15 +194,15 @@ def test_a_per_file_failure_does_not_make_the_run_look_stopped(
     partial-failure policy into a stop: one unreadable photo is `failed`, and the run finished."""
     src, drive, db = library
     seen = {"n": 0}
-    real = safe_copy.shutil.copy2
+    real = safe_copy.shutil.copyfile
 
-    def flaky(source: object, dest: object, *args: object, **kwargs: object) -> object:
+    def flaky(source: str | Path, dest: str | Path) -> str | Path:
         seen["n"] += 1
         if seen["n"] == 2:
             raise OSError(13, "Permission denied")
-        return real(source, dest, *args, **kwargs)
+        return real(source, dest)
 
-    monkeypatch.setattr(safe_copy.shutil, "copy2", flaky)
+    monkeypatch.setattr(safe_copy.shutil, "copyfile", flaky)
 
     main(["organize", str(src), str(drive), "--apply", "--db", str(db)])
 

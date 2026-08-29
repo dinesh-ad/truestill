@@ -104,6 +104,10 @@ class CopyOutcome:
 
     ok: bool
     error: OSError | None = None
+    #: The bytes arrived and their **decoration** did not - see :func:`staged_copy`. Set with
+    #: ``ok=True``, which is the whole point: this is a copy that succeeded, carrying a fact the
+    #: caller should say out loud rather than a failure it should report.
+    metadata_error: OSError | None = None
     #: Bytes this call wrote and could not remove. `None` when nothing was left behind. Under
     #: staging this is always the staged sibling, never the target - the target is only ever
     #: written by a rename, which leaves nothing half-done for us to own.
@@ -146,6 +150,9 @@ class StagedCopy:
     error: OSError | None = None
     leftover: Path | None = None
     leftover_bytes: int = 0
+    #: See :func:`staged_copy`. Travels with ``ok=True``, and :meth:`commit` carries it onto the
+    #: :class:`CopyOutcome` so a caller two layers up does not have to know staging exists.
+    metadata_error: OSError | None = None
 
     def commit(self) -> CopyOutcome:
         """Give the staged bytes the target's name, replacing whatever is there.
@@ -161,7 +168,7 @@ class StagedCopy:
             self.temp.replace(self.target)
         except OSError as error:
             return _discard(self.temp, error)
-        return CopyOutcome(ok=True)
+        return CopyOutcome(ok=True, metadata_error=self.metadata_error)
 
     def abandon(self) -> CopyOutcome:
         """Discard the staged bytes. The target is untouched, because it was never written."""
@@ -183,10 +190,44 @@ def staged_copy(source: Path, target: Path) -> StagedCopy:
     third parameter appears.
 
     Returns rather than raises: see the module note.
+
+    ⚠ **`copyfile` then `copystat`, deliberately, rather than the one `copy2` that is both**
+    (`(aie)`). `copy2` **is** those two calls, and wrapping the pair in one `except` cannot tell
+    *"none of the bytes arrived"* from *"all of the bytes arrived and the mtime did not"*. It
+    reported the second as the first and threw the file away - measured, on a `copystat` refused
+    with `EPERM`: three complete photographs deleted, three `FAILED` lines, and the run continued
+    to do it to every file on that destination.
+
+    **The discriminator is WHICH CALL RAISED, and it is structural for that reason.** Two shapes
+    were available and the other is refused here rather than left as a choice:
+
+    * **Not the errno.** `EPERM` from `copyfile` (the destination will not take the write) and
+      `EPERM` from `copystat` (the mount will not take a `utime`) are the same number with
+      opposite meanings, so no errno table can separate them. A *"keep on any `OSError`"* is
+      worse still: it keeps `(abu)`'s 802-MB `EIO` truncation, which is the defect this module
+      was written to close.
+    * **Not a size comparison.** It is an inference where this is a fact - the source can change
+      under a long copy, and a short file that happens to match tells you nothing about whether
+      the write completed. It also needs two `stat` calls to answer a question the call stack
+      already knows.
+
+    So a `copyfile` failure discards exactly as before, and a `copystat` failure returns
+    ``ok=True`` with :attr:`StagedCopy.metadata_error` set. **This covers every step inside
+    `copystat`, not just the one that was measured**: `utime`, `chmod`, xattrs and `chflags` all
+    raise from the same call, and two of them - `utime`, which the stdlib does not guard at all,
+    and `chmod`, which it guards against `NotImplementedError` rather than `OSError` - reach a
+    caller unfiltered.
+
+    **What is lost when `copystat` fails is the decoration and nothing else**: the copy keeps
+    default permissions and its own mtime. Truestill has no filesystem-mtime date tier
+    (`models.DateSource`, and `dates.py`'s `DATE_TAGS` refuses one by name) and identity is
+    `sha256`, so nothing the product decides is computed from either. This is the behaviour the
+    standard library documents for `shutil.copy` and names for callers that *"cannot tolerate
+    metadata errors"* - and what rsync (exit 23, file kept), restic and robocopy all do.
     """
     temp = staging_path(target)
     try:
-        shutil.copy2(source, temp)
+        shutil.copyfile(source, temp)
     except OSError as error:
         failed = _discard(temp, error)
         return StagedCopy(
@@ -195,7 +236,14 @@ def staged_copy(source: Path, target: Path) -> StagedCopy:
             leftover=failed.leftover,
             leftover_bytes=failed.leftover_bytes,
         )
-    return StagedCopy(ok=True, temp=temp, target=target)
+    metadata_error: OSError | None = None
+    try:
+        shutil.copystat(source, temp)
+    except OSError as error:
+        # Whatever `copystat` managed before it raised is kept. It is not re-attempted and not
+        # rolled back: a partial `copystat` is a partly-decorated file, never a partly-written one.
+        metadata_error = error
+    return StagedCopy(ok=True, temp=temp, target=target, metadata_error=metadata_error)
 
 
 def copy_leaving_nothing(source: Path, target: Path) -> CopyOutcome:
@@ -217,4 +265,6 @@ def copy_leaving_nothing(source: Path, target: Path) -> CopyOutcome:
             leftover=staged.leftover,
             leftover_bytes=staged.leftover_bytes,
         )
+    # `commit` carries `metadata_error` through, so this form's caller sees the same fact without
+    # having to know a staged copy existed.
     return staged.commit()

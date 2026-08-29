@@ -301,24 +301,6 @@ is invisible here is retired, not free.**
   instrument is an xfail on the Windows lane, as `(aif)` used.
   Body: [`research/backlog/aid.md`](research/backlog/aid.md).
 
-- **(aie) A COPY ONTO FUSE OR VFAT WRITES THE BYTES, FAILS ON THE TIMESTAMP, AND BLAMES THE DRIVE.** Filed
-  2026-08-26 (P118), read from source. `safe_copy` stages through a temporary and calls
-  `shutil.copy2` (`safe_copy.py:189`); `copystat`'s `utime` is unguarded and its `chmod` catches
-  only `NotImplementedError`, never `EPERM`. On a FUSE mount or a vfat stick the bytes land, the
-  metadata copy raises, and the **complete** staged file is discarded. ⚠ **And the message is
-  false**: `EPERM` maps to *"the drive is read-only, or this account cannot write to it"* - the
-  drive was writable, and the product just proved it. The stop predicate narrows to `EROFS`, so
-  the run does not halt: **one identical false line per file**, for as many files as there are.
-  `moving-machines.md` documents organizing into a cloud FUSE mount and `BACKLOG.md`'s *What
-  works* lists SMB/NFS/mounted-cloud, so this is a supported path, not an exotic one.
-  ⚠ **REPRODUCED 2026-08-29 (P140) - every clause holds.** Three files, three identical false
-  lines, 0 files landed, and the destination accepted a write immediately afterwards, so the
-  drive was writable throughout. ⚠ **The environment was not staged** - no FUSE or vfat mount is
-  reachable here - so the `EPERM` was injected at `os.utime`, the syscall a network mount
-  refuses; the run itself was real. Also found: `SUMMARY` says *"organized (unique): 3"* while
-  `EXECUTED` says *"3 failed"*.
-  Body: [`research/backlog/aie.md`](research/backlog/aie.md).
-
 - **(ahz) RECOVERING A LOST CATALOG DESTROYS THE NAMES IT IS RECOVERING, AND THE GUARD AGAINST IT IS BLIND.** Filed
   2026-08-26 (P106a), measured. A rebuild registers the recovery folder as a drive and publishes a decisions
   document to it; re-naming during recovery auto-publishes there, **newer** than the original, and

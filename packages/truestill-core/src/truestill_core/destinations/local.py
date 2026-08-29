@@ -22,7 +22,10 @@ from truestill_core.destinations.base import (
     DestinationError,
     check_contained,
 )
-from truestill_core.drive_unwritable import explain_unwritable_drive
+from truestill_core.drive_unwritable import (
+    explain_metadata_not_preserved,
+    explain_unwritable_drive,
+)
 from truestill_core.filesystem import (
     DestinationPreflight,
     FilesystemFacts,
@@ -92,6 +95,19 @@ def _upload_failure(local: Path, target: Path, relative_path: str, outcome: Copy
     )
 
 
+def _metadata_warning(local: Path, relative_path: str, error: OSError) -> str:
+    """The sentence for a copy that arrived without its timestamps. `(aie)`
+
+    **Says the file is safe first.** `explain_metadata_not_preserved` deliberately words only
+    what did not happen, so the reassurance has to be added by whoever knows the file landed -
+    and this is the only place that does.
+    """
+    return (
+        f"{local.name} was copied to {relative_path!r} and is safe, but "
+        f"{explain_metadata_not_preserved(error)}"
+    )
+
+
 class LocalDestination(Destination):
     """Writes into a directory tree rooted at ``root``."""
 
@@ -150,7 +166,7 @@ class LocalDestination(Destination):
             raise DestinationError(message)
         return found is not Reach.MISSING
 
-    def upload(self, local: Path, relative_path: str) -> None:
+    def upload(self, local: Path, relative_path: str) -> str | None:
         target = self._full(relative_path)
         try:
             self._make_parent(target)
@@ -172,6 +188,12 @@ class LocalDestination(Destination):
             raise DestinationError(
                 _upload_failure(local, target, relative_path, outcome)
             ) from outcome.error
+        if outcome.metadata_error is not None:
+            # ⚠ **Returned, not raised, and that is the whole of `(aie)`.** The bytes are at
+            # `target` and verify against the source; only `copystat` was refused. Raising here
+            # would put a complete photograph on the failure path, where the caller deletes it.
+            return _metadata_warning(local, relative_path, outcome.metadata_error)
+        return None
 
     def set_timestamp(self, relative_path: str, captured_at: datetime) -> None:
         stamp = captured_at.timestamp()

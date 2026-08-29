@@ -70,7 +70,7 @@
   - Whether `DestinationPreflight` gains a field (`free_measured: bool`, or `free_bytes: int |
     None` carried through) or whether the preview simply declines to state a space line it could
     not obtain. The second is smaller and matches §9's *named, never counted*.
-  - Whether `Destination.preflight`'s default (`destinations/base.py:186-189`), which returns
+  - Whether `Destination.preflight`'s default (`destinations/base.py:195-198`), which returns
     `free_bytes=need` as a deliberate stand-down for remotes, should be distinguishable from a
     failed local measurement. Today they are the same number for different reasons - which is this
     entry's own shape, one layer down.

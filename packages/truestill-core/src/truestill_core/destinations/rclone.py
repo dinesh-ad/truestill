@@ -69,6 +69,9 @@ class RcloneDestination(Destination):
         return bool(proc.stdout.strip())
 
     def upload(self, local: Path, relative_path: str) -> None:
+        """``None`` always: `rclone copyto` sets modtimes itself and reports a refusal as a
+        non-zero exit, which `_run` already turns into a `DestinationError`. There is no
+        arrived-without-its-timestamps state to report here. `(aie)`"""
         self._run("copyto", str(local), self._target(relative_path))
         if self._listing is not None:
             self._listing.add(relative_path)

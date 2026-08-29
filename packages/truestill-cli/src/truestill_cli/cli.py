@@ -2584,6 +2584,13 @@ def _print_execution(results: list[ActionResult]) -> int:
     _print_duplicate_origins((r.resolution for r in results), indent="           ")
     _print_mechanism_split(results)
 
+    # ⚠ **`(aie)`'s fix must not be a SILENT one.** Keeping a file whose `copystat` was refused is
+    # right; keeping it quietly would trade a false failure for an invisible degradation - and the
+    # condition belongs to the **mount**, so it does not happen to one file, it happens to every
+    # file of the run. `_print_capped` is reused rather than reinvented because `(afd)`'s cap is
+    # exactly what this needs: 500 identical lines would be that defect again. Selected on
+    # `metadata_ok`, never by matching the prose in `detail`.
+    _print_capped([r for r in results if not r.metadata_ok], label="METADATA NOT SET")
     _print_capped([r for r in results if r.status is ActionStatus.MOVE_KEPT], label="MOVE KEPT")
     failures = [r for r in results if r.status is ActionStatus.FAILED]
     _print_capped(failures, label="FAILED")

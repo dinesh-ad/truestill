@@ -1,5 +1,11 @@
 """Organize is the bigger instance of `(agi)`, and this is its end-to-end half.
 
+⚠ **The injections aim at `shutil.copyfile`, not `copy2`, since `(aie)`.** `safe_copy` now makes
+the two calls `copy2` was separately, because only the data one failing means the bytes did not
+arrive. These tests are about the failures that must still STOP a run, so they aim at the data
+step; a `copy2` patch would land on a name nothing calls and every assertion below would run
+against a real, successful copy.
+
 `drive_unwritable.persists_for_the_run` is unit-tested next door. **A predicate nobody reaches is
 worth nothing**, and organize runs far more often than backup - so the policy is asserted here
 through `execute`, on real files, with a real kernel `ENOSPC`.
@@ -13,7 +19,6 @@ through `execute`, on real files, with a real kernel `ENOSPC`.
 from __future__ import annotations
 
 import errno
-import shutil
 from pathlib import Path
 
 import pytest
@@ -99,29 +104,32 @@ def _fail_nth(monkeypatch: pytest.MonkeyPatch, *, nth: int, code: int) -> None:
     constructed exception proves the classifier and not the delivery.
     """
     seen = {"n": 0}
-    real = safe_copy.shutil.copy2
+    real = safe_copy.shutil.copyfile
 
-    def flaky(src: object, dst: object, *a: object, **k: object) -> object:
+    def flaky(src: str | Path, dst: str | Path) -> str | Path:
         seen["n"] += 1
         if seen["n"] == nth:
             raise OSError(code, "injected")
-        return real(src, dst, *a, **k)
+        return real(src, dst)
 
-    monkeypatch.setattr(safe_copy.shutil, "copy2", flaky)
+    monkeypatch.setattr(safe_copy.shutil, "copyfile", flaky)
 
 
 def _real_enospc(monkeypatch: pytest.MonkeyPatch, *, nth: int) -> None:
     """Make the nth copy hit a genuine `ENOSPC` from the kernel, via `/dev/full`."""
     seen = {"n": 0}
-    real = safe_copy.shutil.copy2
+    # ⚠ **Bound BEFORE the patch, and since `(aie)` that is load-bearing rather than tidy.** The
+    # injection now replaces `copyfile` itself, so reaching for `shutil.copyfile` inside the stub
+    # would call the stub - the real function is only reachable through this name.
+    real = safe_copy.shutil.copyfile
 
-    def flaky(src: object, dst: object, *a: object, **k: object) -> object:
+    def flaky(src: str | Path, dst: str | Path) -> str | Path:
         seen["n"] += 1
         if seen["n"] == nth:
-            shutil.copyfile(str(src), "/dev/full")
-        return real(src, dst, *a, **k)
+            real(str(src), "/dev/full")
+        return real(src, dst)
 
-    monkeypatch.setattr(safe_copy.shutil, "copy2", flaky)
+    monkeypatch.setattr(safe_copy.shutil, "copyfile", flaky)
 
 
 @_HAS_DEV_FULL

@@ -28,7 +28,7 @@ from truestill_core.safe_copy import copy_leaving_nothing
 
 
 def _fails_after_writing(payload: bytes) -> object:
-    """A `copy2` that writes some bytes and then dies, like a disk going away mid-file."""
+    """A `copyfile` that writes some bytes and then dies, like a disk going away mid-file."""
 
     def stub(_src: object, dst: object, **_kw: object) -> None:
         Path(str(dst)).write_bytes(payload)
@@ -38,7 +38,7 @@ def _fails_after_writing(payload: bytes) -> object:
 
 
 def _fails_before_touching_anything(*_args: object, **_kw: object) -> None:
-    """A `copy2` that dies opening the SOURCE, so the destination is never touched."""
+    """A `copyfile` that dies opening the SOURCE, so the destination is never touched."""
     raise PermissionError(13, "Permission denied")
 
 
@@ -63,7 +63,7 @@ def test_the_target_is_never_written_at_all(
         seen.append(target.exists())
         raise OSError(5, "Input/output error")
 
-    monkeypatch.setattr(safe_copy.shutil, "copy2", stub)
+    monkeypatch.setattr(safe_copy.shutil, "copyfile", stub)
 
     outcome = copy_leaving_nothing(source, target)
 
@@ -79,7 +79,7 @@ def test_a_file_this_copy_did_not_write_is_never_removed(
 ) -> None:
     """THE ONE THAT DECIDES WHETHER THE FIX IS SAFE AT ALL.
 
-    `copy2` opens the source first, so a failure before the destination is opened leaves whatever
+    `copyfile` opens the source first, so a failure before the destination is opened leaves whatever
     was already there untouched - and at two of three call sites something legitimately can be.
     A blind unlink in the `except` would delete a user's file to tidy up after an error that
     never touched it.
@@ -93,7 +93,7 @@ def test_a_file_this_copy_did_not_write_is_never_removed(
     source.write_bytes(b"x" * 100)
     target = tmp_path / "already-here.mp4"
     target.write_bytes(b"THIS IS THE USER'S FILE")
-    monkeypatch.setattr(safe_copy.shutil, "copy2", _fails_before_touching_anything)
+    monkeypatch.setattr(safe_copy.shutil, "copyfile", _fails_before_touching_anything)
 
     outcome = copy_leaving_nothing(source, target)
 
@@ -115,7 +115,7 @@ def test_when_the_cleanup_itself_fails_the_leftover_is_named_and_measured(
     source = tmp_path / "in.mp4"
     source.write_bytes(b"x" * 100)
     target = tmp_path / "partial.mp4"
-    monkeypatch.setattr(safe_copy.shutil, "copy2", _fails_after_writing(b"y" * 802))
+    monkeypatch.setattr(safe_copy.shutil, "copyfile", _fails_after_writing(b"y" * 802))
 
     def refuse_unlink(*_args: object, **_kw: object) -> None:
         raise OSError(30, "Read-only file system")
@@ -161,7 +161,7 @@ def test_a_successful_copy_reports_success_and_keeps_the_file(tmp_path: Path) ->
     assert outcome.ok is True
     assert outcome.error is None
     assert target.read_bytes() == b"real bytes"
-    assert shutil  # the real copy2 ran; nothing was stubbed in this test
+    assert shutil  # the real copy ran; nothing was stubbed in this test
 
 
 def test_a_retry_after_a_cleaned_failure_does_not_accumulate(
@@ -174,7 +174,7 @@ def test_a_retry_after_a_cleaned_failure_does_not_accumulate(
     source = tmp_path / "in.mp4"
     source.write_bytes(b"x" * 100)
     target = tmp_path / "organized.mp4"
-    monkeypatch.setattr(safe_copy.shutil, "copy2", _fails_after_writing(b"x" * 60))
+    monkeypatch.setattr(safe_copy.shutil, "copyfile", _fails_after_writing(b"x" * 60))
     assert copy_leaving_nothing(source, target).ok is False
 
     monkeypatch.undo()

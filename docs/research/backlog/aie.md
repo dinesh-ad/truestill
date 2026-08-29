@@ -1,6 +1,16 @@
 # (aie) A COPY ONTO FUSE OR VFAT WRITES THE BYTES, FAILS ON THE TIMESTAMP, AND BLAMES THE DRIVE.
 
-*Body of backlog entry `(aie)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(aie)`, **SHIPPED 2026-08-29 (P142)** - its index row is in
+[`SHIPPED.md`](../../SHIPPED.md), not [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is
+shared between the two.*
+
+> ⚠ **Read this body as the INVESTIGATION, not as the present tense.** Everything below was true
+> of the code on 2026-08-26 and reproduced on 2026-08-29; `staged_copy` now calls `copyfile` and
+> `copystat` separately, so the discard is gone and the wording is its own. It is left unrewritten
+> because a record edited to stay correct stops being one. **What outlived it: `(ain)`**, the
+> mirror-image defect this body names and the fix does not touch, and the wider `classify_unwritable`
+> inconsistency it names as a third repair - `EPERM` is `REFUSED` while `persists_for_the_run`
+> narrows to `EROFS`.
 
 - **(aie) A COPY ONTO FUSE OR VFAT WRITES THE BYTES, FAILS ON THE TIMESTAMP, AND BLAMES THE DRIVE.** Filed
   2026-08-26 (P118), read from source. `safe_copy` stages through a temporary and calls

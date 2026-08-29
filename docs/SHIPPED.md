@@ -22,6 +22,41 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aie) A COPY ONTO FUSE OR VFAT WROTE THE BYTES, FAILED ON THE TIMESTAMP, AND BLAMED THE
+  DRIVE.** Shipped 2026-08-29 (P142). `staged_copy` called `shutil.copy2` - which **is**
+  `copyfile` then `copystat` - inside one `except OSError`, so a refused `copystat` was
+  indistinguishable from a truncated write and the **complete** photograph was deleted. It now
+  makes the two calls separately: a `copyfile` failure discards exactly as before, a `copystat`
+  failure keeps the file and returns `StagedCopy.metadata_error`. Reproduced first (P140), fixed
+  second.
+  🔑 **The discriminator is WHICH CALL RAISED, and both alternatives were refused with a
+  reason.** Not the errno - `EPERM` from `copyfile` and `EPERM` from `copystat` are the same
+  number with opposite meanings, and *"keep on any `OSError`"* would keep `(abu)`'s 802-MB
+  truncation. Not a size comparison - an inference where this is a fact. **Proved by mutation:
+  widening to any `OSError` is caught by `(abu)`'s own tests**, three of them, plus the new
+  cry-wolf half.
+  ⚠ **It covers `chmod` as well as the measured `utime`, and that was not symmetry.** The stdlib
+  guards `chmod` against `NotImplementedError` rather than `OSError`, so **two** steps inside
+  `copystat` reach a caller unfiltered, not one - a correction to this entry's own first census.
+  Splitting the calls covers all four steps at once because the discriminator is the call, not
+  the errno.
+  ⚠ **AND THE FIX IS NOT A SILENT ONE.** Keeping the file quietly would trade a false failure for
+  an invisible degradation on **every file of the run**, since the condition belongs to the mount.
+  `Destination.upload` now returns a warning (never a status - failure is still an exception),
+  `ActionResult.metadata_ok` carries the fact, the sentence rides in `detail` and therefore into
+  the run record, and the CLI prints it through `_print_capped` so `(afd)`'s cap applies.
+  **The wording was a separate repair and it is here**: `explain_unwritable_drive` answered
+  `EPERM` with *"the drive is read-only"* about a file the drive had just accepted.
+  `drive_unwritable.explain_metadata_not_preserved` is the third phrasing on the one errno table -
+  never a second table.
+  ⚠ **`migrate-layout` was fixed by the same change and was never measured.**
+  `LocalDestination.relocate` calls `copy_leaving_nothing` too, and a layout migration on such a
+  mount would have failed **every file in the library**; `backup` likewise commits a verified
+  copy it used to discard. Neither *reports* the metadata warning - organize does. The mirror
+  image is **`(ain)`, open**: a refused `set_timestamp` after a committed rename, which this fix
+  does not touch and `--no-timestamps` does escape.
+  Body: [`research/backlog/aie.md`](research/backlog/aie.md).
+
 - **(aij) THE COMMAND `backup` TELLS YOU TO RUN CANNOT WORK AS PRINTED.** Shipped 2026-08-29
   (P136). `backup` onto an unregistered folder refused correctly and printed
   `truestill drives --init <path>`; running exactly that answered `error: --init requires
