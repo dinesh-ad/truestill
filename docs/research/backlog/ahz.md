@@ -46,7 +46,7 @@
   ## 2. ⚠ `--discard` CONVERTS A RECOVERABLE STATE INTO A PERMANENT ONE
 
   **Read this before the fix shapes.** It is the action a stuck user takes: it is the only other
-  flag `restore` has, and its help (`cli.py:619`) reads *"DESTRUCTIVE: overwrite the drive's
+  flag `restore` has, and its help (`cli.py:622`) reads *"DESTRUCTIVE: overwrite the drive's
   decisions with this catalog's"* - which a user whose names came back wrong will read as *"make
   the drive agree with me"*.
 
@@ -133,7 +133,7 @@
   *"E must ship with a fix to `_discard_to_drive`, which treats a non-empty `would_lose` as
   permission to proceed"* UNTIL 2026-08-26. THERE IS NO POLARITY BUG AND THERE NEVER WAS.**
   Calling it *"permission to proceed"* is true of the control flow and misleading as a
-  description, because it omits three gates: preview-only by default (`cli.py:1652`), an explicit
+  description, because it omits three gates: preview-only by default (`cli.py:1658`), an explicit
   `--apply`, and a typed `discard` confirmation (`cli.py:1658`). The retraction lived thirty-four
   lines below this claim, where a reader meets it second; it is here now.
 

@@ -2750,6 +2750,26 @@ class Catalog:
             )
         }
 
+    def rename_row(self, kind: str, row_id: int, *, name: str, slug: str) -> None:
+        """Give a trip or event a new name and slug. **The LAST step of a rename.** `(aix)`
+
+        🔑 **Called only after every photograph has reached its new path**, which is the whole of
+        `(aix)`'s ordering: the destination is materialised into `migration_journal.new_relative`
+        as a string, so a resumed run needs nothing from this row. Flipping it first would leave a
+        new name over a half-moved folder - the state the design exists to make unreachable - and
+        nothing would report it.
+
+        ⚠ **Renaming is ROW-keyed while naming is identity-keyed**, and the difference is why this
+        exists at all: `record_event` updates a name through `ON CONFLICT(signature)`, which only
+        reaches an event whose membership is unchanged, and `create_trip` has no update path at
+        all. Neither can rename the row a user is looking at.
+        """
+        table = {"trip": "trips", "event": "events"}[kind]
+        with self._tx() as conn:
+            conn.execute(
+                f"UPDATE {table} SET name = ?, slug = ? WHERE id = ?", (name, slug, row_id)
+            )
+
     def named_row_name(self, kind: str, row_id: int) -> str | None:
         """That trip's or event's name, or ``None`` when no such row exists. `(aix)`
 

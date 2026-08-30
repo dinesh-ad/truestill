@@ -185,6 +185,9 @@ from truestill_core.migrate import (
     LabelRoute,
     MigrationStop,
     RenameKind,
+    RenameOutcome,
+    RenamePlan,
+    apply_rename,
     label_routes,
     plan_migration,
     plan_rename,
@@ -351,9 +354,9 @@ _LOCKS_DRIVE_AT: dict[str, str | None] = {
     "clean-empty": "path",
     "rescan": None,  # reports; `(abn)` is that nothing acts on it yet
     "migrate-layout": "path",
-    # Stage 1 previews only and writes nothing, so it takes no lock. ⚠ **This becomes `"path"`
-    # the moment stage 2 lands** - the apply moves files on the drive. `(aix)`
-    "rename": None,
+    # ⚠ **`"path"` since stage 2**, which was the condition the stage-1 note set: the apply moves
+    # files on the drive, so it is held for the duration like every other mutating command. `(aix)`
+    "rename": "path",
     "reclaim": "path",
     "undo-organize": _LOCKED_IN_HANDLER,
     "repoint-sources": None,  # rewrites `source_path` rows, touches no drive
@@ -739,6 +742,9 @@ def _build_parser() -> argparse.ArgumentParser:
     rename.add_argument("id", type=int, help="its catalog row id")
     rename.add_argument("name", help="the new name")
     rename.add_argument("--db", type=Path, default=default_catalog_path(), help="SQLite catalog")
+    rename.add_argument(
+        "--apply", action="store_true", help="actually move the files (default: preview only)"
+    )
 
     migrate.add_argument(
         "--undo",
@@ -4517,6 +4523,25 @@ def _report_migration_shortfall(
     return 4 if wording.fault else 0
 
 
+def _apply_the_rename(
+    args: argparse.Namespace, marker: DriveMarker, plan: RenamePlan
+) -> RenameOutcome:
+    """Open the catalog again for the write half, so the preview above stays a pure read.
+
+    Extracted rather than inlined because `_cmd_rename` is at its branch ceiling, which
+    `IMPLEMENTATION_STANDARDS.md` answers by extracting rather than by raising the limit.
+    """
+    with _catalog(args.db) as catalog:
+        catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+        return apply_rename(
+            catalog,
+            LocalDestination(args.path),
+            marker.uuid,
+            plan,
+            progress=_progress_printer("moving"),
+        )
+
+
 def _cmd_rename(args: argparse.Namespace) -> int:
     """`rename`: what renaming a trip or event would move. **Stage 1 previews only.** `(aix)`
 
@@ -4562,11 +4587,27 @@ def _cmd_rename(args: argparse.Namespace) -> int:
         print(f"   -> {move.new_relative}")
     if len(plan.moves) > _STATUS_PREVIEW:
         print(f"      ... and {len(plan.moves) - _STATUS_PREVIEW:,} more.")
-    # ⚠ One wording home for the tense, and the sentence is deliberately NOT "re-run with
-    # --apply": that flag does not exist yet, and promising it would be the phantom capability
-    # `(ail)` was retired for. It names what is true today.
-    print("\nPreview only - nothing was written or moved. Applying a rename is not built yet.")
-    return 0
+    if not args.apply:
+        print("\nPreview only - nothing was written or moved. Re-run with --apply to rename.")
+        return 0
+
+    outcome = _apply_the_rename(args, marker, plan)
+    if outcome.stopped is not None:
+        print(f"error: {outcome.stopped.reason}", file=sys.stderr)
+    for relative, reason in outcome.refused[:_STATUS_PREVIEW]:
+        print(f"  REFUSED: {relative}: {reason}", file=sys.stderr)
+    # ⚠ **The two outcomes are worded apart because they are different states.** A rename that
+    # moved files without flipping the name is not a failed rename - it is a resumable one, and
+    # the photographs are safe at whichever path each reached. Saying "renamed" would be false and
+    # saying "failed" would be alarming about files that are fine.
+    if outcome.renamed:
+        print(f"\nRenamed. {outcome.moved} file(s) moved.")
+        return 0
+    print(
+        f"\n{outcome.moved} of {len(plan.moves)} file(s) moved; the name is still "
+        f"{plan.old_name!r}. Nothing is lost - re-run this to finish it."
+    )
+    return 1
 
 
 def _cmd_migrate_layout(args: argparse.Namespace) -> int:

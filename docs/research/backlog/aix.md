@@ -81,8 +81,11 @@ a name normally. The surface must say which set it is renaming.
 ## STAGING
 
 1. ✅ **The plan, read-only** - `migrate.plan_rename`, `RenameRefusal`, `RENAME_WORDING`, a CLI
-   preview. Writes nothing. *(this commit)*
-2. **Apply** - journal, `_apply_move`, name flip last, CLI `--apply`.
+   preview. Writes nothing. *(P159)*
+2. ✅ **Apply** - `migrate.apply_moves` (extracted from `run_migration`, one mechanism two
+   callers), `migrate.apply_rename`, `Catalog.rename_row`, CLI `--apply`. **The name flips last**,
+   proven by an injected failure AND by a killed process. *(P160)*
+2b. **The drive's decisions document** - see below. *(open)*
 3. **The app control** - replaces `app.js:3502`'s refusal text. Touches a screen.
 4. **The record**, and `(abw)` finding (3) revisited - the *"already-named trip is re-asked"*
    feature question a rename is the answer to.
@@ -92,6 +95,36 @@ renamed outside as `MovedCopy`, matched by content hash, and `unaccounted` alrea
 lost. What it cannot know is **intent** - and `MovedCopy`'s own docstring rules that picking is
 what the module refuses to do. **The contribution here is the finding that a coherent whole-folder
 move is the highest-confidence repair case `(abn)` will ever have**, and the one worth doing first.
+
+## ⚠ THE HALF STAGE 2 DOES NOT CLOSE, MEASURED RATHER THAN PREDICTED
+
+**The drive's decisions document keeps the old name, and the user is told.** Measured on scratch:
+a real rename moved the files, flipped the catalog, and `verify` passed clean - **6 verified, 0
+missing, 0 mismatch** - while `.truestill-decisions.json` still said `Holiday`.
+
+`would_lose(existing, fresh)` returns `('trips',)`. That is `(ahz)` step 3 working as built:
+`_LOSS_KEYS` counts a **changed** value, not only a missing key, because a drive holding a real
+name while the catalog held a placeholder was once silently overwritten.
+
+🔑 **The guard is right and must not be weakened.** It cannot tell *"this catalog is a rebuild
+that never knew the name"* from *"the user just renamed it deliberately"*, and **only the caller
+knows which**. Supplying that fact is stage 2b, in its own commit - loosening a guard written
+after measured data loss does not belong in the same change as the apply path.
+
+⚠ **What is actually wrong today is the REMEDY, not the refusal.** The note reads:
+
+```
+note: decisions were not saved to Scratch: this drive names 1 trips differently; restore first
+```
+
+**Following that advice would restore the OLD name over the rename.** The sentence is correct for
+every other caller of that guard, which is why it is recorded here rather than reworded in place.
+
+⚠ **RESUME'S LIMIT.** `resume_migration` runs from `apply_rename` and `run_migration`, **not from
+an ordinary catalog open**. A rename abandoned mid-flight is replayed by the next rename or
+migration on that drive; until then the drive holds a partly-moved folder under its old name.
+`truestill rescan` reports the moved copies by content hash, so it is **discoverable but not
+surfaced**. Filed as a limit, not a gap this stage fills.
 
 ## RELATED
 

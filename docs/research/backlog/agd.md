@@ -76,7 +76,7 @@
     denied)"*. Refused: a reason claims a category **this fix deliberately refuses to determine** -
     every `OSError` on this axis is indefinite, which is the whole design (`(aft)`).
   - ⚠ **Not *"Truestill's catalog folder"*, and not *"nothing was left half-written"*.** The probe
-    is `catalog_path.parent` and `--db` is unconstrained (`cli.py:365-368`), so on
+    is `catalog_path.parent` and `--db` is unconstrained (`cli.py:368-371`), so on
     `--db /media/usb/x.sqlite` the unreachable folder is the **user's**, not ours. And the
     half-written guarantee is `safe_copy`'s, not this one's - a reader takes it as a claim about
     their files.

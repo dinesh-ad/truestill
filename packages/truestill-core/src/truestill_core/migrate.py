@@ -929,6 +929,80 @@ def plan_rename(
     )
 
 
+@dataclass(frozen=True)
+class RenameOutcome:
+    """What applying a rename did, and whether the name actually changed. `(aix)` stage 2"""
+
+    plan: RenamePlan
+    resumed: int
+    moved: int
+    #: ⚠ **The name flipped only if every move completed.** `False` with `moved > 0` is an
+    #: interrupted rename: the photographs are partly at their new paths, the catalog still holds
+    #: the OLD name, and the journal makes the rest resumable. That state is honest by design -
+    #: see `renamed` below.
+    renamed: bool
+    refused: tuple[tuple[str, str], ...] = ()
+    stopped: MigrationStop | None = None
+
+
+def apply_rename(
+    catalog: Catalog,
+    destination: Destination,
+    drive_uuid: str,
+    plan: RenamePlan,
+    *,
+    progress: ProgressCallback | None = None,
+    cancel: threading.Event | None = None,
+) -> RenameOutcome:
+    """Carry out a planned rename. **The name flips LAST, and that is the whole design.**
+
+    Order, and each step is load-bearing:
+
+    1. **resume** anything a previous interrupted run left pending;
+    2. **journal** every move, computed from the NEW slug, before a byte moves;
+    3. **apply** each move through `apply_moves`;
+    4. **flip `trips.name`/`slug`** - only once every move completed.
+
+    🔑 **At every interruption point the state is honest: the name is the OLD name until every
+    photograph is at its new path.** A half-moved folder under the old name is recoverable and
+    tells the truth; a new name over a half-moved folder would be the *"worse than no rename at
+    all"* case, and this ordering makes it unreachable rather than unlikely.
+
+    ⚠ **It works because `migration_journal.new_relative` is a PATH** - a resumed run reads the
+    destination and needs nothing from the row this function has not flipped yet. That dependency
+    is recorded on the schema, where someone changing it will meet it.
+
+    ⚠ **RESUME'S LIMIT, stated rather than implied.** `resume_migration` runs from here and from
+    `run_migration` - **not from an ordinary catalog open**. So a rename abandoned mid-flight is
+    replayed by the next rename or migration on that drive, and until then the drive holds a
+    partly-moved folder under its old name. `truestill rescan` reports the moved copies by content
+    hash, so it is *discoverable*; nothing surfaces it unprompted, and that is a finding recorded
+    in `(aix)` rather than a gap this stage fills.
+    """
+    if plan.refusal is not None or not plan.moves:
+        return RenameOutcome(plan=plan, resumed=0, moved=0, renamed=False)
+
+    resumed = resume_migration(catalog, destination, drive_uuid)
+    applied = apply_moves(
+        catalog, destination, drive_uuid, plan.moves, progress=progress, cancel=cancel
+    )
+    # ⚠ **THE FLIP, AND ITS CONDITION IS THE PROPERTY.** Every move, or the name does not change.
+    # A partial rename that renamed anyway would put the catalog's name on a folder that does not
+    # hold all of its photographs, and the next `plan_rename` would compute its moves from a slug
+    # the drive has only half adopted.
+    renamed = applied.migrated == len(plan.moves)
+    if renamed:
+        catalog.rename_row(plan.kind.value, plan.row_id, name=plan.new_name, slug=plan.new_slug)
+    return RenameOutcome(
+        plan=plan,
+        resumed=resumed,
+        moved=applied.migrated,
+        renamed=renamed,
+        refused=applied.refused,
+        stopped=applied.stopped,
+    )
+
+
 def _matches(destination: Destination, relative: str, expected_sha: str | None) -> bool:
     """Whether a stored copy exists and (if we know its hash) verifies.
 
@@ -1132,6 +1206,105 @@ def _record_undo_migration(
         _log.warning("could not write the undo run record", exc_info=True)
 
 
+@dataclass(frozen=True)
+class AppliedMoves:
+    """What one journalled batch of relocations did. `(aix)` stage 2
+
+    ⚠ **Extracted from `run_migration` rather than written beside it.** A rename needs exactly
+    this - journal, health-watched loop, `(agi)`'s stop policy, close the run - and a second copy
+    of it would be free to disagree with the first about when a run stops. `run_migration` is now
+    a caller of this, not its owner.
+    """
+
+    run_id: str
+    migrated: int
+    refused: tuple[tuple[str, str], ...]
+    stopped: MigrationStop | None
+
+
+def apply_moves(
+    catalog: Catalog,
+    destination: Destination,
+    drive_uuid: str,
+    moves: Sequence[Move],
+    *,
+    progress: ProgressCallback | None = None,
+    cancel: threading.Event | None = None,
+) -> AppliedMoves:
+    """Journal ``moves``, carry them out, and close the run if every one completed.
+
+    🔑 **THE JOURNAL IS WRITTEN BEFORE THE FIRST BYTE MOVES**, which is `(agk)`'s
+    intent-before-the-irreversible-step and what makes an interrupted batch resumable:
+    `resume_migration` replays whatever rows are still pending, and `_apply_move` advances each
+    from whatever state it is in.
+
+    ⚠ **The run is finished only when every move completed.** A batch that skipped one file has
+    moves still pending, so the run stays open for the re-run that clears them - `migrated ==
+    total` is not the same question as *"did it finish"*.
+    """
+    run_id = uuid4().hex
+    catalog.start_migration_run(run_id, drive_uuid)
+    catalog.record_migration_moves(
+        [
+            (m.sha256, drive_uuid, m.old_relative, m.new_relative, m.copy_sha256, run_id)
+            for m in moves
+        ]
+    )
+    migrated = 0
+    total = len(moves)
+    # `relocate` is a `copy2`, so this rewrites every byte it touches - and on a mounted cloud
+    # drive those bytes pass through the client's LOCAL cache. The device half is already covered
+    # and more strictly: every relocate goes through `LocalDestination._make_parent`, which fails
+    # closed on a changed `st_dev`.
+    health = watcher_for(destination.local_root(), catalog.path)
+    ahead = _largest_move_ahead(list(moves))
+    written = 0
+    stop: tuple[MigrationStopKind, str] | None = None
+    refused: list[tuple[str, str]] = []
+    for index, move in enumerate(moves):
+        if cancel is not None and cancel.is_set():
+            stop = (MigrationStopKind.CANCELLED, CANCELLED_REASON)
+            break
+        if health is not None:
+            verdict = health.check(largest_remaining=ahead[index], written_bytes=written)
+            if not verdict.ok:
+                stop = (MigrationStopKind.GROUND_MOVED, verdict.detail)
+                break
+        try:
+            _apply_move(catalog, destination, drive_uuid, move)
+        except DestinationError as exc:
+            # ⚠ **`(agi)`'s ruled policy, on the fifth surface and reusing its predicate rather
+            # than re-deriving an errno table.** One bad file never aborts a batch; a condition
+            # that outlives the file must stop the run, because continuing buys N failures
+            # describing one condition. Nothing is lost either way: `_apply_move` removes the old
+            # path only after the atomic flip, so a refused move leaves the file where it was and
+            # its journal row valid for a re-run.
+            refused.append((move.new_relative, str(exc)))
+            if persists_for_the_run(exc) or isinstance(exc, VerificationFailedError):
+                stop = (MigrationStopKind.COULD_NOT_CONTINUE, str(exc))
+                break
+            continue
+        written += move.size or 0
+        migrated += 1
+        if progress is not None:
+            progress(Progress(migrated, total, Phase.MOVING, PurePosixPath(move.new_relative).name))
+    # ⚠ **`migrated == total` is not the same question as "did it finish"** once a move can be
+    # refused without stopping: a run that skipped one file has moves still pending, so the run
+    # must stay open for the re-run that clears them.
+    if migrated == total:
+        catalog.finish_migration_run(run_id)
+    return AppliedMoves(
+        run_id=run_id,
+        migrated=migrated,
+        refused=tuple(refused),
+        stopped=None
+        if stop is None
+        else MigrationStop(
+            kind=stop[0], reason=stop[1], never_attempted=total - migrated - len(refused)
+        ),
+    )
+
+
 def run_migration(
     catalog: Catalog,
     destination: Destination,
@@ -1167,64 +1340,15 @@ def run_migration(
             plan=plan, resumed=0 if not apply else resumed, migrated=0, applied=False
         )
 
-    run_id = uuid4().hex
-    catalog.start_migration_run(run_id, drive_uuid)
-    catalog.record_migration_moves(
-        [
-            (m.sha256, drive_uuid, m.old_relative, m.new_relative, m.copy_sha256, run_id)
-            for m in plan.moves
-        ]
+    applied = apply_moves(
+        catalog, destination, drive_uuid, plan.moves, progress=progress, cancel=cancel
     )
-    migrated = 0
+    run_id, migrated = applied.run_id, applied.migrated
+    # `MigrationOutcome.refused` is a list by its own declaration; `AppliedMoves` freezes it
+    # because it is a value object. Widened here rather than narrowing the dataclass.
+    refused = list(applied.refused)
+    stopped = applied.stopped
     total = len(plan.moves)
-    # `relocate` is a `copy2`, so this rewrites every byte of the library - and on a mounted
-    # cloud drive those bytes pass through the client's LOCAL cache. That is the run this guard
-    # was written for. The device half is already covered, and more strictly: every relocate
-    # goes through `LocalDestination._make_parent`, which fails closed on a changed `st_dev`.
-    health = watcher_for(destination.local_root(), catalog.path)
-    ahead = _largest_move_ahead(plan.moves)
-    written = 0
-    stop: tuple[MigrationStopKind, str] | None = None
-    refused: list[tuple[str, str]] = []
-    for index, move in enumerate(plan.moves):
-        if cancel is not None and cancel.is_set():
-            stop = (MigrationStopKind.CANCELLED, CANCELLED_REASON)
-            break
-        if health is not None:
-            verdict = health.check(largest_remaining=ahead[index], written_bytes=written)
-            if not verdict.ok:
-                stop = (MigrationStopKind.GROUND_MOVED, verdict.detail)
-                break
-        try:
-            _apply_move(catalog, destination, drive_uuid, move)
-        except DestinationError as exc:
-            # ⚠ **`(agi)`'s ruled policy, on the fifth surface and reusing its predicate rather
-            # than re-deriving an errno table.** One bad file never aborts a batch; a condition
-            # that outlives the file must stop the run, because continuing buys N failures
-            # describing one condition. Nothing is lost either way: `_apply_move` removes the old
-            # path only after the atomic flip, so a refused move leaves the file where it was and
-            # its journal row valid for a re-run.
-            refused.append((move.new_relative, str(exc)))
-            if persists_for_the_run(exc) or isinstance(exc, VerificationFailedError):
-                stop = (MigrationStopKind.COULD_NOT_CONTINUE, str(exc))
-                break
-            continue
-        written += move.size or 0
-        migrated += 1
-        if progress is not None:
-            progress(Progress(migrated, total, Phase.MOVING, PurePosixPath(move.new_relative).name))
-    # ⚠ **`migrated == total` is not the same question as "did it finish"** once a move can be
-    # refused without stopping: a run that skipped one file has moves still pending, so the run
-    # must stay open for the re-run that clears them.
-    if migrated == total:
-        catalog.finish_migration_run(run_id)
-    stopped = (
-        None
-        if stop is None
-        else MigrationStop(
-            kind=stop[0], reason=stop[1], never_attempted=total - migrated - len(refused)
-        )
-    )
     _record_migration(
         catalog,
         destination,

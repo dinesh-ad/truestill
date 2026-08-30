@@ -70,21 +70,23 @@ def test_the_preview_states_that_nothing_was_written(
     assert sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()) == before
 
 
-def test_the_preview_does_not_advertise_a_flag_that_does_not_exist(
+def test_the_preview_points_at_the_flag_that_now_exists(
     drive: tuple[Path, Path, int], capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """⚠ **CRY-WOLF, inverted.** `--apply` is stage 2; naming it here would be `(ail)`'s phantom.
+    """⚠ **THIS TEST CHANGED WITH STAGE 2, AND CATCHING THAT WAS ITS JOB.**
 
-    Every other preview in this CLI ends *"Re-run with --apply"*, so copying that wording would
-    have been the natural mistake - and it would send a user to a flag `argparse` rejects.
+    In stage 1 it asserted the opposite - that `--apply` was *absent*, because naming a flag
+    nobody had built would be `(ail)`'s retired phantom. Stage 2 built it, and this test failed
+    on the commit that did, which is a guard reporting a premise it was written to hold rather
+    than a guard going stale. The sentence a preview ends with must name what is true **today**.
     """
     root, db, trip_id = drive
 
     main(["rename", str(root), "trip", str(trip_id), "Corsica", "--db", str(db)])
 
     out = capsys.readouterr().out
-    assert "--apply" not in out, "the preview offers a flag this stage did not build"
-    assert "not built yet" in out, "it should say plainly that applying is unavailable"
+    assert "Re-run with --apply to rename." in out
+    assert "not built yet" not in out, "the preview still says applying is unavailable"
 
 
 def test_a_refusal_reaches_the_user_and_exits_non_zero(

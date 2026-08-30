@@ -24,7 +24,7 @@
 
   ⚠ **Checked rather than assumed**: there is no `delete_trip` and no `unname` in the tree. The
   only `DELETE FROM trips|events|trip_days` anywhere is inside `update_trip_days`
-  (`catalog.py:2781`), which deletes a trip's own day rows only to reinsert them. Nothing writes
+  (`catalog.py:2801`), which deletes a trip's own day rows only to reinsert them. Nothing writes
   `migration_journal` on this path either.
 
   So a half-applied naming is **neither undoable nor detectable**.

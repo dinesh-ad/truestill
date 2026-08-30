@@ -118,7 +118,7 @@
     three worlds that collapse into `OFFLINE` today: path absent; path present and **empty**; path
     present holding **someone else's files**.
     - **The blast radius is unusually small, checked rather than estimated.** `DriveReach` has
-      **six** consumers - `cli.py:1033`, `cli.py:1131`, `decisions.py:1606`, `drives.py:533`,
+      **six** consumers - `cli.py:1033`, `cli.py:1137`, `decisions.py:1606`, `drives.py:533`,
       `organize.py:433`, `bake.py:354` - and **every one tests `CONNECTED` and nothing else**. Not
       one branches on `OFFLINE` versus `UNKNOWN`, so a fourth state is **additive by
       construction**: every existing caller keeps behaving identically, because they all ask "is it
