@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ais). Next free: (ait).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aiw). Next free: (aix).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -274,6 +274,51 @@ is invisible here is retired, not free.**
   `(aiq)`**: `MOVE_KEPT` is in neither `_ORGANIZED_STATUSES` nor `failed`, so it falls out of both
   tallies and its label reaches no pixel. **Do not fold this into a summary-wording change** - it
   alters an exit code, which is a contract a script reads. Related: `(aim)`, `(aiq)`.
+
+> ⚠ **`(ait)` AND `(aiu)` LEAD THIS GROUP DELIBERATELY.** They are **instrument** defects, not
+> product ones, and they rank above the two product findings below them because a wrong answer key
+> corrupts every measurement taken against it - it has already produced one false finding, in
+> [`soak-eight-record.md`](soak-eight-record.md)'s own §5. The reasoning is
+> [`soak-nine-record.md`](soak-nine-record.md) §7b.
+
+- **(ait) THE MESSY-CORPUS MANIFEST OVERSTATES ITSELF, AND 20 ROWS DESCRIBE FILES THAT ARE GONE.**
+  Filed 2026-08-30 (P148, soak nine). `make_messy_corpus.py` builds every destination from the
+  **basename** of its source, and `Input/` holds two pairs of *different* photographs sharing one
+  (`IMG_0386.JPG`, `Photo0268.jpg`). Each pair collides at ten destinations, the second write
+  wins, and the manifest records both - **8,971 rows for 8,951 files, all 20 orphans carrying a
+  `sha256` that no longer matches disk.** ⚠ **The manifest is the answer key**, so a soak scores
+  the product against a total it could not have produced; **soak eight's published key carries the
+  same error.** Soak nine worked around it by hashing the corpus - an analysis workaround, not an
+  instrument fix. Body: [`research/backlog/ait.md`](research/backlog/ait.md).
+
+- **(aiu) TWO CORPUS SHAPES CANNOT REACH THE DEFECTS THEY WERE BUILT FOR.** Filed 2026-08-30
+  (P148, soak nine). `ENGINEERING_STANDARD.md` §4's silent instrument, twice. (1) The long-name
+  files P146 moved to straddle `(aid)`'s budget are **exact duplicates** - their content appears
+  22x and 18x elsewhere - and dedup skips a duplicate **before** a name is composed, so the shape
+  straddles the byte boundary and never touches the code path. (2) The corpus holds **zero
+  non-ASCII paths**, the gap `(aid)`'s own table already recorded about the suite. Both fixes had
+  to be verified by constructed inputs instead, which is evidence about the product and none about
+  the corpus. Body: [`research/backlog/aiu.md`](research/backlog/aiu.md).
+
+- **(aiv) THE FAILURE CAP COUNTS 2,519 REASONS FOR ONE FACT, WHICH IS THE DEFECT `(afd)` CLOSED.**
+  Filed 2026-08-30 (P148, soak nine), measured at scale. An `EPERM` at `copystat` for every one of
+  2,519 files - **one** condition, belonging to the mount - printed *"and 2,499 more METADATA NOT
+  SET (**2519 distinct reasons in total**)"*. `cli._reason_key` strips **quoted** fragments, and
+  both producers (`_upload_failure`, `drive_unwritable.metadata_not_preserved_note`) lead with the
+  source filename **unquoted**, so neither collapses. ⚠ **This contradicts `(afd)`'s own recorded
+  measurement** - either the wording changed under the guard (`(aep)`, `(aie)`) or the claim was
+  never true of this shape. Nothing is lost; the harm is a user concluding their drive has 2,519
+  problems when it has one. Body: [`research/backlog/aiv.md`](research/backlog/aiv.md).
+
+- **(aiw) `undo-organize` EMPTIES FOLDERS AND REPORTS NONE - `(afi)`'S THIRD PATH.** Filed
+  2026-08-30 (P148, soak nine), on the reversal arc soak eight never reached. Undo restored 666
+  files exactly - tree path-identical, 1,900 before and after - and left **90 empty directories**
+  unmentioned, while the same run's organize printed *"Empty folders left behind are reported,
+  never deleted"* and reported its own **one**. `(afi)` found `_offer_cleanup` wired into
+  `migrate-layout` alone and fixed organize; **a moving operation empties the folder it moved out
+  of, and undo is the third such path.** Ranks low - empty directories are inert and `clean-empty`
+  works; the harm is a promise printed in one breath and broken in the next.
+  Body: [`research/backlog/aiw.md`](research/backlog/aiw.md).
 
 - **(aio) RELEASING THE BAKED TEMPORARY SITS BETWEEN THE COMMITTED COPY AND ITS CATALOG ROW.**
   Filed 2026-08-29 (P143), from the census `(ain)` asked for. **`(ain)`'s shape on the bake path,

@@ -1,5 +1,40 @@
 # Soak eight: the messy library - record
 
+> ⚠ **CORRECTION, 2026-08-30 (P148/P149) - THIS RECORD'S ANSWER KEY IS WRONG BY 20 FILES.**
+> **Added beside, never edited into the numbers below**: a record rewritten to stay correct stops
+> being one. The defect is `(ait)` - `make_messy_corpus.py` keys every destination on
+> `source.name`, and `Input/` holds two pairs of *different* photographs sharing one, so ten
+> destinations each are written twice and **the manifest counts both writes while only one file
+> survives**. Soak nine rebuilt the identical corpus (same seed, same source, one file added by
+> P146) and hashed it from disk.
+>
+> **AFFECTED - do not quote these:**
+>
+> | §  | published | corrected |
+> |---|---|---|
+> | 1 | files **8,970** | **8,950** |
+> | 2 | total files **8,970** | **8,950** |
+> | 2 | distinct contents (sha256) **2,530** | **2,524** |
+> | 2 | expected exact-duplicate skips **6,440** (**6,170** media-only) | **6,426** (**6,156** media-only) |
+> | 2 | derived perceptual candidates **1,866** | **1,860** |
+> | 5 | *"Expected 6,440, reported 6,156… the 284 are almost entirely the 267 `.chk` files"* | **there is no gap** |
+>
+> 🔑 **AND THE CORRECTION IS IN THE PRODUCT'S FAVOUR, which is why it is worth making.** §5
+> explained a 284-file shortfall as the `.chk` files organize skips by extension, and reconciled
+> to *"6,436 against 6,440"*. Against a key computed from the bytes, the media-only expectation is
+> **6,156** and the product reported **6,156** - **exact, with nothing to reconcile.** The gap was
+> the instrument, not the engine.
+>
+> **UNAFFECTED - these stand**, because they were measured from the catalog and the product rather
+> than from the manifest: §1's size, generation time and shape list; §3's whole arc; §4's headline
+> (500 of 500 stripped copies filed away from their dated twin); §5's perceptual recall table and
+> its **zero false pairs** - all of it reproduced independently in
+> [`soak-nine-record.md`](soak-nine-record.md) §5, role for role. Distinct source photographs
+> (**666**) and the largest identical group (**52**) also stand.
+>
+> ⚠ **The three instrument defects §1 already records were fixed mid-run; this fourth one was
+> never noticed**, and it is the one that reached the published numbers.
+
 **Ran 2026-08-29.** Machine: 16 cores, 30 GiB RAM, Python 3.14.4, **ext4 on `/dev/nvme0n1p1`
 (`rw,noatime`)** - every timing below is that machine and that filesystem. Corpus built by
 `scripts/make_messy_corpus.py` at **seed 20260829**, `--files 2000`, from
