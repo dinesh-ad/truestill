@@ -398,6 +398,14 @@ jobs:
             --title "${{ github.ref_name }}" \
             --notes "Verify before installing - see the Verifying a download section of the README.
 
-          Windows will show a SmartScreen warning on first run: these builds are not code-signed
-          (\`DECISIONS.md\` D9). Choose **More info** then **Run anyway**. The warning clears as
-          downloads accrue."
+          **Windows.** These builds are not code-signed (\`DECISIONS.md\` D9), so Windows shows a
+          SmartScreen warning - **when you launch the installer, before anything is installed**,
+          and again the first time you run the app from the portable zip. Choose **More info**
+          then **Run anyway**. The warning is reputation-based per file and clears as downloads
+          accrue.
+
+          **macOS is not published.** Gatekeeper refuses unsigned applications outright rather
+          than warning, so an unsigned build would be one most people could not open. Windows and
+          Linux only for now.
+
+          **Linux.** No gate of any kind - the \`.deb\` installs and runs."
