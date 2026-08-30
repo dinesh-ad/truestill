@@ -34,6 +34,10 @@ this file - read that before trusting a number here.
 
 **Five subcommands have no app route at all**, plus one write-half:
 
+⚠ **It was SIX until 2026-08-30 and this line already said five**, because `rename` had its own
+row rather than a place in this list - so the sentence was wrong and became right by `(aix)`
+stage 3 shipping, which is luck rather than maintenance. Count the table; do not quote this.
+
 | | why it matters |
 |---|---|
 | `reclaim` | **deliberate.** `app.js:2205` - *"an irreversible removal is not a thing to reach for by accident"* |
@@ -43,7 +47,11 @@ this file - read that before trusting a number here.
 | `self-check` | reachable only as a process flag, `__main__.py:285` |
 | `catalog --move` | the read half is covered; `move_catalog_to_standard` has **zero** hits in the app package |
 
-**And six more are partial**, mostly in flags rather than in whole features. The one that is
+**And five more are partial**, mostly in flags rather than in whole features. ⚠ **This said
+*six* until 2026-08-30**, while `CLAUDE.md`'s map said five; counted from the table below it is
+**five** - `clean-empty`, `ingest`, `drives`, `analyze`, `catalog`. Two documents holding one
+number and disagreeing is the drift this file exists to make checkable, and the checkable half is
+the table, not either sentence. The one that is
 partial in a way a user would notice is **`ingest`: the app can preview an import and can never
 apply one.**
 

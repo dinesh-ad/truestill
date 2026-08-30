@@ -157,10 +157,19 @@ Notes:
   times in the week to 2026-08-29.** A user loses their catalog and re-organizes to rebuild it.
   **Back**: every photograph, its category and date, every trip, **every event name with its
   photographs under it** (`(ahv)`, shipped 2026-08-29 - before that day every event name was
-  lost), every date correction, and the settings. **Not back**: a trip's NAME where the rebuilt
-  catalog already minted a different one for those days - `rename_trip` does not exist, so the
-  user is told loudly instead, which is `(ahz)`'s one remaining residual; and an event whose
-  photographs no longer form the same group, which is reported by name and never guessed at.
+  lost), every date correction, and the settings. **Not back automatically**: a trip's NAME where the rebuilt
+  catalog already minted a different one for those days - the restore reports the clash and skips
+  it (`decisions.py`'s `conflicting` list), because a partial claim is not a partial restore; and
+  an event whose photographs no longer form the same group, which is reported by name and never
+  guessed at.
+  ⚠ **THE REMEDY NOW EXISTS, AND THIS SENTENCE SAID IT DID NOT UNTIL 2026-08-30.** It read
+  *"`rename_trip` does not exist, so the user is told loudly instead"*, which was true when
+  written and stopped being true in stages: `(aix)` shipped renaming on the CLI (P159/P160) and in
+  the app (P162). So the residual is now **"told, with something to do about it"** rather than
+  "told, and stuck": rename the trip and the drive's document takes the new name, because
+  `(aix)` stage 2b records a per-key lease that lets a deliberate rename through the guard
+  `(ahz)` step 3 put there. **The restore still does not resolve the clash itself** - it reports
+  it - and closing that is not `(aix)`'s scope.
   Proven end to end on the real corpus, not argued: `soak-six-record.md` falsified the founding
   *"categories are recomputable"*, and this is where that arc now stands.
 - ⚠ **"The library" names two different things, so cite the subject, not the phrase**

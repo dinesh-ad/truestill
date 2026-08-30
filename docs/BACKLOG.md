@@ -1157,7 +1157,11 @@ rather than assumed.
   because `test_surface_parity.py`'s second blind spot is a surface that omits a key entirely,
   so an undocumented single-surface contract is indistinguishable from drift.
 
-- **Naming a trip or event is APP-ONLY**, recorded 2026-08-25. ⚠ **The PLACEMENT half is not
+- **Naming a trip or event is APP-ONLY**, recorded 2026-08-25. ⚠ **RENAMING one is NOT, since
+  2026-08-30** - `truestill rename` and the app's card are the same core call (`(aix)`) - so read
+  this row as scoped to turning an unnamed cluster into a `trips` row, which is what it argues
+  about below. The two are different actions: naming needs a review session, renaming is
+  *(this row, this new name)* and moves files. ⚠ **The PLACEMENT half is not
   missing, and that is the part everyone got wrong** - including `(ahf)`'s own text for four
   prompts. `truestill migrate-layout --apply` already moves files into trip and event folders,
   because placement derives from `files.event_id` and `trip_days`, and it is journalled and

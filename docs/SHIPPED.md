@@ -398,6 +398,13 @@ recording shipped work as unstarted, which is the more expensive direction of th
   minted a different one for those days - `(ahz)`'s residual, `rename_trip` does not exist, and
   the user is told loudly rather than silently; and an event whose photographs no longer form
   the same group, reported by name and never guessed at.
+  ⚠ **DATED NOTE, 2026-08-30 - the residual above has a remedy now, and the entry is left as
+  written.** *"`rename_trip` does not exist"* was true on 2026-08-29 and is not now: `(aix)`
+  shipped renaming on the CLI (P159/P160) and in the app (P162), and stage 2b's per-key lease
+  lets a deliberate rename through the very guard this paragraph is about. **The record is not
+  edited** - it describes what `(ahv)` shipped and what was true that day, and a record rewritten
+  to stay correct stops being one. What changed is elsewhere; `PROJECT_STATUS.md`'s recovery
+  story carries the current answer.
   **Pinned by `test_a_lost_catalog_gets_its_names_back.py`**, which writes a real document to a
   drive root and reads it back; it fails on stage 1's tree with `assert set() == {'Morning
   Market', 'Temple Visit'}`. Both arms live in one file because a test proving only the create
