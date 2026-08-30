@@ -66,13 +66,33 @@ RETIRES = re.compile(r"^Retires \(([a-z]{1,3})\)\.?$", re.MULTILINE)
 ENTRY = re.compile(r"^- \*\*\(([a-z]{1,3})\)", re.MULTILINE)
 
 
+#: ⚠ **UTF-8 AND `surrogateescape`, NEVER THE MACHINE LOCALE - `(aic)`'s ruling, applied to git.**
+#: `text=True` alone decodes with `locale.getpreferredencoding(False)`, which is **cp1252 on
+#: Windows**, and both documents this hook reads are full of `⚠`, `❌` and `🔑`. `❌` is
+#: `E2 9D 8C`, and `0x9D` is one of the five bytes cp1252 does not map - so the first one to
+#: land in `BACKLOG.md` took the Windows lane red while every local run stayed green, because a
+#: POSIX locale is UTF-8 and the failure cannot appear here. Measured 2026-08-30: the primary
+#: path crashed at byte 18,761 while `read_text(encoding="utf-8")` two lines below it had made
+#: the correct decision all along - **the fallback was explicit and the fast path was not.**
+#:
+#: **Stated at both call sites rather than shared through a dict**: `subprocess.run`'s overloads
+#: cannot see through a `**` unpack, so the shared form degraded the return type to `Any` and
+#: mypy said so - two literal keyword pairs are also the thing a reader can check at a glance.
+#:
+#: `surrogateescape` rather than strict for `(aic)`'s own reason, one layer up: a commit-msg hook
+#: that dies on a byte is one that gets bypassed with `--no-verify`, which costs more than the
+#: check is worth - which is exactly what `test_closed_entries_leave_the_backlog.py` says about
+#: this hook's fail-open posture. It is byte-identical to strict on valid UTF-8.
+
+
 def staged_diff() -> str:
     """The two documents' staged changes. Empty string when git cannot answer."""
     try:
         done = subprocess.run(
             ["git", "diff", "--cached", "-U0", "--", BACKLOG, SHIPPED],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="surrogateescape",
             check=False,
             timeout=30,
         )
@@ -92,7 +112,8 @@ def staged_text(path: str) -> str:
         done = subprocess.run(
             ["git", "show", f":{path}"],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="surrogateescape",
             check=False,
             timeout=30,
         )

@@ -86,7 +86,11 @@ def _log() -> str:
             ["git", "log", "--format=%B"],
             cwd=ROOT,
             capture_output=True,
-            text=True,
+            # ⚠ **The same seam as the hook's, and this one has been live for longer**: commit
+            # messages here carry `⚠` and `❌`, and `git log` over this history is already
+            # undecodable as cp1252. `(aic)`, and `check_entry_closure._TEXT` beside it.
+            encoding="utf-8",
+            errors="surrogateescape",
             check=False,
             timeout=30,
         )
@@ -369,3 +373,45 @@ def test_it_judges_the_staged_backlog_not_the_working_tree(tmp_path: Path) -> No
     (repo / "docs/BACKLOG.md").write_text(_OPEN, "utf-8")
 
     assert _hook_says(repo, "docs: move it\n\nCloses (zz).\n") == (0, "")
+
+
+# --- the seam that only one of the three CI lanes can see --------------------------------------
+
+
+def test_the_hook_reads_git_as_utf8_whatever_the_machine_locale_says() -> None:
+    """⚠ **THE WINDOWS LANE CAUGHT THIS AND NO LOCAL RUN COULD.** `(aic)`, applied to git.
+
+    `subprocess.run(..., text=True)` decodes with `locale.getpreferredencoding(False)` - **cp1252
+    on Windows** - and both documents this hook reads are full of `⚠`, `❌` and `🔑`. `❌` is
+    `E2 9D 8C`; `0x9D` is one of the five bytes cp1252 does not map. The first `❌` to reach
+    `BACKLOG.md` therefore took the Windows lane red at byte 18,761, on a commit whose local
+    `make check` was green - **a POSIX locale is UTF-8, so the defect cannot appear here at all.**
+
+    🔑 **So this test does not wait for a platform; it forces the decode.** Swapping `text=True`
+    for `encoding="cp1252"` reproduces the Windows seam exactly - same byte, same position - and
+    bites on every lane. That technique is `test_the_reply_survives_the_machine_locale.py`'s, and
+    the reason a `pytest.mark.skipif(sys.platform != "win32")` would be worse than nothing: it
+    would be silent on the machine anyone actually develops on.
+
+    ⚠ **It reads the REAL `BACKLOG.md`, deliberately, and that is what makes it a live guard**
+    rather than a statement about a fixture: it fails the moment someone adds a character the
+    old code could not have decoded, which is precisely the event that took CI red.
+    """
+    real = subprocess.run
+
+    def as_windows_would(*args: object, **kwargs: object) -> object:
+        # Only a call that left the decision to the locale is redirected. One that states its own
+        # encoding has made the whole decision - which is exactly what the fix does, so a fixed
+        # call passes straight through here and an unfixed one meets cp1252.
+        if kwargs.pop("text", False):
+            kwargs["encoding"] = "cp1252"
+        return real(*args, **kwargs)  # type: ignore[arg-type]
+
+    _hook.subprocess.run = as_windows_would
+    try:
+        assert _hook.staged_text(_hook.BACKLOG) != "", (
+            "the guard read nothing, so it proves nothing"
+        )
+        assert _hook.refusals("Closes (zz).", "") == []
+    finally:
+        _hook.subprocess.run = real
