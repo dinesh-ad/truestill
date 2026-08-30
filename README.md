@@ -239,7 +239,7 @@ reporting a zero.
 
 `truestill --help` lists every subcommand: `analyze`, `organize`, `ingest`, `drives`,
 `repoint-sources`, `undo-organize`, `where`, `verify`, `status`, `catalog`, `config`,
-`reclaim`, `migrate-layout`, `backup`, `bake`, `clean-empty`, `rescan`, `restore`,
+`reclaim`, `migrate-layout`, `backup`, `bake`, `rename`, `clean-empty`, `rescan`, `restore`,
 `self-check`.
 
 ⚠ Two of those were missing until 2026-08-30. The list is pinned by

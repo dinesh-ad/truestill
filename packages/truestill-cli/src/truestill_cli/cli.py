@@ -184,8 +184,10 @@ from truestill_core.migrate import (
     STOP_WORDING,
     LabelRoute,
     MigrationStop,
+    RenameKind,
     label_routes,
     plan_migration,
+    plan_rename,
     rederive_rules,
     run_migration,
     undo_migration,
@@ -349,6 +351,9 @@ _LOCKS_DRIVE_AT: dict[str, str | None] = {
     "clean-empty": "path",
     "rescan": None,  # reports; `(abn)` is that nothing acts on it yet
     "migrate-layout": "path",
+    # Stage 1 previews only and writes nothing, so it takes no lock. ⚠ **This becomes `"path"`
+    # the moment stage 2 lands** - the apply moves files on the drive. `(aix)`
+    "rename": None,
     "reclaim": "path",
     "undo-organize": _LOCKED_IN_HANDLER,
     "repoint-sources": None,  # rewrites `source_path` rows, touches no drive
@@ -722,6 +727,18 @@ def _build_parser() -> argparse.ArgumentParser:
     migrate.add_argument("--db", type=Path, default=default_catalog_path(), help="SQLite catalog")
     _add_clean_parser(sub)
     _add_rescan_parser(sub)
+
+    # `(aix)` stage 1. Preview only - there is no `--apply` yet, and the handler says so rather
+    # than advertising a flag that does not exist.
+    rename = sub.add_parser(
+        "rename",
+        help="show what renaming a trip or event would move (preview only; nothing is written)",
+    )
+    rename.add_argument("path", type=Path, help="the drive's mount root (must be connected)")
+    rename.add_argument("kind", choices=[k.value for k in RenameKind], help="trip or event")
+    rename.add_argument("id", type=int, help="its catalog row id")
+    rename.add_argument("name", help="the new name")
+    rename.add_argument("--db", type=Path, default=default_catalog_path(), help="SQLite catalog")
 
     migrate.add_argument(
         "--undo",
@@ -4500,6 +4517,58 @@ def _report_migration_shortfall(
     return 4 if wording.fault else 0
 
 
+def _cmd_rename(args: argparse.Namespace) -> int:
+    """`rename`: what renaming a trip or event would move. **Stage 1 previews only.** `(aix)`
+
+    ⚠ **The preview says what it will NOT do**, which is `(aim)`'s lesson applied before the
+    defect rather than after it: a list of moves with no statement of tense reads as a report of
+    work already done. There is no `--apply` yet, so this says so plainly rather than implying an
+    apply exists.
+    """
+    marker = _drive_or_explain(args.path, args.db)
+    if marker is None:
+        return 2
+
+    with _catalog(args.db) as catalog:
+        scheme = resolve_scheme(catalog)
+        routes = label_routes(catalog, marker.uuid)
+        with HashCache.beside(args.db) as cache:
+            rederived = rederive_rules(
+                catalog, marker.uuid, args.path, routes, by_device=False, cache=cache
+            )
+        decided = {r.label: (ROUTE_SIDE_BIN if r.needs_decision else r.route) for r in routes}
+        plan = plan_rename(
+            catalog,
+            marker.uuid,
+            scheme,
+            kind=RenameKind(args.kind),
+            row_id=args.id,
+            new_name=args.name,
+            routes=decided,
+            rules_by_sha=rederived.rules,
+        )
+
+    if plan.refusal is not None:
+        print(f"error: {plan.refusal_detail}", file=sys.stderr)
+        return 2
+
+    print(f"Rename {plan.kind.value} {plan.row_id}: {plan.old_name!r} -> {plan.new_name!r}")
+    if not plan.moves:
+        print("  nothing would move: the new name renders the same folder.")
+        return 0
+    print(f"  {len(plan.moves)} file(s) would move:")
+    for move in plan.moves[:_STATUS_PREVIEW]:
+        print(f"      {move.old_relative}")
+        print(f"   -> {move.new_relative}")
+    if len(plan.moves) > _STATUS_PREVIEW:
+        print(f"      ... and {len(plan.moves) - _STATUS_PREVIEW:,} more.")
+    # ⚠ One wording home for the tense, and the sentence is deliberately NOT "re-run with
+    # --apply": that flag does not exist yet, and promising it would be the phantom capability
+    # `(ail)` was retired for. It names what is true today.
+    print("\nPreview only - nothing was written or moved. Applying a rename is not built yet.")
+    return 0
+
+
 def _cmd_migrate_layout(args: argparse.Namespace) -> int:
     marker = _drive_or_explain(args.path, args.db)
     if marker is None:
@@ -4899,6 +4968,7 @@ def _dispatch(argv: list[str] | None) -> int:
         "clean-empty": _cmd_clean_empty,
         "rescan": _cmd_rescan,
         "migrate-layout": _cmd_migrate_layout,
+        "rename": _cmd_rename,
         "reclaim": _cmd_reclaim,
         "undo-organize": _cmd_undo_organize,
         "repoint-sources": _cmd_repoint,

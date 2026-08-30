@@ -10,7 +10,7 @@
     changes a *sentence or a count*, never a recorded fact and never an action. The seven sites
     that crossed that line are fixed under `(aey)`.
   - **The list, from the P35 census** (`aey.md` holds the verdicts): `catalog_startup.py:246`
-    and `cli.py:904/1276` - a refused catalog banners briefly as creatable before the open
+    and `cli.py:921/1276` - a refused catalog banners briefly as creatable before the open
     fails loudly; `bake.py:378` - a refused target counts as missing in a preview;
     `drives.py:219` - a refused stray is absent from the stray report; `left_behind.py:89`;
     `source_repoint.py:129` - `present=False` for a target that refused; `organizer.py:365` -

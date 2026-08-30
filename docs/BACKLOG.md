@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aiw). Next free: (aix).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aix). Next free: (aiy).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -280,6 +280,22 @@ is invisible here is retired, not free.**
 > corrupts every measurement taken against it - it has already produced one false finding, in
 > [`soak-eight-record.md`](soak-eight-record.md)'s own §5. The reasoning is
 > [`soak-nine-record.md`](soak-nine-record.md) §7b.
+
+- **(aix) A TRIP OR EVENT CANNOT BE RENAMED, SO THE ANSWER IS THE FILE MANAGER.** Filed
+  2026-08-30 (P158/P159), **a feature with a design and a staging plan**; stage 1 ships with it.
+  Verified from code: **0 rename symbols in core, 0 CLI subcommands, 0 app routes**; `create_trip`
+  has no `ON CONFLICT` and `update_trip_days` leaves name and slug alone; `record_event` updates a
+  name only by accident of `ON CONFLICT(signature)`; and `app.js:3502` renders *"renaming is not
+  available here"*. ⚠ **The absence has a default and the default is dangerous** - a user who
+  cannot rename in the tool renames in their file manager, which is the one action that breaks a
+  catalog quietly (Adobe community, Dec 2023: *"Changed file names in Windows File Explorer. The
+  organizer still shows old names."*). Elements, digiKam and Immich #1775 all treat it as ordinary;
+  Lightroom's Folders panel exists to prevent exactly the divergence. 🔑 **The ruling: a rename is
+  a FILE operation and is migrate-shaped** - `trips.slug` renders the directory, so a name change
+  moves photographs, and `migration_journal` / `_apply_move` / `resume_migration` already exist.
+  **The name flips LAST**, so at every interruption the name is the old name until every photograph
+  has arrived. **Naming is identity-keyed; renaming is row-keyed.**
+  Body: [`research/backlog/aix.md`](research/backlog/aix.md).
 
 - **(ait) THE MESSY-CORPUS MANIFEST OVERSTATES ITSELF, AND 20 ROWS DESCRIBE FILES THAT ARE GONE.**
   Filed 2026-08-30 (P148, soak nine). `make_messy_corpus.py` builds every destination from the

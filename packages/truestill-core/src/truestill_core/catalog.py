@@ -192,6 +192,16 @@ CREATE TABLE IF NOT EXISTS settings (
 -- moment a move is planned until its old location is removed; its presence after a crash is
 -- what lets `migrate-layout` resume -- old_relative is retained so an orphaned old copy can be
 -- cleaned even after file_copies has been updated to new_relative.
+--
+-- 🔑 `new_relative` IS A PATH, AND A RENAME'S SAFETY DEPENDS ON THAT. `(aix)`
+-- A rename flips `trips.name`/`slug` LAST - after every photograph has arrived - so that at any
+-- interruption the name is the old name until the move is complete, rather than a new name over a
+-- half-moved folder. That only works because the destination is materialised here as a STRING: a
+-- resumed run reads `new_relative` and needs nothing else.
+-- ⚠ Storing a template, a slug, or a reference to the `trips` row instead would INVERT the
+-- guarantee silently - a resumed run would then need the flipped row to know where things go, so
+-- the name would have to flip FIRST, which is the state `(aix)` exists to make unreachable.
+-- Nothing would fail loudly; renames would simply stop being crash-safe.
 CREATE TABLE IF NOT EXISTS migration_journal (
     sha256       TEXT NOT NULL,
     drive_uuid   TEXT NOT NULL,
@@ -1281,6 +1291,7 @@ class Catalog:
                 SELECT fc.sha256, fc.relative, fc.copy_sha256, fc.size, f.category,
                        f.captured_at,
                        f.original_name,
+                       e.id AS event_id,
                        e.slug AS event_slug, e.start_date AS event_start, e.name AS event_name,
                        t.id AS trip_id, t.slug AS trip_slug, t.start_date AS trip_start,
                        t.name AS trip_name
@@ -2738,6 +2749,25 @@ class Catalog:
                 " FROM trip_days td JOIN trips t ON t.id = td.trip_id"
             )
         }
+
+    def named_row_name(self, kind: str, row_id: int) -> str | None:
+        """That trip's or event's name, or ``None`` when no such row exists. `(aix)`
+
+        ⚠ **Its job is telling "no such row" from "not on this drive"**, which
+        `copies_for_migration` cannot: that query is drive-scoped, so an id absent from it may be
+        an id that does not exist OR one whose photographs live on a drive that is not connected.
+        Those need opposite sentences - *"there is no trip with that id"* against *"connect the
+        drive that holds it"* - and one value meaning both is the shape `(aac)` exists to end.
+
+        ``kind`` is ``"trip"`` or ``"event"``; the table name is chosen from a literal pair rather
+        than interpolated, so a caller cannot reach a third table through this.
+        """
+        table = {"trip": "trips", "event": "events"}[kind]
+        row = self._conn.execute(
+            f"SELECT name FROM {table} WHERE id = ?",
+            (row_id,),
+        ).fetchone()
+        return None if row is None else str(row["name"])
 
     def trip_for_day(self, day: str) -> int | None:
         """The trip a day is already claimed by, if any -- the name-once lookup.

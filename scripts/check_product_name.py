@@ -73,6 +73,7 @@ CHECKED: tuple[str, ...] = (
 SUBCOMMANDS: tuple[str, ...] = (
     "backup",
     "bake",
+    "rename",
     "analyze",
     "organize",
     "repoint-sources",

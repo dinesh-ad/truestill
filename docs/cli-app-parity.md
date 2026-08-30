@@ -72,6 +72,7 @@ because somebody went looking, and this table still cannot show an app-only capa
 |---|---|---|---|
 | `organize` | `cli.py` `add_parser("organize"` | `/api/organize/{inventory,preview,run,settings}` `server.py:946-949` | **covered**, including `--move` / `--in-place` via `mode` (`service/organize.py:95`, `server.py:230,253`) |
 | `undo-organize` | `cli.py` `add_parser("undo-organize"` | `/api/organize/undo{,/preview,/apply}` `server.py:952-954` | **covered**, preview and apply |
+| `rename` | `cli.py` `add_parser("rename"` | **none** | **CLI only, and stage 1 previews only** - `(aix)`. The app half is stage 3; renaming is refused in words at `app.js`'s `ev-named` branch today |
 | `migrate-layout` | `cli.py` `add_parser("migrate-layout"` | `/api/migrate/{preview,run}` `server.py:904-905`; undo `:910-912` | **covered**, including `--undo` |
 | `verify` | `cli.py` `add_parser("verify"` | `/api/verify/run` `server.py:887` | **covered** |
 | `where` | `cli.py` `add_parser("where"` | `/api/where` `server.py:991` | **covered**; `--limit` becomes paging |

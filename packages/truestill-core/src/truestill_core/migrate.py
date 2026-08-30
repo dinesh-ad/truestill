@@ -33,6 +33,7 @@ from truestill_core.catalog import Catalog
 from truestill_core.categorize import build_rules, categorize, deterministic_side_bin_labels
 from truestill_core.destinations.base import Destination, DestinationError
 from truestill_core.drive_unwritable import persists_for_the_run
+from truestill_core.events import slugify
 from truestill_core.exif import ExiftoolMissingError, read_metadata
 from truestill_core.hash_cache import HashCache
 from truestill_core.layout import (
@@ -642,6 +643,289 @@ def plan_migration(
         unchanged=unchanged,
         warnings=warnings,
         day_folder_reasons=day_folder_reasons,
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+# RENAMING A TRIP OR AN EVENT. `(aix)` stage 1: the plan, and it writes nothing.
+#
+# 🔑 **IT LIVES HERE BECAUSE A RENAME IS A MIGRATION.** `trips.slug` renders the directory through
+# `layout`'s `event_dirname`, so changing a name MOVES PHOTOGRAPHS. The alternative - a catalog
+# setter with a lazy folder move - manufactures a divergence nothing can detect: `verify` keys on
+# `file_copies.relative`, which a name change does not touch, and `rescan` never reads a slug.
+#
+# Planning it anywhere else would need `_render_migration_relative` and `_apply_move`, both
+# module-private, so the choice is between exporting them and putting the planner beside them.
+# Beside them is the one-home answer.
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+
+
+class RenameKind(StrEnum):
+    """What is being renamed. Both render through the same folder rule; only the row differs."""
+
+    TRIP = "trip"
+    EVENT = "event"
+
+
+class RenameRefusal(StrEnum):
+    """Why a rename will not be attempted. **A loud refusal, never a divergence.**
+
+    digiKam's lesson, adopted deliberately: it answers *"Failed to rename Album"* when Windows
+    holds the folder rather than letting the catalog and the disk drift apart. Every member here
+    is a condition checked **before** anything moves.
+    """
+
+    NO_SUCH_ROW = "no_such_row"
+    NOTHING_ON_THIS_DRIVE = "nothing_on_this_drive"
+    UNCHANGED = "unchanged"
+    EMPTY_NAME = "empty_name"
+    NOT_PATH_SAFE = "not_path_safe"
+    FOLDER_EXISTS = "folder_exists"
+
+
+#: ⚠ **ONE WORDING HOME FOR EVERY SURFACE**, which is `STOP_WORDING`'s rule applied to renaming -
+#: the same choice `decisions.py` records for restore. The CLI and the app render these; neither
+#: re-words a refusal at a call site, because two copies of one sentence drift the first time
+#: either is corrected.
+RENAME_WORDING: Final[dict[RenameRefusal, str]] = {
+    RenameRefusal.NO_SUCH_ROW: "there is no {kind} with that id in this catalog",
+    RenameRefusal.NOTHING_ON_THIS_DRIVE: (
+        "that {kind} has no photographs on this drive, so there is nothing here to rename"
+    ),
+    RenameRefusal.UNCHANGED: "that is already the name; nothing would move",
+    RenameRefusal.EMPTY_NAME: "a {kind} needs a name; an empty one would leave it unnamed",
+    RenameRefusal.NOT_PATH_SAFE: (
+        "{name!r} leaves nothing a folder can be named after once illegal characters are removed"
+    ),
+    RenameRefusal.FOLDER_EXISTS: (
+        "another folder is already called {folder!r} on this drive, and renaming into it would "
+        "merge two sets of photographs under one name"
+    ),
+}
+
+
+def rename_refusal_sentence(refusal: RenameRefusal, **fields: object) -> str:
+    """The one rendering of a refusal. Callers pass facts, never prose."""
+    return RENAME_WORDING[refusal].format(**fields)
+
+
+@dataclass(frozen=True)
+class RenamePlan:
+    """What renaming one trip or event would move. **Pure: nothing is written.**
+
+    ``refusal`` and ``moves`` are mutually exclusive by construction - a refused plan has no
+    moves, and a plan with moves has no refusal. ``moves`` may legitimately be empty with no
+    refusal when the new name renders the same folder as the old one for every copy, which is
+    not the same thing as the name being unchanged.
+    """
+
+    kind: RenameKind
+    row_id: int
+    old_name: str
+    new_name: str
+    new_slug: str
+    moves: tuple[Move, ...] = ()
+    refusal: RenameRefusal | None = None
+    refusal_detail: str = ""
+
+    @property
+    def may_apply(self) -> bool:
+        return self.refusal is None and bool(self.moves)
+
+
+def _renamed_rows(rows: Sequence[Any], kind: RenameKind, row_id: int) -> list[int]:
+    """Indices of the rows this rename touches. Row-keyed, never by slug or by day set.
+
+    ⚠ **`(aix)`'s ruling: naming is identity-keyed, renaming is ROW-keyed.** A trip is identified
+    by the days it claims and an event by its membership hash, so keying a rename on either would
+    inherit that asymmetry - and for an event whose membership changed since it was named, the
+    signature no longer matches anything the user is looking at. The row id is stable for both.
+    """
+    key = "trip_id" if kind is RenameKind.TRIP else "event_id"
+    return [i for i, row in enumerate(rows) if row[key] is not None and int(row[key]) == row_id]
+
+
+class _RenamedRow:
+    """One `copies_for_migration` row with a trip's or event's slug and name substituted.
+
+    ⚠ **A wrapper rather than a mutated row**: `sqlite3.Row` is read-only, and the planner must
+    see the OLD state for every other row on the drive - a rename re-renders one trip against an
+    otherwise unchanged library.
+    """
+
+    __slots__ = ("_overrides", "_row")
+
+    def __init__(self, row: Any, overrides: dict[str, object]) -> None:
+        self._row = row
+        self._overrides = overrides
+
+    def __getitem__(self, key: str) -> Any:
+        return self._overrides[key] if key in self._overrides else self._row[key]
+
+
+def _plan_relatives(
+    catalog: Catalog,
+    scheme: LayoutScheme,
+    rows: list[Any],
+    routes: dict[str, str],
+    rules_by_sha: dict[str, str] | None,
+) -> list[str]:
+    """Where every row would live, rendered through the migration path. Pure.
+
+    The same three steps `plan_migration` takes - headers, disambiguation, heavy days - because a
+    rename that rendered its folder any other way could disagree with a migration run about the
+    same library, which is the drift `(aix)` refuses to introduce.
+    """
+    headers = _migration_headers(rows, scheme, routes, rules_by_sha)
+    header_folders, _notes = _disambiguated_folders(headers)
+    threshold = normalize_everyday_day_threshold(catalog.get_setting(EVERYDAY_DAY_THRESHOLD_KEY))
+    heavy_days = heavy_capture_days(
+        _unevented_day_counts(rows, routes, rules_by_sha), threshold=threshold
+    )
+    return [
+        _render_migration_relative(
+            row, scheme, routes, rules_by_sha, heavy_days, header_folders=header_folders
+        )[1]
+        for row in rows
+    ]
+
+
+def _refused(
+    kind: RenameKind,
+    row_id: int,
+    new_name: str,
+    old_name: str,
+    refusal: RenameRefusal,
+    **fields: object,
+) -> RenamePlan:
+    """A refused plan: no moves, and the one sentence for this refusal."""
+    return RenamePlan(
+        kind=kind,
+        row_id=row_id,
+        old_name=old_name,
+        new_name=new_name,
+        new_slug="",
+        refusal=refusal,
+        refusal_detail=rename_refusal_sentence(refusal, kind=kind.value, name=new_name, **fields),
+    )
+
+
+def plan_rename(
+    catalog: Catalog,
+    drive_uuid: str,
+    scheme: LayoutScheme,
+    *,
+    kind: RenameKind,
+    row_id: int,
+    new_name: str,
+    routes: dict[str, str] | None = None,
+    rules_by_sha: dict[str, str] | None = None,
+) -> RenamePlan:
+    """What renaming one trip or event would move on this drive. **Pure; nothing is written.**
+
+    🔑 **Rendered through the SAME path a migration uses** - the new folder is computed by
+    substituting the slug and name into the rows and re-planning - so a renamed library and a
+    freshly organized one stay byte-identical under one layout. Re-implementing the folder rule
+    here would be a second answer free to disagree with `plan_migration`'s.
+
+    ⚠ **The whole drive is re-planned, not only the renamed rows**, and that is what makes
+    `FOLDER_EXISTS` detectable: `_disambiguated_folders` resolves a same-date name collision
+    across the SET by appending ``(2)``. Correct for a migration; **wrong for a rename** - a user
+    who asks for a name and silently receives ``Name (2)`` was neither refused nor obeyed.
+    """
+    routes = routes or {}
+    rows = list(catalog.copies_for_migration(drive_uuid))
+    touched = _renamed_rows(rows, kind, row_id)
+    name_key = "trip_name" if kind is RenameKind.TRIP else "event_name"
+    old_name = str(rows[touched[0]][name_key] or "") if touched else ""
+
+    cleaned = new_name.strip()
+    if not cleaned:
+        return _refused(kind, row_id, new_name, old_name, RenameRefusal.EMPTY_NAME)
+    if not touched:
+        # ⚠ **Asked of the CATALOG, not of this drive's rows.** `copies_for_migration` is
+        # drive-scoped, so an id missing from it may not exist at all or may simply live on a
+        # drive that is not plugged in - and those need opposite sentences.
+        existing = catalog.named_row_name(kind.value, row_id)
+        return _refused(
+            kind,
+            row_id,
+            cleaned,
+            existing or "",
+            RenameRefusal.NOTHING_ON_THIS_DRIVE
+            if existing is not None
+            else RenameRefusal.NO_SUCH_ROW,
+        )
+    if cleaned == old_name:
+        return _refused(kind, row_id, cleaned, old_name, RenameRefusal.UNCHANGED)
+
+    # ⚠ **`layout` falls back to the slug when a name sanitises to nothing, and that is right for
+    # NAMING and wrong for RENAMING.** A user who typed "///" and got their old folder back was
+    # not told - which is `(abw)`'s discarded-answer defect arriving in a new place. A rename
+    # states a specific intent, so an unusable name refuses instead.
+    # ⚠ **The SAME test `layout` applies**, not a stricter one. `layout` asks whether the
+    # sanitised name still carries a letter or digit - the sanitiser REPLACES illegal characters
+    # rather than dropping them, so `"///"` survives as `"___"`: truthy, and a folder nobody could
+    # recognise. `str.isalnum` is Unicode-aware, so a name in any script passes.
+    #
+    # ⚠ **Deliberately NOT `slugify(name) == ""`, which would refuse a legitimate name.**
+    # Measured: `slugify("日本")` is `""` because the slug alphabet is ASCII, so that test would
+    # reject a CJK trip name whose NAME-layout folder renders perfectly. That `slugify` degrades
+    # a non-Latin name to an empty slug is a real limitation of `events.slugify` and is **not
+    # this stage's to fix** - it is recorded in `(aix)` rather than patched here.
+    if not any(character.isalnum() for character in cleaned):
+        return _refused(kind, row_id, cleaned, old_name, RenameRefusal.NOT_PATH_SAFE)
+    new_slug = slugify(cleaned)
+
+    prefix = kind.value
+    renamed: list[Any] = list(rows)
+    for index in touched:
+        renamed[index] = _RenamedRow(
+            rows[index], {f"{prefix}_slug": new_slug, f"{prefix}_name": cleaned}
+        )
+
+    before = _plan_relatives(catalog, scheme, rows, routes, rules_by_sha)
+    after = _plan_relatives(catalog, scheme, renamed, routes, rules_by_sha)
+
+    # ⚠ **Only rows this rename touches may move.** A row the rename did NOT name, whose path
+    # changed anyway, means the new folder displaced somebody - a disambiguation suffix landing on
+    # a different trip because this one took its folder. That is the collision by another route.
+    moved_elsewhere = [
+        i for i in range(len(rows)) if i not in set(touched) and before[i] != after[i]
+    ]
+    if moved_elsewhere:
+        return _refused(
+            kind,
+            row_id,
+            cleaned,
+            old_name,
+            RenameRefusal.FOLDER_EXISTS,
+            folder=PurePosixPath(after[touched[0]]).parent.as_posix(),
+        )
+
+    # ⚠ **`old_relative` is where the file IS, not where it would render under the old name.**
+    # `_plan_relatives` answers *"where would this go"*, and for a library that has not been
+    # migrated under the current template those are different paths - planning a move FROM a
+    # rendered path would name a source that does not exist on the drive. `plan_migration` takes
+    # `current` from the row for the same reason; `before` is used only to detect displacement.
+    moves = tuple(
+        Move(
+            sha256=str(rows[i]["sha256"]),
+            old_relative=str(rows[i]["relative"]),
+            new_relative=after[i],
+            copy_sha256=rows[i]["copy_sha256"],
+            size=rows[i]["size"],
+        )
+        for i in touched
+        if str(rows[i]["relative"]) != after[i]
+    )
+    return RenamePlan(
+        kind=kind,
+        row_id=row_id,
+        old_name=old_name,
+        new_name=cleaned,
+        new_slug=new_slug,
+        moves=moves,
     )
 
 
