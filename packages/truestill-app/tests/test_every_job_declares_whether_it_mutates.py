@@ -148,6 +148,11 @@ _EXPECTED: dict[str, Decision] = {
     # Writes a drive's decisions document / dates into the organized copies.
     "set dates": Decision(True, surface="bake"),
     "trip apply": Decision(True, surface="migrate-layout"),
+    # Moves every photograph in one trip or event into the folder the new name renders. The same
+    # core entry the CLI calls - `migrate.apply_rename` - which is what records the
+    # `authored_decisions` lease; a second apply path would silently stop the rename surviving a
+    # catalog rebuild. `(aix)` stage 3.
+    "rename": Decision(True, surface="rename"),
     # ⚠ Unpacks an archive set into a staging tree ON THE DESTINATION - `(agg)`. It was
     # `"import preview", False` until 2026-08-23, which is what this table exists to make
     # impossible to restate.
@@ -161,6 +166,10 @@ _EXPECTED: dict[str, Decision] = {
     # behaviour on a path that works today.
     "organize preview": Decision(False),
     "migrate preview": Decision(False),
+    # ⚠ A PREVIEW THAT IS A JOB, and it was written as a plain request first. `plan_rename` reads
+    # only the catalog, but rendering the new path needs `_resolve_migration_routes`, which
+    # re-reads metadata for ambiguous labels - the same reason `migrate preview` is a job.
+    "rename preview": Decision(False),
     "trip preview": Decision(False),
     "undo preview": Decision(False),
     "undo organize preview": Decision(False),

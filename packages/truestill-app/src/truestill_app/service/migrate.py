@@ -17,6 +17,7 @@ from truestill_core.layout_settings import pin_existing_layout, resolve_scheme
 from truestill_core.migrate import (
     ROUTE_SIDE_BIN,
     STOP_WORDING,
+    MigrationStop,
     label_routes,
     rederive_rules,
     run_migration,
@@ -309,17 +310,7 @@ def migration_apply(
             "label": marker.label,
             "migrated": outcome.migrated,
             "resumed": outcome.resumed,
-            "stopped": (
-                None
-                if outcome.stopped is None
-                else {
-                    "kind": outcome.stopped.kind.value,
-                    "reason": outcome.stopped.reason,
-                    "never_attempted": outcome.stopped.never_attempted,
-                    "headline": STOP_WORDING[outcome.stopped.kind].headline,
-                    "fault": STOP_WORDING[outcome.stopped.kind].fault,
-                }
-            ),
+            "stopped": stop_payload(outcome.stopped),
             "refused": [
                 {"relative": relative, "reason": reason} for relative, reason in outcome.refused
             ],
@@ -331,6 +322,26 @@ def migration_apply(
         return result
 
     return target
+
+
+def stop_payload(stopped: MigrationStop | None) -> MigrationStopPayload | None:
+    """One `MigrationStop` as the screens read it. **The one place this shape is built.**
+
+    ⚠ **`headline` and `fault` come from `STOP_WORDING`, core's own home**, which is why this is a
+    function rather than a dict literal repeated per caller: the wording rule is only worth
+    anything while every surface reads the same map. It was written inline twice, and `(aix)`
+    stage 3 would have been the third - three copies of a shape is where one of them starts
+    drifting.
+    """
+    if stopped is None:
+        return None
+    return {
+        "kind": stopped.kind.value,
+        "reason": stopped.reason,
+        "never_attempted": stopped.never_attempted,
+        "headline": STOP_WORDING[stopped.kind].headline,
+        "fault": STOP_WORDING[stopped.kind].fault,
+    }
 
 
 class ArmedStatePayload(TypedDict):
@@ -405,17 +416,7 @@ def migration_undo(
         return {
             "label": marker.label,
             "reversed_files": outcome.reversed_files,
-            "stopped": (
-                None
-                if outcome.stopped is None
-                else {
-                    "kind": outcome.stopped.kind.value,
-                    "reason": outcome.stopped.reason,
-                    "never_attempted": outcome.stopped.never_attempted,
-                    "headline": STOP_WORDING[outcome.stopped.kind].headline,
-                    "fault": STOP_WORDING[outcome.stopped.kind].fault,
-                }
-            ),
+            "stopped": stop_payload(outcome.stopped),
             "refused": [
                 {"relative": relative, "reason": reason} for relative, reason in outcome.refused
             ],

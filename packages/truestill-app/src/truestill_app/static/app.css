@@ -1669,11 +1669,30 @@ details.more.inline {
   color: var(--warning);
 }
 
-/* An already-named trip states its name instead of offering a box. `commit_trips` will not take
-   a new name for a trip whose days are already claimed, so the row must not read as editable. */
+/* An already-named trip states its name instead of offering the NAMING box: `commit_trips` will
+   not take a new name for a trip whose days are already claimed. Renaming is a different action
+   with its own control below the name - it moves files, so it previews before it commits. */
 .ev-named {
   flex: 1;
   min-width: 0;
+}
+.ev-rename {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.ev-rename.hidden,
+.ev-rename-go.hidden {
+  display: none;
+}
+.ev-rename .ev-rename-name {
+  flex: 1;
+  min-width: 12rem;
+}
+.ev-rename-note {
+  flex-basis: 100%;
 }
 
 /* The suggestion sits BELOW its box and is never written into it: an empty box on this screen

@@ -114,6 +114,17 @@ MUTATING_RUNS: dict[str, tuple[bool, str]] = {
             "asking only 'is a record entry point CALLED' is the honest question here"
         ),
     ),
+    "rename": (
+        True,
+        (
+            "records under `kind: rename` through the same `_record_migration` migrate uses, with "
+            "the `run_id` `apply_moves` already mints. ⚠ THIS ROW EXISTS BECAUSE THE GUARD BELOW "
+            "FOUND THE GAP: `(aix)` stage 3 added a service that moves the user's photographs "
+            "and wrote no record, and `test_no_service_writes_a_record_without_a_row_here` is "
+            "what said so. Its own `kind` rather than `migrate`, because a reader asking what "
+            "moved their files needs to tell a person renaming a trip from a template change"
+        ),
+    ),
     "organize_undo": (
         True,
         # ⚠ **THIS SAID "returns counts only" AND WAS FALSE THE DAY IT WAS WRITTEN.** `(afw)`

@@ -32,6 +32,22 @@ from truestill_core.models import CaptureContext, DateSource
 
 
 @dataclass(frozen=True, slots=True)
+class NamedRow:
+    """A trip or event the catalog has already named: **which row, and what it is called.**
+
+    The two travel together because the review screen needs both and they must agree. *"Is this
+    card already named?"* is answered by the name; *"rename it"* is answered by the id, because
+    `migrate.plan_rename` is **row-keyed by ruling** - naming is identity-keyed (a trip by its
+    days, an event by its signature) and renaming deliberately is not. Resolving the identity back
+    to a row a second time, by a second route, is how the screen would come to rename something
+    other than the card the user clicked.
+    """
+
+    row_id: int
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
 class DriveHolding:
     """One drive and how much of a queried content set it physically holds.
 
@@ -2772,34 +2788,55 @@ class Catalog:
         row = self._conn.execute("SELECT count(*) FROM events").fetchone()
         return 0 if row is None else int(row[0])
 
-    def named_event_signatures(self) -> dict[str, str]:
-        """``{event signature: that event's name}`` for every named event. **O(named events).**
+    def named_events_by_signature(self) -> dict[str, NamedRow]:
+        """``{event signature: that event's id and name}``. **O(named events).**
 
         Keyed by SIGNATURE because that is what event identity IS - a SHA-256 over the sorted
         member SHA-256s (`events.signature`, the UNIQUE key `event_by_signature` looks up). A
         cluster whose membership changed hashes differently and correctly misses: it is a new
-        object that merely overlaps a named one, not that event.
+        object that merely overlaps a named one, not that event. See `named_trips_by_day` for why
+        the id travels with the name.
         """
         return {
-            str(row["signature"]): str(row["name"])
-            for row in self._conn.execute("SELECT signature, name FROM events")
+            str(row["signature"]): NamedRow(int(row["id"]), str(row["name"]))
+            for row in self._conn.execute("SELECT id, signature, name FROM events")
         }
 
-    def named_trip_days(self) -> dict[str, str]:
-        """``{claimed day: that trip's name}`` for every day any trip holds. **O(claimed days).**
+    def named_event_signatures(self) -> dict[str, str]:
+        """``{event signature: that event's name}``. Derived, one query. See `named_trip_days`."""
+        return {sig: row.name for sig, row in self.named_events_by_signature().items()}
 
-        Keyed by DAY rather than by trip id because the review screen has to answer "is the trip
-        this card describes already named?" for a card that carries no trip id - a proposal is
-        recomputed from clusters every visit and knows only its days. A day is claimed by at most
-        one trip (`trip_days.day` is the primary key), so the mapping cannot be ambiguous.
+    def named_trips_by_day(self) -> dict[str, NamedRow]:
+        """``{claimed day: that trip's id and name}`` for every day any trip holds.
+
+        **O(claimed days).** Keyed by DAY rather than by trip id because the review screen has to
+        answer "is the trip this card describes already named?" for a card that carries no trip id
+        - a proposal is recomputed from clusters every visit and knows only its days. A day is
+        claimed by at most one trip (`trip_days.day` is the primary key), so the mapping cannot be
+        ambiguous.
+
+        ⚠ **The ID IS THE VALUE'S SECOND HALF, and that is what `(aix)` stage 3 needed.** Answering
+        *"is it named?"* takes only the name; **renaming** it takes the row, because
+        `plan_rename` is ROW-keyed by ruling - naming is identity-keyed, renaming is not. Carrying
+        both out of one query is what stops the screen resolving an identity back to a row a
+        second time, by a second route, and disagreeing with this one.
         """
         return {
-            str(row["day"]): str(row["name"])
+            str(row["day"]): NamedRow(int(row["id"]), str(row["name"]))
             for row in self._conn.execute(
-                "SELECT td.day AS day, t.name AS name"
+                "SELECT td.day AS day, t.id AS id, t.name AS name"
                 " FROM trip_days td JOIN trips t ON t.id = td.trip_id"
             )
         }
+
+    def named_trip_days(self) -> dict[str, str]:
+        """``{claimed day: that trip's name}``. **Derived from `named_trips_by_day`, one query.**
+
+        Kept as its own method because `decisions.py`'s trip restore wants exactly this and says
+        so: its outcomes are *"decidable without a rowid"*. Handing it rows would put an id into a
+        decision that deliberately does not take one.
+        """
+        return {day: row.name for day, row in self.named_trips_by_day().items()}
 
     def event_signature(self, row_id: int) -> str | None:
         """That event's signature, or ``None`` when no such row exists. `(aix)` stage 2b

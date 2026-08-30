@@ -24,6 +24,7 @@ from truestill_app.service import media_support as _media_support
 from truestill_app.service import migrate as _migrate
 from truestill_app.service import organize as _organize
 from truestill_app.service import organize_undo as _organize_undo
+from truestill_app.service import rename as _rename
 from truestill_app.service import settings as _settings
 from truestill_app.service import stats as _stats
 from truestill_app.service import takeout as _takeout
@@ -249,6 +250,12 @@ UndoJobSummary = _migrate.UndoJobSummary
 migration_armed_state = _migrate.migration_armed_state
 migration_undo = _migrate.migration_undo
 _reveal_folder_on_drive = _migrate._reveal_folder_on_drive
+stop_payload = _migrate.stop_payload
+
+RenamePreviewPayload = _rename.RenamePreviewPayload
+RenameRunPayload = _rename.RenameRunPayload
+rename_preview = _rename.rename_preview
+rename_run = _rename.rename_run
 
 # --- thumbs ---
 THUMB_CACHE_CONTROL = _thumbs.CACHE_CONTROL

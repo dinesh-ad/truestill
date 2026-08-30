@@ -18,7 +18,7 @@
 
 | written and never read | its writer | the only reads of its table |
 |---|---|---|
-| `migration_runs.completed_at` | `finish_migration_run`, `catalog.py:1531` | `SELECT run_id ... ORDER BY started_at` (`catalog.py:1545`) |
+| `migration_runs.completed_at` | `finish_migration_run`, `catalog.py:1609` | `SELECT run_id ... ORDER BY started_at` (`catalog.py:1622`) |
 | `file_copies.copied_at` | `record_copy` / `record_uploaded` INSERTs | six queries over `file_copies`, none names it |
 | `reclaim_journal.reclaimed_at` | the journal INSERT | `SELECT source_path, sha256, freed_bytes` |
 | `skipped_clusters.skipped_at` | the skip INSERT | `SELECT signature` |

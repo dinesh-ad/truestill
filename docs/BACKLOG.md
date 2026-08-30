@@ -282,9 +282,9 @@ is invisible here is retired, not free.**
 > [`soak-nine-record.md`](soak-nine-record.md) §7b.
 
 - **(aix) A TRIP OR EVENT CANNOT BE RENAMED, SO THE ANSWER IS THE FILE MANAGER.** Filed
-  2026-08-30 (P158/P159), **a feature with a design and a staging plan**. ⚠ **STAGES 1, 2
-  AND 2b HAVE SHIPPED (P159/P160/P161); the ENGINE IS COMPLETE and stage 3, the app
-  control, is what remains.** The CLI can rename today.
+  2026-08-30 (P158/P159), **a feature with a design and a staging plan**. ⚠ **STAGES 1, 2, 2b
+  AND 3 HAVE SHIPPED (P159-P162): the CLI and the app can both rename**, and stage 4 - the record,
+  and `(abw)` finding (3) - is what remains.
   Verified from code: **0 rename symbols in core, 0 CLI subcommands, 0 app routes**; `create_trip`
   has no `ON CONFLICT` and `update_trip_days` leaves name and slug alone; `record_event` updates a
   name only by accident of `ON CONFLICT(signature)`; and `app.js:3502` renders *"renaming is not

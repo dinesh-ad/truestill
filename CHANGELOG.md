@@ -16,6 +16,10 @@ All notable changes to this project are documented here. The format follows
 - The drive's own decisions document now takes the new name, so a library rebuilt from the drive
   comes back with what you called things. A name changed on **another machine** is still not
   overwritten.
+- **Renaming from the app**, on the Trips & events card that shows the name. It previews first -
+  which folder becomes which, and how many photographs move - and only then offers to do it;
+  changing the name again withdraws the offer until you look at it. The card used to say
+  "renaming is not available here".
 
 ## [0.1.0] - 2026-08-30
 

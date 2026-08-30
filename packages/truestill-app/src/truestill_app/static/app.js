@@ -3494,12 +3494,25 @@ function evCardHtml(c, i) {
         ${days}
         <div class="row ev-name-row">${
           c.existing_name
-            // Already named in the catalog: show the name as TEXT, never as a box. `commit_trips`
-            // does not accept a new name for a trip whose days are already claimed, so an
-            // editable field here would be asking a question whose answer is discarded - the
-            // defect this replaced. Renaming is a separate, open piece of work.
+            // Already named in the catalog: the name is TEXT, not the naming box. `commit_trips`
+            // still does not accept a new name for a trip whose days are already claimed, so the
+            // box beside it would be asking a question whose answer is discarded - the defect
+            // that markup replaced.
+            //
+            // RENAMING IS A DIFFERENT ACTION AND HAS ITS OWN CONTROL. It is not a catalog edit:
+            // the name renders the folder, so changing it MOVES every photograph in the trip
+            // (`(aix)`). That is why it previews first and then commits, rather than saving on
+            // blur like a text field - the pattern every tool that moves files on a rename uses.
+            // `existing_id` is the row the control sends; see `service/trips.ReviewCardPayload`.
             ? `<div class="ev-named"><b>${esc(c.existing_name)}</b>
-                 <span class="carried">already named - renaming is not available here</span></div>`
+                 <button type="button" class="btn-link ev-rename-open" data-i="${i}">Rename</button>
+                 <div class="ev-rename hidden" data-i="${i}">
+                   <input class="input ev-rename-name" data-i="${i}" value="${esc(c.existing_name)}"
+                          aria-label="new name for this ${isTrip ? "trip" : "event"}">
+                   <button type="button" class="btn btn-secondary ev-rename-preview" data-i="${i}">Preview</button>
+                   <div class="carried ev-rename-note" data-i="${i}"></div>
+                   <button type="button" class="btn ev-rename-go hidden" data-i="${i}"></button>
+                 </div></div>`
             : `<div class="ev-name-wrap"><input class="input ev-name" data-i="${i}"${nameValue} placeholder="name this ${isTrip ? "trip" : "event"} (leave blank to skip)">${
                 // BELOW the box, never inside it. An empty box here means "skip this card", so a
                 // prefilled value would make doing nothing silently accept a guess - the one
@@ -3548,6 +3561,126 @@ function renderCards(cards, collapsed) {
       inp.value = evCards[i] && evCards[i].suggested_name ? evCards[i].suggested_name : inp.value;
       inp.dispatchEvent(new Event("input"));
       inp.focus();
+    });
+  });
+  // RENAME: PREVIEW, THEN COMMIT. `(aix)` stage 3
+  //
+  // The one pattern every tool that moves files on a rename shares - Bulk Rename Utility's
+  // preview pane, Finder's single new name before you confirm, Perforce's "not complete until
+  // you submit". Deliberately NOT a confirmation dialog: HIG guidance warns against unnecessary
+  // ones, and "are you sure?" over an unseen change asks less than a preview answers.
+  //
+  // The Rename button stays hidden until a preview says the rename may proceed, so the only
+  // route to moving photographs is through having seen what moves.
+  $("ev-clusters").querySelectorAll(".ev-rename-open").forEach((b) => {
+    b.onclick = guarded(async () => {
+      const box = $("ev-clusters").querySelector(`.ev-rename[data-i="${b.dataset.i}"]`);
+      if (!box) return;
+      box.classList.toggle("hidden");
+      if (!box.classList.contains("hidden")) box.querySelector(".ev-rename-name")?.focus();
+    });
+  });
+  $("ev-clusters").querySelectorAll(".ev-rename-name").forEach((inp) => {
+    // Any edit invalidates the preview that was on screen. Without this the Rename button would
+    // still be offering to move the files the PREVIOUS name would have moved, which is the one
+    // way a preview-then-commit flow can lie.
+    inp.oninput = () => {
+      const i = inp.dataset.i;
+      $("ev-clusters").querySelector(`.ev-rename-go[data-i="${i}"]`)?.classList.add("hidden");
+      const note = $("ev-clusters").querySelector(`.ev-rename-note[data-i="${i}"]`);
+      if (note) note.textContent = "";
+    };
+  });
+  $("ev-clusters").querySelectorAll(".ev-rename-preview").forEach((b) => {
+    b.onclick = guarded(async () => {
+      const i = b.dataset.i;
+      const card = evCards[+i] || {};
+      const inp = $("ev-clusters").querySelector(`.ev-rename-name[data-i="${i}"]`);
+      const note = $("ev-clusters").querySelector(`.ev-rename-note[data-i="${i}"]`);
+      const go = $("ev-clusters").querySelector(`.ev-rename-go[data-i="${i}"]`);
+      if (!inp || !note || !go) return;
+      go.classList.add("hidden");
+      // A JOB, not a plain request: the plan renders through migrate's route resolution, which
+      // re-reads metadata. Same reason the migrate preview is a job.
+      await runJob({
+        button: b,
+        busyLabel: "Checking…",
+        start: () => api("/api/rename/preview", {
+          path: $("ev-source").value.trim(),
+          kind: card.kind,
+          row_id: card.existing_id,
+          name: inp.value.trim(),
+        }),
+        setJob: () => {},
+        progress: evProgress,
+        progressLabel: "checking",
+        statusVerb: "Checking",
+        onRefuse: (started) => { note.textContent = started.message || "that drive is busy"; },
+        onError: (d) => { note.textContent = d.error || "could not plan that rename"; },
+        onCancelled: () => { note.textContent = "Stopped."; },
+        onSuccess: (d) => {
+          const r = d.summary;
+          // ⚠ The refusal SENTENCE is rendered as core wrote it. `RENAME_WORDING` is the one home
+          // and the CLI reads the same map; a second wording here is `(afe)`'s shape, where the
+          // surfaces disagree about what happened and only one of them is right.
+          if (r.refusal) { note.textContent = r.refusal; return; }
+          note.textContent = r.moves
+            ? `${esc(r.old_folder)} → ${esc(r.new_folder)}`
+            : "nothing would move: the folder is already named that on this drive";
+          go.textContent = `Rename, moving ${plural(r.moves, "photo")}`;
+          go.classList.toggle("hidden", !r.moves);
+        },
+      });
+    });
+  });
+  $("ev-clusters").querySelectorAll(".ev-rename-go").forEach((b) => {
+    b.onclick = guarded(async () => {
+      const i = b.dataset.i;
+      const card = evCards[+i] || {};
+      const inp = $("ev-clusters").querySelector(`.ev-rename-name[data-i="${i}"]`);
+      const note = $("ev-clusters").querySelector(`.ev-rename-note[data-i="${i}"]`);
+      if (!inp || !note) return;
+      await runJob({
+        button: b,
+        busyLabel: "Moving files…",
+        start: () => api("/api/rename/run", {
+          path: $("ev-source").value.trim(),
+          kind: card.kind,
+          row_id: card.existing_id,
+          name: inp.value.trim(),
+        }),
+        setJob: () => {},
+        progress: evProgress,
+        progressLabel: "moving",
+        statusVerb: "Moving files",
+        onRefuse: (started) => { note.textContent = started.message || "that drive is busy"; },
+        onCancelled: (d) => {
+          // Cancel leaves completed moves in place, and the name has NOT flipped - stage 2's
+          // ordering. Saying "renamed" here would claim something the catalog does not hold.
+          // `streamJob` normalises `summary` to an object on every terminal event, so this
+          // binding is the plain one rather than a guarded read.
+          const s = d.summary;
+          note.textContent = `Stopped after moving ${plural(s.moved || 0, "photo")}; `
+            + `still called ${esc(s.name_now || card.existing_name)}.`;
+        },
+        onSuccess: (d) => {
+          const s = d.summary;
+          // ⚠ `name_now` is read back FROM THE CATALOG, so an interrupted rename says the old
+          // name because that is what is true. `(afm)`: the second copy of a fact is allowed to
+          // disagree with the first, and the screen must show the one the catalog holds.
+          //
+          // ⚠ AND THE STOP REASON IS RENDERED, not swallowed. `migrationStopNote` is the same
+          // banner migrate uses, reading the same `STOP_WORDING` core wrote - a run that ended
+          // early and said only "did not finish" is `(afe)`'s shape.
+          note.innerHTML = (s.renamed
+            ? `Renamed to ${esc(s.name_now)}, moving ${plural(s.moved || 0, "photo")}.`
+            : `Moved ${plural(s.moved || 0, "photo")}, but the rename did not finish; `
+              + `still called ${esc(s.name_now || card.existing_name)}.`)
+            + (s.stopped ? migrationStopNote(s) : "");
+          if (s.renamed) b.classList.add("hidden");
+        },
+        onError: (d) => { note.textContent = d.error || "the rename failed"; },
+      });
     });
   });
   $("ev-clusters").querySelectorAll(".ev-split").forEach((b) => {

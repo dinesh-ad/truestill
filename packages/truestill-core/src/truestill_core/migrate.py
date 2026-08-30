@@ -1011,6 +1011,23 @@ def apply_rename(
     # A partial rename that renamed anyway would put the catalog's name on a folder that does not
     # hold all of its photographs, and the next `plan_rename` would compute its moves from a slug
     # the drive has only half adopted.
+    # ⚠ **A RENAME LEAVES A RECORD, for the reason migrate does: it moved the user's files.**
+    # `IMPLEMENTATION_STANDARDS.md`'s record rule is about what a run DID, and "which photographs
+    # moved when I renamed that trip" is the same question as "which moved when the template
+    # changed". Written before the flip and on every path, per `_record_migration`'s own note
+    # about `(agj)`: a record placed after a conditional is skipped by exactly the runs that
+    # needed it. Filed under `kind="rename"`, so the two are legible apart.
+    _record_migration(
+        catalog,
+        destination,
+        drive_uuid,
+        run_id=applied.run_id,
+        total=len(plan.moves),
+        migrated=applied.migrated,
+        refused=applied.refused,
+        stopped=applied.stopped,
+        kind="rename",
+    )
     renamed = applied.migrated == len(plan.moves)
     if renamed:
         # ⚠ **The lease is computed BEFORE the flip and describes the OLD state**, because that is
@@ -1152,8 +1169,15 @@ def _record_migration(
     migrated: int,
     refused: Sequence[tuple[str, str]],
     stopped: MigrationStop | None,
+    kind: str = "migrate",
 ) -> None:
     """Write this migration's record. **Never raises; a failure here must not fail the run.**
+
+    ⚠ **`kind` exists because a RENAME is one of these runs too.** It moves the user's files
+    through the same journal, the same `_apply_move` and the same run id, so it needs the same
+    record - and it must not file under `migrate`, because a reader looking for "what moved my
+    photographs on Tuesday" needs to know a person renamed a trip rather than that the layout
+    template changed. Nothing branches on `kind` today; it is what makes the two legible apart.
 
     `IMPLEMENTATION_STANDARDS.md`'s record rule, and the reason it is a `try` rather than trust:
     `record_organize` returns its errors, but the payload is built here, and a run that moved
@@ -1171,7 +1195,7 @@ def _record_migration(
     try:
         payload = build_run_record(
             RunHeader(
-                kind="migrate",
+                kind=kind,
                 source=destination.describe(),
                 destination=destination.describe(),
                 destination_uuid=drive_uuid,

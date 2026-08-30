@@ -684,6 +684,58 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             mutating=True,
         )
 
+    async def rename_preview(request: Request) -> JSONResponse:
+        """What renaming this trip or event would move. **Writes nothing.**
+
+        A job like `migrate preview`, and for its reason: the plan renders through the same route
+        resolution migrate uses, which re-reads metadata for ambiguous labels. A REFUSAL arrives
+        as a completed job carrying ``refusal``, never as a failure - `(agk)`/P24.
+        """
+        body = await request.json()
+        path = Path(body["path"])
+        return await run_in_threadpool(
+            _start_drive_job,
+            await run_in_threadpool(
+                partial(
+                    service.rename_preview,
+                    path,
+                    _db(),
+                    kind=str(body["kind"]),
+                    row_id=int(body["row_id"]),
+                    new_name=str(body.get("name", "")),
+                )
+            ),
+            paths=[path],
+            operation="rename preview",
+            mutating=False,
+        )
+
+    async def rename_run(request: Request) -> JSONResponse:
+        """Carry the rename out. **Moves every photograph in the trip**, so it holds the drive.
+
+        Through `_start_drive_job` with ``mutating=True``, exactly as `migrate` does, because it
+        is the same kind of work: a journalled, resumable, cancellable set of moves. The CLI
+        surface is `truestill rename`.
+        """
+        body = await request.json()
+        path = Path(body["path"])
+        return await run_in_threadpool(
+            _start_drive_job,
+            await run_in_threadpool(
+                partial(
+                    service.rename_run,
+                    path,
+                    _db(),
+                    kind=str(body["kind"]),
+                    row_id=int(body["row_id"]),
+                    new_name=str(body.get("name", "")),
+                )
+            ),
+            paths=[path],
+            operation="rename",
+            mutating=True,
+        )
+
     async def migrate_run(request: Request) -> JSONResponse:
         body = await request.json()
         path = Path(body["path"])
@@ -971,6 +1023,8 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         Route("/api/events/settings", event_settings, methods=["GET", "POST"]),
         Route("/api/migrate/preview", migrate_preview, methods=["POST"]),
         Route("/api/migrate/run", migrate_run, methods=["POST"]),
+        Route("/api/rename/preview", rename_preview, methods=["POST"]),
+        Route("/api/rename/run", rename_run, methods=["POST"]),
         Route("/api/dates/files", dates_tier_files),
         Route("/api/dates/confirm", dates_confirm, methods=["POST"]),
         Route("/api/dates/bake/preview", dates_bake_preview, methods=["POST"]),

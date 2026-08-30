@@ -60,6 +60,8 @@ BOUND: dict[str, str] = {
     "/api/migrate/undo/preview": "UndoJobSummary",
     "/api/organize/undo/apply": "OrganizeUndoJobSummary",
     "/api/organize/undo/preview": "OrganizeUndoJobSummary",
+    "/api/rename/preview": "RenamePreviewPayload",
+    "/api/rename/run": "RenameRunPayload",
     "/api/verify/run": "VerifyJobSummary",
 }
 
@@ -267,8 +269,12 @@ def test_the_subset_and_its_exclusions_are_both_declared() -> None:
     blocks = [m.end() - 1 for m in re.finditer(r"runJob\(\{", text)]
 
     assert len(blocks) >= 14, f"only {len(blocks)} runJob blocks found; the pattern moved"
-    assert len(BOUND) == 7, "the bound subset changed size without a ruling"
-    assert len(set(BOUND.values())) == 6, (
+    # ⚠ **9 since `(aix)` stage 3 - BOTH rename jobs - and BINDING them was the ruling.** Either
+    # could have been excluded with a reason like the nine below; binding them means their keys
+    # are checked as read, which is what caught `resumed`, `kind`, `row_id` and a five-move
+    # `sample` being computed for a card that renders none of them.
+    assert len(BOUND) == 9, "the bound subset changed size without a ruling"
+    assert len(set(BOUND.values())) == 8, (
         "seven routes over six types - `/api/organize/undo/preview` and `.../apply` share "
         "`OrganizeUndoJobSummary`, and a key either screen reads is read"
     )

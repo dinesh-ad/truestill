@@ -88,7 +88,9 @@ a name normally. The surface must say which set it is renaming.
 2b. ✅ **The drive's decisions document** - `authored_decisions` (schema v23), a per-key
    **lease** carrying the value the renamer expects the drive to hold, recorded in the same
    transaction as the name flip and read once per publish. See below. *(P161)*
-3. **The app control** - replaces `app.js:3502`'s refusal text. Touches a screen.
+3. ✅ **The app control** - `/api/rename/{preview,run}`, and the card's `ev-named` branch now
+   offers Rename instead of refusing in words. **Preview before commit**, gated in the DOM.
+   *(P162)*
 4. **The record**, and `(abw)` finding (3) revisited - the *"already-named trip is re-asked"*
    feature question a rename is the answer to.
 
@@ -178,3 +180,44 @@ rather than per object - which is the same per-key scoping arrived at from a dif
 ⚠ **WHAT 2b DOES NOT DO.** The *"restore first"* wording is still the sentence every **other**
 caller of that guard gets, and it is still the wrong remedy for a rename - it is simply no longer
 reachable from one. Reworded when a second caller needs it, not before.
+
+## STAGE 3: WHAT THE SCREEN DOES, AND THE THREE THINGS THE BUILD FOUND
+
+**Preview before commit**, which is the one pattern every tool that moves files on a rename
+shares: Bulk Rename Utility's preview pane *"reveals what new file names will appear before making
+any changes"*, Finder shows the new name before you confirm, Perforce's Rename/Move *"is not
+complete until you submit the changelist"*. ⚠ **Deliberately NOT a confirmation dialog** - HIG
+guidance warns against unnecessary ones, and *"are you sure?"* over an unseen change asks less
+than a preview answers. The commit button does not exist until a preview returns clean, and **any
+edit to the name withdraws it** - a button left standing after an edit would offer to move the
+files the PREVIOUS name planned.
+
+⚠ **THE PREVIEW IS A JOB, AND IT WAS WRITTEN AS A PLAIN REQUEST FIRST.** `plan_rename` reads only
+the catalog, so "not a job" looked right and was recorded as a decision. It is wrong: rendering
+the new path needs `_resolve_migration_routes`, which **re-reads metadata** for ambiguous labels.
+`migration_preview_run` is a job for exactly this reason, its own note naming *"the silent phase
+that made events/migrate preview look frozen on a network mount"*.
+
+🔑 **AND SKIPPING ROUTE RESOLUTION WAS A REAL DEFECT, MEASURED NOT PREDICTED.** Without it every
+`Camera` row is ambiguous by construction, the conservative default fires, and the rename rendered
+`Camera/2015/2015-06/` - **dropping the trip folder entirely**, which is the opposite of what a
+rename does. Caught because the fixture used placeholder bytes and the test failed; a fixture of
+real photographs is what makes the trip exist at all, and that is now written into both test files
+rather than left as folklore.
+
+⚠ **A RENAME LEFT NO RUN RECORD, AND A GUARD FOUND IT RATHER THAN A REVIEW.**
+`test_no_service_writes_a_record_without_a_row_here` reported a service that moves the user's
+photographs and records nothing. It now writes one through the same `_record_migration` migrate
+uses, with the `run_id` `apply_moves` already mints, filed under **`kind="rename"`** - a reader
+asking *"what moved my photographs"* has to be able to tell a person renaming a trip from the
+layout template changing under everything.
+
+**The card had to learn which row it names.** `existing_name` was looked up by identity - a trip
+by its day set, an event by its signature - and renaming is **row-keyed by ruling**. So
+`catalog.NamedRow` carries id and name out of ONE lookup and the payload gained `existing_id`. A
+screen that showed one card's name beside another's id would move the wrong photographs and look
+entirely correct doing it.
+
+⚠ **WHAT STAGE 3 DOES NOT DO.** The control lives on the Trips & events review card, which is
+where an already-named trip is visible - there is no rename anywhere else, and no way to rename
+from the Drives or Settings screens. `(abw)` finding (3) is still open and is stage 4's subject.

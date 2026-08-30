@@ -9,6 +9,7 @@ from datetime import date
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal, NotRequired, TypedDict
 
+from truestill_core.catalog import NamedRow
 from truestill_core.catalog_session import open_catalog
 from truestill_core.categorize import build_rules
 from truestill_core.dedup import DedupIndex
@@ -87,6 +88,11 @@ class ReviewCardPayload(TypedDict):
     #: the screen could not tell the two apart and showed an empty box for a question
     #: `commit_trips` will not accept an answer to.
     existing_name: str | None
+    #: The catalog row `existing_name` came from, or None when this card is not named yet.
+    #: **`(aix)` stage 3: this is what the Rename control sends.** It is deliberately the row id
+    #: and not the identity the name was looked up by, because `plan_rename` is row-keyed - see
+    #: `catalog.NamedRow`. Read out of the same lookup as the name, never resolved a second time.
+    existing_id: int | None
     #: A name PROPOSED from the folders this card's members came from, or None. Its own field:
     #: `name` is the browser's store for what the user typed and `existing_name` is what the
     #: catalog already holds. Three meanings, three fields - collapsing any two makes a
@@ -146,8 +152,8 @@ class ExistingNames:
     still be offered a name, or every cluster that ever grew would fall silent.
     """
 
-    trips_by_day: Mapping[str, str]
-    events_by_signature: Mapping[str, str]
+    trips_by_day: Mapping[str, NamedRow]
+    events_by_signature: Mapping[str, NamedRow]
 
 
 @dataclass(frozen=True, slots=True)
@@ -216,17 +222,28 @@ def _suggestion_roots(cards: Sequence[ReviewCard], hints: SourceHints | None) ->
     return frozenset(name for name, held in seen.items() if held >= len(cards) * _ROOT_SHARE)
 
 
-def existing_card_name(card: ReviewCard, names: ExistingNames | None) -> str | None:
-    """The name the catalog already holds for this exact card, if any.
+def existing_card_row(card: ReviewCard, names: ExistingNames | None) -> NamedRow | None:
+    """The catalog row this exact card already names, if any. **One lookup, both answers.**
 
     A trip is looked up by its first claimed DAY, not by a position in the card list: merge and
     split reorder cards, and an index-keyed lookup would start naming the wrong one.
+
+    ⚠ **The row id it returns is what makes the card renameable** (`(aix)` stage 3), and it comes
+    from the SAME lookup that decided the card is named at all. A screen that showed one card's
+    name and sent another card's id would move photographs into the wrong folder, and nothing
+    downstream could tell - `plan_rename` would be given a coherent, wrong instruction.
     """
     if names is None:
         return None
     if card.trip is not None:
         return names.trips_by_day.get(min(card.trip.days).isoformat())
     return names.events_by_signature.get(card.event.signature) if card.event else None
+
+
+def existing_card_name(card: ReviewCard, names: ExistingNames | None) -> str | None:
+    """The name the catalog already holds for this exact card, if any."""
+    row = existing_card_row(card, names)
+    return None if row is None else row.name
 
 
 def review_card_json(
@@ -239,10 +256,12 @@ def review_card_json(
     day-event - for the review UI. ``kind`` ("trip" | "event") is the label the screen shows;
     serialisation does not alter either card's persisted identity.
     """
+    existing = existing_card_row(card, names)
     if card.trip is not None:
         return {
             "kind": card.kind,
-            "existing_name": existing_card_name(card, names),
+            "existing_name": None if existing is None else existing.name,
+            "existing_id": None if existing is None else existing.row_id,
             "suggested_name": suggested,
             "start": card.trip.start_date.isoformat(),
             "end": card.trip.end_date.isoformat(),
@@ -258,7 +277,8 @@ def review_card_json(
     assert card.event is not None
     return {
         "kind": card.kind,
-        "existing_name": existing_card_name(card, names),
+        "existing_name": None if existing is None else existing.name,
+        "existing_id": None if existing is None else existing.row_id,
         "suggested_name": suggested,
         "start": card.event.start.isoformat(),
         "end": card.event.end.isoformat(),
@@ -384,8 +404,8 @@ def propose_events(
         )
         hints = SourceHints.of(catalog.source_hints_for_drive(marker.uuid))
         existing = ExistingNames(
-            trips_by_day=catalog.named_trip_days(),
-            events_by_signature=catalog.named_event_signatures(),
+            trips_by_day=catalog.named_trips_by_day(),
+            events_by_signature=catalog.named_events_by_signature(),
         )
     return {
         "ok": True,
