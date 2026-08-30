@@ -35,7 +35,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -1463,11 +1463,34 @@ class DriveHolds:
         return bool(self.missing or self.changed)
 
 
-def drive_holdings(existing: Decisions, fresh: Decisions) -> tuple[DriveHolds, ...]:
+def document_key_text(key: object) -> str:
+    """One spelling of a `_LOSS_KEYS` key, so a lease and a comparison cannot disagree.
+
+    A trip's key is a tuple of days and an event's is a signature string; both have to survive a
+    round trip through a SQLite column. **One home for the spelling** rather than a `str()` at the
+    writer and another at the reader - the two would drift the first time either was corrected,
+    which is the shape `(agc)` keeps naming.
+    """
+    return "\n".join(str(part) for part in key) if isinstance(key, tuple) else str(key)
+
+
+def drive_holdings(
+    existing: Decisions, fresh: Decisions, *, authored: Mapping[tuple[str, str], str] | None = None
+) -> tuple[DriveHolds, ...]:
     """Per section, what ``existing`` holds that ``fresh`` does not - **missing and changed apart**.
 
     Sections with nothing to say are omitted, so a caller can test the tuple itself.
+
+    ⚠ **`authored` IS A LEASE, NOT A FORCE FLAG, and the difference is the `expected` value.**
+    `(aix)` stage 2b. A key appears there only when THIS catalog deliberately changed it, and it
+    is skipped **only while the drive still holds what the catalog expected to find** - git's
+    `--force-with-lease` rather than `--force`. A drive changed on another machine no longer
+    matches, so it is refused exactly as before.
+    ⚠ **`None` and an empty mapping behave identically**, which is what keeps every other caller
+    and every rebuilt catalog on the pre-`(aix)` path: a rebuild authored nothing, so it leases
+    nothing, so `(ahz)` step 3 refuses it in full.
     """
+    leases = authored or {}
     holdings: list[DriveHolds] = []
     for section, of in _LOSS_KEYS:
         theirs, ours = of(existing), of(fresh)
@@ -1475,14 +1498,18 @@ def drive_holdings(existing: Decisions, fresh: Decisions) -> tuple[DriveHolds, .
         changed = tuple(
             NameSwap(lost=value, kept=ours[key])
             for key, value in theirs.items()
-            if key in ours and ours[key] != value
+            if key in ours
+            and ours[key] != value
+            and leases.get((section, document_key_text(key))) != value
         )
         if missing or changed:
             holdings.append(DriveHolds(section, missing, changed))
     return tuple(holdings)
 
 
-def refusal_detail(existing: Decisions, fresh: Decisions) -> str:
+def refusal_detail(
+    existing: Decisions, fresh: Decisions, *, authored: Mapping[tuple[str, str], str] | None = None
+) -> str:
     """Why a save to this drive was refused, in one sentence. `(ahz)` step 3
 
     ⚠ **"this drive holds events this catalog does not" is FALSE of a rename** - the catalog has
@@ -1491,7 +1518,7 @@ def refusal_detail(existing: Decisions, fresh: Decisions) -> str:
     about a refused write, so the two kinds get their own clause rather than the commoner one
     standing in for both.
     """
-    holdings = drive_holdings(existing, fresh)
+    holdings = drive_holdings(existing, fresh, authored=authored)
     clauses: list[str] = []
     gone = [h.section.replace("_", " ") for h in holdings if h.missing]
     if gone:
@@ -1503,7 +1530,9 @@ def refusal_detail(existing: Decisions, fresh: Decisions) -> str:
     return f"this drive {' and '.join(clauses)}; restore first"
 
 
-def would_lose(existing: Decisions, fresh: Decisions) -> tuple[str, ...]:
+def would_lose(
+    existing: Decisions, fresh: Decisions, *, authored: Mapping[tuple[str, str], str] | None = None
+) -> tuple[str, ...]:
     """Sections where the drive holds decisions ``fresh`` does not. **`O(document)`.**
 
     **This is the same rule as the unknown-section merge, applied to sections we understand.** A
@@ -1522,7 +1551,7 @@ def would_lose(existing: Decisions, fresh: Decisions) -> tuple[str, ...]:
     the sequence `(ahz)` measured. Callers that need to say WHICH kind ask
     :func:`drive_holdings`; this answers only *is there anything*, which is all a refusal needs.
     """
-    return tuple(holds.section for holds in drive_holdings(existing, fresh))
+    return tuple(holds.section for holds in drive_holdings(existing, fresh, authored=authored))
 
 
 def merge_onto_drive(existing: Decisions | None, fresh: Decisions) -> Decisions:
@@ -1598,6 +1627,10 @@ def save_decisions_to_reachable_drives(
         return ()
 
     shared = replace(_shared_decisions(catalog), written=stamp or _utc_now())
+    # ⚠ **Read once for the whole run, like `shared` above.** The lease is a property of the
+    # catalog, not of a drive, and re-reading it per drive would make a second backup drive cost a
+    # second query for an answer that cannot have changed. `(aix)` stage 2b
+    authored = catalog.authored_decisions()
     results: list[DriveSave] = []
     for row in drives:
         uuid = str(row["uuid"])
@@ -1621,13 +1654,13 @@ def save_decisions_to_reachable_drives(
 
         fresh = _with_drive(shared, row, uuid)
         if found.decisions is not None:
-            if would_lose(found.decisions, fresh):
+            if would_lose(found.decisions, fresh, authored=authored):
                 results.append(
                     DriveSave(
                         uuid,
                         label,
                         SaveOutcome.WOULD_LOSE,
-                        refusal_detail(found.decisions, fresh),
+                        refusal_detail(found.decisions, fresh, authored=authored),
                     )
                 )
                 continue

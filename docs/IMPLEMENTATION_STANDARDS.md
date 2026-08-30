@@ -465,7 +465,7 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
 ## 3. Data contract (catalog)
 
 - **Single SQLite file**, stdlib `sqlite3` (`catalog.py::Catalog`). No server.
-- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 22`**.
+- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 23`**.
   Migrations are ordered, idempotent functions in `_MIGRATIONS`; a catalog newer than the code
   is refused (`CatalogVersionError`). Migration coverage tested in `tests/test_catalog.py`.
 - **⚠ A copy of the catalog is taken before the chain runs, and it closes INTENT rather than
@@ -521,11 +521,12 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   control is pinned at the connect call to today's `LEGACY_TRANSACTION_CONTROL`, so a future
   Python default cannot change when writes commit; adopting the new semantics is a separate
   decision.
-- **Table inventory (v20 - the last migration that adds a table; v16, v17, v19, v21 and v22 add
+- **Table inventory (v23 - the last migration that adds a table; v16, v17, v19, v21 and v22 add
   only columns, and v18 only drops an index):**
   `files`, `albums`, `file_albums`, `events`, `skipped_clusters`, `drives`, `file_copies`,
   `settings`, `migration_journal`, `reclaim_journal`, `inplace_runs`, `inplace_moves`,
-  `migration_runs`, `trips`, `trip_days`, `date_confirmations`, `organize_runs`.
+  `migration_runs`, `trips`, `trip_days`, `date_confirmations`, `organize_runs`,
+  `authored_decisions`.
   v13, v14 and v16 add no table: they are the columns `files.date_source`, `files.date_tag`
   (the tier, and the evidence behind it) and `file_copies.date_baked_at`.
 - **Migration ledger:** v2 `size`, v3 `original_name`, v4 event tables (`events` +
@@ -631,6 +632,23 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   same way after the migration as before it. The window is not closed - it is made **legible**,
   and a re-bake is byte-identical (measured), so `date_baked_at IS NULL` still offers the file and
   the ordinary path heals it.
+  v23 `authored_decisions` - **the fact a lease needs, and the reason it is a table**, `(aix)`.
+  A rename changes a name the drive's decisions document already holds, and `would_lose` counts a
+  **changed** value as a loss (`(ahz)` step 3, written after a drive holding a real name was
+  overwritten by a catalog holding a placeholder). That guard cannot tell a deliberate rename from
+  a rebuilt catalog that never knew the name - **only the writer knows which** - so the rename
+  records what it authored and the publish path reads it.
+  🔑 **A LEASE, NOT A FORCE FLAG, and `expected` is the difference.** Each row is
+  `(section, key) -> the value the renamer expects the drive to still hold`, so a write is a
+  compare-and-swap: a name changed on **another machine** fails the comparison and survives. This
+  is git's `--force-with-lease` (*"an atomic compare-and-swap on the branch you are pushing to"*)
+  rather than `--force` (*"has really no checking"*), and the per-key scoping is the **field mask**
+  pattern Google's AIP-134/161 require over an unscoped `force=true` boolean.
+  ⚠ **The row is written in the SAME TRANSACTION as the name flip**, so no crash can leave a
+  flipped name with no lease - the state that would refuse the user's own rename forever. And
+  because the table lives in the catalog, **a rebuilt catalog leases nothing and is refused in
+  full without anyone having to notice it is a rebuild**: the self-identifying property that a
+  caller-supplied flag would not have. Additive and empty, no backfill.
 
 - **Every catalog query names its columns; none selects `*`.** It began as a privacy guarantee
   in `decisions.gather_decisions` - reading column by column so a column added to `files` or

@@ -6,7 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-Nothing yet - 0.1.0 is the current release.
+### Added
+
+- **Rename a trip or an event**, from the CLI: `truestill rename trip <id> "<new name>"`
+  (`--apply` to carry it out; without it you see what would move). A name is what the folder is
+  called on the drive, so a rename moves the photographs - and the name changes **last**, after
+  every one of them has arrived. An interrupted rename leaves the old name over a folder that is
+  partly moved, which is the truth, and the next rename or migration finishes it.
+- The drive's own decisions document now takes the new name, so a library rebuilt from the drive
+  comes back with what you called things. A name changed on **another machine** is still not
+  overwritten.
 
 ## [0.1.0] - 2026-08-30
 

@@ -202,6 +202,35 @@ CREATE TABLE IF NOT EXISTS settings (
 -- guarantee silently - a resumed run would then need the flipped row to know where things go, so
 -- the name would have to flip FIRST, which is the state `(aix)` exists to make unreachable.
 -- Nothing would fail loudly; renames would simply stop being crash-safe.
+
+-- What THIS catalog deliberately changed, and what the drive held when it did. `(aix)` stage 2b
+--
+-- 🔑 **A LEASE, NOT A FORCE FLAG.** `decisions.would_lose` refuses to overwrite a value a drive
+-- holds, because the catalog might be a REBUILD that never knew it - `(ahz)` step 3, written after
+-- a real name was destroyed. It cannot tell that from a user who just renamed something, and
+-- **only the writer knows which**. This records the writer's answer.
+--
+-- ⚠ **`expected` is the whole point and is what makes this a lease.** Git names the distinction:
+-- `--force` "has really no checking" and can silently overwrite someone's work, while
+-- `--force-with-lease` does "an atomic compare-and-swap on the branch you are pushing to, based on
+-- the last information you fetched". So a row here does not say *"overwrite this key"* - it says
+-- *"overwrite it IF the drive still holds `expected`"*. A drive changed on another machine no
+-- longer matches and is refused exactly as before.
+--
+-- ⚠ **Scoped per KEY, never per section** - `decisions._merge_section`'s ruling on the restore
+-- side, for its stated reason: section-wide authority would let this catalog answer for decisions
+-- it does not carry. The industry name for the scoped form is a **field mask** (Google AIP-134 and
+-- AIP-161 require it rather than tolerate it); an unscoped `force` boolean is the anti-pattern.
+--
+-- It dies with the catalog, which is correct: a rebuilt catalog authored nothing and is refused.
+CREATE TABLE IF NOT EXISTS authored_decisions (
+    section    TEXT NOT NULL,
+    key        TEXT NOT NULL,
+    expected   TEXT NOT NULL,
+    noted_at   TEXT NOT NULL,
+    PRIMARY KEY (section, key)
+);
+
 CREATE TABLE IF NOT EXISTS migration_journal (
     sha256       TEXT NOT NULL,
     drive_uuid   TEXT NOT NULL,
@@ -336,7 +365,7 @@ CREATE TABLE IF NOT EXISTS date_confirmations (
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 22
+CURRENT_SCHEMA_VERSION = 23
 
 
 class CatalogVersionError(RuntimeError):
@@ -880,6 +909,27 @@ def _apply_step(
         raise
 
 
+def _add_authored_decisions(conn: sqlite3.Connection) -> None:
+    """v22 -> v23: the publish lease. `(aix)` stage 2b
+
+    ⚠ **Additive and EMPTY on every existing catalog**, so a v22 database answers every publish
+    exactly as before: an empty lease means every changed key is refused, which is `(ahz)` step 3
+    unchanged. **No backfill** - a lease is a claim about something this catalog did, and
+    inventing one for work it never did is the opposite of what the table is for.
+    """
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS authored_decisions (
+            section    TEXT NOT NULL,
+            key        TEXT NOT NULL,
+            expected   TEXT NOT NULL,
+            noted_at   TEXT NOT NULL,
+            PRIMARY KEY (section, key)
+        )
+        """
+    )
+
+
 def _add_bake_started_at(conn: sqlite3.Connection) -> None:
     """v21 -> v22: `file_copies.bake_started_at`, so an interrupted bake is not read as damage.
 
@@ -980,6 +1030,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (20, _add_organize_runs),
     (21, _make_the_inplace_journal_an_intent_log),
     (22, _add_bake_started_at),
+    (23, _add_authored_decisions),
 )
 
 
@@ -2750,7 +2801,37 @@ class Catalog:
             )
         }
 
-    def rename_row(self, kind: str, row_id: int, *, name: str, slug: str) -> None:
+    def event_signature(self, row_id: int) -> str | None:
+        """That event's signature, or ``None`` when no such row exists. `(aix)` stage 2b
+
+        The decisions document keys events by signature while a rename is row-keyed, so something
+        has to join the two. It lives here rather than in `migrate` because the mapping is a fact
+        about the schema.
+        """
+        row = self._conn.execute("SELECT signature FROM events WHERE id = ?", (row_id,)).fetchone()
+        return None if row is None else str(row["signature"])
+
+    def authored_decisions(self) -> dict[tuple[str, str], str]:
+        """``{(section, key): the value the drive is expected to hold}``. The publish lease.
+
+        Read by `decisions.save_decisions_to_reachable_drives`; **empty on a rebuilt catalog**,
+        which is what makes a rebuild refuse itself without anyone having to notice it is one.
+        """
+        return {
+            (str(row["section"]), str(row["key"])): str(row["expected"])
+            for row in self._conn.execute("SELECT section, key, expected FROM authored_decisions")
+        }
+
+    def rename_row(
+        self,
+        kind: str,
+        row_id: int,
+        *,
+        name: str,
+        slug: str,
+        document_key: tuple[str, str] | None = None,
+        expected: str = "",
+    ) -> None:
         """Give a trip or event a new name and slug. **The LAST step of a rename.** `(aix)`
 
         🔑 **Called only after every photograph has reached its new path**, which is the whole of
@@ -2769,6 +2850,19 @@ class Catalog:
             conn.execute(
                 f"UPDATE {table} SET name = ?, slug = ? WHERE id = ?", (name, slug, row_id)
             )
+            # 🔑 **ONE TRANSACTION WITH THE FLIP, so no interruption can separate them.** The
+            # lease is what lets the drive's document learn this name. Written in a later
+            # statement, a process dying between the two would leave a renamed catalog that can
+            # never publish - the state stage 2 shipped with. Written in an earlier one, a failed
+            # rename would leave a lease for a name this catalog does not hold. Atomic is neither.
+            if document_key is not None:
+                conn.execute(
+                    "INSERT INTO authored_decisions (section, key, expected, noted_at) "
+                    "VALUES (?, ?, ?, ?) "
+                    "ON CONFLICT(section, key) DO UPDATE SET "
+                    "expected = excluded.expected, noted_at = excluded.noted_at",
+                    (document_key[0], document_key[1], expected, _now()),
+                )
 
     def named_row_name(self, kind: str, row_id: int) -> str | None:
         """That trip's or event's name, or ``None`` when no such row exists. `(aix)`

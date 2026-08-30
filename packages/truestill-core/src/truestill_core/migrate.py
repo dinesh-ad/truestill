@@ -31,6 +31,7 @@ from uuid import uuid4
 
 from truestill_core.catalog import Catalog
 from truestill_core.categorize import build_rules, categorize, deterministic_side_bin_labels
+from truestill_core.decisions import document_key_text
 from truestill_core.destinations.base import Destination, DestinationError
 from truestill_core.drive_unwritable import persists_for_the_run
 from truestill_core.events import slugify
@@ -945,6 +946,26 @@ class RenameOutcome:
     stopped: MigrationStop | None = None
 
 
+def _document_key(catalog: Catalog, plan: RenamePlan) -> tuple[str, str] | None:
+    """This trip's or event's key **in the decisions document's own vocabulary**, or `None`.
+
+    ⚠ **The document keys a trip by its DAY SET and an event by its SIGNATURE** - never by row id,
+    which is exactly the asymmetry `service/trips.py`'s `ExistingNames` records: a trip survives
+    its membership changing, an event *is* its membership. A rename is row-keyed, so this is the
+    join between the two vocabularies and the only place they meet.
+
+    `None` when the row has nothing the document would carry - a trip with no claimed days - which
+    leaves the lease unwritten and the publish refused, the conservative direction.
+    """
+    if plan.kind is RenameKind.TRIP:
+        days = sorted(
+            day for day, trip_id in catalog.all_trip_days().items() if trip_id == plan.row_id
+        )
+        return ("trips", document_key_text(tuple(days))) if days else None
+    signature = catalog.event_signature(plan.row_id)
+    return ("events", document_key_text(signature)) if signature else None
+
+
 def apply_rename(
     catalog: Catalog,
     destination: Destination,
@@ -992,7 +1013,19 @@ def apply_rename(
     # the drive has only half adopted.
     renamed = applied.migrated == len(plan.moves)
     if renamed:
-        catalog.rename_row(plan.kind.value, plan.row_id, name=plan.new_name, slug=plan.new_slug)
+        # ⚠ **The lease is computed BEFORE the flip and describes the OLD state**, because that is
+        # what the drive is expected to hold: *"overwrite this key if the drive still says
+        # `old_name`"*. Reading it after the flip would lease the value we just wrote, which
+        # matches nothing and leaves the document refused - the state stage 2 shipped with.
+        key = _document_key(catalog, plan)
+        catalog.rename_row(
+            plan.kind.value,
+            plan.row_id,
+            name=plan.new_name,
+            slug=plan.new_slug,
+            document_key=key,
+            expected=plan.old_name,
+        )
     return RenameOutcome(
         plan=plan,
         resumed=resumed,

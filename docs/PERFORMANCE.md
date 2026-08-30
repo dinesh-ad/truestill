@@ -922,7 +922,7 @@ from the 6558 ms observation.
 §5.4 bought `BEGIN IMMEDIATE` on every open and measured the **holder** afterwards (7.57 ms max).
 It never priced the **acquisition**, which every open paid at the time even when it would change
 nothing (see the correction above - `(adu)` has since removed that):
-`Catalog.__init__` calls `_migrate` (`catalog.py:1072`), which takes RESERVED (`catalog.py:1099`)
+`Catalog.__init__` calls `_migrate` (`catalog.py:1133`), which takes RESERVED (`catalog.py:1230`)
 before it can decide the schema is current. `(adt)` item 5 asked what that costs. Throwaway rig,
 CI run **`31904426333`**, three repeats per OS, catalog at schema v19.
 

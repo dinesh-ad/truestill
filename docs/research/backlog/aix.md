@@ -85,7 +85,9 @@ a name normally. The surface must say which set it is renaming.
 2. ✅ **Apply** - `migrate.apply_moves` (extracted from `run_migration`, one mechanism two
    callers), `migrate.apply_rename`, `Catalog.rename_row`, CLI `--apply`. **The name flips last**,
    proven by an injected failure AND by a killed process. *(P160)*
-2b. **The drive's decisions document** - see below. *(open)*
+2b. ✅ **The drive's decisions document** - `authored_decisions` (schema v23), a per-key
+   **lease** carrying the value the renamer expects the drive to hold, recorded in the same
+   transaction as the name flip and read once per publish. See below. *(P161)*
 3. **The app control** - replaces `app.js:3502`'s refusal text. Touches a screen.
 4. **The record**, and `(abw)` finding (3) revisited - the *"already-named trip is re-asked"*
    feature question a rename is the answer to.
@@ -96,7 +98,10 @@ lost. What it cannot know is **intent** - and `MovedCopy`'s own docstring rules 
 what the module refuses to do. **The contribution here is the finding that a coherent whole-folder
 move is the highest-confidence repair case `(abn)` will ever have**, and the one worth doing first.
 
-## ⚠ THE HALF STAGE 2 DOES NOT CLOSE, MEASURED RATHER THAN PREDICTED
+## ⚠ THE HALF STAGE 2 DID NOT CLOSE, MEASURED RATHER THAN PREDICTED - CLOSED IN 2b
+
+> ✅ **RESOLVED 2026-08-30 (P161) BY A LEASE, AND THE GUARD BELOW IS UNCHANGED.** The
+> diagnosis in this section stands exactly as measured; what follows it is the fix.
 
 **The drive's decisions document keeps the old name, and the user is told.** Measured on scratch:
 a real rename moved the files, flipped the catalog, and `verify` passed clean - **6 verified, 0
@@ -131,3 +136,45 @@ surfaced**. Filed as a limit, not a gap this stage fills.
 `(abw)` (the already-named trip re-asked; finding 3 is the feature question this answers),
 `(abn)` (the outside-rename repair), `(ahz)` (whose open residual is *"`rename_trip` is
 unbuilt"*), `(agk)` (intent before the irreversible step).
+
+## ⚠ STAGE 2b: THE FIX IS A LEASE, AND THE ALTERNATIVES WERE REFUSED WITH REASONS
+
+**The shape of the problem has a name.** A rebuilt catalog holding a placeholder against a drive
+holding the real name is a **lost update** - two writers, last-write-wins, and the loser's value
+gone with no record it existed. It is sharpened here by **tombstone-free rebuild ambiguity**: a
+rebuilt catalog cannot distinguish *"this key was never mine"* from *"this key was deleted"*,
+because nothing records absence. `(ahz)` step 3 answered it the only way a lone guard can - refuse
+every changed value - which is correct and costs the user their own rename.
+
+🔑 **THE RULING: give the guard the missing fact as a LEASE, never as a force flag.** Git names
+the distinction exactly: `--force` *"has really no checking"*, while `--force-with-lease` does
+*"an atomic compare-and-swap on the branch you are pushing to, based on the last information you
+fetched"*. So `authored_decisions` stores `(section, key) -> expected value`, and the publish
+overwrites **only if the drive still holds `expected`**. A name changed on another machine fails
+the comparison and survives - which a boolean could not have done.
+
+**Per-key rather than global** is the **field mask** pattern (Google AIP-134/161), where a partial
+update names the fields it may touch and an unscoped `force=true` is the anti-pattern. The rename
+leases one key: the trip's day set, or the event's signature.
+
+| refused alternative | why |
+|---|---|
+| a `force=True` argument on `save_decisions_to_reachable_drives` | unscoped and un-valued: it would overwrite a name made on another machine, and every future caller inherits the power |
+| an in-memory "I authored this" set | dies with the process. A crash between the flip and the publish would refuse the user's own rename **forever** - the state stage 2 shipped with, made permanent |
+| version vectors on every key | the general answer, and the honest cost is documented: Riak's sibling explosion, and a design that *detects* concurrent writes but cannot *resolve* them - it would hand a single-user local product a merge UI it has no user for |
+| last-write-wins by timestamp | exactly the lost update this entry is about, with a clock added |
+
+⚠ **THE SELF-IDENTIFYING PROPERTY, AND IT IS WHY THIS BEATS A CALLER FLAG.** The lease table lives
+**in the catalog**, so a rebuilt catalog leases nothing and is refused in full - without anyone
+having to notice it is a rebuild. Proved end-to-end on scratch: rename, publish, delete the
+catalog, rebuild from the drive. The new name came back and the rebuilt catalog's lease was
+**empty**. `(ahz)`'s data loss stays unreachable by construction rather than by discipline.
+
+**Written in the same transaction as the flip** (`Catalog.rename_row`), so no interruption can
+leave a flipped name with no lease. Apple ships a single-user default of this shape -
+`NSMergeByPropertyObjectTrumpMergePolicy`, the in-memory writer's properties winning per property
+rather than per object - which is the same per-key scoping arrived at from a different direction.
+
+⚠ **WHAT 2b DOES NOT DO.** The *"restore first"* wording is still the sentence every **other**
+caller of that guard gets, and it is still the wrong remedy for a rename - it is simply no longer
+reachable from one. Reworded when a second caller needs it, not before.

@@ -282,7 +282,9 @@ is invisible here is retired, not free.**
 > [`soak-nine-record.md`](soak-nine-record.md) §7b.
 
 - **(aix) A TRIP OR EVENT CANNOT BE RENAMED, SO THE ANSWER IS THE FILE MANAGER.** Filed
-  2026-08-30 (P158/P159), **a feature with a design and a staging plan**; stage 1 ships with it.
+  2026-08-30 (P158/P159), **a feature with a design and a staging plan**. ⚠ **STAGES 1, 2
+  AND 2b HAVE SHIPPED (P159/P160/P161); the ENGINE IS COMPLETE and stage 3, the app
+  control, is what remains.** The CLI can rename today.
   Verified from code: **0 rename symbols in core, 0 CLI subcommands, 0 app routes**; `create_trip`
   has no `ON CONFLICT` and `update_trip_days` leaves name and slug alone; `record_event` updates a
   name only by accident of `ON CONFLICT(signature)`; and `app.js:3502` renders *"renaming is not
@@ -294,7 +296,11 @@ is invisible here is retired, not free.**
   a FILE operation and is migrate-shaped** - `trips.slug` renders the directory, so a name change
   moves photographs, and `migration_journal` / `_apply_move` / `resume_migration` already exist.
   **The name flips LAST**, so at every interruption the name is the old name until every photograph
-  has arrived. **Naming is identity-keyed; renaming is row-keyed.**
+  has arrived. **Naming is identity-keyed; renaming is row-keyed.** 🔑 **And the drive's own
+  decisions document takes the new name via a LEASE, not a force flag** (`authored_decisions`,
+  schema v23): a per-key compare-and-swap carrying the value the renamer expects to find, so
+  `(ahz)` step 3 is unweakened and a rebuilt catalog - which leases nothing - is still refused in
+  full.
   Body: [`research/backlog/aix.md`](research/backlog/aix.md).
 
 - **(ait) THE MESSY-CORPUS MANIFEST OVERSTATES ITSELF, AND 20 ROWS DESCRIBE FILES THAT ARE GONE.**
@@ -893,7 +899,7 @@ is invisible here is retired, not free.**
   2026-08-23 by the open-entry sweep, because this index carried a headline its own body calls
   FALSE.** It read *"`write_decisions` exists with ZERO CALLERS, so no decisions document has ever
   been written"* and added *"the write trigger is not [built]"* - and `acc.md` has recorded since
-  2026-08-22 that `write_decisions` has **two callers** (`decisions.py:1537`, `cli.py:1659`) and
+  2026-08-22 that `write_decisions` has **two callers** (`decisions.py:1669`, `cli.py:1659`) and
   that **`catalog_session.open_catalog` is the standing trigger**, writing on the first open after
   upgrade and on every clean exit that dirtied the catalog. **Documents are written to drives.**
   🔑 **An index that contradicts its own body is worse than either being wrong**, because the index

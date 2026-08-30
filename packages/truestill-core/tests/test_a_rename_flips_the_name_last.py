@@ -21,7 +21,12 @@ import textwrap
 from pathlib import Path, PurePosixPath
 
 from truestill_core.catalog import Catalog
-from truestill_core.decisions import gather_decisions, read_decisions, would_lose
+from truestill_core.decisions import (
+    gather_decisions,
+    read_decisions,
+    would_lose,
+    write_decisions,
+)
 from truestill_core.destinations.base import DestinationError
 from truestill_core.destinations.local import LocalDestination
 from truestill_core.hashing import sha256_file
@@ -249,40 +254,43 @@ def test_a_refused_plan_applies_nothing(tmp_path: Path) -> None:
     assert sorted(p.relative_to(root).as_posix() for p in root.rglob("*.jpg")) == before
 
 
-def test_the_drive_document_is_withheld_and_the_user_is_told(tmp_path: Path) -> None:
-    """⚠ **THE HALF STAGE 2 DOES NOT CLOSE, pinned so stage 2b has a detector.** `(aix)`
+def test_the_drive_document_now_takes_the_new_name(tmp_path: Path) -> None:
+    """⚠ **THE HALF STAGE 2 COULD NOT CLOSE, CLOSED IN 2b - and this test replaces the one that
+    pinned the old behaviour.** `(aix)`
 
-    A rename changes a name the drive's decisions document already holds, and `would_lose` counts
-    a **changed** value as a loss - `(ahz)` step 3 widened it to exactly that, after a drive
-    holding a real name while the catalog held a placeholder was silently overwritten. So the
-    publish is refused and the drive keeps the old name.
+    Stage 2 left a rename that moved every photograph and flipped the catalog, while the drive's
+    own document kept the OLD name and the user was told *"restore first"* - a remedy that would
+    have brought the old name back over their rename. `would_lose` was right to refuse: `(ahz)`
+    step 3 counts a **changed** value as a loss, written after a drive holding a real name was
+    overwritten by a catalog holding a placeholder.
 
-    🔑 **That guard is right and must not be weakened here.** It cannot tell *"this catalog is a
-    rebuild that never knew the name"* from *"the user just changed it deliberately"* - and only
-    the caller knows which. Supplying that fact is stage 2b's job, in its own commit, because
-    loosening a guard written after measured data loss is not something to do in the same change
-    as the apply path.
+    🔑 **The guard is NOT weakened. It is given the one fact it lacked**: a per-key lease naming
+    the value the renamer expects to find, so the write is a compare-and-swap rather than a force.
+    `test_a_rename_leases_the_drive_document.py` is where that mechanism is pinned, including the
+    rebuild that is still refused. This test is the end-to-end shape only.
 
-    ⚠ **The refusal IS reported** - `PROBLEM_OUTCOMES` includes `WOULD_LOSE` and the CLI prints a
-    note - so this is a divergence the user is told about, not a silent one. **What is wrong today
-    is the remedy**: the sentence says *"restore first"*, and restoring would bring the OLD name
-    back over the rename. Recorded in `(aix)` rather than reworded here, because the sentence is
-    correct for every other caller of that guard.
+    ⚠ **THE TEST IT REPLACES PASSED VACUOUSLY.** It guarded `would_lose` behind
+    ``if found.decisions is not None`` and nothing in the file ever wrote a document, so the
+    assertion never executed - it would have stayed green through stage 2b either way.
+    `ENGINEERING_STANDARD.md` §4's fifty-fourth member: an instrument silent in the case it exists
+    for. This one writes the document first, so the assertion is reached.
     """
     root, db, trip_id = _drive(tmp_path)
     with Catalog(db) as catalog:
-        plan = _plan_it(catalog, trip_id, "Corsica")
-        apply_rename(catalog, LocalDestination(root), "D1", plan)
-        after_rename = gather_decisions(catalog, "D1")
+        write_decisions(root, gather_decisions(catalog, "D1"))  # the drive, before the rename
+        before = read_decisions(root).decisions
+    assert before is not None, "no document was published, so this test proves nothing"
+    assert [t.get("name") for t in before.trips] == ["Holiday"], (
+        "the fixture did not publish a document holding the old name, so this proves nothing"
+    )
+
+    with Catalog(db) as catalog:
+        apply_rename(catalog, LocalDestination(root), "D1", _plan_it(catalog, trip_id, "Corsica"))
+        after, leases = gather_decisions(catalog, "D1"), catalog.authored_decisions()
 
     assert _name_now(db) == "Corsica", "the rename itself did not complete"
-    assert [t.get("name") for t in after_rename.trips] == ["Corsica"]
-
-    # The document on the drive, had one been published before the rename, would now disagree -
-    # and `would_lose` is what stops the write rather than resolving it.
-    found = read_decisions(root)
-    if found.decisions is not None:
-        assert would_lose(found.decisions, after_rename), (
-            "would_lose stopped refusing a renamed trip - if that was deliberate, this test is "
-            "the record of the old behaviour and stage 2b should replace it"
-        )
+    assert would_lose(before, after, authored=leases) == (), (
+        "the drive still refuses the user's own rename - stage 2b did not reach this path"
+    )
+    # ⚠ And without the lease it is still refused, which is the guard proving it never went away.
+    assert would_lose(before, after) == ("trips",), "(ahz) step 3 stopped biting"

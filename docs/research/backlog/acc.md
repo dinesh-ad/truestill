@@ -16,7 +16,7 @@
   one finding out of it, not the design.
   - ⚠ **CORRECTED AGAIN 2026-08-22 BY A WHOLE-BACKLOG RE-READ: THE HEADLINE BELOW IS NOW FALSE,
     AND THE ENTRY IS SMALLER THAN ITS TITLE.** `write_decisions` has **two callers** today -
-    `decisions.py:1537` and `cli.py:1659` - and `catalog_session.open_catalog` is the standing
+    `decisions.py:1669` and `cli.py:1659` - and `catalog_session.open_catalog` is the standing
     trigger, writing on the first open after upgrade and on every clean exit that dirtied the
     catalog. **Documents are written to drives.** So the *"zero callers / no document has ever
     been written"* half is dead.
