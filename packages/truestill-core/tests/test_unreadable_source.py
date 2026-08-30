@@ -31,7 +31,16 @@ import pytest
 from PIL import Image
 from truestill_core.organizer import scan_source
 
-pytestmark = pytest.mark.skipif(
+#: ⚠ **PER-TEST, NOT MODULE-WIDE, AND THE DIFFERENCE HID A DEFECT.** `(ais)`
+#:
+#: Three of the six tests here `chmod` a folder to `0o000`; the other three - the ordinary scan,
+#: the partitioning walk and the ordering contract - need nothing from POSIX at all. As a
+#: `pytestmark` this exempted all six from the Windows lane, and
+#: `test_the_media_list_is_deterministically_ordered` sat there comparing
+#: `str(p.relative_to(src))` against `"sub/a.jpg"` - **a live separator bug the one lane that
+#: could see it was never allowed to run.** A skip written for one test's need is not free: it
+#: is a hole the size of the file.
+_NEEDS_POSIX_PERMISSIONS = pytest.mark.skipif(
     sys.platform == "win32" or os.geteuid() == 0,
     reason="needs POSIX permissions and a non-root user",
 )
@@ -42,6 +51,7 @@ def _jpeg(path: Path) -> None:
     Image.new("RGB", (32, 32), "red").save(path)
 
 
+@_NEEDS_POSIX_PERMISSIONS
 def test_an_unreadable_folder_is_named(tmp_path: Path) -> None:
     """The defect: this subtree used to vanish from the scan entirely."""
     src = tmp_path / "src"
@@ -56,6 +66,7 @@ def test_an_unreadable_folder_is_named(tmp_path: Path) -> None:
     assert [p.name for p in scan.unreadable_dirs] == ["locked"]
 
 
+@_NEEDS_POSIX_PERMISSIONS
 def test_the_readable_files_beside_it_are_still_found(tmp_path: Path) -> None:
     """One unreadable folder must not cost the rest of the run - the never-abort rule."""
     src = tmp_path / "src"
@@ -86,6 +97,7 @@ def test_an_ordinary_scan_reports_nothing_new(tmp_path: Path) -> None:
     assert sorted(p.name for p in scan.media) == ["a.jpg", "b.jpg"]
 
 
+@_NEEDS_POSIX_PERMISSIONS
 def test_an_unreadable_file_is_not_reported_as_an_unreadable_folder(tmp_path: Path) -> None:
     """The distinction the report turns on. A file truestill cannot read is a *named loss* and is
     already handled downstream as FAILED; it must not be reported here as an unknown quantity."""
@@ -129,7 +141,7 @@ def test_the_media_list_is_deterministically_ordered(tmp_path: Path) -> None:
 
     scan = scan_source(src)
 
-    assert [str(p.relative_to(src)) for p in scan.media] == [
+    assert [p.relative_to(src).as_posix() for p in scan.media] == [
         "a.jpg",
         "b.jpg",
         "c.jpg",

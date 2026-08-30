@@ -42,7 +42,7 @@ MALFORMED = re.compile(r"[0-9A-Za-z]- [0-9A-Za-z]")
 
 def test_user_facing_paths_resolve() -> None:
     """Relocating a USER_FACING file must fail the suite, not skip the guard (audit F12)."""
-    missing = [str(path.relative_to(REPO)) for path in USER_FACING if not path.exists()]
+    missing = [path.relative_to(REPO).as_posix() for path in USER_FACING if not path.exists()]
     assert not missing, "USER_FACING path(s) missing - guard would be silent:\n" + "\n".join(
         missing
     )
@@ -54,11 +54,11 @@ def test_user_facing_copy_has_no_mangled_dash(path: Path) -> None:
     if path in OPTIONAL_USER_FACING and not path.exists():
         pytest.skip(f"{path.name} not present (optional)")
     assert path.exists(), (
-        f"{path.relative_to(REPO)} must exist - see test_user_facing_paths_resolve"
+        f"{path.relative_to(REPO).as_posix()} must exist - see test_user_facing_paths_resolve"
     )
 
     offenders = [
-        f"{path.relative_to(REPO)}:{n}: {line.strip()}"
+        f"{path.relative_to(REPO).as_posix()}:{n}: {line.strip()}"
         for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
         if MALFORMED.search(line)
     ]
@@ -168,7 +168,7 @@ def test_no_surface_scopes_import_to_one_service(path: Path) -> None:
     reads. This is that gate, in the file written for exactly this failure.
     """
     offenders = [
-        f"{path.relative_to(REPO)}:{n}: {line.strip()}"
+        f"{path.relative_to(REPO).as_posix()}:{n}: {line.strip()}"
         for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
         if SERVICE_SCOPED_IMPORT.search(line)
     ]
@@ -238,17 +238,17 @@ _USER_FACING_TEXT = tuple(
 @pytest.mark.parametrize("path", _USER_FACING_TEXT, ids=lambda p: p.name)
 def test_user_facing_copy_avoids_banned_jargon(path: Path) -> None:
     assert path.exists(), (
-        f"{path.relative_to(REPO)} must exist - relocating it must fail this guard"
+        f"{path.relative_to(REPO).as_posix()} must exist - relocating it must fail this guard"
     )
     text = path.read_text(encoding="utf-8")
     offenders = [phrase for phrase in _BANNED_USER_PHRASES if phrase in text]
     assert not offenders, (
-        f"banned user-facing terms in {path.relative_to(REPO)}: {', '.join(offenders)}"
+        f"banned user-facing terms in {path.relative_to(REPO).as_posix()}: {', '.join(offenders)}"
     )
 
 
 def test_user_facing_copy_allowlist_documents_kept_terms() -> None:
-    missing = [str(path.relative_to(REPO)) for path in _USER_FACING_TEXT if not path.exists()]
+    missing = [path.relative_to(REPO).as_posix() for path in _USER_FACING_TEXT if not path.exists()]
     assert not missing, "allowlist inputs missing:\n" + "\n".join(missing)
     combined = "\n".join(path.read_text(encoding="utf-8") for path in _USER_FACING_TEXT).lower()
     for allowed in _ALLOWED_USER_TERMS:

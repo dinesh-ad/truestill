@@ -86,9 +86,17 @@ def _relative_to(path: str, root: Path) -> str | None:
 
     Compared through `PurePath`, never as strings: a string prefix test says ``/photos-old`` is
     under ``/photos``, and on Windows it would also miss ``C:\\Photos`` against ``C:\\photos``.
+
+    ⚠ **Returned in POSIX form, and that is not cosmetic.** This value becomes a key in
+    `drive_adoption.RecordedDrive.digests`, whose **other** producer fills the same field from the
+    catalog's ``relative`` column - which is POSIX by contract. `str()` here renders with the
+    running platform's separator, so on Windows one producer of one field would have used
+    backslashes and the other forward slashes. Today's consumers only ever do ``root / relative``,
+    which accepts either, so nothing is broken - but a field populated two ways is the drift
+    `(ais)` is about, one layer in from the test that made it visible.
     """
     try:
-        return str(PurePath(path).relative_to(PurePath(str(root))))
+        return PurePath(path).relative_to(PurePath(str(root))).as_posix()
     except ValueError:
         return None
 

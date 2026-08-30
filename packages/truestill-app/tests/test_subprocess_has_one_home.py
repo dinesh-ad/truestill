@@ -64,7 +64,7 @@ def _direct_launches(path: Path) -> list[str]:
             and isinstance(func.value, ast.Name)
             and func.value.id == "subprocess"
         ):
-            found.append(f"{path.relative_to(REPO)}:{node.lineno}")
+            found.append(f"{path.relative_to(REPO).as_posix()}:{node.lineno}")
     return found
 
 

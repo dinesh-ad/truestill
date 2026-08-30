@@ -88,7 +88,9 @@ def _python_invocations_without_the_pin() -> list[str]:
                     and second == "format"
                     and "--target-version" not in words
                 ):
-                    offenders.append(f"{path.relative_to(_REPO)}:{node.lineno}: argv invocation")
+                    offenders.append(
+                        f"{path.relative_to(_REPO).as_posix()}:{node.lineno}: argv invocation"
+                    )
     return offenders
 
 
@@ -155,7 +157,9 @@ def test_no_tracked_source_uses_the_unparenthesised_form() -> None:
             # element, which is strictly after the `except` keyword plus a space.
             line = path.read_text(encoding="utf-8").splitlines()[node.lineno - 1]
             if not re.match(r"\s*except\*?\s*\(", line):
-                offenders.append(f"{path.relative_to(_REPO)}:{node.lineno}: {line.strip()}")
+                offenders.append(
+                    f"{path.relative_to(_REPO).as_posix()}:{node.lineno}: {line.strip()}"
+                )
     assert not offenders, (
         "PEP 758's unparenthesised multi-except appears in tracked source. This repo keeps the "
         "parentheses - see pyproject.toml beside `target-version`:\n  " + "\n  ".join(offenders)

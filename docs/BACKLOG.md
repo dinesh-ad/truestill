@@ -275,20 +275,6 @@ is invisible here is retired, not free.**
   tallies and its label reaches no pixel. **Do not fold this into a summary-wording change** - it
   alters an exit code, which is a contract a script reads. Related: `(aim)`, `(aiq)`.
 
-- **(ais) A GUARD THAT ONLY THE WINDOWS LANE CAN FAIL IS A GUARD NOBODY CAN ITERATE ON.**
-  Filed 2026-08-30 (P146). **Not a product defect - a defect in the instrument**, and it has cost
-  two red CI runs in two sessions from one cause: content written locally tripping a platform fact
-  no local run can reach. P143 compared `str(Path.relative_to(drive))` - `Saved\2024\...` on
-  Windows - against the POSIX form the catalog stores; P145 added the first `❌` to `BACKLOG.md`,
-  and `0x9D` is unmapped in cp1252, which is what `text=True` decodes with there. Both were green
-  under `make check` on the machine they were written on. 🔑 **The asymmetry is the finding**:
-  P145 closed its half on **every** lane by forcing the decode, and the separator half has no such
-  instrument, because `os.sep` is a C-level constant no environment variable can move. **The fix
-  shape is known** - assert against the POSIX form the catalog stores, never `str(Path)` - so this
-  is filed rather than researched. ⚠ **Not urgent and the entry says so**: neither instance could
-  reach a user. The cost is a red `main` and the `TRUESTILL_PUSH_ANYWAY=1` habit it builds.
-  Body: [`research/backlog/ais.md`](research/backlog/ais.md).
-
 - **(aio) RELEASING THE BAKED TEMPORARY SITS BETWEEN THE COMMITTED COPY AND ITS CATALOG ROW.**
   Filed 2026-08-29 (P143), from the census `(ain)` asked for. **`(ain)`'s shape on the bake path,
   and the only other live instance of it.** `_upload_with_metadata_write` calls

@@ -1,5 +1,20 @@
 # (ais) A GUARD THAT ONLY THE WINDOWS LANE CAN FAIL IS A GUARD NOBODY CAN ITERATE ON.
 
+> ✅ **SHIPPED 2026-08-30 (P147), one commit after filing.** Provenance is in
+> [`SHIPPED.md`](../../SHIPPED.md).
+>
+> ⚠ **ONE READING BELOW WAS WRONG, and the body is left unrewritten as the reading it was.**
+> Candidate instrument (2) hedges that a hostile-environment child *"may not be reachable at all,
+> because `os.sep` is a C-level constant"*. `os.sep` is indeed immovable - and nothing needs to
+> move it: **`PureWindowsPath` exists on every platform** and is the class `WindowsPath` inherits
+> `__str__` and `relative_to` from, so the divergence reproduces in-process on Linux. The hedge
+> was right to be written and wrong on the facts, which is the argument for checking rather than
+> for not hedging.
+>
+> Instrument (1) - the lexical guard - is what shipped, now backed by that forced reproduction
+> rather than by the *"cheap and would have caught P143"* argument alone. It found **20 sites in
+> 11 files**, one of them product code, and a module-wide `skipif` hiding a live instance.
+
 *Body of backlog entry `(ais)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is
 shared with [`SHIPPED.md`](../../SHIPPED.md).*
 

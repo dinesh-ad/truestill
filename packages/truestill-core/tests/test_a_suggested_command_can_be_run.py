@@ -118,7 +118,7 @@ def test_every_suggested_drives_init_carries_the_flag_it_needs() -> None:
         for line, text in _suggestions(path):
             checked += 1
             if REQUIRED not in text:
-                offenders.append(f"{path.relative_to(REPO)}:{line}")
+                offenders.append(f"{path.relative_to(REPO).as_posix()}:{line}")
 
     assert checked, (
         "no `drives --init` suggestion was found anywhere, so this guard is vacuous - the "

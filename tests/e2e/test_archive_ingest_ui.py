@@ -39,7 +39,7 @@ def _fingerprint(root: Path) -> list[tuple[str, int]]:
     if not root.exists():
         return []
     return sorted(
-        (str(p.relative_to(root)), p.stat().st_size) for p in root.rglob("*") if p.is_file()
+        (p.relative_to(root).as_posix(), p.stat().st_size) for p in root.rglob("*") if p.is_file()
     )
 
 

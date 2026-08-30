@@ -22,6 +22,88 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ais) A PATH RENDERED WITH THE PLATFORM'S SEPARATOR IS NOW REFUSED ON EVERY LANE.** Shipped
+  2026-08-30 (P147), one commit after being filed. The separator half; the encoding half shipped
+  as `eb28ec4`.
+
+  ## THE PREMISE, RE-VERIFIED RATHER THAN TRUSTED
+
+  `c81cb02` shipped `_on_disk` as `sorted(str(p.relative_to(drive)) ...)` and compared it against
+  the catalog's `relative` column, which `LocalDestination.list` produces with `as_posix` **so a
+  drive is readable on either OS**. The Windows lane read `Saved\2024\...` and three tests failed
+  on the separator. Fixed in `cdbe7da`; nothing stopped the next one.
+
+  ## 🔑 THE SEAM CAN BE FORCED, SO THIS IS A GUARD AND NOT AN `xfail`
+
+  `(ais)` filed this as *"may not be reachable at all - `os.sep` is a C-level constant"*. **That
+  reading was wrong, and the entry's own hedge is what made it worth checking.** `os.sep` is
+  indeed immovable, but nothing needs to move it: **`PureWindowsPath` is available on every
+  platform** and is the class `WindowsPath` inherits `__str__` and `relative_to` from. So the
+  divergence reproduces in-process on Linux, byte for byte -
+  `str(landed.relative_to(drive)) == r"Saved\2024\2024-01\p.jpg"` - which is the direct analogue
+  of P145 swapping `text=True` for `encoding="cp1252"`.
+
+  **Both are decisions our own code makes about a string.** `(aid)`'s colon is not: a filesystem
+  driver decides it, nothing can force it, and it stays an `xfail`. That is the line between the
+  two instruments, and it is now drawn on evidence rather than on how hard the seam felt.
+
+  ⚠ **A `skipif(sys.platform != "win32")` would have been worse than nothing**, and there is a
+  measured proof of it below rather than a style argument.
+
+  ## THE CENSUS - 20 SITES, AND ONE OF THEM IS PRODUCT CODE
+
+  Found by AST over `git ls-files '*.py'`, not by waiting for a red lane: **20 sites in 11
+  files**. Most were diagnostics, where the platform separator is harmless and `as_posix` is
+  simply better - **no allowlist**, deliberately, because an exemption list is how the next
+  instance gets in.
+
+  🔑 **The one in product code was `source_repoint._relative_to`.** Its value becomes a key in
+  `drive_adoption.RecordedDrive.digests`, whose **other** producer fills the same field from the
+  catalog's POSIX `relative` column - so one field had two producers in two forms. Nothing is
+  broken today, because every consumer does `root / relative`, which accepts either. Traced to be
+  sure rather than assumed, and corrected because a field populated two ways is this entry one
+  layer in.
+
+  ## ⚠ AND A SECOND-ORDER FINDING: A MODULE-WIDE `skipif` HID A LIVE INSTANCE
+
+  `test_unreadable_source.py` carried `pytestmark = skipif(win32 or root)`, reason *"needs POSIX
+  permissions"*. **Three of its six tests `chmod`; the other three need nothing from POSIX** - and
+  one of those three,
+  `test_the_media_list_is_deterministically_ordered`, compared `str(p.relative_to(src))` against
+  `"sub/a.jpg"`. **A live separator bug, sitting where the only lane that could see it was never
+  allowed to run.** The marker is now on the three tests that earn it, so those three run on
+  Windows.
+
+  This is Q906's argument arriving from the other side: a skip written for one test's need is not
+  free, it is a hole the size of the file.
+
+  ## THE WIDER CLASS - what else differs by platform, and what is NOT covered
+
+  | axis | state |
+  |---|---|
+  | **separator** | ✅ guarded on every lane by this commit |
+  | **encoding** (`text=True` → cp1252) | ✅ guarded on every lane by `eb28ec4` |
+  | **illegal characters** (`:` on NTFS) | ⚠ `xfail` only - `(aid)`; the seam cannot be forced |
+  | **case-insensitivity** (NTFS, APFS) | ❌ unguarded. `migrate.py` folds case deliberately; nothing checks the rest |
+  | **reserved device names**, **trailing dots** | partial - `layout.py` defends **token values** only, which is `filename-safety-research.md`'s stated scope |
+  | **drive letters** | no instance found; no guard |
+  | **line endings** | not a live class - Python's universal newlines round-trip `write_text`/`read_text` |
+  | `os.sep` **in product code** | one use, `decode_noise.py`, matching a real traceback path - correct |
+
+  ✅ **Guard:** `test_a_rendered_path_is_posix_or_it_is_not_compared.py`, AST rather than regex for
+  `test_subprocess_has_one_home.py`'s reason - this file's own docstring contains both banned
+  spellings. It states its limits in its docstring: **separators only**, and only where the
+  rendering is lexically adjacent to the `relative_to` call. A result bound to a variable and
+  stringified later is invisible to it, and no AST rule short of type inference would see that.
+  Three mutations, control first: reintroducing the real `c81cb02` comparison kills it **on this
+  lane**, which is the whole claim.
+
+  **What was NOT done:** case-insensitivity, drive letters and the reserved-name/trailing-dot
+  axes are censused above and left unguarded - each is a different rule with a different fix, and
+  filing four letters off one census would be inventing work rather than finding it.
+
+  Related: `(aic)`, `(aid)`, `(aif)`, `(aim)`, `(ain)`, `(ago)`.
+
 - **(aid) A FILENAME LONG ENOUGH TO BREAK THE COPY IS NOW REFUSED BY NAME, BEFORE ANYTHING IS
   WRITTEN.** Shipped 2026-08-30 (P146). The length half; **the character half is unchanged and
   deliberately so** - see the bottom of this entry.

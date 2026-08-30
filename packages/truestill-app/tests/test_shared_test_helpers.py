@@ -99,8 +99,10 @@ def test_no_test_imports_a_module_name_that_two_files_claim() -> None:
         for name in _bare_imports(path):
             claimants = claims.get(name, [])
             if len(claimants) > 1:
-                where = ", ".join(str(c.relative_to(REPO)) for c in sorted(claimants))
-                ambiguous.append(f"{path.relative_to(REPO)} imports '{name}' - claimed by {where}")
+                where = ", ".join(c.relative_to(REPO).as_posix() for c in sorted(claimants))
+                ambiguous.append(
+                    f"{path.relative_to(REPO).as_posix()} imports '{name}' - claimed by {where}"
+                )
 
     assert not ambiguous, (
         "a test imports a module name that more than one file claims; which one wins depends on "

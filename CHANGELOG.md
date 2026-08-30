@@ -12,6 +12,12 @@ All notable changes to this project are documented here. The format follows
   history of every run beside your catalog, with the full file-by-file detail of recent ones.
 
 ### Fixed
+- **Internal: paths are now compared in one form everywhere.** Nothing user-visible changed. Two
+  builds in two days went red only on Windows because test code compared a path spelled with
+  backslashes against the forward-slash form Truestill stores in your catalog, so a drive stays
+  readable whichever kind of computer you plug it into. A check now catches that on every
+  machine instead of only after a push.
+
 - **A photo whose name is too long is now named and skipped, instead of failing with a message
   nobody could act on.** Truestill copies each photo through a temporary file whose name is
   longer than the finished one, so a name that looked comfortably short could still fail - and

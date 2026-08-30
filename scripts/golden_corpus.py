@@ -99,7 +99,7 @@ def snapshot_rows(root: Path) -> list[Row]:
     metadata = read_metadata(files, progress=progress)
     rows = [
         Row(
-            relative=str(d.source.relative_to(root)),
+            relative=d.source.relative_to(root).as_posix(),
             date=d.captured_at.isoformat() if d.captured_at is not None else UNDATED,
             source=str(d.date_source),
             tag=d.date_tag or UNDATED,

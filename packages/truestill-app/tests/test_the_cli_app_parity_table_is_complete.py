@@ -86,7 +86,7 @@ def test_every_subcommand_is_in_the_parity_table() -> None:
     missing = sorted(name for name in _declared_subcommands() if name not in rows)
 
     assert not missing, (
-        f"{_DOC.relative_to(_REPO)} does not mention: {', '.join(missing)}. A new subcommand "
+        f"{_DOC.relative_to(_REPO).as_posix()} does not mention: {', '.join(missing)}. A new subcommand "
         f"leaves the parity document describing a surface that no longer exists, which is the "
         f"state it was written to end - add a row saying what the app can and cannot do."
     )

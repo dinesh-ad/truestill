@@ -75,7 +75,7 @@ def _facade_aliases(tree: ast.Module) -> set[str]:
 def _label(path: Path) -> str:
     """Repo-relative when possible, absolute otherwise - a report must never raise."""
     try:
-        return str(path.relative_to(REPO))
+        return path.relative_to(REPO).as_posix()
     except ValueError:
         return str(path)
 
@@ -117,7 +117,7 @@ def _test_files() -> list[Path]:
 
 def test_the_test_roots_resolve() -> None:
     """A relocated test tree must fail this guard, never silently shrink its own scope."""
-    missing = [str(root.relative_to(REPO)) for root in TEST_ROOTS if not root.is_dir()]
+    missing = [root.relative_to(REPO).as_posix() for root in TEST_ROOTS if not root.is_dir()]
     assert not missing, "TEST_ROOTS missing - the sweep would be silently narrower:\n" + "\n".join(
         missing
     )
