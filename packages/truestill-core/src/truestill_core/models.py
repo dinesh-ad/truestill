@@ -828,3 +828,10 @@ class ActionResult:
     #: on screen for a destination that refuses `copystat`, which would otherwise be an entirely
     #: silent degradation on every file of a run onto SMB, FAT32 or a FUSE mount.
     metadata_ok: bool = True
+    #: Whether this file was refused because its organized name will not fit. `(aid)`
+    #:
+    #: **The fact, not the words**, for `metadata_ok`'s stated reason one line up: the preview
+    #: block and the run's `FAILED` list both have to *select* these files, and matching the
+    #: sentence in ``detail`` would couple two surfaces to a wording that
+    #: `layout.explain_name_too_long` owns and is free to improve.
+    name_too_long: bool = False

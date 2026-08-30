@@ -22,6 +22,98 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aid) A FILENAME LONG ENOUGH TO BREAK THE COPY IS NOW REFUSED BY NAME, BEFORE ANYTHING IS
+  WRITTEN.** Shipped 2026-08-30 (P146). The length half; **the character half is unchanged and
+  deliberately so** - see the bottom of this entry.
+
+  ## ⚠ THE BUDGET IS NOT 219, AND IT IS NOT A CONSTANT AT ALL
+
+  `(aid)` recorded *"the real budget for an original filename is 219 bytes"* from a P140
+  measurement. Re-measured in P146 on the same machine: **220 organizes, 221 fails.** Neither
+  number is the budget. `safe_copy`'s staging token is `f"{os.getpid():x}"` plus six hex
+  characters, so its width follows the pid the OS happened to hand the process:
+
+  | | |
+  |---|---|
+  | P140 token `5580514b3be` | 11 chars → 20 bytes overhead → budget **219** |
+  | P146 token `eac0ccde48` | 10 chars → 19 bytes overhead → budget **220** |
+  | `pid_max` 4,194,304 | pid hex is 1-6 digits → overhead **16-21** → budget **218-223** |
+
+  The exact form is `255 - stamp - staging_overhead`, confirmed against both an EXIF-dated file
+  (16-byte stamp, threshold 220) and an undated one (no stamp, threshold 236). 🔑 **So a
+  hardcoded number is wrong in the unsafe direction on any run whose pid is wider than the one
+  that was measured**, which is why `safe_copy.staging_overhead_bytes()` asks and
+  `layout.name_shortfall_bytes` computes.
+
+  ## WHERE THE BUDGET IS ENFORCED, AND WHY NOT IN `dated_filename`
+
+  **At composition time**, in `organizer._organize_each`, before the `apply` branch - so a
+  **preview predicts the run**, which `IMPLEMENTATION_STANDARDS.md` already makes binding for the
+  unreadable case: predicting `0` for a run that will exit `1` chains `organize && next_step` past
+  a library Truestill could not account for.
+
+  ⚠ **Not in `naming.dated_filename`**, and the reason is the defect itself: that function knows
+  the final name and nothing about staging, so sanitising there produces **a name that is legal as
+  written and illegal as staged** - which is exactly the state a user was already in.
+
+  ⚠ **Shrinking the staging suffix was refused.** It buys ~20 bytes and moves the cliff rather
+  than removing it, and rsync has lived with that same arithmetic for decades - its temp file adds
+  a prefix, and **rsync #891 is still open** asking for `--truncate-long-names`.
+
+  ## THE RULING: SKIP AND NAME, NEVER TRUNCATE - and two reasons are ours
+
+  1. 🔑 **Truncating to the budget is not stable.** `organizer._free_relative` appends `_1`, `_2` …
+     *after* a name is composed, so a name cut to exactly the budget goes back over it the moment
+     a collision fires - and the suffix's width is unbounded.
+  2. 🔑 **Truncation manufactures the collisions that then fire it**: 300 files sharing a long
+     prefix cut to **one** name.
+  3. The organized name is the user's own name with a stamp; nothing else here alters what the
+     user has.
+  4. The field is **split and that is the finding**: restic and IBM Spectrum Protect skip and
+     warn (IBM's documented remedy is *"rename the file to a shorter name"*, which is ours);
+     GitLab continues, reasoning an export *"succeeding with a missing upload is better than no
+     export at all"*, then shipped a truncating rake task. **Nobody truncates silently**, and the
+     sentence states the **shortfall in bytes** because that is the one thing every source agrees
+     a user needs.
+
+  ## THE MESSAGE WAS THREE DEFECTS IN ONE LINE
+
+  Measured: *"...: File name too long 0 bytes of it are still at ....partial, and could not be
+  removed."* Two sentences with no punctuation between them; a `.partial` reported as *"could not
+  be removed"* when it could not be **created**; and no remedy. ⚠ **The debris claim had a root
+  cause, not a wording bug**: `safe_copy._size_of` returned `0` for both *"the partial is empty"*
+  and *"there is no answer"* - and a name too long to create is also too long to `stat` and too
+  long to `unlink`. It now returns `int | None`, the shape `organizer._safe_size` already had one
+  module over, and `_discard` claims a leftover only where there is evidence of one.
+
+  ✅ **Guard:** `test_a_name_too_long_is_refused_before_it_is_attempted.py`, which asks
+  `name_shortfall_bytes` where the edge is rather than asserting a number. It pins that the
+  refused name's **final** form is still under 255 - the whole defect - and that a multibyte name
+  is measured in bytes, the case rsync #891 reports (CJK legal as UTF-16, over 255 as UTF-8).
+  🔑 **Mutation found a real gap**: reverting `_discard` killed nothing, because organize no longer
+  reaches `copyfile` for a long name. `service/backup.py` and `archive_extract` still do, so the
+  door has its own test now.
+
+  ⚠ **A fixture bug the tests caught, recorded because it would recur**: the first draft gave every
+  photograph one seed, so the second was an exact duplicate and was skipped *before* composition -
+  the boundary test passed its landing assertion while never reaching the code under test.
+
+  ## THE CHARACTER HALF IS UNCHANGED, AND THE SEAM CANNOT BE FORCED
+
+  A colon is legal on ext4 and refused by NTFS. ⚠ **P145's move is not available here**: that seam
+  was a *decoding decision* and could be forced with `encoding="cp1252"` on every lane. This one
+  lives in a filesystem driver - no locale, flag or variable makes ext4 refuse a colon or NTFS
+  accept one. So the instrument is `(aif)`'s: an `xfail(strict=False)` that does the real thing
+  and lets the Windows lane answer, `strict=False` so an XPASS is information rather than a red
+  build. On Linux it passes and documents that the source's name is carried through
+  **unsanitised**, which remains deliberate.
+
+  **What was NOT done:** the character half is not fixed, only instrumented. `layout.PATH_LENGTH_WARN`
+  still has no reader in `organizer.py` - this refuses on the **component** limit, not the Windows
+  260-character **path** limit, which is a different number and a different remedy.
+
+  Related: `(aic)`, `(aie)`, `(aif)`, `(ais)`, `(aey)`, `(aac)`.
+
 - **(aim) THE SUMMARY PRINTED A PLAN-DERIVED COUNT IN OUTCOME TENSE, AND ON TWO ROUTES IT WAS THE
   ONLY COUNT ON SCREEN.** Shipped 2026-08-30 (P145). Filed the day before as a **shape, not a bug
   list**, deliberately ahead of `(aie)`'s fix so that closing the instance could not close the

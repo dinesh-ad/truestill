@@ -12,6 +12,15 @@ All notable changes to this project are documented here. The format follows
   history of every run beside your catalog, with the full file-by-file detail of recent ones.
 
 ### Fixed
+- **A photo whose name is too long is now named and skipped, instead of failing with a message
+  nobody could act on.** Truestill copies each photo through a temporary file whose name is
+  longer than the finished one, so a name that looked comfortably short could still fail - and
+  what you saw was the operating system's own words, run together with a claim about leftover
+  bytes that were never written. Truestill now checks before it copies, tells you which photo,
+  how many bytes too long it is, and that shortening the name will fix it. The preview reports
+  it too, so you find out before anything is written rather than part-way through a run. Your
+  original file is never renamed or altered.
+
 - **A run that stops early now tells you what it managed before it stopped.** If the drive filled
   up or stopped accepting files part-way through, Truestill printed the number of photos it had
   *planned* to organize, one line saying what went wrong, and nothing else - so a run that

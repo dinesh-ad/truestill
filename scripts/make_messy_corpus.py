@@ -432,8 +432,15 @@ def _s13_deep_nesting(writer: CorpusWriter, sample: Sequence[Path]) -> None:
     """Deep paths and long names, which `(aid)` is open on with no corpus behind it."""
     deep = "/".join(f"level-{i:02d}" for i in range(12))
     writer.copy(sample[2], f"DriveD/{deep}/{sample[2].name}", shape="S13")
-    long_name = "a-holiday-photograph-with-a-very-long-descriptive-filename" * 3
+    # ⚠ **200 BYTES DID NOT REACH THE CLIFF, so this shape documented long names without ever
+    # exercising one.** `(aid)` was measured in P146: the usable budget for an original filename
+    # is `255 - 16 (the date stamp) - the staging suffix`, which lands near **220** and moves with
+    # the pid's hex width. A 200-byte name is comfortably inside it. The pair below straddles the
+    # edge deliberately - one that must organize, one that must be refused and named - so a soak
+    # over this corpus tests the boundary rather than the neighbourhood.
+    long_name = "a-holiday-photograph-with-a-very-long-descriptive-filename" * 5
     writer.copy(sample[3], f"DriveD/Long/{long_name[:200]}.jpg", shape="S13")
+    writer.copy(sample[4], f"DriveD/Long/{long_name[:240]}.jpg", shape="S13")
 
 
 def _s14_orphan_sidecar(writer: CorpusWriter) -> None:

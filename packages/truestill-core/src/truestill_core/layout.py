@@ -35,6 +35,7 @@ from typing import Protocol, Self, assert_never
 
 from truestill_core.events import event_dirname
 from truestill_core.models import UNDATED_DIRNAME, RuleName, strip_component_tail
+from truestill_core.safe_copy import staging_overhead_bytes
 
 _TOKEN = re.compile(r"\{([a-z_]+)\}")
 
@@ -232,6 +233,65 @@ def _is_reserved(component: str) -> bool:
 #: characters -- a distinction that only shows up on non-Latin names, where one character can
 #: cost four bytes. See `docs/filename-safety-research.md`.
 MAX_COMPONENT_BYTES = 255
+
+
+def name_shortfall_bytes(name: str) -> int:
+    """How many bytes ``name`` is over what a run can actually write. ``0`` when it fits. `(aid)`
+
+    🔑 **THE BUDGET IS NOT `MAX_COMPONENT_BYTES`, AND THAT IS THE DEFECT.** `safe_copy` stages
+    every copy at ``<name>.<token>.partial`` with the suffix appended **LAST**, so the file a run
+    creates is longer than the file it becomes. A name that is legal raw, legal after
+    `naming.dated_filename` adds its sixteen-character stamp, and legal at the destination still
+    fails - because the temporary it passes through is not.
+
+    Measured on ext4 (P146): an EXIF-dated original of **220** bytes organizes and **221** fails,
+    against a 255-byte component limit its final name never approaches.
+
+    ⚠ **The overhead is asked for, never written down** - see
+    :func:`safe_copy.staging_overhead_bytes`. It follows the pid's hex width, so the usable budget
+    moves across a **five-byte range on one machine** and `(aid)`'s recorded "219" is one reading
+    of it rather than a constant.
+    """
+    return max(0, len(name.encode("utf-8")) + staging_overhead_bytes() - MAX_COMPONENT_BYTES)
+
+
+def explain_name_too_long(organized_name: str, shortfall: int) -> str:
+    """The one wording of a name this run cannot write. **Named, never silently shortened.**
+
+    ⚠ **THE RULING IS SKIP-AND-NAME, NOT TRUNCATE**, and two of the four reasons are ours rather
+    than the field's:
+
+    1. **Truncating to the budget is not stable.** `organizer._free_relative` appends ``_1``,
+       ``_2`` … *after* a name is composed, so a different photograph that happens to share the
+       name does not overwrite the incumbent. A name cut to exactly the budget goes back over it
+       the moment that resolver fires, and the suffix's width is unbounded.
+    2. **Truncation manufactures the collisions that then fire it.** Three hundred files sharing
+       a long prefix cut to **one** name, so the resolver renames 299 of them - a library of
+       near-identical names where the user had distinct ones.
+    3. The organized copy's name is the user's own name with a stamp in front. Shortening it
+       changes what the photograph is called, and nothing else in this product alters what the
+       user has.
+    4. The field is split on skip-versus-continue - restic and IBM Spectrum Protect skip and
+       warn, GitLab continues and later shipped a truncating task - but **nobody truncates
+       silently**, and IBM's documented remedy is the one named below. rsync has carried this
+       exact arithmetic for decades (its temp file adds a prefix), and rsync #891 is still open
+       asking for the truncating flag nobody has been willing to make the default.
+
+    The sentence states the shortfall because that is the one thing every source agrees a user
+    needs: not *"too long"* but *how much* too long.
+    """
+    # ⚠ **It does NOT open with the source's name.** `cli._print_capped` already prints
+    # `FAILED: <name>: <detail>`, so a sentence starting with the name says it twice - which is
+    # what the first draft of this did. The preview block supplies the name the same way.
+    needed = len(organized_name.encode("utf-8")) + staging_overhead_bytes()
+    plural = "" if shortfall == 1 else "s"
+    return (
+        f"its organized name needs {needed} bytes and this drive stores at most "
+        f"{MAX_COMPONENT_BYTES} in one name, including the {staging_overhead_bytes()} Truestill "
+        f"needs for the temporary file it copies through. Shorten the file's name by at least "
+        f"{shortfall} byte{plural} and run this again. Nothing was written, and the original "
+        f"is untouched."
+    )
 
 
 def _truncate_bytes(value: str, limit: int) -> str:

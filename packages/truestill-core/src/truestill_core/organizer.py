@@ -48,7 +48,9 @@ from truestill_core.layout import (
     TIMELINE_RULES,
     LayoutScheme,
     RenderContext,
+    explain_name_too_long,
     heavy_days_from_captures,
+    name_shortfall_bytes,
     normalize_everyday_day_threshold,
 )
 from truestill_core.models import (
@@ -2305,6 +2307,25 @@ def _organize_each(
             # recorded -- surfaced as its own status so the report can count and name it.
             detail = "no capture date; skipped (--skip-undated)"
             record(ActionResult(resolution, ActionStatus.SKIPPED_UNDATED, None, detail))
+            continue
+
+        # ⚠ **BEFORE THE `apply` BRANCH, SO A PREVIEW PREDICTS THE RUN.** This is the whole of
+        # `(aid)`'s length half, and it is decided at COMPOSITION time rather than left to the
+        # OS: the name is already built, `layout.name_shortfall_bytes` knows what staging will
+        # add to it, and the answer cannot change between here and the write. Letting `copyfile`
+        # discover it instead is what produced a raw `File name too long` with no remedy - and
+        # `IMPLEMENTATION_STANDARDS.md`'s rule that a preview predicting `0` for a run that will
+        # exit `1` "makes `organize && next_step` chain past a library Truestill could not fully
+        # account for" is the reason it cannot wait for `--apply`.
+        #
+        # **`FAILED` rather than a new `ActionStatus`**, for `_health_stop`'s stated reason:
+        # nothing type-checks exhaustiveness over that enum, so a new member is a set of call
+        # sites found by hand - and `FAILED` already means exactly this, *this file is not in
+        # your library, and this is why*.
+        shortfall = name_shortfall_bytes(PurePosixPath(decision.relative).name)
+        if shortfall:
+            detail = explain_name_too_long(PurePosixPath(decision.relative).name, shortfall)
+            record(ActionResult(resolution, ActionStatus.FAILED, None, detail, name_too_long=True))
             continue
 
         if not apply:

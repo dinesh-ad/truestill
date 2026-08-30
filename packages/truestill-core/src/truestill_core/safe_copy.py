@@ -88,6 +88,23 @@ STAGING_SUFFIX = ".partial"
 _STAGING_TOKEN = f"{os.getpid():x}{secrets.token_hex(3)}"
 
 
+def staging_overhead_bytes() -> int:
+    """How many bytes :func:`staging_path` adds to a name. **Measured, never written down.**
+
+    ⚠ **IT IS NOT A CONSTANT, AND THAT IS THE WHOLE REASON THIS IS A FUNCTION.** The token is
+    ``f"{os.getpid():x}"`` plus six hex characters, so its width follows the pid the OS happened
+    to hand this process. On a Linux box with the default ``pid_max`` of 4,194,304 the pid is one
+    to six hex digits, so this returns **16 to 21** and the usable budget for a dated filename
+    moves between **218 and 223 bytes on one machine**.
+
+    🔑 **`(aid)` recorded 219 as "the real budget" and it is one process's reading of that
+    range** - measured in P140 with an 11-character token, and re-measured in P146 with a
+    10-character one, where the true threshold was 220. A hardcoded number would be wrong on most
+    runs, in the safe direction sometimes and the unsafe direction others.
+    """
+    return len(f".{_STAGING_TOKEN}{STAGING_SUFFIX}".encode())
+
+
 def staging_path(target: Path) -> Path:
     """Where bytes wait before they earn ``target``'s name. **Never shared between processes.**
 
@@ -116,18 +133,41 @@ class CopyOutcome:
     leftover_bytes: int = 0
 
 
-def _size_of(path: Path) -> int:
+def _size_of(path: Path) -> int | None:
+    """The staged file's size, or ``None`` when the filesystem would not say. `(aid)`
+
+    ⚠ **`None` RATHER THAN `0`, AND THE DIFFERENCE REACHED A USER.** This returned `0` for both
+    *"the partial is empty"* and *"there is no answer"*, and `_discard` then reported a leftover
+    of `0 bytes` for a file that had **never been created**. Measured in P140: a name too long to
+    create is also too long to `stat` and too long to `unlink`, so every step failed with the same
+    errno and the message named a path that was not there.
+
+    The honest shape already existed one module over - `organizer._safe_size` returns
+    ``int | None`` for exactly this reason - and `(aac)`'s ruling is the general form: a value
+    that means two things is not acceptable where one of them is *"we do not know"*.
+    """
     with contextlib.suppress(OSError):
         return path.stat().st_size
-    return 0
+    return None
 
 
 def _discard(temp: Path, error: OSError) -> CopyOutcome:
-    """Remove a staged file, reporting it when it will not go. Never raises."""
+    """Remove a staged file, reporting it when it will not go. Never raises.
+
+    ⚠ **A leftover is claimed only where there is evidence of one.** `unlink(missing_ok=True)`
+    swallows `FileNotFoundError` and nothing else, so a name the filesystem refuses outright
+    raises here just as the create did - and reporting that as debris sends the user looking for
+    a file that was never written.
+    """
     size = _size_of(temp)
     try:
         temp.unlink(missing_ok=True)
     except OSError:
+        if size is None:
+            # The unlink failed and the stat failed too: no evidence anything was created, and
+            # `(aey)`'s rule applies - a filesystem that will not describe a path has not
+            # established that something is at it.
+            return CopyOutcome(ok=False, error=error)
         return CopyOutcome(ok=False, error=error, leftover=temp, leftover_bytes=size)
     return CopyOutcome(ok=False, error=error)
 

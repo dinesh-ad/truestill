@@ -2609,6 +2609,25 @@ def _print_capped(results: list[ActionResult], *, label: str) -> None:
     )
 
 
+def _print_unnameable(results: list[ActionResult]) -> int:
+    """Name every file whose organized name will not fit, in a preview. Returns how many. `(aid)`
+
+    Silent when there are none, like the other never-silent blocks: this reports what happened,
+    and *"no file had this problem"* is not an event. Under `--apply` the same results reach
+    `_print_execution`'s `FAILED` list instead, so the sentence has one producer and two homes -
+    `layout.explain_name_too_long` - rather than two wordings.
+    """
+    named = [r for r in results if r.name_too_long]
+    if not named:
+        return 0
+    print(f"\n  NAMES TOO LONG FOR THE DESTINATION ({len(named)}):")
+    for result in named[:_STATUS_PREVIEW]:
+        print(f"      {result.resolution.decision.source.name}: {result.detail}")
+    if len(named) > _STATUS_PREVIEW:
+        print(f"      ... and {len(named) - _STATUS_PREVIEW:,} more.")
+    return len(named)
+
+
 def _print_execution(results: list[ActionResult], resolutions: list[Resolution]) -> int:
     """What the run actually did. **The outcome document, and the only one.** `(aim)`
 
@@ -3204,6 +3223,12 @@ def _run_pipeline(
         # Nothing was copied, so nothing can have FAILED: a preview names every unreadable
         # source, or no one does.
         unreadable = _print_unreadable(resolutions)
+        # ⚠ **A PREVIEW PREDICTS THE RUN, and this is the one refusal it can predict exactly.**
+        # `execute` decides it at composition time for `apply` and preview alike, so the answer
+        # here is the answer the run will give. `IMPLEMENTATION_STANDARDS.md` makes the exit code
+        # part of that rule: predicting `0` for a run that will exit `1` chains `organize &&
+        # next_step` past a library Truestill could not account for. `(aid)`
+        unnameable = _print_unnameable(results)
         _print_uncompared(resolutions, args.phash_threshold)
         _print_suppressed_noise()
         # What a move will NOT take, stated before the user commits to it and above the DRY RUN
@@ -3217,7 +3242,7 @@ def _run_pipeline(
         # `ActionStatus.FAILED`, so predicting them with a 0 would make `organize && next_step`
         # chain past a library Truestill could not fully account for. Code 1 is already this
         # CLI's "finished, but something is wrong" (verify, organize, reclaim all use it).
-        return 1 if unreadable else 0
+        return 1 if unreadable or unnameable else 0
     code = _print_execution(results, resolutions)
     _record_the_run(args, resolutions, results)
     # ⚠ The banner this run printed says "Empty folders left behind are reported, never deleted",

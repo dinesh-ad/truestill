@@ -1,5 +1,18 @@
 # (aid) THE ORIGINAL FILENAME IS NEVER SANITIZED, AND THEN GAINS SIXTEEN CHARACTERS.
 
+> ✅ **THE LENGTH HALF SHIPPED 2026-08-30 (P146); THE CHARACTER HALF IS INSTRUMENTED, NOT FIXED.**
+> Provenance is in [`SHIPPED.md`](../../SHIPPED.md).
+>
+> ⚠ **THE "219 BYTES" BELOW IS ONE PROCESS'S READING, NOT A BUDGET, and the body is left
+> unrewritten as the measurement it was** - a record edited to stay correct stops being one.
+> P146 re-measured **220** on the same machine. The staging token carries the pid in hex, so the
+> overhead is 16-21 bytes and the usable budget moves over **218-223** on one box. The exact form
+> is `255 - stamp - staging_overhead`, and nothing in the fix writes a number down.
+>
+> ⚠ **`PATH_LENGTH_WARN` still has no reader in `organizer.py`.** The fix refuses on the
+> **component** limit; the Windows 260-character **path** limit this entry also names is a
+> different number with a different remedy, and it is still open.
+
 *Body of backlog entry `(aid)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aid) THE ORIGINAL FILENAME IS NEVER SANITIZED, AND THEN GAINS SIXTEEN CHARACTERS.** Filed

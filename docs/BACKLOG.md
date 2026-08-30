@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(air). Next free: (ais).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ais). Next free: (ait).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -275,6 +275,20 @@ is invisible here is retired, not free.**
   tallies and its label reaches no pixel. **Do not fold this into a summary-wording change** - it
   alters an exit code, which is a contract a script reads. Related: `(aim)`, `(aiq)`.
 
+- **(ais) A GUARD THAT ONLY THE WINDOWS LANE CAN FAIL IS A GUARD NOBODY CAN ITERATE ON.**
+  Filed 2026-08-30 (P146). **Not a product defect - a defect in the instrument**, and it has cost
+  two red CI runs in two sessions from one cause: content written locally tripping a platform fact
+  no local run can reach. P143 compared `str(Path.relative_to(drive))` - `Saved\2024\...` on
+  Windows - against the POSIX form the catalog stores; P145 added the first `❌` to `BACKLOG.md`,
+  and `0x9D` is unmapped in cp1252, which is what `text=True` decodes with there. Both were green
+  under `make check` on the machine they were written on. 🔑 **The asymmetry is the finding**:
+  P145 closed its half on **every** lane by forcing the decode, and the separator half has no such
+  instrument, because `os.sep` is a C-level constant no environment variable can move. **The fix
+  shape is known** - assert against the POSIX form the catalog stores, never `str(Path)` - so this
+  is filed rather than researched. ⚠ **Not urgent and the entry says so**: neither instance could
+  reach a user. The cost is a red `main` and the `TRUESTILL_PUSH_ANYWAY=1` habit it builds.
+  Body: [`research/backlog/ais.md`](research/backlog/ais.md).
+
 - **(aio) RELEASING THE BAKED TEMPORARY SITS BETWEEN THE COMMITTED COPY AND ITS CATALOG ROW.**
   Filed 2026-08-29 (P143), from the census `(ain)` asked for. **`(ain)`'s shape on the bake path,
   and the only other live instance of it.** `_upload_with_metadata_write` calls
@@ -316,25 +330,6 @@ is invisible here is retired, not free.**
   zero observed instances, but `(aib)` needs only a ruling while this needs code built against
   undocumented behaviour for a population of zero.
   Body: [`research/backlog/aig.md`](research/backlog/aig.md).
-
-- **(aid) THE ORIGINAL FILENAME IS NEVER SANITIZED, AND THEN GAINS SIXTEEN CHARACTERS.** Filed
-  2026-08-26 (P118), read from source. `layout.py`'s four defences - illegal characters, reserved
-  device names, trailing dots, the 255-byte cap - apply to **token values only** (the event name,
-  the category), which `filename-safety-research.md` scopes correctly as *"user-supplied names"*.
-  But `dated_filename` returns `f"{stamp}_{original_name}"` untouched (`naming.py:104`).
-  `Trip: day 1.jpg` and `nul.jpg` are legal on ext4 and **refuse on NTFS**; a 248-byte name
-  becomes 264 and refuses everywhere. ⚠ **`PATH_LENGTH_WARN` exists (`layout.py:99`) and organize
-  never imports it** - the two readers are `layout.py:517` and `migrate.py:623`, so the one screen
-  that warns about length is the settings preview, where nothing is being moved.
-  `ENAMETOOLONG` and `EINVAL` are not in the errno table, so what the user gets is raw OS words.
-  ⚠ **REPRODUCED 2026-08-29 (P140), and the arithmetic understated it by 20 bytes**: `safe_copy`
-  stages at `<name>.<token>.partial`, so the real budget for an original filename is **219
-  bytes**, not 239 - a name legal raw *and* legal after the stamp still fails. Threshold pinned
-  by bisection at 219/220. ⚠ Two corrections: it fails the FILE, not the run, and the message
-  runs two sentences together. **The character half did NOT reproduce on ext4 and cannot** -
-  colon, `<`, `|` and `nul` all organized unsanitised, which is the premise working; the
-  instrument is an xfail on the Windows lane, as `(aif)` used.
-  Body: [`research/backlog/aid.md`](research/backlog/aid.md).
 
 - **(ahz) RECOVERING A LOST CATALOG DESTROYS THE NAMES IT IS RECOVERING, AND THE GUARD AGAINST IT IS BLIND.** Filed
   2026-08-26 (P106a), measured. A rebuild registers the recovery folder as a drive and publishes a decisions
