@@ -108,7 +108,11 @@ There is also **`truestill-app`**, a local web UI on `127.0.0.1` - token-authent
 server-rendered, with a React island for the Organize result. It is co-equal with the CLI, not a replacement: both
 front-ends call the same core library.
 
-## Requirements
+## Requirements for working from a clone
+
+⚠ **Not needed to run a release.** The downloads carry their own Python and their own `exiftool`
+- see [Install](#install). This section is for building or developing from the source tree.
+
 
 - Python ≥ 3.14, [uv](https://docs.astral.sh/uv/)
 - `exiftool` - the only tool that reads photo EXIF, video container tags and vendor
@@ -128,7 +132,7 @@ independently and only the list says which one is wrong. `[project.dependencies]
 Hashing, SQLite, concurrency and all path/date work are stdlib. The browser lane additionally
 needs Node; `make check` does not.
 
-### Working on a mounted or cloud filesystem
+## Working on a mounted or cloud filesystem
 
 Truestill runs against a mounted drive or a cloud filesystem (an rclone remote, a NAS, a sync client's mount) as
 happily as a local disk, and **the cheap answers stay cheap wherever the files live**:
@@ -157,9 +161,8 @@ if you would rather not install:
 sudo dpkg -i truestill_*_amd64.deb        # Linux
 ```
 
-**Nothing else is needed.** These builds carry their own Python and their own `exiftool`, so the
-Requirements above are for working from a clone, not for running a release. Verify the download
-first - see [Verifying a download](#verifying-a-download).
+**Nothing else is needed** - no Python, no `uv`, no `exiftool`: the builds carry their own.
+Verify the download first, see [Verifying a download](#verifying-a-download).
 
 ⚠ **Windows shows a SmartScreen warning** when you launch the installer, before anything is
 installed: these builds are not code-signed (`docs/DECISIONS.md` D9). Choose **More info** then
@@ -192,11 +195,11 @@ cosign verify-blob \
 `cosign` is [Sigstore's own tool](https://github.com/sigstore/cosign). Both commands must succeed:
 the first says the bytes are intact, the second says where they came from.
 
-**On Windows you will see a SmartScreen warning on first run.** These builds are not code-signed -
-buying a certificate is [a deliberate decision](docs/DECISIONS.md), not an oversight - so Windows
-has no reputation for the file yet. Choose **More info**, then **Run anyway**. The warning goes
-away as more people download the same file. Signing would not remove it immediately either; only
-an EV certificate does that.
+⚠ **The SmartScreen warning is described once, under [Install](#from-a-release-most-people).**
+It said *"on first run"* here and *"when you launch the installer"* there - **two copies of one
+fact, and they had already drifted.** The installer warns first, which is the earlier and more
+alarming moment, so that is the one a page must predict accurately: `docs/DECISIONS.md` D9 rests
+on the prediction being right, not merely present.
 
 ## Usage
 
@@ -207,14 +210,19 @@ shows the counts instead and writes the per-file detail to `last-run.json` besid
 so you can still find out later which photos failed:
 
 ```bash
-uv run truestill analyze <folder>    # what is in here? -- reads nothing, changes nothing
+truestill analyze <folder>    # what is in here? -- reads nothing, changes nothing
 
-uv run truestill organize <source> <destination>
-uv run truestill organize <source> <destination> --apply --report reports/run.json
-uv run truestill organize <source> <destination> --apply
+truestill organize <source> <destination>
+truestill organize <source> <destination> --apply --report reports/run.json
+truestill organize <source> <destination> --apply
 
-uv run truestill-app                 # the local web UI
+truestill-app                 # the local web UI
 ```
+
+⚠ **These are the commands an installed copy answers to** - the packages put `truestill` on your
+`PATH` (the release lane asserts `/usr/bin/truestill` exists before it will publish). **Working
+from a clone, prefix every one with `uv run`.** This block said `uv run` for all readers until
+2026-08-30, which is the one prefix a person who downloaded a release does not have.
 
 **Start with `analyze`** if you have not used Truestill before. It needs only a folder - no
 destination, no library, no setup.
@@ -231,7 +239,13 @@ reporting a zero.
 
 `truestill --help` lists every subcommand: `analyze`, `organize`, `ingest`, `drives`,
 `repoint-sources`, `undo-organize`, `where`, `verify`, `status`, `catalog`, `config`,
-`reclaim`, `migrate-layout`, `clean-empty`, `rescan`, `restore`, `self-check`.
+`reclaim`, `migrate-layout`, `backup`, `bake`, `clean-empty`, `rescan`, `restore`,
+`self-check`.
+
+⚠ Two of those were missing until 2026-08-30. The list is pinned by
+`test_the_readme_names_every_subcommand.py`, which reads the parser rather than this sentence -
+and which is deliberately kept out of the paragraph above, because a note naming the very
+subcommands it is about would satisfy the guard on behalf of a list that had lost them.
 
 Frequently used `organize` flags:
 
@@ -312,5 +326,6 @@ Truestill is licensed under the [Apache License 2.0](LICENSE). The published sou
 open-core: the repository is Apache-2.0; paid Pro capabilities (when they ship) attach through
 the capability seam rather than a separate closed tree (`docs/DECISIONS.md` D7, D6).
 
-> **Status:** pre-1.0 and not yet published. This README is deliberately factual rather than
+> **Status:** **0.1.0 is published** (2026-08-30). Pre-1.0, and the newcomer-facing rewrite
+> this note was carrying is still pending. This README is deliberately factual rather than
 > promotional; the newcomer-facing rewrite with screenshots is a tracked pre-launch task.
