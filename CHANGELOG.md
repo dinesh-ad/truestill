@@ -6,6 +6,42 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+Nothing yet - 0.1.0 is the current release.
+
+## [0.1.0] - 2026-08-30
+
+The first published release. Windows and Linux, unsigned (`docs/DECISIONS.md` D9).
+
+### Added
+
+- **Organize a folder of photos and videos into dated folders**, by the date the camera recorded
+  rather than by the file's timestamp. Truestill reads EXIF and the formats phones and cameras
+  actually write; where there is no date it says so instead of guessing.
+- **Nothing is moved until you say so.** Every run previews first, names what it will do, and
+  writes only with `--apply`. Your originals are copied, never modified.
+- **Identical files are found by content**, so the same photograph saved in four places is
+  organized once and the other three are skipped.
+- **Look-alikes are found too** - a resized export, or a copy whose metadata was stripped by a
+  messaging app - and are kept and flagged rather than silently dropped.
+- **A catalog of what is where**, so you can ask which drives hold a photograph, and check that
+  the copies are still there and still correct (`verify`).
+- **Back up a library to a second drive**, and see which files exist on only one.
+- **Undo** an in-place reorganize, putting every file back where it was.
+- **A local web interface** (`truestill-app`) beside the command line. Nothing leaves the machine.
+- **Runs are recorded**: a permanent one-line history beside your catalog, with file-by-file
+  detail for recent runs, so a run that stopped early can be accounted for afterwards.
+- **Downloads are verifiable.** `SHA256SUMS` is signed with sigstore, keyless - see
+  *Verifying a download* in [`README.md`](README.md).
+
+---
+
+## Development before the first release
+
+⚠ **These entries are kept as a record and are NOT part of 0.1.0's changes.** They describe work
+done before anything was published - including fixes to defects no user could have met, because
+there was no previous release to meet them in. They are retained because they explain why the
+product behaves as it does; read them as history, not as *what changed for you*.
+
 ### Added
 - **Undoing an organize now writes down what it put back**, the way organizing itself does - and
   it no longer overwrites the record of the run it reversed. Truestill keeps a permanent one-line

@@ -147,6 +147,26 @@ read before it starts, so the decision is yours.
 
 ## Install
 
+### From a release (most people)
+
+Download from [Releases](https://github.com/dinesh-ad/truestill/releases) - **Windows** the
+`TruestillSetup-*.exe`, **Linux** the `truestill_*_amd64.deb`, or the portable archive on either
+if you would rather not install:
+
+```bash
+sudo dpkg -i truestill_*_amd64.deb        # Linux
+```
+
+**Nothing else is needed.** These builds carry their own Python and their own `exiftool`, so the
+Requirements above are for working from a clone, not for running a release. Verify the download
+first - see [Verifying a download](#verifying-a-download).
+
+⚠ **Windows shows a SmartScreen warning** when you launch the installer, before anything is
+installed: these builds are not code-signed (`docs/DECISIONS.md` D9). Choose **More info** then
+**Run anyway**. **macOS is not published** - Gatekeeper refuses unsigned applications outright.
+
+### From a clone (development)
+
 ```bash
 make install       # uv sync --all-packages --group dev
 ```

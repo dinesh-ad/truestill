@@ -425,7 +425,21 @@ jobs:
           gh release create "${{ github.ref_name }}" out/* \
             --repo "${{ github.repository }}" \
             --title "${{ github.ref_name }}" \
-            --notes "Verify before installing - see the Verifying a download section of the README.
+            --notes "**Verify before installing.** The checksums below are signed with
+          [sigstore](https://www.sigstore.dev/) - keyless, so there is no certificate to trust and
+          no key for anyone to steal. Both commands run where you downloaded the files:
+
+              sha256sum --check --ignore-missing SHA256SUMS
+
+              cosign verify-blob \\
+                --bundle SHA256SUMS.sigstore.json \\
+                --certificate-identity-regexp '^https://github[.]com/${{ github.repository }}/[.]github/workflows/release[.]yml@' \\
+                --certificate-oidc-issuer https://token.actions.githubusercontent.com \\
+                SHA256SUMS
+
+          The second proves the checksums were produced by this repository's own release workflow.
+          \`cosign\` is at https://github.com/sigstore/cosign. On Windows use \`certutil -hashfile
+          <file> SHA256\` in place of \`sha256sum\`.
 
           **Windows.** These builds are not code-signed (\`DECISIONS.md\` D9), so Windows shows a
           SmartScreen warning - **when you launch the installer, before anything is installed**,
