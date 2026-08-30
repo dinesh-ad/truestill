@@ -1,0 +1,90 @@
+# (aiq) THE APP SHOWS A NUMBER FOR FAILURES AND NEVER A FILE, AND SHOWS NOTHING AT ALL ON A STOP.
+
+*Body of backlog entry `(aiq)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is
+shared with [`SHIPPED.md`](../../SHIPPED.md).*
+
+Filed 2026-08-30 (P145), from the surface audit `(aim)` needed and did not have. **Read from
+source, not from the browser lane** - which the P145 brief forbade - so the rendering claims are
+traced through `main.tsx` → `app.js`, not observed.
+
+## ⚠ FIRST, THE CORRECTION THIS ENTRY EXISTS TO CARRY
+
+`(aim)` recorded *"the app already solved it"* and cited `service/organize._completion`. **On the
+TENSE that is right**: `_completion` is built only from `results` and its own docstring says
+*"every number here is counted from the results - nothing is estimated."* The app renders that as
+its headline. So a reader of `(aim)` would conclude the app is the model to copy. **On two of the
+three axes below it is the surface to fix.**
+
+## THE THREE GAPS
+
+### 1. No per-file failure list exists at all
+
+`CompletionBase` carries a **scalar**: `"failed": sum(1 for r in results if r.status is
+ActionStatus.FAILED)`. `app.js` renders one banner - *"3 files could not be organized."* No names,
+no reasons, no cap notice.
+
+The CLI names every one through `cli._print_capped`, capped at `_STATUS_PREVIEW` with a tail
+saying how many more and how many distinct reasons - which is `(afd)`, built because 2,096
+identical lines is its own defect. **So the app is not behind on volume control; it never had the
+list.**
+
+⚠ **This is the inverse of `(aim)`'s framing and that is why it is written down.** Left as
+filed, the next person improving the CLI would copy the app.
+
+**It is also the surface's own stated standard, unapplied.** `service/organize._unreadable_files`
+and `_duplicate_report` both ship `{total, shown}` and both **are** rendered. Failures are the one
+never-silent list that never got one.
+
+### 2. A hard stop shows no counts whatever
+
+`RunStoppedError` escapes `organize_run` after the record is written; `jobs.py` takes its
+`except Exception` branch and emits a terminal `{"type": "error"}` with **no `summary`**;
+`app.js` then forces `summary: {}` on a failed job and renders a single banner.
+
+🔑 **So the user is told the reason and nothing about what landed.** This is `(aim)`'s worst CLI
+route in a worse form - and after P145 the CLI prints `1 failed / 2 not attempted` there while the
+app still prints neither. The counts exist: they are in the run record on disk, written three
+lines before the re-raise.
+
+⚠ **A cancel is NOT this case and must not be folded in** - it returns normally, carries the full
+summary, and already renders *"Stopped - N files organized before you stopped it."* That half is
+correct and is the model for this one.
+
+### 3. `metadata_ok` does not exist in `truestill-app`
+
+Zero occurrences in the package. `(aie)` and `(ain)` shipped *"copied to X and is safe, but this
+drive does not let Truestill set timestamps or permissions"*, the CLI prints it under
+`METADATA NOT SET`, and **the app cannot show it** - the field is not on the payload. A degradation
+that is silent on one surface is the shape `(aek)` and `(aep)` each closed once.
+
+## ⚠ AND `MOVE_KEPT` FALLS OUT OF BOTH TALLIES
+
+`_ORGANIZED_STATUSES` is `{UPLOADED, RENAMED, MOVED, MOVED_IN_PLACE}` and `failed` counts
+`ActionStatus.FAILED` exactly, so a `MOVE_KEPT` file is in **neither**. Its only trace is the
+`outcomes` dict, which `app.js` reads **once, as a truthiness check**, and never renders. The
+CLI's half of this question is `(air)`.
+
+## WHAT PINS IT AFTERWARDS - and the hole is already documented
+
+`test_job_summaries_are_read_where_they_are_delivered.py` records the identical defect on
+**backup's** summary (*"a run that could not copy a file says so nowhere on this screen"*) and
+then **exempts `/api/organize/run` by name in its own comment**. So the guard for this class
+exists, was written by someone who saw this payload, and was scoped around it.
+
+`test_server.py`'s `test_organize_run_summary_matches_files_on_disk` asserts `set(summary) >= {…}`
+- a **superset** check, which `CompletionBase`'s own docstring notes lets key additions pass
+silently. **No test anywhere asserts a non-zero `failed`, any `outcomes` content, or `MOVE_KEPT`
+reaching a surface.**
+
+## WHY IT WAS NOT BUILT IN P145
+
+Three app changes of one class riding inside a `cli.py` commit would make a screen change
+dependent on a core one, and `CLAUDE.md`'s browser-lane rule exists for exactly the change that
+*"could make a screen STOP SHOWING SOMETHING"* - which adding a payload field and a renderer is.
+This wants its own commit and the browser lane on.
+
+## RELATED
+
+`(aim)` (the CLI half, shipped), `(air)` (`MOVE_KEPT`'s exit code), `(aer)` (the last time a
+payload field a renderer read went missing), `(afd)` (the cap the list would need), `(aie)` /
+`(ain)` (the warning gap 3 hides).

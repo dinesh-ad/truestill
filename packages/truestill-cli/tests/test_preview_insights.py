@@ -78,7 +78,7 @@ def library(tmp_path: Path) -> list[Resolution]:
 
 
 def _summary(library: list[Resolution], capsys: pytest.CaptureFixture[str]) -> str:
-    cli._print_summary(library)
+    cli._print_summary(library, skip_undated=False, apply=False)
     return capsys.readouterr().out
 
 
@@ -125,7 +125,7 @@ def test_the_largest_files_are_listed_and_capped(library, capsys) -> None:
 
 def test_an_undated_library_says_so_rather_than_inventing_a_range(tmp_path: Path, capsys) -> None:
     """Cry-wolf: no dates means no range, and never a placeholder year."""
-    cli._print_summary([_resolution(tmp_path, "a.jpg", size=10)])
+    cli._print_summary([_resolution(tmp_path, "a.jpg", size=10)], skip_undated=False, apply=False)
     out = capsys.readouterr().out
     assert "1970" not in out
     assert "0001" not in out
@@ -135,6 +135,10 @@ def test_a_library_with_no_duplicates_reports_zero_rather_than_omitting_the_line
     tmp_path: Path, capsys
 ) -> None:
     """`_print_summary`'s discipline: printed even at zero, so the column can be added up."""
-    cli._print_summary([_resolution(tmp_path, "a.jpg", size=10, when=datetime(2020, 1, 1))])
+    cli._print_summary(
+        [_resolution(tmp_path, "a.jpg", size=10, when=datetime(2020, 1, 1))],
+        skip_undated=False,
+        apply=False,
+    )
     out = capsys.readouterr().out
     assert "identical" in out.lower()

@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aip). Next free: (aiq).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(air). Next free: (ais).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -239,22 +239,41 @@ is invisible here is retired, not free.**
   threshold and no review, so it is a reporting shape rather than a feature.
   Body: [`research/backlog/aii.md`](research/backlog/aii.md).
 
-- **(aim) THE SUMMARY PRINTS A PLAN-DERIVED COUNT IN OUTCOME TENSE, BEFORE THE OUTCOME EXISTS.**
-  Filed 2026-08-29 (P141). `_print_summary` computes *"organized (unique): N"* from
-  `partition_for_report` - the **plan** - while `_print_execution` computes *"N failed"* from
-  `ActionStatus` - the **outcome**. Two objects, no shared arithmetic, no cross-check, and the
-  summary prints **before `execute(...)`, unconditionally including under `--apply`**.
-  **A shape, not a bug list**: four letters recorded it with four different causes (`(aac)`
-  overlapping buckets, `(aer)` silent scope exclusion, `(afe)` an uncounted duplicate, `(aie)` a
-  post-count failure). ⚠ **That census is NOT complete** - the unit was *what somebody wrote
-  down*. Traced against code the count diverges by **eight routes**, two with **no failure at
-  all** (`--skip-undated`, cancel), and on **four of them the correcting block never prints**, so
-  the plan number is the only count on screen. ⚠ **But the class is NOT codebase-wide**: `backup`
-  (*"to copy"*/*"Copied"*), `reclaim` (*"would be freed"*), `verify` (read-only) and `repoint`
-  (a preview by name) are all correct - `organize` is the outlier, established by reading which
-  object each number comes from rather than by grep. **The fix exists twice in-repo already**:
-  backup's tense and the app's `will_organize`/`_completion` split.
-  Body: [`research/backlog/aim.md`](research/backlog/aim.md).
+- **(aiq) THE APP SHOWS A NUMBER FOR FAILURES AND NEVER A FILE, AND SHOWS NOTHING AT ALL ON A
+  STOP.** Filed 2026-08-30 (P145), from the surface audit `(aim)` needed and did not have. ⚠
+  **`(aim)` recorded the app as having "already solved" this, and on the TENSE it had** -
+  `service/organize._completion` is built only from `results`. Three gaps behind that:
+  - ❌ **No per-file failure list exists.** `CompletionBase` carries a scalar
+    `"failed": sum(1 for r in results if r.status is ActionStatus.FAILED)`, and `app.js` renders
+    one banner - *"3 files could not be organized"*. No names, no reasons, no cap notice. **The
+    CLI names every one** (`cli._print_capped`), so on the DETAIL axis the app is worse than the
+    CLI - the inverse of `(aim)`'s framing, and worth stating because that framing would send the
+    next person to copy the app.
+  - ❌ **A hard stop shows no counts whatever.** `RunStoppedError` escapes `organize_run`,
+    `jobs.py` emits `{"type": "error"}` with **no summary**, and `app.js` forces `summary: {}`.
+    The user is told the reason and nothing about what landed. **This is `(aim)`'s worst CLI route
+    in a worse form**: the CLI at least printed a number, wrong tense and all - and after P145 it
+    prints the outcome. *"Not knowing is the harm."*
+  - ❌ **`metadata_ok` appears NOWHERE in `truestill-app`** (zero occurrences), so `(aie)` and
+    `(ain)`'s *"copied and safe, but the drive would not set its timestamps"* is invisible there.
+  🔑 **The guard hole is already written down and excludes this payload BY NAME**:
+  `test_job_summaries_are_read_where_they_are_delivered.py` records the identical defect on
+  backup's summary and then exempts `/api/organize/run` in its own comment. **Not built in P145
+  deliberately** - it is app work of one class, and folding it into a `cli.py` commit would make
+  a screen change ride on a core one. Related: `(aim)`, `(air)`, `(aer)`.
+
+- **(air) A `--move` THAT COULD NOT REMOVE THE SOURCE EXITS 0.** Filed 2026-08-30 (P145), from
+  `(aim)`'s route census; **filed rather than decided**. `MOVE_KEPT` means the copy is in the
+  library and verified and the **source was deliberately kept** - `organizer._move_source` *"never
+  deletes on doubt"*, which is right. But `cli._print_execution` selects failures as
+  `r.status is ActionStatus.FAILED` alone, so the run exits **0**: a `--move` that did not move
+  reports success. `1` is already this CLI's *"finished, but something is wrong with the library"*
+  and `organize && next_step` would chain past it. ⚠ **The counter-argument is real and is why
+  this is a question**: nothing was lost, the library is correct, and a non-zero exit for a
+  successful copy would be its own cry-wolf. ⚠ **The app is worse and that half belongs to
+  `(aiq)`**: `MOVE_KEPT` is in neither `_ORGANIZED_STATUSES` nor `failed`, so it falls out of both
+  tallies and its label reaches no pixel. **Do not fold this into a summary-wording change** - it
+  alters an exit code, which is a contract a script reads. Related: `(aim)`, `(aiq)`.
 
 - **(aio) RELEASING THE BAKED TEMPORARY SITS BETWEEN THE COMMITTED COPY AND ITS CATALOG ROW.**
   Filed 2026-08-29 (P143), from the census `(ain)` asked for. **`(ain)`'s shape on the bake path,

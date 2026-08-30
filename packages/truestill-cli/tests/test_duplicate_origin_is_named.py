@@ -29,6 +29,17 @@ from truestill_core.models import (
     Resolution,
 )
 
+
+def _reported(results: list[ActionResult]) -> int:
+    """`_print_execution` over results whose plan is exactly these files.
+
+    It takes the plan as well as the outcome, for one line: the files that produced no result at
+    all. Here every file was attempted, so `stop_block` answers `None` and nothing is claimed
+    about a divergence - which is what these tests are about. `(aim)`
+    """
+    return _print_execution(results, [r.resolution for r in results])
+
+
 LIBRARY = origin_phrase(DuplicateOrigin.CATALOG)  # "already in your library"
 BATCH = origin_phrase(DuplicateOrigin.RUN)  # "earlier in this batch"
 
@@ -97,7 +108,7 @@ def test_the_preview_names_where_each_duplicate_group_matched(
 
 def test_the_executed_tally_names_them_too(capsys: pytest.CaptureFixture[str]) -> None:
     """The apply run is where the number is largest and the question most pressing."""
-    _print_execution(_executed(_mixed()))
+    _reported(_executed(_mixed()))
     out = capsys.readouterr().out
     assert f"2 {LIBRARY}" in out
     assert f"1 matched another file {BATCH}" in out

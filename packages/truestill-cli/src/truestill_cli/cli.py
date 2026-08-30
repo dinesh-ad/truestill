@@ -2435,14 +2435,40 @@ def _wrapped(entries: list[str], *, width: int) -> list[str]:
     return lines
 
 
-def _print_summary(resolutions: list[Resolution]) -> None:
+def _print_summary(resolutions: list[Resolution], *, skip_undated: bool, apply: bool) -> None:
+    """The plan's own tally. **A plan, and under ``--apply`` it says so.** `(aim)`
+
+    ⚠ **This block is printed BEFORE `execute` runs, on every path including `--apply`**, and its
+    rows are past participles. `(abl)` called them *"always been honest"* and they are - of a
+    preview, which is the only document anyone read them as. The moment `--apply` prints them
+    above a run that has not happened, they are a plan wearing an outcome's tense.
+
+    🔑 **The identical defect was fixed one artifact over and never reached the screen.** `(afl)`
+    deleted the plan-time *run record* write, and the comment that replaced it in
+    `_print_run_reports` is the whole argument: *"it answered 'what would happen', the record
+    answers 'what happened', and one file cannot honestly be both."*
+
+    **Retensed, not recounted, and not suppressed.** The numbers are right for what they are, and
+    `(afm)` kept these counts under `--apply` deliberately - *"the moment is the same, the document
+    is not"* - because this is the last thing on screen before a long copy starts. So the header
+    names the document and `EXECUTED` is pointed at by name.
+
+    **Both flags are required and neither has a default**, for the reason
+    `ReportBuckets.will_organize`'s docstring gives about its own: they change the answer, and a
+    default is an assumption a second caller would inherit silently.
+
+    ⚠ **THE TENSE IS A HUMAN READ AND NOTHING GUARDS IT.** A test can assert this header string is
+    present; that pins a string, not honesty - the next person to reword the block can satisfy it
+    and put the defect straight back. Said here so no one infers from a green suite that it is
+    covered. See `test_the_screen_accounts_for_every_file.py`.
+    """
     buckets = partition_for_report(resolutions)
     organized = buckets.organized
     labels = Counter(r.decision.category.label for r in organized)
     sources = Counter(r.decision.date_source.value for r in organized)
 
     print(_SEPARATOR)
-    print("SUMMARY")
+    print("SUMMARY - the plan. What happened is in EXECUTED, below." if apply else "SUMMARY")
     print(_SEPARATOR)
     # These four must sum to `files analysed`. The buckets are disjoint by construction
     # (`partition_for_report`) and the sum is asserted by `test_summary_tally_is_disjoint`;
@@ -2452,6 +2478,17 @@ def _print_summary(resolutions: list[Resolution]) -> None:
     print(f"  organized (near-dup): {len(buckets.near_duplicates)}  (kept + flagged for review)")
     print(f"  skipped (exact dup): {len(buckets.exact_duplicates)}")
     print(f"  could not be read  : {len(buckets.unreadable)}")
+    # ⚠ **A FIFTH ROW BESIDE THE FOUR, NEVER A SUBTRACTION INSIDE THEM.** `(acx)` is live on this
+    # surface: `--skip-undated` leaves undated files in `buckets.unique`, so the four rows above
+    # promise files the run will not take. The correction is NOT to subtract them from `unique` -
+    # those four are pinned to sum to `files analysed` by `test_summary_tally_is_disjoint`, and
+    # taking undated out of one of them would repair `(acx)`'s law by breaking `(aac)`'s.
+    # `will_organize` is their sum minus undated, so it belongs beside them as its own line.
+    #
+    # **`ReportBuckets.will_organize` is "the one home for that number" and the whole of
+    # `truestill-cli` had never called it** - the only production caller was the app, which is
+    # why `(acx)` was fixed there and left standing here.
+    print(f"  to organize        : {buckets.will_organize(skip_undated=skip_undated)}")
     print(f"  folders derived    : {len(labels)}")
     for label, count in labels.most_common():
         print(f"      {label:<28} {count}")
@@ -2572,7 +2609,13 @@ def _print_capped(results: list[ActionResult], *, label: str) -> None:
     )
 
 
-def _print_execution(results: list[ActionResult]) -> int:
+def _print_execution(results: list[ActionResult], resolutions: list[Resolution]) -> int:
+    """What the run actually did. **The outcome document, and the only one.** `(aim)`
+
+    ``resolutions`` is here for one line: the files that produced no `ActionResult` at all. A stop
+    leaves them absent from ``results`` entirely, so every status row below can be true while the
+    block still accounts for fewer files than `SUMMARY` analysed.
+    """
     # Human wording, shared with the app: 'uploaded' is backend vocabulary for an event
     # that did not happen on a local disk, and never reaches a user.
     outcomes = Counter(status_label(result.status) for result in results)
@@ -2581,6 +2624,22 @@ def _print_execution(results: list[ActionResult]) -> int:
     print(_SEPARATOR)
     for status, count in outcomes.most_common():
         print(f"  {count:>7}  {status}")
+    # ⚠ **THE DIVERGENCE IS NAMED, NOT LEFT TO SUBTRACTION**, and this is the only number on
+    # screen that says a run did not reach every file it planned to. `run_record.stop_block`
+    # already derives it and already returns `None` when there is nothing to say, so this reads
+    # its answer rather than computing a second one - two subtractions of the same fact are free
+    # to disagree, which is `(afm)`'s ruling one level down.
+    #
+    # ⚠ **The COUNT only; the reason is deliberately not reprinted.** `stop_block` carries one,
+    # but it is the last `FAILED` detail - already on screen in the `FAILED` block below and in
+    # the `error:` line above. `(afm)` again: *a second copy of a number is free to disagree with
+    # the first*, and that goes for a sentence too. Same reason there is no "planned N, did M,
+    # difference K" line: the difference has one home and this is it.
+    stopped = stop_block(resolutions, results)
+    if stopped is not None:
+        # Same vocabulary as the run record's own per-file status, so a reader moving between the
+        # screen and `last-run.json` meets one word for one idea (`run_record.files_from_resolutions`).
+        print(f"  {stopped['never_attempted']:>7}  not attempted")
     _print_duplicate_origins((r.resolution for r in results), indent="           ")
     _print_mechanism_split(results)
 
@@ -2806,7 +2865,7 @@ def _print_run_reports(
     document is not.
     """
     _print_report(resolutions, destination.describe(), listing=not args.apply)
-    _print_summary(resolutions)
+    _print_summary(resolutions, skip_undated=args.skip_undated, apply=args.apply)
     _print_skipped_undated(resolutions, args.skip_undated, listing=not args.apply)
     _print_heif_note(resolutions)
     _print_preflight(preflight)
@@ -2878,7 +2937,25 @@ def _stopped_run_exit(
 
     One handler rather than two also keeps `_run_pipeline` under its branch ceiling, which
     `IMPLEMENTATION_STANDARDS.md` answers by extracting rather than by raising the limit.
+
+    🔑 **AND UNTIL 2026-08-30 THIS PRINTED NO OUTCOMES AT ALL, WHICH DEFEATED `(agi)` AT THE ONE
+    SURFACE THE USER LOOKS AT.** `(agi)` records the offending file as `FAILED` *before*
+    re-raising, precisely so the reason survives the stop; `(agj)` then built `RunStoppedError`
+    around carrying `results` out of the dying frame. Both arrived here and stopped. The screen
+    got the plan's `organized (unique): 3`, one `error:` line and exit 4 - **the plan number was
+    the only count on it** - while `last-run.json` held `attempted: 1`, one `failed` and two
+    `not attempted`. Measured on both raising routes before this line was written. `(aim)`
+
+    **So the block prints here too, and the exit code is still the stop's.** `_print_execution`
+    returns 1-on-failures for the ordinary path; a stopped run is `4` - *this destination cannot
+    be used* - and that answer does not change because the block above it now exists.
     """
+    # ⚠ Before the `error:` line and before any re-raise: what landed is true whatever stopped the
+    # run, including when what stopped it was a defect of ours. On the `DestinationError` arm this
+    # is an empty block plus "N not attempted", which is exactly what happened - `execute` refused
+    # before the first byte, so nothing was tried and the block says so rather than being absent.
+    results = exc.results if isinstance(exc, RunStoppedError) else []
+    _print_execution(results, resolutions)
     if isinstance(exc, RunStoppedError):
         _record_the_run(args, resolutions, exc.results)
         if not isinstance(exc.__cause__, OSError | DestinationError):
@@ -3141,7 +3218,7 @@ def _run_pipeline(
         # chain past a library Truestill could not fully account for. Code 1 is already this
         # CLI's "finished, but something is wrong" (verify, organize, reclaim all use it).
         return 1 if unreadable else 0
-    code = _print_execution(results)
+    code = _print_execution(results, resolutions)
     _record_the_run(args, resolutions, results)
     # ⚠ The banner this run printed says "Empty folders left behind are reported, never deleted",
     # and until 2026-08-22 nothing here reported them: `_offer_cleanup` was wired into

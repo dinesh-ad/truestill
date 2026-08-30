@@ -1,4 +1,23 @@
-# (aim) THE SUMMARY PRINTS A PLAN-DERIVED COUNT IN OUTCOME TENSE, BEFORE THE OUTCOME EXISTS.
+# (aim) THE SUMMARY PRINTS A PLAN-DERIVED COUNT IN OUTCOME TENSE.
+
+> ✅ **SHIPPED 2026-08-30 (P145).** Provenance is in [`SHIPPED.md`](../../SHIPPED.md).
+>
+> ⚠ **THREE CLAIMS BELOW ARE WRONG, AND THE BODY IS LEFT UNREWRITTEN AS THE READING IT WAS** -
+> a record edited to stay correct stops being one. Traced again for the build:
+>
+> 1. *"On FOUR of those routes the correcting block never prints"* - it is **TWO**.
+>    `_health_stop` and the `CatalogWriteError` arm both **`break`**, so `execute` returns
+>    normally and `_print_execution` runs. Only a **raise** escapes it.
+> 2. *"User cancel"* is **not a CLI route at all**. `cli.py` passes no `cancel` to `execute`; the
+>    app does and already renders it honestly. The CLI's analogue is `KeyboardInterrupt`,
+>    deliberately uncaught, which destroys the results frame - no fix reaches it.
+> 3. The sharp claim was **understated**: `(agi)` records the offending file as `FAILED` *before*
+>    re-raising and `(agj)` carries the results out on the exception - and both arrived at
+>    `_stopped_run_exit`, which held them and printed nothing. Measured before the fix, the record
+>    said `attempted: 1` / `never_attempted: 2` while the screen said `organized (unique): 3`.
+>
+> **Filing the class before fixing `(aie)` is what made this findable at all** - and the census
+> over letters being the wrong unit, which this body says of itself, was right twice over.
 
 *Body of backlog entry `(aim)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 

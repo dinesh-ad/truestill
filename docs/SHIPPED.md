@@ -22,6 +22,89 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aim) THE SUMMARY PRINTED A PLAN-DERIVED COUNT IN OUTCOME TENSE, AND ON TWO ROUTES IT WAS THE
+  ONLY COUNT ON SCREEN.** Shipped 2026-08-30 (P145). Filed the day before as a **shape, not a bug
+  list**, deliberately ahead of `(aie)`'s fix so that closing the instance could not close the
+  class. Four changes, all in `cli.py`.
+
+  ## ⚠ THREE OF THE ENTRY'S OWN CLAIMS WERE WRONG, and the corrections are the useful part
+
+  The letter was traced from code and filed unmeasured. Traced again for the build:
+
+  | `(aim)` said | actually |
+  |---|---|
+  | *"on FOUR of those routes the correcting block never prints"* | **TWO.** `_health_stop` and the `CatalogWriteError` arm both **`break`**, so `execute` returns and `_print_execution` runs. Only a **raise** escapes it |
+  | route 2 is *"user cancel"* | **not a CLI route at all.** `cli.py` passes no `cancel` to `execute`; the app does, and already renders it honestly. The CLI's analogue is `KeyboardInterrupt`, **deliberately** uncaught (`except Exception`, not `BaseException`), which destroys the results frame - so no fix here reaches it |
+  | *"the plan number is the only count on screen"* | **confirmed, and it is worse than stated** - see below |
+
+  🔑 **THE SHARP HALF: `(agi)`'s DISCIPLINE WAS DEFEATED AT THE SCREEN.** `(agi)` records the
+  offending file as `FAILED` **before** re-raising, precisely so the reason survives; `(agj)` then
+  built `RunStoppedError` to carry `results` out of the dying frame. Both arrived at
+  `_stopped_run_exit`, which held `exc.results` and **printed none of it**. Measured on both
+  raising routes before anything was built - three photographs, `ENOSPC` on the first copy:
+
+  ```
+  organized (unique)  : 3          <- the PLAN, printed before execute
+  error: could not copy 20240110_120000_p0.jpg to '...': there is no space left on the drive
+  >>> exit code: 4                 <- and no EXECUTED block at all
+  ```
+
+  while `last-run.json` for that same run held `intended_total: 3, attempted: 1`,
+  `never_attempted: 2`, one `failed` and two `not attempted`. **The record was complete and
+  honest; the screen was neither.**
+
+  ## THE FOUR CHANGES
+
+  1. **The plan block says it is a plan under `--apply`** - *"SUMMARY - the plan. What happened is
+     in EXECUTED, below."* ⚠ **Retensed, not recounted, and not suppressed**: the numbers are
+     right for what they are, and `(afm)` kept these counts under `--apply` on purpose (*"the
+     moment is the same, the document is not"*).
+  2. **`organized (unique)` gained a fifth row beside it, `to organize`** - `(acx)` live on this
+     surface, since `--skip-undated` leaves undated files in `buckets.unique`. ⚠ **A row, never a
+     subtraction inside the four**: taking undated out of `unique` would repair `(acx)`'s law by
+     breaking `(aac)`'s, which `test_summary_tally_is_disjoint` pins on the rendered text.
+     `ReportBuckets.will_organize` is *"the one home for that number"* and **the whole of
+     `truestill-cli` had never called it** - only the app had, which is why `(acx)` was fixed
+     there and left standing here.
+  3. **`_print_execution` runs on every terminating path**, including `_stopped_run_exit`. The
+     highest-value change and the smallest. The stop's exit code is unchanged: `4`.
+  4. **The divergence is NAMED** - one `not attempted` row, from `run_record.stop_block`, which
+     already derives it and already answers `None` when there is nothing to say. ⚠ **The count
+     only; the reason is not reprinted, and there is no "planned N, did M, difference K" line** -
+     `(afm)` ruled that *a second copy of a number is free to disagree with the first*.
+
+  ## WHAT THE FIX IS NOT
+
+  ⚠ **`organize` is the outlier and this stayed scoped to it.** `backup` (tense), `reclaim`
+  (*"would be freed"*), `verify` (read-only) and `repoint` (a preview by name) were each re-read
+  for which object their number comes from. **A "conservation law for every command" was refused**
+  as a mechanism built for one instance - `(ago)`.
+
+  ⚠ **NO NEW EXIT CODE, and the rule is the repo's own**: *"one per failure family that a caller
+  would act on differently"* (`cli.py`). Every actionable divergence already has one - a stop `4`,
+  catalog unwritable `7`, any `FAILED` `1` - and the benign ones (`--skip-undated`, a refused
+  timestamp) need no action. rsync's `24` is one specific benign **cause**, not a category; a code
+  meaning *"something diverged"* is one a script cannot branch on. `MOVE_KEPT` exiting `0` is a
+  real open question and is `(air)`, not this.
+
+  ✅ **Guard:** `test_the_screen_accounts_for_every_file.py`. ⚠ **`(aac)`'s law cannot be extended
+  in place** - it is asserted over `Iterable[Resolution]`, the plan, with no outcome in it
+  anywhere. So this drives a real `main(["organize", ..., "--apply"])` with a stop injected and
+  reads both blocks back out of the rendered text, which is `test_summary_tally_is_disjoint`'s own
+  technique and the answer to `(acx)`'s *"the CLI has no pair to compare"*: the screen is the
+  pair. Four mutations, each caught by its own test.
+  ⚠ **THE TENSE IS STILL A HUMAN READ AND THE GUARD SAYS SO.** `test_the_header_names_the_document`
+  asserts a literal string; that pins a string, not honesty. Change 1 is held by review.
+  ⚠ **And the header collided with the parser on the first run** - *"...is in EXECUTED, below"*
+  made a bare `split("EXECUTED")` parse the plan block. Caught by this test, on the commit that
+  introduced it.
+
+  **What was NOT done:** `(aiq)` (the app's three gaps) and `(air)` (`MOVE_KEPT`'s exit 0) were
+  filed rather than built.
+
+  Related: `(aac)`, `(abl)`, `(acx)`, `(aer)`, `(afe)`, `(afl)`, `(afm)`, `(agi)`, `(agj)`,
+  `(aie)`, `(ain)`.
+
 - **(ain) A REFUSED TIMESTAMP AFTER A COMMITTED RENAME LEFT AN ORPHAN ON THE DRIVE.** Shipped
   2026-08-29 (P143). Filed the day before as a **source reading** and reproduced before it was
   touched: `_upload_copy` uploaded and **then** called `set_timestamp`, a bare `os.utime`, so a

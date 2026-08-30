@@ -86,7 +86,7 @@
   - `run_record.py` `build_run_record`'s `"run"` block - today `stopped` is the only slot and it
     is stop-only. `RUN_RECORD_FORMAT = 1` (`run_record.py:30`) is documented as *"bumped when a
     reader would have to change"*.
-  - `cli._print_run_reports` (`cli.py:2782-2811`), beside `_print_uncompared` /
+  - `cli._print_run_reports` (`cli.py:2848-2873`), beside `_print_uncompared` /
     `_print_suppressed_noise`.
   - The app payload, the way `uncompared` was added - and §9 `:1290` requires the group be
     **absent, not zero**, when there is nothing to say.

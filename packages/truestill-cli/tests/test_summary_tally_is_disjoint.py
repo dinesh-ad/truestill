@@ -68,7 +68,7 @@ _MIXED = [
 
 def test_the_printed_summary_conserves(capsys: pytest.CaptureFixture[str]) -> None:
     """Every line a reader would add up, added up. The law, on the rendered text."""
-    _print_summary(_MIXED)
+    _print_summary(_MIXED, skip_undated=False, apply=False)
     out = capsys.readouterr().out
 
     analysed = _figure(out, "files analysed")
@@ -87,7 +87,7 @@ def test_an_unreadable_file_leaves_the_organized_count(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """The reported defect, on the exact line that reported it."""
-    _print_summary(_MIXED)
+    _print_summary(_MIXED, skip_undated=False, apply=False)
     out = capsys.readouterr().out
 
     assert _figure(out, "organized (unique)") == 1, "only new.jpg will actually be organized"
@@ -101,7 +101,7 @@ def test_the_zero_line_is_always_printed(capsys: pytest.CaptureFixture[str]) -> 
     run, this is one line in a tally that already prints ``skipped (exact dup): 0``. The law is
     only checkable by a reader if every term is on screen.
     """
-    _print_summary([_resolution("a.jpg"), _resolution("b.jpg")])
+    _print_summary([_resolution("a.jpg"), _resolution("b.jpg")], skip_undated=False, apply=False)
     out = capsys.readouterr().out
 
     assert _figure(out, "could not be read") == 0

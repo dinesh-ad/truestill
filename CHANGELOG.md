@@ -12,6 +12,16 @@ All notable changes to this project are documented here. The format follows
   history of every run beside your catalog, with the full file-by-file detail of recent ones.
 
 ### Fixed
+- **A run that stops early now tells you what it managed before it stopped.** If the drive filled
+  up or stopped accepting files part-way through, Truestill printed the number of photos it had
+  *planned* to organize, one line saying what went wrong, and nothing else - so a run that
+  organized 37 of 40 photos and then hit a full disk looked, on screen, exactly like one that
+  organized all 40. It now prints what actually happened, including how many files it never got
+  to. The detail was always being written to your run history; it just never reached the screen.
+- **The plan and the result are no longer easy to mistake for each other.** Under `--apply` the
+  block of counts printed before a run now says it is the plan and points at the results below it,
+  and it states how many files the run will actually organize - which, with *skip files with no
+  date* turned on, is fewer than the number of new photos found.
 - **A photo the drive accepted is now always written into your catalog.** If the drive took the
   file but refused to set its timestamp - shared folders, a NAS, and phone-style mounts all do
   this - Truestill reported the photo as failed and never recorded it, so the copy sitting on your

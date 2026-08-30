@@ -29,6 +29,16 @@ from truestill_core.models import (
 )
 
 
+def _reported(results: list[ActionResult]) -> int:
+    """`_print_execution` over results whose plan is exactly these files.
+
+    It takes the plan as well as the outcome, for one line: the files that produced no result at
+    all. Here every file was attempted, so `stop_block` answers `None` and nothing is claimed
+    about a divergence - which is what these tests are about. `(aim)`
+    """
+    return _print_execution(results, [r.resolution for r in results])
+
+
 def _result(name: str, status: ActionStatus, detail: str) -> ActionResult:
     category = CategoryMatch(
         label="Camera", reason="t", confidence=Confidence.MEDIUM, rule="device"
@@ -65,7 +75,7 @@ def _refused(count: int) -> list[ActionResult]:
 
 def test_a_flood_of_failures_is_capped_and_counted(capsys: pytest.CaptureFixture[str]) -> None:
     """The measured case, in miniature: many failures, one reason, one elision line."""
-    _print_execution(_refused(2096))
+    _reported(_refused(2096))
 
     err = capsys.readouterr().err
     named = [line for line in err.splitlines() if line.startswith("  FAILED:")]
@@ -85,7 +95,7 @@ def test_the_elision_says_how_many_reasons_when_they_differ(
     results[40] = _result("odd.jpg", ActionStatus.FAILED, "[Errno 28] No space left on device")
     results[41] = _result("odd2.jpg", ActionStatus.FAILED, "[Errno 5] Input/output error")
 
-    _print_execution(results)
+    _reported(results)
 
     err = capsys.readouterr().err
     assert "3 distinct reasons in total" in err
@@ -94,7 +104,7 @@ def test_the_elision_says_how_many_reasons_when_they_differ(
 
 def test_a_short_list_is_not_elided(capsys: pytest.CaptureFixture[str]) -> None:
     """The ordinary case must not gain a line that says nothing."""
-    _print_execution(_refused(3))
+    _reported(_refused(3))
 
     err = capsys.readouterr().err
     assert len([line for line in err.splitlines() if line.startswith("  FAILED:")]) == 3
@@ -112,7 +122,7 @@ def test_move_kept_shares_the_cap(capsys: pytest.CaptureFixture[str]) -> None:
         _result(f"K_{i:05d}.jpg", ActionStatus.MOVE_KEPT, "source kept: could not remove it")
         for i in range(50)
     ]
-    _print_execution(kept)
+    _reported(kept)
 
     err = capsys.readouterr().err
     assert len([line for line in err.splitlines() if line.startswith("  MOVE KEPT:")]) == (
@@ -123,7 +133,7 @@ def test_move_kept_shares_the_cap(capsys: pytest.CaptureFixture[str]) -> None:
 
 def test_the_report_stays_on_stderr(capsys: pytest.CaptureFixture[str]) -> None:
     """Errors belong on stderr (clig.dev); the volume was the defect, not the stream."""
-    _print_execution(_refused(40))
+    _reported(_refused(40))
 
     captured = capsys.readouterr()
     assert "FAILED:" in captured.err
