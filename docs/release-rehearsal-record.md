@@ -1,0 +1,87 @@
+# The release lane, rehearsed end to end - record
+
+**Ran 2026-08-30 (P152).** Run [`33310530340`](https://github.com/dinesh-ad/truestill/actions/runs/33310530340),
+tag `v0.0.0-rehearsal`, deleted the same day. Machine: GitHub-hosted `ubuntu-latest` and
+`windows-latest`, Python 3.14.
+
+**Why it exists.** `.github/workflows/release.yml`'s `publish` job had **never executed a single
+step** - six prior runs were all `workflow_dispatch`, where the job is `skipped` with `steps=0` by
+design. Five steps and one identity had never run in this repository's history, and the largest of
+them was an OIDC token GitHub had never been asked to issue. **A tag is not rehearsable after the
+fact**, so it was rehearsed before.
+
+## What ran
+
+| job | result |
+|---|---|
+| `build (ubuntu-latest)` | success, 22 steps |
+| `build (windows-latest)` | success, 22 steps |
+| **`sign and publish`** | **success, 7 steps** - previously `steps=0` on every run |
+
+The five that had never run, each green: `actions/download-artifact` with
+`merge-multiple: true` · the `out/` non-file guard and `sha256sum` · `cosign-installer` ·
+`cosign sign-blob` · `gh release create`.
+
+🔑 **The platform filenames do not collide under `merge-multiple`.** That was a *reading of the
+producers* before this run and is now an observation.
+
+## What it produced
+
+Six assets, which is what a real tag produces:
+
+```
+TruestillSetup-0.0.0-rehearsal.exe          59,476,538
+truestill-0.0.0-rehearsal-Windows.zip       86,031,418
+truestill_0.0.0-rehearsal_amd64.deb         84,949,436
+truestill-0.0.0-rehearsal-Linux.tar.gz      86,087,070
+SHA256SUMS                                         412
+SHA256SUMS.sigstore.json                        10,442
+```
+
+## Verified BY HAND, not from the lane's own tick
+
+Downloaded, then the README's *Verifying a download* commands run exactly as a user would:
+
+```
+sha256sum --check --ignore-missing SHA256SUMS
+  TruestillSetup-0.0.0-rehearsal.exe: OK      truestill-0.0.0-rehearsal-Linux.tar.gz: OK
+  truestill-0.0.0-rehearsal-Windows.zip: OK   truestill_0.0.0-rehearsal_amd64.deb: OK
+
+cosign verify-blob --bundle SHA256SUMS.sigstore.json \
+  --certificate-identity-regexp '^https://github\.com/dinesh-ad/truestill/\.github/workflows/release\.yml@' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com SHA256SUMS
+  Verified OK
+```
+
+🔑 **`Verified OK` is the result worth keeping.** Keyless signing depends on GitHub issuing an
+`id-token` to this repository and on Fulcio and Rekor accepting that identity; none of it had ever
+been exercised. **It works, and the README's command is correct as written** - so the next person
+cutting a tag does not need to find that out on the day.
+
+The artifacts were opened rather than trusted by name: the `.deb` reports
+`Package: truestill / Version: 0.0.0-rehearsal / Architecture: amd64`, and both archives carry the
+vendored exiftool under `_internal/bin/` (781 files in the Windows zip).
+
+## ⚠ The one honest delta
+
+The rehearsal ran `gh release create` **with `--draft`**, added on the tagged commit alone. The
+repository is public and the tag path had no confirmation gate, so without it the run would have
+created a visible, latest-marked release.
+
+**So that step is rehearsed as a mechanism and unrehearsed as a publication.** Same API call, same
+auth, same asset upload, same `out/*` expansion; the difference is one visibility flag. What
+remains untested is `--latest` handling and anything a public release triggers downstream.
+
+## What this changed
+
+⚠ **The rehearsal depended on the very hole it exposed**: a tag push reaches `publish` because
+`github.event.inputs.dry_run` is `null` on a tag event and `null != 'true'` passes, so the tag
+path's only condition is the tag. `(aad)`'s guard - `environment: release` with a required
+reviewer - closes it, and a rehearsal today would need an approval click.
+
+## Teardown
+
+Draft release deleted, remote tag deleted, local tag and branch deleted. `origin` returned to
+**one head (`main`) and one tag (`preserved/abw-finding-3`)**, verified by `git ls-remote`. The
+scratch commit was pushed as a **tag only**, never as a branch, so `CLAUDE.md`'s one-head rule
+held throughout.

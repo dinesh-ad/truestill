@@ -1,5 +1,38 @@
 # (aad) Desktop installers - LAUNCH-BLOCKING for the paid product.
 
+> ⚠ **STATE CORRECTION, 2026-08-30 (P153). THE BODY BELOW DESCRIBES WORK THAT IS NOW LARGELY
+> DONE, and is left unrewritten as the plan it was.** It reads as though nothing is built. What is
+> actually built, verified in [`release-rehearsal-record.md`](../../release-rehearsal-record.md):
+>
+> | | state |
+> |---|---|
+> | frozen build, both platforms | ✅ proven, six runs |
+> | Windows installer (`packaging/installer.iss`) | ✅ built, **installed, uninstalled, catalog preserved** |
+> | Linux `.deb` (`packaging/build_deb.py`) | ✅ built, **installed, uninstalled, catalog preserved** |
+> | portable `.zip` / `.tar.gz` | ✅ built both platforms |
+> | both acceptance criteria, on the frozen artifact | ✅ **the self-check is a release gate** - a build that cannot report them does not publish |
+> | publish job (5 steps) | ✅ **proven 2026-08-30**, first execution ever |
+> | sigstore signing | ✅ **`cosign verify-blob` → `Verified OK`, by hand** |
+> | `gh release create` **without** `--draft` | ❌ the one unrehearsed flag |
+> | download page on `truestill.app` | ❌ **`(afg)`** |
+> | macOS artifact | ❌ deliberate, `DECISIONS.md` D9 |
+>
+> ⚠ **AND THE ANSWER TO "IS IT STILL LAUNCH-BLOCKING" IS NO - `(afg)` NOW OWNS THE BLOCK.**
+> This entry's own sentence is *"a perpetual licence cannot be sold to a user who cannot install
+> the product."* A user can now install the product: a tag produces four installable artifacts
+> and a signed checksum file. What they cannot do is **find** it, because `truestill.app` has no
+> content and `(afg)` records that nothing about the domain is in this repository. **The blocker
+> moved from building to publishing-to-a-person**, and it moved without anyone re-reading this
+> entry.
+>
+> 🔑 **WHY THAT MATTERS BEYOND THIS LETTER.** The premise went stale on **2026-08-22**, when run
+> `32555392424` proved both installers, and nothing re-read it - so `(aad)` was quoted as
+> *"no desktop installer exists"* in P150's release-readiness answer eight days later.
+> `PROJECT_STATUS.md` §4 now carries the rule that came out of it.
+>
+> **What is genuinely left**: `(afg)`'s page, one visibility flag, and a decision about signing
+> that `DECISIONS.md` D9 already settles at zero spend.
+
 *Body of backlog entry `(aad)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aad) Desktop installers - LAUNCH-BLOCKING for the paid product.** Ruled by the maintainer,

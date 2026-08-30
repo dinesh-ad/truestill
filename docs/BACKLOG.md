@@ -965,7 +965,16 @@ is invisible here is retired, not free.**
   entry](research/backlog/aaf.md)
 - **(aag) Near-duplicate grouping and burst review.** A review surface over behaviour that is
   already correct - record only, do not build. Overlaps `(m)`. [Full entry](research/backlog/aag.md)
-- **(aad) Desktop installers - LAUNCH-BLOCKING for the paid product.** [Full
+- **(aad) Desktop installers - LAUNCH-BLOCKING for the paid product.**
+  ⚠ **NO LONGER THE BLOCKER, corrected 2026-08-30 (P153) - `(afg)` owns it now.** The bare title
+  reads as *"nothing is built"* and the pipeline is proven: both installers build, **install,
+  uninstall and preserve the catalog**; the publish job ran for the first time on 2026-08-30 and
+  **sigstore signing verified by hand** (`cosign verify-blob` → `Verified OK`). A tag produces
+  four installable artifacts and a signed checksum file. This entry's own test is *"a licence
+  cannot be sold to a user who cannot install the product"* - they can; they cannot **find** it,
+  which is `(afg)`. What is left here: `gh release create` has never run **without** `--draft`,
+  and macOS is deliberately unpublished (`DECISIONS.md` D9). Evidence:
+  [`release-rehearsal-record.md`](release-rehearsal-record.md). [Full
   entry](research/backlog/aad.md)
 - **(aac) Organize names unreadable source files; ONE RESIDUE REMAINS, and it is app-side.**
   ⚠ **Retitled 2026-08-22 - the bare title read as a whole unbuilt feature and two thirds is

@@ -643,6 +643,31 @@ all four artefacts from one derivation. Everything except publish.
   the portable canon about how CODE is written, and this is about how work is SPECIFIED in this
   project's briefs. A rule about session conduct in the engineering canon would be `(agc)`'s
   shape, filing something where nothing enforces it and where a reader would not look for it.
+- 🔑 **AN ENTRY YOU ACT ON IS RE-READ AGAINST THE COMMIT THAT CHANGED ITS GROUND** (2026-08-30).
+  The rule above catches a **brief** that asserts something false. This catches the opposite
+  direction, and they are different mechanisms with different fixes:
+
+  | | source of the false premise | fix |
+  |---|---|---|
+  | the rule above | a brief asserts a capability exists | name the symbol |
+  | **this rule** | **an entry was true when filed and OUR OWN WORK made it false** | re-read it against the commit that did |
+
+  ⚠ **Both are now evidenced, and neither guard would have caught the other.**
+  P150 found two phantoms - `classify_unwritable`'s "EPERM inconsistency" and `(ael)` - that came
+  from **me repeating a report**, not from a brief; the citation guard was green over both because
+  the code they name exists, it just no longer does what the prose says. Then `(aad)` was quoted
+  as *"no desktop installer exists"* **eight days after run `32555392424` proved both installers**,
+  in a release-readiness answer where it was the headline.
+
+  **The check is one command and it is cheap**: before acting on an entry, `git log --grep '(xxx)'`
+  and read the newest commit that touches its subject. `(aad)`'s premise died the day the release
+  lane went green, and nothing connected the two because the lane's commit did not name the letter.
+
+  ⚠ **`test_live_documents_cite_code_that_exists.py` CANNOT close this and should not be expected
+  to.** It proves a citation resolves to a line that exists; it cannot read prose and cannot know
+  that a workflow going green retired a sentence three files away. **Stated so the next person does
+  not read a green suite as coverage of it** - `ENGINEERING_STANDARD.md` §4's silent instrument,
+  on documents rather than on code.
 - **Staged workflow:** one requested step at a time; no silent run-ahead.
 - **Research-first + conflict-first:** flag spec/engineering conflicts before coding.
   Research sources: repo docs (outrank), source, free public only - **no paid third-party

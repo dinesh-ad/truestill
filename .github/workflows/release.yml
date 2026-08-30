@@ -351,9 +351,38 @@ jobs:
     name: sign and publish
     needs: build
     runs-on: ubuntu-latest
-    # A tag, and never a dry run. `github.event.inputs.dry_run` is a STRING on dispatch, so it is
-    # compared as one - `!= 'true'` rather than a truthiness test that would treat "false" as true.
+    # ⚠ **THIS `if` READS AS TWO GATES AND IS ONE, ON THE PATH THAT MATTERS.** The second clause
+    # is real on a **dispatch** - `github.event.inputs.dry_run` is a STRING there, so it is
+    # compared as one rather than by truthiness. On a **tag push there are no inputs at all**:
+    # the expression is `null != 'true'`, which is TRUE. So the tag path's only condition is
+    # *"is this a v-tag"*, and **pushing the tag IS the entire authorisation**.
+    #
+    # On a public repository that means one mistyped `v1.0.0` publishes a visible, latest-marked
+    # release with nothing to confirm it. Measured rather than reasoned: P152's rehearsal reached
+    # `gh release create` on a tag push and **relied on this hole being open** to do it.
+    #
+    # 🔑 It is the same class this file already documents about the Windows version fallback -
+    # *"a guard that cannot fire is worse than no guard, because it stops anyone looking"* - and
+    # here the careful comment about dispatch strings made the tag-path hole **less** visible.
+    #
+    # **THE SECOND GATE IS A HUMAN, AND IT HAS TO BE.** `environment: release` carries a
+    # `required_reviewers` rule, so this job enters `Waiting` and runs **no step** - nothing
+    # downloaded, nothing signed, nothing published - until a reviewer approves in the Actions
+    # UI. An unintended tag costs a pending approval that is then rejected.
+    #
+    # ⚠ **THE YAML LINE ALONE IS NOT THE GUARD, and that trap is why this is spelled out.**
+    # GitHub creates an environment named here **implicitly, with no protection rules**, if one
+    # does not exist - which would look exactly like this and gate nothing. The rule lives in
+    # repository settings and is verified with:
+    #     gh api "repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/environments/release" \
+    #       -q '.protection_rules'
+    #
+    # **Refused: a tag-name pattern excluding prereleases.** It filters the harmless case and
+    # passes the harmful one - the dangerous tag is a *well-formed* `v1.0.0` pushed early.
+    # **Refused: an in-repo gate** (a RELEASING file, a CHANGELOG version match). It is evaluated
+    # by the same unattended automation, and the failure being closed is *nobody decided*.
     if: startsWith(github.ref, 'refs/tags/v') && github.event.inputs.dry_run != 'true'
+    environment: release
     permissions:
       contents: write # create the release
       id-token: write # the OIDC token sigstore signs with
