@@ -290,9 +290,9 @@ defect - a scope fact, and the reason this soak's real damage is invisible to th
 ### Q1035, and what could not be run
 
 `errors=remount-ro` did **not** trigger. The drive marker and decisions document are still valid
-JSON on both drives, and both drives verified clean. ⚠ **The read-only `fsck.exfat -n` was NOT
-run**: it needs root, `sudo` requires a password here, and the repairing forms were refused by the
-brief. ⚠ **udisks2 auto-mounted the volume `rw` on re-insertion before anything could be
+JSON on both drives, and both drives verified clean. ⚠ **The read-only `fsck.exfat -n` was not run
+at the time this section was written** - it needs root - **and it was run later the same day; see
+the addendum at the end of this record, which is the finding this section could not reach.** ⚠ **udisks2 auto-mounted the volume `rw` on re-insertion before anything could be
 captured**, and a later clean unmount cleared the dirty flag - so *"not properly unmounted"* now
 exists only in the preserved kernel log.
 
@@ -324,3 +324,46 @@ Ranked at the top of this record, with the reasons; repeated here as the index.
 
 **Nothing was fixed.** `(aie)` and `(ain)` are left exactly as they are: both are correct, and §3
 records only that this filesystem cannot exercise either.
+
+
+---
+
+## ADDENDUM 2026-08-31, after this record was committed: `fsck` calls it CLEAN
+
+**Run by the maintainer with root, before the device was wiped for soak eleven** - the last chance
+to ask the filesystem what it thought of the pull. `-n` is `--repair-no`: reports, changes nothing.
+
+```
+$ sudo fsck.exfat -n -v /dev/sda1
+exfatprogs version : 1.3.2
+label: DAMON_16GB
+sector size:  512.00 B    cluster size: 32.00 KB    volume size: 14.58 GB
+/dev/sda1: clean. directories 113, files 5137
+```
+
+🔑 **CLEAN, OVER 4,299 RESURRECTED FILES.**
+
+**The two counts agree exactly, and are reconciled here so they do not read as a contradiction.**
+`fsck` counts **5,137 files and 113 directories** - it reports the two separately. This record's
+manifest counted **5,250 ENTRIES**, files and directories together. **113 + 5,137 = 5,250.**
+So `fsck`, the kernel and the manifest agree completely about what is on the volume.
+**They agree on a state the user deleted.**
+
+**"Clean" is the interesting result here, not a boring one, and it explains the whole record.**
+The pull did **not damage** exFAT. It rolled the metadata back to a **pre-deletion state that is
+perfectly valid** - directory entries, allocation bitmap and file sizes all mutually consistent,
+because they are a **coherent older snapshot** rather than a broken newer one. **That is why
+nothing was lost and why `fsck` has nothing to repair**: there is no inconsistency to find.
+
+`fsck` answers *"does this metadata contradict itself?"* and the answer is no. It cannot answer
+*"is this what the volume was last told?"* - **nothing on the medium records that**, which is what
+having no journal means.
+
+⚠ **So "fsck says clean" must not be read as "the pull cost nothing".** It cost 4.3 GB of deletions
+and there is no instrument on the medium that can see it. §6's file-content result - 712 of 712
+byte-identical - is the real reassurance here; this line is not.
+
+⚠ **AND THE HONEST LIMIT ON THIS EVIDENCE**: by the time it ran, the volume had been cleanly
+unmounted and remounted several times since the pull, so the **volume-dirty flag was already
+cleared**. This verdict is about structural consistency only. The dirty flag itself is recorded
+where it was seen - in the kernel log, at re-insertion.
