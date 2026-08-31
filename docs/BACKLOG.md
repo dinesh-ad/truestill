@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aix). Next free: (aiy).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aiz). Next free: (aja).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -266,6 +266,39 @@ is invisible here is retired, not free.**
   being pairwise against the first-seen twin. Narrower than `(aag)`: an exact group needs no
   threshold and no review, so it is a reporting shape rather than a feature.
   Body: [`research/backlog/aii.md`](research/backlog/aii.md).
+
+- **(aiz) SUCCESS IS REPORTED BEFORE THE MEDIUM HAS THE BYTES, AND BOTH INSTRUMENTS THAT WOULD
+  CATCH IT READ THE PAGE CACHE.** Filed 2026-08-31 (P165, soak ten), measured on **real removable
+  media** - exFAT on a SanDisk Cruzer Blade, kernel driver, **write 1.34 MiB/s, read 19.7**.
+  `truestill backup --apply` printed *"Copied 356 file(s), 717 MB"* in **4.74 s** with **570 MiB
+  still dirty in RAM** and ~7 minutes of device time left; `organize --apply` did the same in
+  4.08 s with 649 MB outstanding. ⚠ **THIS IS NOT AN ARGUMENT FOR `fsync` AND NONE IS PROPOSED** -
+  `safe_copy.py` rules it out in its own words (*"No `fsync`, deliberately - do not add one as an
+  obvious improvement… `fsync` addresses whether content survives power loss, which `copy_sha256`
+  and `verify` already own"*). 🔑 **The ruling nominated two mechanisms to own durability and both
+  are blind inside the window it creates.** `backup`'s `_copy_verified` hashes `staged.temp`
+  moments after writing it - **717 MB hashed in 4.74 s is 151 MB/s on a stick that reads at
+  19.7** - so it compares the kernel's copy against the source's copy, both in RAM. And `verify`
+  is **1.45 s warm against 35.18 s cold** over the identical 356 files: asked soonest after a
+  write, which is when a user asks, it answers from the page cache. **The defect is in the remedy,
+  not the decision.** ⚠ **What this entry does NOT claim**: nothing was lost. The bytes all landed
+  and verified cold, 712 of 712. The window is real; the loss is conditional on a pull inside it,
+  and **that pull is unmeasured** - see [`soak-ten-record.md`](soak-ten-record.md) §7. Related:
+  `(ain)`'s false-custody shape, arriving from durability rather than from an errno.
+  Body: [`research/backlog/aiz.md`](research/backlog/aiz.md).
+
+- **(aiy) TWO REGISTRATIONS ON ONE PHYSICAL DEVICE ARE REPORTED AS "NICELY REDUNDANT".** Filed
+  2026-08-31 (P165, soak ten), measured. Two drives registered in two folders of **one USB stick**,
+  and with the stick **unplugged** `truestill status` said *"All catalogued content has at least
+  two drive copies. Nicely redundant."* **The command whose entire purpose is 3-2-1 assurance
+  counts drive REGISTRATIONS, and nothing anywhere compares the underlying device.** Checked
+  rather than assumed: `st_dev` occurs **16 times** in product code, all of it in
+  `service/organize.py`'s same-filesystem guard for `--in-place` and in `run_health.py` -
+  **`drive.py` never asks**. ⚠ **Removable media is exactly where a user does this**: "back up to
+  my other drive" pointing at another folder on the same stick, which then dies as one. The same
+  run showed the honest half working - `drives` reported both **offline** and `verify` refused the
+  vanished path with a real remedy and exit **2**. Related: `(abd)` (one catalog or many).
+  Body: [`research/backlog/aiy.md`](research/backlog/aiy.md).
 
 - **(aiq) THE APP SHOWS A NUMBER FOR FAILURES AND NEVER A FILE, AND SHOWS NOTHING AT ALL ON A
   STOP.** Filed 2026-08-30 (P145), from the surface audit `(aim)` needed and did not have. ⚠

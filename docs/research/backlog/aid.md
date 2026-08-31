@@ -145,3 +145,41 @@
   shape `(aif)` used to get a Windows fact no local run could reach - and `(aif)`'s xfail returned
   a real answer on its first CI run. Until that exists, the character half stays **unproven**, and
   this section is what stops it being read as measured.
+
+  ## ⚠ THE CHARACTER HALF REPRODUCED 2026-08-31 (P165, soak ten) - ON LINUX, ON exFAT
+
+  **The section above is right that it did not reproduce on ext4, and right about why. It was
+  wrong that only a Windows lane could answer it.** The premise was *"a filesystem driver decides
+  it, nothing can force it"* - and a filesystem that decides it was put on the desk: **exFAT,
+  kernel driver, on a USB stick**, mounted `iocharset=utf8`.
+
+  | name | ext4 | **exFAT (kernel)** |
+  |---|---|---|
+  | `Trip: day 1.jpg` | created verbatim | **REFUSED `[Errno 22] EINVAL`** |
+  | `photo?.jpg`, `a*b.jpg`, `pipe\|name.jpg` | created verbatim | **REFUSED `[Errno 22]`** |
+  | `report<v2>.jpg`, `say"hi.jpg`, `back\slash.jpg` | created verbatim | **REFUSED `[Errno 22]`** |
+  | `nul.jpg` | created verbatim | ⚠ **created verbatim** |
+  | `photo..jpg.` (trailing dot) | created verbatim | ⚠ **SILENTLY STRIPPED** to `photo..jpg` |
+  | 255 / 256 bytes | OK / `[Errno 36]` | OK / `[Errno 36]` - **identical** |
+
+  🔑 **THREE CORRECTIONS TO THIS ENTRY, EACH MEASURED.**
+
+  1. **Eight illegal characters are now reachable without a Windows runner.** The `xfail` is still
+     the right instrument for **NTFS**, but it is no longer the only one: exFAT refuses the same
+     character class with `EINVAL`, and this machine can mount it.
+  2. ⚠ **`nul.jpg` IS FINE.** A reserved device name is a **Windows shell** rule, not a filesystem
+     one - so this entry's table row is wrong about the mechanism even where it is right about the
+     outcome. It will not reproduce on exFAT under Linux at any effort.
+  3. ⚠ **A TRAILING DOT IS WORSE THAN A REFUSAL, AND THIS ENTRY DID NOT PREDICT IT.** The write
+     **succeeds**, the file lands under a **different name**, and `Path.exists()` on the name that
+     was asked for returns **`True`** - because the lookup is stripped the same way. So a caller
+     that writes a name and then checks for it is told yes, and `_free_relative`'s collision logic
+     is asking a question that has already been mangled. **Neither a refusal nor a success: a
+     silent rename.** The length half's remedy - refuse in the preview with a named remedy - does
+     not reach it, because nothing refuses.
+
+  **The byte budget is unchanged on exFAT** - 255 accepted, 256 `ENAMETOOLONG` - so §"REPRODUCED
+  2026-08-29"'s arithmetic stands on this filesystem too.
+
+  Measured in [`soak-ten-record.md`](../../soak-ten-record.md) §2; the probe is preserved with the
+  run's evidence.
