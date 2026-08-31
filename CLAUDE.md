@@ -153,7 +153,7 @@ wants it (2026-08-15). Unmerged work that must survive lives under a **tag** ins
 
 | tag | peels to | what it is |
 |---|---|---|
-| `preserved/abw-finding-3` | `66f6c22` | `(abw)` finding (3), **analysed and not merged** - a feature question, not a defect. Was the branch `wip/trip-rename-finding-3`. See [`research/backlog/abw.md`](docs/research/backlog/abw.md). |
+| `preserved/abw-finding-3` | `66f6c22` | `(abw)` finding (3), **analysed and not merged** - a feature question, not a defect. Was the branch `wip/trip-rename-finding-3`. See [`research/backlog/abw.md`](docs/research/backlog/abw.md). ⚠ **SUPERSEDED 2026-08-31**: `(aix)` shipped the feature and refused this shape - it renamed the row and left the disk alone. **It is no longer unmerged work, so the rule below says delete it**; `(abw)` stays open to own that until it is done. |
 
 **Why a tag rather than deleting it, and this is the rule below applied rather than dodged:**
 those 148 lines existed on the remote *only* as that branch - `66f6c22`'s own message reads

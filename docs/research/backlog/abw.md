@@ -4,7 +4,8 @@
 
 - **(abw) An already-named trip is re-asked, and until this commit the answer was discarded.**
   Three findings, recorded 2026-08-08 while checking a premise for folder-name suggestions. The
-  first two are **closed here**; the third is **open and deliberately not fixed**.
+  first two are **closed here**; the third was left **open and deliberately not fixed**, and is
+  **closed 2026-08-31 by `(aix)`** - see (3) below before reading anything here as live.
   - **(1) CLOSED. Already-named trips are re-offered as cards.** `assemble_trip_review` never
     consults `trip_for_day` - its `claimed_days` set means "claimed by a proposal in THIS run".
     `trip_for_day` is called in exactly two places, both at commit time. Proven against the real
@@ -19,7 +20,15 @@
       carried across merge/split by `takeEvNamesByKey`). A catalog name in that field would be
       indistinguishable from something the user wrote, and would be sent back as their answer.
       The plan for this work called that branch "dead"; it is not.
-  - **(3) OPEN, AND SINCE 2026-08-15 A FEATURE QUESTION RATHER THAN A DEFECT.** `commit_trips`
+  - **(3) CLOSED 2026-08-31 BY `(aix)`, AS THE FEATURE QUESTION IT BECAME ON 2026-08-15.**
+    ⚠ **THE SENTENCE THIS FINDING EXPLAINS IS GONE.** `app.js` no longer renders *"already named -
+    renaming is not available here"*; the card shows the name and offers **Rename**, and
+    `truestill rename` is the CLI half. **Nobody should read what follows and conclude the door is
+    still shut.** The question was *should the screen be able to rename at all?* and the answer is
+    **yes, as its own action** - not by honouring the name field on a commit path.
+    **So the discard below is unchanged and is now correct rather than merely pinned**: a
+    re-proposal recomputed from a fresh scan still must not overwrite a name, and a rename is a
+    deliberate keystroke on a different control. See [`aix.md`](aix.md). `commit_trips`
     discards a new name for an already-claimed trip.
     `decision.name` is never read on the `update_trip_days` branch, and `update_trip_days`
     documents that name and slug are untouched. Downstream, `apply_event_review_names` reports
@@ -103,7 +112,13 @@
       new name and offers the moves. **What no one has done is cost it.** Trips own folder names
       in the layout, so a rename changes the catalog and not the disk, and until a migration runs
       **the screen and the filesystem disagree about what a trip is called**. That must be
-      answered before any rename ships. A trip already
+      answered before any rename ships.
+      - ✅ **ANSWERED 2026-08-31 BY `(aix)`, AND THIS BULLET IS WHY THAT ENTRY EXISTS.** The cost
+        was paid rather than deferred: **a rename is a FILE operation**, so it moves every
+        photograph in the trip through `migration_journal` and `_apply_move`, and **the name flips
+        last** - the divergence this bullet predicted is never entered rather than tolerated until
+        a migration. The catalog-only rename the attempt below implements is the shape that was
+        refused, and it was refused on this bullet's own reasoning. A trip already
       placed on disk spells its old name in every folder path (`2014-08-14 - Wayanad/...`), so
       renaming leaves the catalog and the disk disagreeing until a migration. That is the same
       forward/reconcile split a layout-template change already uses, and `record_event` already
@@ -141,3 +156,9 @@
       that decides "did anything change" in its own `WHERE` clause, plus five tests including the
       one that matters - a blank reply must never erase an existing name, or a bare Save would
       strip every named trip in the library.
+      - ⚠ **SUPERSEDED 2026-08-31.** `Catalog.rename_row` ships the `WHERE`-clause idea the
+        attempt got right - *"did anything change"* decided by the same statement that changes it,
+        widened into the **lease** that `(aix)` stage 2b needed. What does not survive is the
+        premise: it renamed the row and left the disk alone. **The tag `preserved/abw-finding-3`
+        is therefore no longer unmerged work**, and this entry stays open only until it is
+        deleted and its row leaves `CLAUDE.md`.

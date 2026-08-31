@@ -281,28 +281,6 @@ is invisible here is retired, not free.**
 > [`soak-eight-record.md`](soak-eight-record.md)'s own §5. The reasoning is
 > [`soak-nine-record.md`](soak-nine-record.md) §7b.
 
-- **(aix) A TRIP OR EVENT CANNOT BE RENAMED, SO THE ANSWER IS THE FILE MANAGER.** Filed
-  2026-08-30 (P158/P159), **a feature with a design and a staging plan**. ⚠ **STAGES 1, 2, 2b
-  AND 3 HAVE SHIPPED (P159-P162): the CLI and the app can both rename**, and stage 4 - the record,
-  and `(abw)` finding (3) - is what remains.
-  Verified from code: **0 rename symbols in core, 0 CLI subcommands, 0 app routes**; `create_trip`
-  has no `ON CONFLICT` and `update_trip_days` leaves name and slug alone; `record_event` updates a
-  name only by accident of `ON CONFLICT(signature)`; and `app.js:3502` renders *"renaming is not
-  available here"*. ⚠ **The absence has a default and the default is dangerous** - a user who
-  cannot rename in the tool renames in their file manager, which is the one action that breaks a
-  catalog quietly (Adobe community, Dec 2023: *"Changed file names in Windows File Explorer. The
-  organizer still shows old names."*). Elements, digiKam and Immich #1775 all treat it as ordinary;
-  Lightroom's Folders panel exists to prevent exactly the divergence. 🔑 **The ruling: a rename is
-  a FILE operation and is migrate-shaped** - `trips.slug` renders the directory, so a name change
-  moves photographs, and `migration_journal` / `_apply_move` / `resume_migration` already exist.
-  **The name flips LAST**, so at every interruption the name is the old name until every photograph
-  has arrived. **Naming is identity-keyed; renaming is row-keyed.** 🔑 **And the drive's own
-  decisions document takes the new name via a LEASE, not a force flag** (`authored_decisions`,
-  schema v23): a per-key compare-and-swap carrying the value the renamer expects to find, so
-  `(ahz)` step 3 is unweakened and a rebuilt catalog - which leases nothing - is still refused in
-  full.
-  Body: [`research/backlog/aix.md`](research/backlog/aix.md).
-
 - **(ait) THE MESSY-CORPUS MANIFEST OVERSTATES ITSELF, AND 20 ROWS DESCRIBE FILES THAT ARE GONE.**
   Filed 2026-08-30 (P148, soak nine). `make_messy_corpus.py` builds every destination from the
   **basename** of its source, and `Input/` holds two pairs of *different* photographs sharing one
@@ -915,9 +893,17 @@ is invisible here is retired, not free.**
 - **(abz) Organize shows one population three ways and connects none of them.** [Full
   entry](research/backlog/abz.md)
 - **(abw) An already-named trip is re-asked, and until this commit the answer was discarded.**
-  ⚠ **Findings (1), (2) and (4) are closed; (3) is open and, since 2026-08-15, a FEATURE question
-  rather than a defect** - an attempt at it is preserved unmerged under the tag
-  `preserved/abw-finding-3` (peels to `66f6c22`; was a branch until 2026-08-15). [Full entry](research/backlog/abw.md)
+  ✅ **ALL FOUR FINDINGS ARE NOW CLOSED. (3) was answered 2026-08-31 by `(aix)`**, which asked
+  the same question - *should the screen be able to rename at all?* - and shipped the answer as its
+  own action. `app.js` no longer renders *"already named - renaming is not available here"*, so
+  **do not read this entry and conclude the door is still shut.** The discard it was filed against
+  is unchanged and correct.
+  ⚠ **WHAT KEEPS IT OPEN IS A REF, NOT A DEFECT**: the preserved attempt under the tag
+  `preserved/abw-finding-3` (peels to `66f6c22`; was a branch until 2026-08-15) is now **superseded
+  by shipped code** - it renamed the catalog row and left the disk alone, which `(aix)` measured as
+  the wrong shape. `CLAUDE.md`'s rule is that such a ref is owned by an entry or deleted, so the
+  remaining work is one `git push --delete` and one row removed from `CLAUDE.md` - **a ref
+  operation, deliberately not done inside a docs commit.** [Full entry](research/backlog/abw.md)
 - **(abt) The unhinted-residue prompt is CLI-only, because the app cannot ask mid-job.** Recorded
   2026-08-07. [Full entry](research/backlog/abt.md)
 - **(abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.** [Full

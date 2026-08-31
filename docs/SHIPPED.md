@@ -22,6 +22,103 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aix) A TRIP OR EVENT CAN BE RENAMED, AND THE RENAME MOVES THE PHOTOGRAPHS.** Shipped
+  2026-08-31 (P163) over five commits, P159-P163. Filed 2026-08-30 (P158/P159) as **a feature with
+  a design and a staging plan**, not a defect. The body -
+  [`research/backlog/aix.md`](research/backlog/aix.md) - carries the field evidence, the refused
+  alternatives and the residuals; this is the provenance.
+
+  ## WHAT WAS ABSENT, AND WHAT THE ABSENCE COST
+
+  Verified from code rather than assumed: **0 rename symbols in core, 0 CLI subcommands, 0 app
+  routes**. `create_trip` had no `ON CONFLICT`, `update_trip_days` left name and slug alone, and
+  `record_event` renamed only by accident of `ON CONFLICT(signature)`. The screen said so in
+  words - *"already named - renaming is not available here"*.
+
+  ⚠ **The absence had a default and the default was dangerous.** A user who cannot rename in the
+  tool renames in their file manager, which is the one action that breaks a catalog quietly. In a
+  user's own words (Adobe community, Dec 2023): *"Changed file names in Windows File Explorer. The
+  organizer still shows old names."* Elements, digiKam and Immich #1775 all treat renaming as
+  ordinary; Lightroom's Folders panel exists to prevent exactly that divergence.
+
+  ## 🔑 THE RULING: A RENAME IS A FILE OPERATION, AND IT IS MIGRATE-SHAPED
+
+  `trips.slug` renders the directory, so **changing a name moves every photograph in the trip**.
+  Nothing was duplicated: `Move`, `migration_journal`, `_apply_move`, `resume_migration` and
+  `migration_runs` already existed, and `apply_moves` (`migrate.py:1282`) was **extracted** from
+  `run_migration` so a rename and a migration cannot drift apart.
+
+  ⚠ **A catalog setter with a lazy folder move was refused**, and the refusal is the entry: it
+  manufactures a three-way divergence that **nothing would detect** - `verify` keys on
+  `file_copies.relative`, which a name change does not touch, and `rescan` never reads a slug.
+
+  ## THE FOUR STAGES, BY WHAT EACH PROVED
+
+  | stage | what it proved |
+  |---|---|
+  | 1 · the plan *(P159)* | `plan_rename` (`migrate.py:814`) computes the moves and the refusal **without writing**, so every later stage had a proven plan before a photograph could move |
+  | 2 · apply *(P160)* | `apply_rename` (`migrate.py:969`) journals paths, applies each move, and **flips the name LAST** |
+  | 2b · the lease *(P161)* | `authored_decisions` (`catalog.py:242`, schema v23) written inside `rename_row` (`catalog.py:2862`) - the drive's document takes the new name **without weakening `(ahz)` step 3** |
+  | 3 · the app *(P162)* | `/api/rename/{preview,run}` (`server.py:1026-1027`) and the card's `ev-named` branch (`app.js:3507`) - **preview before commit**, the same `apply_rename` the CLI calls |
+
+  **The name flips last, and that is the whole design.** At every interruption point the state is
+  honest: the name is the old name until every photograph has arrived. It works because
+  `migration_journal` stores `new_relative` as a **path** - a template or a slug reference would
+  invert the guarantee silently, because a resumed run would then need the flipped row to know
+  where things go.
+
+  ## 🔑 THE TWO MEASUREMENTS IT RESTS ON - BOTH PROPERTIES OF A FAILURE
+
+  **(1) A KILLED PROCESS LEAVES AN HONEST, RESUMABLE STATE.** `os._exit(9)` after two files have
+  moved, skipping every `finally`, context manager and `atexit`. The catalog still read
+  **`Holiday`**, the journal was **not** empty, and `resume_migration` finished with **no
+  photograph lost**. An injected exception could not have proved it - it unwinds through code that
+  might have flipped the name in a handler.
+
+  **(2) A REBUILD RETURNS THE NEW NAME AND LEASES NOTHING.** End-to-end on scratch: rename,
+  publish, **delete the catalog**, rebuild from the drive. The **new** name came back and the
+  rebuilt catalog's lease table was **empty**. The lease lives in the catalog, so a catalog that
+  authored nothing leases nothing and is refused in full - `(ahz)`'s measured data loss stays
+  unreachable **by construction rather than by discipline**.
+
+  ⚠ **A lease, never a force flag**, and git names the distinction: `--force` *"has really no
+  checking"*, `--force-with-lease` is *"an atomic compare-and-swap… based on the last information
+  you fetched"*. Per-key rather than global is the **field mask** pattern (Google AIP-134/161).
+  Four alternatives were refused with reasons; they are in the body.
+
+  ## WHAT THE BUILD FOUND THAT THE DESIGN DID NOT
+
+  - **Skipping route resolution dropped the trip folder entirely** - the rename rendered
+    `Camera/2015/2015-06/`. Measured, not predicted, and caught only because a fixture of **real
+    photographs** makes the trip exist at all.
+  - **The preview is a job**, and was written as a plain request first. `plan_rename` reads only
+    the catalog, but rendering the new path needs `_resolve_migration_routes`, which re-reads
+    metadata.
+  - **A rename left no run record**, found by `test_no_service_writes_a_record_without_a_row_here`
+    rather than by a review. It now writes one under `kind="rename"`, because a reader asking
+    *"what moved my photographs"* must be able to tell a person renaming a trip from the layout
+    template changing under everything.
+
+  ## `(abw)` FINDING (3), ANSWERED
+
+  It asked whether the screen should be able to rename at all. **Yes - as its own action.** The
+  sentence it explained is gone. The name discard on the commit path is **unchanged and now
+  correct rather than merely pinned**: a re-proposal recomputed from a fresh scan must not
+  overwrite a name, and a rename is a deliberate keystroke on a different control. `(abw)` stays
+  open only to retire the ref `preserved/abw-finding-3`, whose approach this entry refused.
+
+  ## ⚠ THE RESIDUALS, RANKED BY WHAT A USER CAN DO NEXT
+
+  1. **Restore reports a trip-name clash and does not resolve it** (`decisions.py:1530`). Ranked
+     first: the only one that leaves a user with **no next step**, during a restore.
+  2. **An abandoned rename is replayed by the next rename or migration**, not by an ordinary
+     catalog open. Nothing is lost, `verify` passes, and it self-heals.
+  3. **No rename from the Drives or Settings screens.** A working route exists on both surfaces,
+     so the cost is discoverability, not capability.
+
+  Not this entry's: `(abn)`'s outside-rename repair. The contribution stands - a coherent
+  whole-folder move is the highest-confidence repair case it will ever have.
+
 - **(ais) A PATH RENDERED WITH THE PLATFORM'S SEPARATOR IS NOW REFUSED ON EVERY LANE.** Shipped
   2026-08-30 (P147), one commit after being filed. The separator half; the encoding half shipped
   as `eb28ec4`.

@@ -1,10 +1,11 @@
 # (aix) A TRIP OR EVENT CANNOT BE RENAMED, SO THE ANSWER IS THE FILE MANAGER.
 
-*Body of backlog entry `(aix)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is
-shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(aix)`, **shipped 2026-08-31** - the closure is in [`SHIPPED.md`](../../SHIPPED.md);
+the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
 
 Filed 2026-08-30 (P158/P159). **A feature with a design and a staging plan**, not a defect and not
-polish. Stage 1 ships with this entry.
+polish. Stage 1 shipped with this entry; the last stage closed 2026-08-31 (P163). The four stages
+and what each one proved are at the bottom.
 
 ## THE PREMISE, VERIFIED FROM CODE RATHER THAN ASSUMED
 
@@ -91,8 +92,8 @@ a name normally. The surface must say which set it is renaming.
 3. ✅ **The app control** - `/api/rename/{preview,run}`, and the card's `ev-named` branch now
    offers Rename instead of refusing in words. **Preview before commit**, gated in the DOM.
    *(P162)*
-4. **The record**, and `(abw)` finding (3) revisited - the *"already-named trip is re-asked"*
-   feature question a rename is the answer to.
+4. ✅ **The record**, and `(abw)` finding (3) answered - the *"already-named trip is re-asked"*
+   feature question a rename is the answer to. *(P163)*
 
 ⚠ **NOT IN SCOPE: `(abn)`'s outside-rename repair.** `rescan.reconcile` already reports a folder
 renamed outside as `MovedCopy`, matched by content hash, and `unaccounted` already distinguishes
@@ -221,3 +222,66 @@ entirely correct doing it.
 ⚠ **WHAT STAGE 3 DOES NOT DO.** The control lives on the Trips & events review card, which is
 where an already-named trip is visible - there is no rename anywhere else, and no way to rename
 from the Drives or Settings screens. `(abw)` finding (3) is still open and is stage 4's subject.
+
+## ✅ CLOSED 2026-08-31 (P163): THE FOUR STAGES, AND WHAT EACH ONE PROVED
+
+Provenance is in [`SHIPPED.md`](../../SHIPPED.md). **A stage is listed by what it proved, not by
+what it added** - three of the four exist because the one before them would otherwise have been
+unsafe to write.
+
+| stage | what it proved |
+|---|---|
+| 1 · the plan | `plan_rename` (`migrate.py:814`) computes the `Move` list and the refusal **without writing**, so every later stage had a proven plan and a proven refusal set before a photograph could move |
+| 2 · apply | `apply_rename` (`migrate.py:969`) over `apply_moves` (`migrate.py:1282`) - **one mechanism, two callers**, so a rename cannot drift from a migration. The name flips **last** |
+| 2b · the lease | `authored_decisions` (`catalog.py:242`, schema v23) written inside `rename_row` (`catalog.py:2862`) - the drive's document takes the new name **without weakening `(ahz)` step 3** |
+| 3 · the app | `/api/rename/{preview,run}` (`server.py:1026-1027`) and the card's `ev-named` branch (`app.js:3507`) - **preview before commit**, the same `apply_rename` the CLI calls |
+
+### 🔑 THE TWO MEASUREMENTS THE WHOLE ENTRY RESTS ON
+
+**Both are properties of a failure, which is why neither could be argued from the code.**
+
+**(1) A KILLED PROCESS LEAVES AN HONEST, RESUMABLE STATE.**
+`test_a_killed_process_leaves_an_honest_state` calls `os._exit(9)` after two files have moved -
+skipping every `finally`, every context manager and every `atexit`, so nothing can tidy up. The
+catalog still reads **`Holiday`**, the journal is **not** empty, and `resume_migration` finishes
+the job with **no photograph lost**. An injected exception could not have proved this: it unwinds
+through code that might have flipped the name in a handler.
+
+**(2) A REBUILD RETURNS THE NEW NAME AND LEASES NOTHING.**
+End-to-end on scratch: rename, publish, **delete the catalog**, rebuild from the drive. The **new**
+name came back, and the rebuilt catalog's lease table was **empty**. That is the self-identifying
+property - a catalog that authored nothing leases nothing and is refused in full, so `(ahz)`'s
+measured data loss stays unreachable **by construction rather than by discipline**. Pinned by
+`test_a_rebuilt_catalog_is_still_refused`, which asserts the guard still bites *with the lease in
+hand*, because the lease expects `Holiday` and the drive says something else.
+
+### `(abw)` FINDING (3) IS ANSWERED, AND THE SENTENCE IT EXPLAINED IS GONE
+
+`app.js` no longer renders *"already named - renaming is not available here"*. `(abw)` finding (3)
+asked whether the screen should be able to rename at all; the answer is **yes, as its own action** -
+see [`abw.md`](abw.md), edited in place. **The discard it was filed against is unchanged and
+correct**: a re-proposal recomputed from a fresh scan must not overwrite a name, and a rename is a
+deliberate keystroke on a different control.
+
+### ⚠ THE RESIDUALS - NAMED, NOT IMPLIED
+
+Ranked by **what a user who hits one can do next**, which is the only ranking that matters for an
+open gap.
+
+1. **RESTORE REPORTS A TRIP-NAME CLASH AND DOES NOT RESOLVE IT.** `decisions.py:1530` -
+   *"this drive names N trips differently; restore first"*. ⚠ **Ranked first because it is the
+   only one of the three that leaves a user with no next step, and it does it during a restore** -
+   the moment the product exists for. The sentence is also the **wrong remedy** for a rename
+   (following it restores the old name), which is why 2b made it unreachable from one rather than
+   reworded it for every other caller.
+2. **AN ABANDONED RENAME IS REPLAYED BY THE NEXT RENAME OR MIGRATION, NOT BY AN ORDINARY CATALOG
+   OPEN.** `resume_migration` runs from `apply_rename` and `run_migration` only. Ranked second
+   because **nothing is lost and nothing is wrong**: measurement (1) is exactly this state, the
+   catalog and the disk agree for both halves, `verify` passes, and the trip reads under its old
+   name until the next run finishes it. It is confusing, not damaging, and it **self-heals**.
+3. **NO RENAME FROM THE DRIVES OR SETTINGS SCREENS.** The control lives only on the Trips & events
+   review card. Ranked last because a working route exists on **both** surfaces - the card, and
+   `truestill rename` - so the cost is discoverability, not capability.
+
+**And one that is not this entry's**: `(abn)`'s outside-rename repair, unchanged. The contribution
+stands - a coherent whole-folder move is the highest-confidence repair case it will ever have.
