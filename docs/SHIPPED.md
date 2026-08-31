@@ -38,6 +38,31 @@ recording shipped work as unstarted, which is the more expensive direction of th
   `test_an_invalid_utf8_document_does_not_brick_a_successful_command`. Body:
   [`research/backlog/aje.md`](research/backlog/aje.md).
 
+- **(aiz) AN INTERRUPTED BACKUP IS NOW RECOVERABLE: THE SECOND RUN ASKS THE TARGET.** Shipped
+  2026-08-31 (P167), **the consequence half of `(aiz)`**; the wording half is open in
+  [`BACKLOG.md`](BACKLOG.md) and is a product call.
+
+  **Measured on NTFS in soak eleven**: an interrupted `backup --apply` wrote **429 `file_copies`
+  rows** for the target while **124 files were on the medium** - **305 false custody claims**. The
+  second run read those rows, found nothing missing, and copied nothing; `status` counts rows, so
+  the user was told they had two copies of files they had one of.
+
+  🔑 **Same root cause as `(aja)`, on the other side of the same table.**
+  `_files_missing_on_target` asked `copies_on_drive(target_uuid)` and never asked the target. It
+  now filters through `dedup.credible_copies` against `LocalDestination(target).sizes()`, so a row
+  is believed only while the target holds a file of the recorded size.
+
+  ⚠ **`target=None` keeps the old answer** - *"cannot ask cheaply"*, never *"all is well"*.
+
+  ⚠ **THE WINDOW ITSELF IS UNCHANGED AND THAT IS DELIBERATE.** The row is still written before the
+  bytes are durable, and the summary still says *"Copied"*. **What is fixed is that the false row
+  no longer survives the next run.** Whether the sentence should change is a product ruling and a
+  defect fix is not where it belongs.
+
+  **Three mutations, control first, all caught** - including one on the **call site** rather than
+  the helper, because a correct helper nobody hands the target to fixes nothing.
+  Body: [`research/backlog/aiz.md`](research/backlog/aiz.md).
+
 - **(aja) A RE-RUN NOW REPAIRS WHAT AN INTERRUPTION BROKE, INSTEAD OF REPORTING IT AS ALREADY
   THERE.** Shipped 2026-08-31 (P167). Filed the same day from soak eleven, measured under a
   **physical mid-write pull** on real removable media.

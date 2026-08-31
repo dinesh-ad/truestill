@@ -1,7 +1,17 @@
-# (aiz) SUCCESS IS REPORTED BEFORE THE MEDIUM HAS THE BYTES, AND BOTH INSTRUMENTS THAT WOULD CATCH IT READ THE PAGE CACHE.
+# (aiz) AN INTERRUPTED BACKUP IS NOW RECOVERABLE: THE SECOND RUN ASKS THE TARGET.
 
-*Body of backlog entry `(aiz)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is
-shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(aiz)`, **partly shipped 2026-08-31** - the closure is in
+[`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with
+[`BACKLOG.md`](../../BACKLOG.md).*
+
+> ⚠ **RETITLED ON CLOSURE.** It was filed as *"success is reported before the medium has the
+> bytes, and both instruments that would catch it read the page cache"* - which is what was
+> measured and is still true. **WHAT SHIPPED IS THE CONSEQUENCE, NOT THE WINDOW**, and the wording
+> question left over is `(ajf)`. The row is still written before the bytes
+> are durable, and the summary still says *"Copied 356 file(s)"* while they are in RAM - **that
+> wording is a product call and was deliberately not made here.** What shipped is that the false
+> row **no longer defends itself**: the next `backup` asks the target and re-copies. The window
+> remains; its permanence does not.
 
 Filed 2026-08-31 (P165, soak ten), measured on **real removable media**: exFAT on a SanDisk Cruzer
 Blade, kernel driver, **write 1.34 MiB/s, read 19.7-23.3 MiB/s**. The run is

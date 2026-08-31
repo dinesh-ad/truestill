@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aje). Next free: (ajf).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajf). Next free: (ajg).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -306,25 +306,20 @@ is invisible here is retired, not free.**
   user runs when they are already worried.** Body:
   [`research/backlog/ajd.md`](research/backlog/ajd.md).
 
-- **(aiz) SUCCESS IS REPORTED BEFORE THE MEDIUM HAS THE BYTES, AND BOTH INSTRUMENTS THAT WOULD
-  CATCH IT READ THE PAGE CACHE.** Filed 2026-08-31 (P165, soak ten), measured on **real removable
-  media** - exFAT on a SanDisk Cruzer Blade, kernel driver, **write 1.34 MiB/s, read 19.7**.
-  `truestill backup --apply` printed *"Copied 356 file(s), 717 MB"* in **4.74 s** with **570 MiB
-  still dirty in RAM** and ~7 minutes of device time left; `organize --apply` did the same in
-  4.08 s with 649 MB outstanding. ⚠ **THIS IS NOT AN ARGUMENT FOR `fsync` AND NONE IS PROPOSED** -
-  `safe_copy.py` rules it out in its own words (*"No `fsync`, deliberately - do not add one as an
-  obvious improvement… `fsync` addresses whether content survives power loss, which `copy_sha256`
-  and `verify` already own"*). 🔑 **The ruling nominated two mechanisms to own durability and both
-  are blind inside the window it creates.** `backup`'s `_copy_verified` hashes `staged.temp`
-  moments after writing it - **717 MB hashed in 4.74 s is 151 MB/s on a stick that reads at
-  19.7** - so it compares the kernel's copy against the source's copy, both in RAM. And `verify`
-  is **1.45 s warm against 35.18 s cold** over the identical 356 files: asked soonest after a
-  write, which is when a user asks, it answers from the page cache. **The defect is in the remedy,
-  not the decision.** ⚠ **What this entry does NOT claim**: nothing was lost. The bytes all landed
-  and verified cold, 712 of 712. The window is real; the loss is conditional on a pull inside it,
-  and **that pull is unmeasured** - see [`soak-ten-record.md`](soak-ten-record.md) §7. Related:
-  `(ain)`'s false-custody shape, arriving from durability rather than from an errno.
-  Body: [`research/backlog/aiz.md`](research/backlog/aiz.md).
+- **(ajf) SHOULD A COMMAND SAY "COPIED" BEFORE THE MEDIUM HAS THE BYTES? A WORDING RULING, NOT A
+  DEFECT.** Filed 2026-08-31 (P167), split out of `(aiz)` when its consequence half shipped.
+  `backup --apply` printed *"Copied 356 file(s), 717 MB"* in **4.74 s** with **570 MiB still dirty
+  in RAM** on a 1.34 MiB/s stick; `organize` does the same. ⚠ **The harm that made this urgent is
+  gone** - `(aiz)` shipped, so a false row no longer defends itself and the next run repairs it -
+  **what is left is whether the sentence is honest.** 🔑 **This is a product call and a defect fix
+  is not where it belongs.** `safe_copy` refuses `fsync` in its own words and nominates
+  `copy_sha256` and `verify` to own durability. The field settled the same argument for `rsync`
+  with `sync()` before exit - Ts'o, *"not a big deal, and not all that costly"*; Mason, *"if we
+  crash just after the rsync, the backup logs won't know"* - and **fsyncgate is why that makes the
+  TIMING honest without making the outcome certain**, because a writeback failure leaves pages
+  neither written nor marked dirty. **Candidates, none ruled**: say *"copied"* only after a
+  `sync()`; say *"copied, not yet flushed"*; say nothing different and let `verify` own it.
+  Related: `(aiz)`, `(aja)`, [`soak-eleven-record.md`](soak-eleven-record.md) §5.
 
 - **(aiy) TWO REGISTRATIONS ON ONE PHYSICAL DEVICE ARE REPORTED AS "NICELY REDUNDANT".** Filed
   2026-08-31 (P165, soak ten), measured. Two drives registered in two folders of **one USB stick**,

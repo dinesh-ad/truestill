@@ -38,7 +38,9 @@ from typing import NoReturn
 
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog
+from truestill_core.dedup import credible_copies
 from truestill_core.destinations.base import DestinationDevice
+from truestill_core.destinations.local import LocalDestination
 from truestill_core.drive import DriveMarker
 from truestill_core.drive_adoption import AdoptionOffer, AdoptionVerdict
 from truestill_core.drive_unwritable import persists_for_the_run
@@ -133,11 +135,30 @@ class MissingCopy:
 
 
 def _files_missing_on_target(
-    catalog: Catalog, source_uuid: str, target_uuid: str
+    catalog: Catalog, source_uuid: str, target_uuid: str, target: Path | None = None
 ) -> list[MissingCopy]:
     """Copies present on the source drive but not yet on the target -- keyed on per-drive presence,
-    not the catalog-global dedup that would wrongly skip a genuine second copy."""
-    on_target = {r["sha256"] for r in catalog.copies_on_drive(target_uuid)}
+    not the catalog-global dedup that would wrongly skip a genuine second copy.
+
+    ⚠ **A row on the target is a claim, and ``target`` is what lets it be checked.** `(aiz)`: the
+    row is written when the bytes are handed to the kernel, so an interrupted backup leaves rows
+    for copies the medium never took - **measured on NTFS as 429 rows against 124 files actually
+    there, 305 false custody claims**. Believing them means the second run copies nothing and the
+    user has one copy while the catalog reports two, which is `status`'s whole subject.
+
+    ``None`` keeps the old behaviour for a caller that has no local target to ask; see
+    `dedup.credible_copies`.
+    """
+    rows = catalog.copies_on_drive(target_uuid)
+    on_target = set(
+        credible_copies(
+            {str(r["sha256"]): str(r["relative"]) for r in rows},
+            sizes=None if target is None else LocalDestination(target).sizes(),
+            expected={
+                str(r["sha256"]): (None if r["size"] is None else int(r["size"])) for r in rows
+            },
+        )
+    )
     return [
         MissingCopy.from_row(r)
         for r in catalog.copies_on_drive(source_uuid)
@@ -592,7 +613,7 @@ def copy_to_drive(
         raise ValueError(message)
     with open_catalog(db) as catalog:
         missing = _files_missing_on_target(
-            catalog, pair.source_marker.uuid, pair.target_marker.uuid
+            catalog, pair.source_marker.uuid, pair.target_marker.uuid, pair.target
         )
         need = sum(int(r.size or 0) for r in missing)
         free = shutil.disk_usage(pair.target).free
