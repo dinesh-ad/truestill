@@ -668,8 +668,17 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   of them.
 - **Dedup is scoped PER DESTINATION, never per catalog.** `organize` into a destination writes
   what is not **on that destination**. The question is *"is this content already on this drive"* -
-  answerable from `file_copies`, keyed by `(sha256, drive_uuid)`, without touching disk - and it is
-  **not** *"is this content anywhere in the catalog"*. Every serious backup tool works this way:
+  asked of `file_copies`, keyed by `(sha256, drive_uuid)`, and **checked against the destination** -
+  and it is **not** *"is this content anywhere in the catalog"*.
+  ⚠ **THIS READ *"without touching disk"* UNTIL 2026-08-31 AND `(aja)` FALSIFIED IT.** A row is
+  written when the bytes reach the kernel, so an interrupted run leaves rows for copies the medium
+  never took - **measured as 836 zero-byte files on exFAT against 2,062 confident rows** - and
+  believing them made the re-run report *"2,068 already on this drive"* and repair nothing. **The
+  row that was wrong defended itself.** `dedup.credible_copies` now believes a row only while the
+  destination holds a file of the **recorded size**, from `Destination.sizes()`. **That is still
+  not a disk READ**: it is the stat the walk already does, which `rescan`'s PLACED rule costs at
+  ~14 s for 33,000 files against ~15 h to hash the same library. The old wording was true of the
+  catalog-only question and became the reason a false row was permanent. Every serious backup tool works this way:
   restic and Borg deduplicate within a repository and separate repositories get no cross-dedup; the
   one common exception, a global chunk store, exists for fleets writing into a single shared
   destination, which is the opposite of drives-in-a-drawer. ⚠ **Truestill implemented the global

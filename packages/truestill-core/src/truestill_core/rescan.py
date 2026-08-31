@@ -9,6 +9,12 @@ Report only. Nothing here writes to a catalog or to a drive, and no caller of it
   the entire library (~15 h for 196 GiB at the 3.9 MB/s measured on a cloud mount) to learn what
   a stat already said (~14 s for 33,000 files). Integrity is a different question, it belongs to
   `verify`, and `verify` reads every byte on purpose.
+  ⚠ **A NAMED SUBSET OF IT SINCE `(ajb)`: `damaged`** -- placed, and **the wrong size**. Still no
+  read: the size comes out of the stat the walk already did, so this is inside the rule rather
+  than an exception to it. It is a subset rather than a fifth outcome precisely so the four stay
+  disjoint and exhaustive and the subtraction below cannot gain a gap. **A missing file is honest;
+  a zero-byte file is a lie**, and only the catalog - which lives outside the filesystem - knows
+  the difference.
 * **MOVED** -- the recorded path is empty and that content is on the drive somewhere else.
   Identified by **content hash, never by name or size.** That evidence is precisely what makes
   correcting a recorded location safe rather than a guess; a weaker match would turn a
