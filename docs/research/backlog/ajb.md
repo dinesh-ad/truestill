@@ -1,7 +1,7 @@
 # (ajb) `rescan` HOLDS THE RECORDED SIZE AND STATS THE REAL ONE, AND COMPARES NEITHER.
 
-*Body of backlog entry `(ajb)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is
-shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(ajb)`, **shipped 2026-08-31** - the closure is in [`SHIPPED.md`](../../SHIPPED.md);
+the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
 
 Filed 2026-08-31 (P166, soak eleven), measured. The run is
 [`soak-eleven-record.md`](../../soak-eleven-record.md).

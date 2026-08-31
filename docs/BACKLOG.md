@@ -267,19 +267,6 @@ is invisible here is retired, not free.**
   threshold and no review, so it is a reporting shape rather than a feature.
   Body: [`research/backlog/aii.md`](research/backlog/aii.md).
 
-- **(ajb) `rescan` HOLDS THE RECORDED SIZE AND STATS THE REAL ONE, AND COMPARES NEITHER.** Filed
-  2026-08-31 (P166). After a mid-write pull left **836 files at zero bytes** against a catalog
-  recording 3.5 MB each, `rescan` called them **"in place"** in 0.28 s. The catalog has a size for
-  **2,540 of 2,540** rows, the walk already stats - and `reconcile()` takes `on_disk:
-  Collection[str]`, **paths only**, under *"Pure: no I/O"*. **A size comparison would have caught
-  836 of 839 reading not one byte.** ⚠ **Its disclaimer talks the user out of it** - *"Silent damage
-  changes neither its name nor its size"* - true of bit-rot, **false for what an interrupted write
-  produces**. 🔑 **Scoped by measurement across three filesystems**: blind where the filesystem
-  KEEPS the directory entry (exFAT **2 of 838**, FAT32 **1 of 39**), not blind where it does not
-  (NTFS **304 of 304**). And the filesystem's own checker cannot help - `fsck` says *"the volume is
-  damaged"*; only `verify` says which photographs. Body:
-  [`research/backlog/ajb.md`](research/backlog/ajb.md).
-
 - **(ajc) `ntfs3` ACCEPTS EVERY NAME WINDOWS REFUSES, SO A DRIVE IS WRITTEN ON LINUX AND BREAKS WHEN
   IT MOVES.** Filed 2026-08-31 (P166), measured on a real NTFS volume under the **kernel `ntfs3`
   driver** with `acl`. All eight of `(aid)`'s illegal characters - `:` `?` `*` `|` `<` `>` `"` `\`

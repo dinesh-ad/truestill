@@ -822,6 +822,22 @@ def _print_rescan(report: RescanReport, root: Path, label: str, elapsed: float) 
         " on another drive - Truestill does not guess which.",
     )
 
+    # ⚠ **Before LEFT BEHIND, because this one is the user's photographs.** `(ajb)`
+    if report.damaged:
+        print(f"\n  THE WRONG SIZE ON THE DRIVE: {len(report.damaged)}")
+        print("      these are where the catalog says, and are NOT what it recorded. An")
+        print("      interrupted write - a drive pulled out, a disk that filled - leaves the")
+        print("      name behind without the bytes. Re-run the command that put them here;")
+        print("      it copies only what is still missing.")
+        for entry in report.damaged[:RESCAN_SAMPLE_LIMIT]:
+            print(
+                f"      {entry.relative}"
+                f"  ({entry.actual_size:,} bytes, recorded as {entry.recorded_size:,})"
+            )
+        extra = len(report.damaged) - RESCAN_SAMPLE_LIMIT
+        if extra > 0:
+            print(f"      ... and {extra:,} more, not shown")
+
     _print_rescan_section(
         "LEFT BEHIND BY TRUESTILL",
         list(report.debris),
@@ -848,9 +864,10 @@ def _print_rescan(report: RescanReport, root: Path, label: str, elapsed: float) 
     print("\nWHAT THIS DOES AND DOES NOT TELL YOU")
     print("  This is a snapshot taken while the drive was being read. A file changed during")
     print("  the read may be described as it was a moment before.")
-    print("  It answers WHERE your files are, never whether their contents are still good.")
-    print("  Silent damage to a file changes neither its name nor its size, so only")
-    print("  'truestill verify' can find it - that reads every byte and this reads none.")
+    print("  It answers WHERE your files are, and whether they are the SIZE the catalog")
+    print("  recorded - which is what an interrupted write gets wrong. It does not read a")
+    print("  single byte, so damage that leaves the size intact is invisible here and only")
+    print("  'truestill verify' can find it.")
     print("  Nothing was changed: not your files, not the drive, not the catalog.")
     print("  No command repairs any of the above yet. This one only tells you.")
 
@@ -953,9 +970,16 @@ def _cmd_rescan(args: argparse.Namespace) -> int:
     scan = scan_source(root)
     on_disk = {path.relative_to(root).as_posix(): path for path in scan.media}
     with _catalog(args.db) as catalog:
-        recorded = {
-            str(row["relative"]): str(row["sha256"]) for row in catalog.copies_on_drive(marker.uuid)
-        }
+        rows = catalog.copies_on_drive(marker.uuid)
+    recorded = {str(row["relative"]): str(row["sha256"]) for row in rows}
+    # ⚠ **The sizes cost nothing extra and were being thrown away.** `(ajb)`: the walk above already
+    # stat'd every file to know it was one, and the catalog holds the size for every copy - so
+    # `rescan` had both numbers in hand and compared neither, and reported 836 zero-byte files as
+    # `in place` on a stick that had been pulled mid-write.
+    recorded_sizes = {
+        str(row["relative"]): (None if row["size"] is None else int(row["size"])) for row in rows
+    }
+    actual_sizes = LocalDestination(root).sizes()
     # The PLACED rule: a file where the catalog says it is, is not read. This subtraction is
     # what makes the cost proportional to what changed rather than to the size of the library.
     candidates = {rel: path for rel, path in on_disk.items() if rel not in recorded}
@@ -977,6 +1001,8 @@ def _cmd_rescan(args: argparse.Namespace) -> int:
         unreadable_dirs=[p.relative_to(root).as_posix() for p in scan.unreadable_dirs],
         unreadable_files=unreadable_files,
         debris=debris,
+        sizes=actual_sizes,
+        recorded_sizes=recorded_sizes,
     )
     _print_rescan(report, root, marker.label, _CLOCK() - started)
     return 0 if report.reconciled else 1

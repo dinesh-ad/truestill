@@ -71,6 +71,12 @@ class RescanReport:
     unreadable_dirs: tuple[str, ...] = ()
     #: Files present but unhashable, so their content could not be identified either way.
     unreadable_files: tuple[str, ...] = field(default=())
+    #: **Recorded here, and the wrong size.** `(ajb)`. A subset of :attr:`placed` - the path has a
+    #: file at it, so location is answered - carved out because the file **contradicts the record**
+    #: and the two need opposite words: one is *"where you left it"*, the other is *"not what you
+    #: left"*. Measured on removable media as **836 zero-byte files on exFAT and 38 on FAT32**
+    #: reported as `in place`, because names were compared and sizes were not.
+    damaged: tuple[DamagedCopy, ...] = ()
 
     @property
     def complete(self) -> bool:
@@ -90,8 +96,34 @@ class RescanReport:
         ``.partial`` is not a disagreement between the record and the disk -- it is litter beside
         them. Failing a run for it would turn a successful copy into a scripted failure. It is
         reported instead, which is what `(acz)` said was owed.
+
+        ⚠ **``damaged`` IS part of it, and the contrast with ``debris`` is the reason.** `(ajb)`:
+        a `.partial` is litter beside the record, while a file that is the wrong size **is a
+        disagreement between the record and the disk** - the exact thing this property exists to
+        report. A scripted `rescan X && next_step` must not chain past a drive holding a
+        photograph that is 0 bytes where the catalog says 3.5 MB.
         """
-        return not self.moved and not self.stray and not self.unaccounted and self.complete
+        return (
+            not self.moved
+            and not self.stray
+            and not self.unaccounted
+            and not self.damaged
+            and self.complete
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class DamagedCopy:
+    """A recorded copy whose file is present and the wrong size. `(ajb)`
+
+    ``recorded_size`` is what the catalog holds; ``actual_size`` is what the drive has. Both are
+    carried because *"3.5 MB became 0"* is the sentence a user can act on, where *"damaged"* alone
+    is not.
+    """
+
+    relative: str
+    recorded_size: int
+    actual_size: int
 
 
 def reconcile(  # noqa: PLR0913 - each argument is a distinct class of observation
@@ -102,6 +134,8 @@ def reconcile(  # noqa: PLR0913 - each argument is a distinct class of observati
     unreadable_dirs: Collection[str] = (),
     unreadable_files: Collection[str] = (),
     debris: Collection[str] = (),
+    sizes: Mapping[str, int] | None = None,
+    recorded_sizes: Mapping[str, int | None] | None = None,
 ) -> RescanReport:
     """Classify a drive's records and files. Pure: no I/O, no catalog, no filesystem.
 
@@ -143,6 +177,21 @@ def reconcile(  # noqa: PLR0913 - each argument is a distinct class of observati
     claimed = {path for entry in moved for path in entry.found}
     stray = tuple(sorted(set(identified) - claimed - set(placed)))
 
+    # ⚠ **A subset of `placed`, not a fifth bucket alongside it.** `(ajb)`: the four outcomes stay
+    # disjoint and exhaustive over both inputs - location is still fully answered - and this names
+    # which of the placed files contradict their record. Deriving it any other way would break the
+    # subtraction that makes the buckets provably gapless.
+    #
+    # **``sizes is None`` means the caller could not ask cheaply**, never that all is well; the
+    # tuple is then empty and the report says exactly what it said before.
+    damaged: tuple[DamagedCopy, ...] = ()
+    if sizes is not None and recorded_sizes is not None:
+        damaged = tuple(
+            DamagedCopy(rel, want, sizes[rel])
+            for rel in placed
+            if (want := recorded_sizes.get(rel)) is not None and rel in sizes and sizes[rel] != want
+        )
+
     return RescanReport(
         placed=placed,
         moved=tuple(moved),
@@ -150,5 +199,6 @@ def reconcile(  # noqa: PLR0913 - each argument is a distinct class of observati
         unaccounted=tuple(unaccounted),
         unreadable_dirs=tuple(sorted(unreadable_dirs)),
         unreadable_files=tuple(sorted(unreadable_files)),
+        damaged=damaged,
         debris=tuple(sorted(debris)),
     )

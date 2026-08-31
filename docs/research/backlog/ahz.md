@@ -54,7 +54,7 @@
     **cannot** push the real names back: they are on the drive, not in the catalog.
   - Run in this state it does the opposite. It overwrites the drive's document - **the last
     surviving copy of the real names** - with the catalog's wrong ones, stamped `written=now`
-    (`cli.py:1407`), making them the newest document anywhere and **unbeatable by any later
+    (`cli.py:1654`), making them the newest document anywhere and **unbeatable by any later
     reconcile**.
   - ⚠ **Its guard misread the situation, because it used a different identity than the merge
     did - AND STEP 3 CLOSED BOTH HALVES on 2026-08-26.** As filed: `_LOSS_KEYS` keyed trips by
@@ -331,7 +331,7 @@
   |---|---|---|
   | **A** | the recovery destination is not registered as a drive | ⛔ **RULED OUT.** `IMPLEMENTATION_STANDARDS.md` §3.1 binds creation on **both** surfaces; `cli.py:2831` rules that an identity minted afterwards *"leaves the run's own files unattached"*; `(aei)` makes destination identity an input to dedup. An opt-out flag was already refused at `cli.py:2790` |
   | **B** | suppress publishing while the catalog is known-rebuilt | ⚠ **PARTLY RULED OUT, and needs a concept that does not exist.** No rebuilt/young/age notion anywhere; `test_catalog_session.py` rules the trigger deliberately coarse and calls the refreshed organize stamp intended; `decisions-on-drive-research.md` states every reachable drive is meant to hold every decision. And `(aci)`/`would_lose` is the already-recorded remedy - B would be a second one |
-  | **C** | `restore` reads one root only, behind a flag | ✅ **NOT RULED ON.** The ruling is only *"the named root is read from the PATH, never from a lookup"* (`cli.py:1408`). Reading the others is stated as a **convenience**, justified by *"on a fresh machine that list is simply empty"* - which this scenario falsifies. Constraint: `apply_documents` owns the per-drive loop structurally; a flag must not move it |
+  | **C** | `restore` reads one root only, behind a flag | ✅ **NOT RULED ON.** The ruling is only *"the named root is read from the PATH, never from a lookup"* (`cli.py:1473`). Reading the others is stated as a **convenience**, justified by *"on a fresh machine that list is simply empty"* - which this scenario falsifies. Constraint: `apply_documents` owns the per-drive loop structurally; a flag must not move it |
   | **D** | creation-date-aware ranking | ✅ **NOT RULED ON, but needs new data.** A per-section override precedent exists - `_merge_confirmations` (`decisions.py:381`) resolves on the row's stamp, not the document's. ⚠ But drive age is **not derivable**: `marker.created` exists (`drive.py:947`) and is never written to the catalog or read during reconcile, and `drives.first_seen` is when *this* catalog first saw the drive, so on a rebuilt catalog it is the rebuild day - **actively wrong in the one case restore exists for** |
   | **E** | widen `_LOSS_KEYS` so a name regression under an unchanged signature is a loss | ✅ **NOT RULED ON.** Repairs the guard already ruled to cover this case rather than adding a mechanism. The evidence points here; it is written down, not chosen |
 

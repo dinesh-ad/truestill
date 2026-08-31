@@ -38,6 +38,48 @@ recording shipped work as unstarted, which is the more expensive direction of th
   `test_an_invalid_utf8_document_does_not_brick_a_successful_command`. Body:
   [`research/backlog/aje.md`](research/backlog/aje.md).
 
+- **(ajb) `rescan` NOW COMPARES THE SIZE IT ALREADY HOLDS, AND NAMES WHAT IS WRONG.** Shipped
+  2026-08-31 (P167).
+
+  **Measured on removable media**: a stick pulled mid-write left **836 files at zero bytes on
+  exFAT** against a catalog recording 3.5 MB each, and `rescan` reported `in place: 2538` in
+  **0.28 s**. Correct about location, silent about the lie - and its own disclaimer sent the user
+  away: *"Silent damage to a file changes neither its name nor its size."* **True of bit-rot,
+  false for what an interrupted write actually produces.**
+
+  🔑 **THE ARGUMENT THAT MAKES IT MORE THAN A CONVENIENCE.** `fsck` on the same volume said
+  *corrupted, 1 file* - it caught the one genuinely incoherent entry and was **blind to the 836
+  coherent ones**, because a zero-byte file with zero clusters agrees with itself. **Only the
+  catalog, which lives outside the filesystem, knows they should be 3.5 MB.** `rescan` is the only
+  instrument that can hold both numbers at once, and it was discarding one.
+
+  **The cost is nothing.** The walk stats every entry to know it is a file; the catalog holds a
+  size for every copy. `rescan`'s own PLACED rule costs that walk at **~14 s for 33,000 files
+  against ~15 h to hash the same library**, so this is inside the rule rather than an exception to
+  it.
+
+  ## THE SHAPE
+
+  `DamagedCopy` carries the relative path, the recorded size and the actual one - because *"3.5 MB
+  became 0"* is a sentence a user can act on and *"damaged"* is not. ⚠ **It is a SUBSET of
+  `placed`, not a fifth bucket beside it**: the four outcomes stay disjoint and exhaustive over
+  both inputs, so the subtraction that makes them provably gapless is untouched.
+
+  ⚠ **It DOES fail the exit code, where `debris` does not**, and the contrast is the reason: a
+  `.partial` is litter beside the record, while a wrong size **is a disagreement between the record
+  and the disk** - the exact thing the property reports. A scripted `rescan X && next_step` must
+  not chain past a photograph that is 0 bytes where the catalog says 3.5 MB.
+
+  ⚠ **SCOPE, MEASURED ACROSS THREE FILESYSTEMS.** The gap existed where the filesystem KEEPS the
+  directory entry - exFAT (**2 of 838** caught) and FAT32 (**1 of 39**) - and not where a journal
+  rolls the entry out of existence, as NTFS did (**304 of 304** already caught). **Removable media
+  is overwhelmingly the first kind.** Filed narrower than first written, because the first version
+  would have read as universal and been wrong on the one filesystem with a journal.
+
+  **Three mutations, control first, all caught**: the caller not asking for sizes, the comparison
+  never firing, and `damaged` not affecting the exit code.
+  Body: [`research/backlog/ajb.md`](research/backlog/ajb.md).
+
 - **(ajd) A STOPPED BACKUP NOW SAYS WHAT LANDED, INSTEAD OF PRINTING A TRACEBACK.** Shipped
   2026-08-31 (P167). Measured twice in soak eleven, on two code paths.
 
