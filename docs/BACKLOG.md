@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aiz). Next free: (aja).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajd). Next free: (aje).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -266,6 +266,59 @@ is invisible here is retired, not free.**
   being pairwise against the first-seen twin. Narrower than `(aag)`: an exact group needs no
   threshold and no review, so it is a reporting shape rather than a feature.
   Body: [`research/backlog/aii.md`](research/backlog/aii.md).
+
+- **(aja) A RE-RUN REPAIRS NOTHING AN INTERRUPTION BROKE, BECAUSE THE ROW WRITTEN TOO EARLY SAYS
+  THERE IS NOTHING TO DO.** Filed 2026-08-31 (P166, soak eleven), measured under a **physical
+  mid-write pull** on exFAT. `organize --apply` said **2062 organized**; **1,223 were true**. The
+  stick was pulled; **836 photographs are zero bytes**. The user re-runs - the obvious remedy - and
+  gets **"2,068 already on this drive"**, **exit 0**, and **838 of 839 unchanged**, confirmed by
+  re-stat'ing the recorded path list cold. 🔑 **The row written too early is the same row that
+  suppresses the repair**: dedup asks `file_copies`, and `file_copies` is precisely what the
+  interruption falsified. ⚠ **Its arithmetic is internally honest, which makes it worse** -
+  `467 + 11 = 478`, exactly the `not attempted` count, so it converged perfectly on work it never
+  started and not at all on work it recorded wrongly. **Every automatic path reports success; only
+  `verify` dissents.** Ranked first in soak eleven. On NTFS the re-run **dies instead of lying**
+  (`(ajd)`), so the mechanism is untested there. Body:
+  [`research/backlog/aja.md`](research/backlog/aja.md).
+
+- **(ajb) `rescan` HOLDS THE RECORDED SIZE AND STATS THE REAL ONE, AND COMPARES NEITHER.** Filed
+  2026-08-31 (P166). After a mid-write pull left **836 files at zero bytes** against a catalog
+  recording 3.5 MB each, `rescan` called them **"in place"** in 0.28 s. The catalog has a size for
+  **2,540 of 2,540** rows, the walk already stats - and `reconcile()` takes `on_disk:
+  Collection[str]`, **paths only**, under *"Pure: no I/O"*. **A size comparison would have caught
+  836 of 839 reading not one byte.** ⚠ **Its disclaimer talks the user out of it** - *"Silent damage
+  changes neither its name nor its size"* - true of bit-rot, **false for what an interrupted write
+  produces**. 🔑 **Scoped by measurement across three filesystems**: blind where the filesystem
+  KEEPS the directory entry (exFAT **2 of 838**, FAT32 **1 of 39**), not blind where it does not
+  (NTFS **304 of 304**). And the filesystem's own checker cannot help - `fsck` says *"the volume is
+  damaged"*; only `verify` says which photographs. Body:
+  [`research/backlog/ajb.md`](research/backlog/ajb.md).
+
+- **(ajc) `ntfs3` ACCEPTS EVERY NAME WINDOWS REFUSES, SO A DRIVE IS WRITTEN ON LINUX AND BREAKS WHEN
+  IT MOVES.** Filed 2026-08-31 (P166), measured on a real NTFS volume under the **kernel `ntfs3`
+  driver** with `acl`. All eight of `(aid)`'s illegal characters - `:` `?` `*` `|` `<` `>` `"` `\`
+  - were **created verbatim**, and `ntfs3` is **case-SENSITIVE** where Windows is not. 🔑 **`(aid)`'s
+  central claim is false**: exFAT and FAT32 are the strict filesystems (`EINVAL` on all eight) and
+  **NTFS-under-Linux is the permissive one**. ⚠ **Different hazard from `(aid)`**: a name that
+  refuses at write time loses nothing; **a name that writes fine on Linux and cannot be opened on
+  Windows breaks the drive after it travels**, with no error in between -
+  [`moving-machines.md`](moving-machines.md) is its home. ⚠ **The obvious fix is wrong**: those
+  characters are legal on ext4. Whether a **destination that may travel** should be held to the
+  strictest set is named and deliberately not ruled. Body:
+  [`research/backlog/ajc.md`](research/backlog/ajc.md).
+
+- **(ajd) `backup` LETS SOME `OSError`s ESCAPE AS A PYTHON TRACEBACK, WHERE `organize` WRITES A
+  SENTENCE.** Filed 2026-08-31 (P166), measured twice. A vanished drive (`EIO`, `backup.py:490`)
+  and a corrupt directory on the **recovery** run (`EINVAL`, `backup.py:478`) both reached the user
+  as raw tracebacks with source paths. **`organize` met the identical accident and answered** with
+  a named file, a cause in English, `2062 organized / 1 failed / 478 not attempted` and **exit 4**.
+  ⚠ **Not uniform, and the entry says so**: `backup` handles the FAT32 size ceiling **properly** -
+  clean message, exit 1, the 4 GiB `.partial` removed - so *some* errnos are classified and some
+  escape. 🔑 **And the preflight is not shared**: `organize` refuses an oversized file in **1 second
+  having written 0 bytes**, naming the remedy; `backup` offers to proceed, writes **4.0 GiB**, then
+  blocks ~15 minutes flushing pages for a file that can never exist. **`backup` is the command a
+  user runs when they are already worried.** Body:
+  [`research/backlog/ajd.md`](research/backlog/ajd.md).
 
 - **(aiz) SUCCESS IS REPORTED BEFORE THE MEDIUM HAS THE BYTES, AND BOTH INSTRUMENTS THAT WOULD
   CATCH IT READ THE PAGE CACHE.** Filed 2026-08-31 (P165, soak ten), measured on **real removable

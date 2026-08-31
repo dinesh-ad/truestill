@@ -49,6 +49,24 @@
   ⚠ **A user copying a library from a Mac or a Linux box onto an external NTFS drive is the
   ordinary case**, not a contrived one - and it is `moving-machines.md`'s subject.
 
+  > ⚠ **THE "destination" COLUMN ABOVE IS MEASURED FALSE FOR NTFS, 2026-08-31 (P166, soak eleven).**
+  > On a real NTFS volume under the **`ntfs3` kernel driver**, `Trip: day 1.jpg`, `nul.jpg`,
+  > `photo?.jpg`, `a*b.jpg`, `pipe|name.jpg`, `report<v2>.jpg`, `say"hi.jpg` and `back\slash.jpg`
+  > were **all created verbatim**. They do **not** refuse. **exFAT is the strict filesystem** -
+  > `EINVAL` on all eight - **and NTFS-under-Linux is the permissive one**, which is the reverse of
+  > this entry's premise. The 2026-08-30 reproduction below came from **exFAT**, not from anything
+  > NTFS-like.
+  >
+  > 🔑 **So the hazard is worse than this row says and belongs to a different entry.** A name that
+  > refuses at write time loses nothing; a name that **writes fine on Linux and cannot be opened on
+  > Windows** breaks the drive after it travels, with no error anywhere in between. **That is
+  > `(ajc)`**, filed against [`moving-machines.md`](../../moving-machines.md). This entry keeps the
+  > refuse-at-write-time half, which exFAT proves and which is real.
+  >
+  > ⚠ **And the Windows `xfail` this entry asks for must now prove a different thing**: not *"does
+  > NTFS refuse the write"* - measured, it does not - but *"does Win32 refuse to OPEN a name Linux
+  > already wrote"*. The instrument is still needed; its target moved.
+
   ## ⚠ THE WARNING EXISTS AND ORGANIZE DOES NOT IMPORT IT
 
   `PATH_LENGTH_WARN = 200` (`layout.py:99`) has exactly two readers: `layout.py:517` and
