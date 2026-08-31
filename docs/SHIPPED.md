@@ -22,6 +22,22 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aje) ONE INVALID BYTE IN `.truestill-decisions.json` BRICKS EVERY CATALOG OPEN.** ✅ **CLOSED
+  2026-08-31.** Filed the same day from soak twelve's damage matrix. `read_decisions` claimed
+  **Never raises** and raised `UnicodeDecodeError` on invalid UTF-8 - a `ValueError`, not an
+  `OSError`, so the existing arms missed it. Truncated JSON already refused safely; byte damage
+  did not. Because `catalog_session.open_catalog` calls `ensure_decisions_on_drives` before
+  `yield` and `save_decisions_to_reachable_drives` after a dirty body with **no try**, one bad
+  byte on a reachable drive bricked every command on entry, and could turn a successful organize
+  into a crash on exit. `(ahz)`'s publish loop already fails closed when `found.error` is set;
+  the defect was that invalid UTF-8 never returned an error - it raised first. Fix matches
+  `drive.read_marker`: catch `UnicodeDecodeError`, return `found=True` with a sentence, leave
+  the bytes untouched. Pinned by
+  `test_a_document_of_invalid_utf8_is_never_overwritten`,
+  `test_an_invalid_utf8_document_does_not_brick_catalog_open` and
+  `test_an_invalid_utf8_document_does_not_brick_a_successful_command`. Body:
+  [`research/backlog/aje.md`](research/backlog/aje.md).
+
 - **(aix) A TRIP OR EVENT CAN BE RENAMED, AND THE RENAME MOVES THE PHOTOGRAPHS.** Shipped
   2026-08-31 (P163) over five commits, P159-P163. Filed 2026-08-30 (P158/P159) as **a feature with
   a design and a staging plan**, not a defect. The body -

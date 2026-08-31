@@ -1364,6 +1364,14 @@ def read_decisions(root: Path) -> DocumentOnDrive:
     is there and I cannot read it" lead to opposite actions: the first may be written over freely,
     the second must not be touched. Collapsing them to `None` is how a damaged copy of somebody's
     names becomes no copy at all.
+
+    ⚠ **Invalid UTF-8 is the second case, not an exception.** `(aje)`. ``Path.read_text`` raises
+    ``UnicodeDecodeError`` (a ``ValueError``, **not** an ``OSError``), so catching only
+    ``OSError`` here let one bad byte propagate. That raise is load-bearing: both
+    ``catalog_session.open_catalog`` call sites - the upgrade write on entry and the dirty save on
+    exit - are unguarded, because this function promised never to raise. One damaged document on a
+    reachable drive then bricked every command that opens a catalog. ``drive.read_marker`` already
+    caught ``UnicodeDecodeError`` beside ``OSError``; this matches that shape.
     """
     target = root / DECISIONS_NAME
     try:
@@ -1372,6 +1380,10 @@ def read_decisions(root: Path) -> DocumentOnDrive:
         return DocumentOnDrive()
     except OSError as error:
         return DocumentOnDrive(found=True, error=explain_unwritable_drive(error))
+    except UnicodeDecodeError:
+        # Bytes that are not UTF-8 still hold someone's names (often recoverable by hand). Same
+        # refusal as unparseable JSON: found, no decisions, do not overwrite.
+        return DocumentOnDrive(found=True, error="the file on the drive is not readable as text")
     try:
         document = json.loads(text)
     except ValueError:

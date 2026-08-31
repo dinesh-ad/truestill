@@ -7,7 +7,7 @@
 
   ## 1. THIS IS TERRITORY THE REPO ALREADY CLAIMED, AND THE CLAIM DOES NOT HOLD
 
-  `would_lose` (`decisions.py:1407`) exists for exactly this, and says so:
+  `would_lose` (`decisions.py:1545`) exists for exactly this, and says so:
 
   > A re-attached drive carries names a rebuilt catalog has never seen; writing over them destroys
   > the only copy, **which is precisely what this feature exists to prevent**.
@@ -20,7 +20,7 @@
   keyed events on **signature**, not name, so identical signatures made the difference empty,
   `would_lose` returned `()`, and the write proceeded - **nothing anywhere ruled on a name
   regression under an unchanged signature.** Today `_LOSS_KEYS` is identity-to-**value**
-  (`decisions.py:1332-1345`) and `drive_holdings` (`decisions.py:1367`) computes `missing` **and**
+  (`decisions.py:1443-1455`) and `drive_holdings` (`decisions.py:1489`) computes `missing` **and**
   `changed` as `NameSwap` pairs, so a changed value counts. §"STEP 3 SHIPPED" below has the
   detail. ⚠ **This correction is written HERE rather than appended to the end** - a retraction a
   reader reaches thirty lines after the false claim is not a retraction.
@@ -62,7 +62,7 @@
     holding *"Grandma's 90th"* for the days the catalog called *"Trip 2019"* registered as a loss,
     and the preview printed *"These sections exist there and NOT here, and will be gone: trips"* -
     a warning about the drive that was really a description of a rename. Today `_LOSS_KEYS` keys
-    trips by `_trip_key` (`decisions.py:1333`), the same function the merge uses, and **that
+    trips by `_trip_key` (`decisions.py:1444`), the same function the merge uses, and **that
     sentence no longer exists anywhere in the tree**: `_discard_to_drive` (`cli.py:1604`) prints
     `RESTORE_WORDING[RestoreNote.DRIVE_HOLDS_MORE]` and words a rename apart from a loss.
 

@@ -266,3 +266,64 @@ def test_a_newer_version_on_the_drive_is_recorded_like_any_other_problem(tmp_pat
         problem = after.get_setting(f"decisions.problem.{_UUID}")
     assert problem is not None, "a newer document on the drive was refused and never reported"
     assert "upgrade" in problem.lower()
+
+
+def test_an_invalid_utf8_document_does_not_brick_catalog_open(tmp_path: Path) -> None:
+    """⚠ **THE LOAD-BEARING CALLER.** `(aje)`
+
+    ``open_catalog`` calls ``ensure_decisions_on_drives`` **before** ``yield``, with no ``try``.
+    That is correct only while ``read_decisions`` never raises: one invalid byte in
+    ``.truestill-decisions.json`` on a reachable drive otherwise turns every CLI/app open into a
+    ``UnicodeDecodeError`` before any command work runs. The user's remedy - unplug the drive -
+    is the one thing nothing would tell them.
+
+    Cry-wolf half below: a readable document on the same path still takes the upgrade write.
+    """
+    db = tmp_path / "c.sqlite"
+    root = tmp_path / "drive"
+    damaged = b"\x00\xff" * 32
+    with Catalog(db) as setup:
+        _drive(setup, root)
+        # Leave DECISIONS_SAVED_AT unset so the upgrade write fires on ENTRY - the brick path.
+        setup.create_trip(
+            name="Wayanad",
+            slug="wayanad",
+            start_date="2014-08-14",
+            end_date="2014-08-15",
+            days=["2014-08-14", "2014-08-15"],
+        )
+    (root / DECISIONS_NAME).write_bytes(damaged)
+
+    told: list[tuple[SaveOutcome, bool]] = []
+
+    def remember(results: tuple[DriveSave, ...], *, upgrade: bool) -> None:
+        told.extend((r.outcome, upgrade) for r in results)
+
+    with open_catalog(db, report=remember) as catalog:
+        # Reached the body: the command was not bricked on entry.
+        assert catalog.count() >= 0
+
+    assert told == [(SaveOutcome.FAILED, True)], (
+        f"entry must refuse the damaged document, not raise: {told}"
+    )
+    assert (root / DECISIONS_NAME).read_bytes() == damaged
+
+
+def test_an_invalid_utf8_document_does_not_brick_a_successful_command(tmp_path: Path) -> None:
+    """The exit path: work already succeeded, then the dirty save must not turn it into a crash."""
+    db = tmp_path / "c.sqlite"
+    root = tmp_path / "drive"
+    damaged = b"\xff\xfe\x00\x01" * 16
+    with Catalog(db) as setup:
+        _drive(setup, root)
+        _already_upgraded(setup)
+    (root / DECISIONS_NAME).write_bytes(damaged)
+
+    with open_catalog(db) as catalog:
+        catalog.record_skip("b" * 64)
+
+    assert (root / DECISIONS_NAME).read_bytes() == damaged
+    with Catalog(db) as after:
+        problem = after.get_setting(f"decisions.problem.{_UUID}")
+    assert problem is not None
+    assert "not readable as text" in problem

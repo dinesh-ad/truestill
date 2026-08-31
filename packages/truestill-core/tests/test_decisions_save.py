@@ -160,6 +160,35 @@ def test_a_document_that_cannot_be_read_is_never_overwritten(tmp_path: Path) -> 
     assert (root / DECISIONS_NAME).read_text(encoding="utf-8") == '{"format": 1, "trips": ['
 
 
+def test_a_document_of_invalid_utf8_is_never_overwritten(tmp_path: Path) -> None:
+    """⚠ **The byte that was invisible to the existing refuse-and-keep test.** `(aje)`
+
+    Truncated JSON is valid UTF-8, so it reaches ``json.loads`` and the ``ValueError`` arm.
+    Interrupted writes on removable media also produce **invalid UTF-8** (soak ten/eleven's
+    damage shape). ``Path.read_text`` raises ``UnicodeDecodeError`` for those - a ``ValueError``,
+    not an ``OSError`` - and until `(aje)` that exception left ``read_decisions`` entirely.
+    Publish must still refuse: the bytes may still hold recoverable names.
+    """
+    root = tmp_path / "drive"
+    root.mkdir()
+    damaged = b"\x00\xff\x00\xff" * 64
+    (root / DECISIONS_NAME).write_bytes(damaged)
+
+    found = read_decisions(root)
+    assert found.found is True
+    assert found.decisions is None
+    assert found.error is not None
+    assert "not readable as text" in found.error
+
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _register(catalog, root, _UUID_A, "Output")
+        _with_a_trip(catalog)
+        results = save_decisions_to_reachable_drives(catalog, stamp=_STAMP)
+
+    assert results[0].outcome is SaveOutcome.FAILED
+    assert (root / DECISIONS_NAME).read_bytes() == damaged, "the damaged document was rewritten"
+
+
 # --- every reachable drive, and only reachable ones ----------------------------------------
 
 
