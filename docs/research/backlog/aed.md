@@ -9,7 +9,7 @@
   placement question with no measurement behind it."* ⚠ **`(adb)` was refused on measurements about
   the catalog copy. None of them touched this**, so refusing it in the same breath would have
   retired a question nobody answered.
-  - **What it is.** `organizer._MetadataBaker` (`organizer.py:1245`) stages into the **system** temp
+  - **What it is.** `organizer._MetadataBaker` (`organizer.py:1263`) stages into the **system** temp
     directory rather than beside the target, so the write to the real destination is the *upload*,
     a filesystem away.
   - ✅ **NOT A SAFETY PROBLEM, and that is the reason it stayed small.** The partial lives inside a

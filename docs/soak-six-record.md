@@ -35,7 +35,7 @@ The half [`soak-five-record.md`](soak-five-record.md) named as missing.
 > *"its photos have changed"*, is false. `(ahv)`.
 >
 > ⚠ **And the whole mechanism is defeated by an ordinary command line.** `truestill organize src
-> dest` with a **relative** destination stores a relative path hint (`cli.py:2606`, `:2616`), and
+> dest` with a **relative** destination stores a relative path hint (`cli.py:2852`, `:2862`), and
 > `write_decisions` refuses every save for the life of that drive (`decisions.py:741-746`). No
 > document is ever written and the names really do live only in the catalog. `(ahu)`. **So the
 > bullet below is false as a design claim and accidentally true for a common invocation** - which

@@ -34,6 +34,7 @@ import pytest
 from PIL import Image
 from truestill_cli.cli import _shas_on_destination, main
 from truestill_core.catalog import Catalog
+from truestill_core.destinations import LocalDestination
 from truestill_core.drive import create_marker, read_marker
 
 _EXIFTOOL = pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
@@ -76,10 +77,10 @@ def test_an_unregistered_destination_and_a_freshly_registered_one_scope_alike(
     root = tmp_path / "fresh"
     root.mkdir()
     with Catalog(db) as catalog:
-        before = _shas_on_destination(_Args(), None, catalog)
+        before = _shas_on_destination(_Args(), None, catalog, LocalDestination(root))
         minted = create_marker(root, label="Fresh")
         catalog.upsert_drive(uuid=minted.uuid, label=minted.label)
-        after = _shas_on_destination(_Args(), minted.uuid, catalog)
+        after = _shas_on_destination(_Args(), minted.uuid, catalog, LocalDestination(root))
 
     assert before == {}
     assert after == {}
@@ -96,7 +97,10 @@ def test_an_rclone_destination_still_scopes_against_the_whole_catalog(tmp_path: 
     """
     db = tmp_path / "c.sqlite"
     with Catalog(db) as catalog:
-        assert _shas_on_destination(_Args(rclone=True), None, catalog) is None
+        assert (
+            _shas_on_destination(_Args(rclone=True), None, catalog, LocalDestination(tmp_path))
+            is None
+        )
 
 
 @_EXIFTOOL
@@ -115,13 +119,13 @@ def test_a_marked_destination_still_scopes_against_what_that_drive_holds(tmp_pat
     marker = read_marker(dest)
     assert marker is not None
     with Catalog(db) as catalog:
-        first = _shas_on_destination(_Args(), marker.uuid, catalog)
+        first = _shas_on_destination(_Args(), marker.uuid, catalog, LocalDestination(dest))
     assert len(first) == 3, "the first run recorded nothing to scope against"
 
     # Second run, same drive: everything is already there, so nothing is written again.
     assert main(["organize", str(src), str(dest), "--apply", "--db", str(db)]) == 0
     with Catalog(db) as catalog:
-        second = _shas_on_destination(_Args(), marker.uuid, catalog)
+        second = _shas_on_destination(_Args(), marker.uuid, catalog, LocalDestination(dest))
     assert second == first, "a re-run into the same drive changed what the drive is said to hold"
 
 

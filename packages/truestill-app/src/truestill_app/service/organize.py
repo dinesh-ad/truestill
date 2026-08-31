@@ -14,7 +14,7 @@ from truestill_core.catalog_busy import REQUEST_BUSY_ATTEMPTS, retry_while_busy
 from truestill_core.catalog_session import open_catalog
 from truestill_core.categorize import build_rules
 from truestill_core.date_provenance import format_offset
-from truestill_core.dedup import DedupIndex
+from truestill_core.dedup import DedupIndex, credible_copies
 from truestill_core.destinations import LocalDestination
 from truestill_core.destinations.base import DestinationError
 from truestill_core.drive import (
@@ -1067,7 +1067,15 @@ def _scope_to_marker(destination: Path, catalog: Catalog) -> dict[str, str]:
     existing = read_marker(destination)
     if existing is None:
         return {}
-    return {str(r["sha256"]): str(r["relative"]) for r in catalog.copies_on_drive(existing.uuid)}
+    rows = catalog.copies_on_drive(existing.uuid)
+    # ⚠ **A row is a claim; the destination is asked whether it is still true.** `(aja)`. The app
+    # always writes to a local drive, so `sizes()` always answers here - there is no rclone branch
+    # to fall back to. See `dedup.credible_copies`.
+    return credible_copies(
+        {str(r["sha256"]): str(r["relative"]) for r in rows},
+        sizes=LocalDestination(destination).sizes(),
+        expected={str(r["sha256"]): (None if r["size"] is None else int(r["size"])) for r in rows},
+    )
 
 
 def _reapply_named_events(

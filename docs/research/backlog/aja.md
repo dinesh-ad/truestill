@@ -1,7 +1,7 @@
 # (aja) A RE-RUN REPAIRS NOTHING AN INTERRUPTION BROKE, BECAUSE THE ROW WRITTEN TOO EARLY SAYS THERE IS NOTHING TO DO.
 
-*Body of backlog entry `(aja)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is
-shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(aja)`, **shipped 2026-08-31** - the closure is in [`SHIPPED.md`](../../SHIPPED.md);
+the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
 
 Filed 2026-08-31 (P166, soak eleven), **measured on real removable media** under a **physical
 mid-write pull**. The run is [`soak-eleven-record.md`](../../soak-eleven-record.md).

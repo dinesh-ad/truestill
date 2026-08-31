@@ -38,6 +38,62 @@ recording shipped work as unstarted, which is the more expensive direction of th
   `test_an_invalid_utf8_document_does_not_brick_a_successful_command`. Body:
   [`research/backlog/aje.md`](research/backlog/aje.md).
 
+- **(aja) A RE-RUN NOW REPAIRS WHAT AN INTERRUPTION BROKE, INSTEAD OF REPORTING IT AS ALREADY
+  THERE.** Shipped 2026-08-31 (P167). Filed the same day from soak eleven, measured under a
+  **physical mid-write pull** on real removable media.
+
+  ## THE PATH A PERSON WALKED
+
+  `organize --apply` said **2062 organized**; **1,223 were true**. The stick was pulled; **836
+  photographs were zero bytes**. The user re-ran - the obvious remedy - and got **"2,068 already on
+  this drive"**, **exit 0**, and **838 of 839 unchanged**. Every automatic path reported success.
+
+  ## 🔑 THE ROOT CAUSE: A CLAIM NOTHING RE-CHECKED, PLUS A CORPSE THAT KEPT ITS NAME
+
+  **Two halves, and fixing one alone leaves the defect.**
+
+  1. **Dedup answered *"already on this drive?"* from `catalog.copies_on_drive` and nothing asked
+     the drive.** A `file_copies` row is written when the bytes are handed to the kernel, so an
+     interruption leaves rows describing copies the medium never took - and **the row that was
+     wrong then defended itself**.
+  2. **Even once dedup stopped skipping, the repair landed BESIDE the corpse.** `_free_relative`
+     saw a file at the target and suffixed to `…_1.jpg`, so the drive kept the ruined file and
+     gained a second one while the row still pointed at the corpse. `(ain)`'s self-worsening shape
+     arriving from the dedup side, and **found only because the first fix made the test fail
+     differently rather than pass**.
+
+  ## THE FIX
+
+  `dedup.credible_copies` believes a recorded copy only while the destination holds a file of the
+  recorded **size**, and `Destination.sizes()` supplies that from the stat the walk already does.
+  `_free_relative` gains `reclaimable`: the one path it may overwrite, **proved ours by
+  `catalog.copy_relative`** for this content on this drive - a stranger's file at the same path has
+  no such row and is still suffixed around.
+
+  ## THE FIELD ANSWERS THIS BY LOOKING, NOT BY REMEMBERING
+
+  `rsync`'s default quick check **stats the destination and compares size and mtime on every run**,
+  keeping no record of what it sent last time, and reserves checksums for `--checksum` because they
+  cost I/O on both sides. `restic` and `borg` keep their index **inside the repository**; when a
+  client-side cache diverges the documented remedy is to delete the cache, because the repository
+  is the truth. **Truestill's `file_copies` was a client-side cache with no such fallback.**
+
+  ## ⚠ WHAT IT DOES NOT FIX, STATED RATHER THAN IMPLIED
+
+  - **Size, not content.** A copy whose size matches and whose bytes are wrong survives the filter
+    - one such file was measured on each of exFAT and NTFS - and only `verify` finds it. That is
+    `rescan`'s PLACED reasoning applied here: this costs the stat that already happened, and
+    hashing would cost the library (~15 h against ~14 s, measured).
+  - **`sizes is None` keeps the old behaviour**, because it means *"cannot answer cheaply"*, never
+    *"all is well"*. An rclone remote takes that branch, and a mutation proved that branch was
+    **unguarded until a test was written for it**.
+  - **A row with `size = NULL`** - pre-`(aei)` - is still believed; absence of evidence is not
+    evidence, and discarding those would re-copy every old library.
+
+  **Three mutations, control first, all caught**: dedup trusting the row again, the repair
+  suffixing instead of reclaiming, and unknown sizes discarding every row.
+  Body: [`research/backlog/aja.md`](research/backlog/aja.md).
+
 - **(aix) A TRIP OR EVENT CAN BE RENAMED, AND THE RENAME MOVES THE PHOTOGRAPHS.** Shipped
   2026-08-31 (P163) over five commits, P159-P163. Filed 2026-08-30 (P158/P159) as **a feature with
   a design and a staging plan**, not a defect. The body -

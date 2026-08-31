@@ -9,7 +9,7 @@ private business.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from datetime import datetime
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
@@ -155,6 +155,21 @@ class Destination(ABC):
     @abstractmethod
     def list(self) -> list[str]:
         """Return every relative path currently present at the destination."""
+
+    # -- optional: how big is each file that is there? -------------------------------------
+
+    def sizes(self) -> Mapping[str, int] | None:
+        """Relative path -> byte size for everything present, or ``None`` when unknown.
+
+        ⚠ **This is free where it is available, which is why it exists.** A backend that can
+        enumerate paths has already stat'd them to know they are files - ``rescan``'s PLACED rule
+        costs out that walk at ~14 s for 33,000 files against ~15 h to hash the same library - so
+        carrying ``st_size`` out of the stat that already happened adds nothing.
+
+        **``None`` means "I cannot answer cheaply", never "everything is fine".** Callers must
+        treat it as no evidence and keep the behaviour they had. `(aja)`
+        """
+        return None
 
     # -- optional: is there local ground under this destination to watch? -----------------
 

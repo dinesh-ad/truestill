@@ -1040,13 +1040,31 @@ def apply_events(
     return updated
 
 
-def _free_relative(destination: Destination, relative: str) -> tuple[str, bool]:
+def _free_relative(
+    destination: Destination,
+    relative: str,
+    *,
+    reclaimable: str | None = None,
+) -> tuple[str, bool]:
     """Return a relative path that does not collide at ``destination``.
 
     Content identity is already handled by dedup, so a collision here means a *different*
     file happens to share the same category/date/name (e.g. two distinct ``IMG_0001.jpg``).
     Such a file is suffixed rather than overwriting the incumbent -- never lose data.
+
+    ⚠ **``reclaimable`` is the ONE path that may be overwritten, and only because it is provably
+    ours.** `(aja)`. When dedup has decided a recorded copy is no longer credible - an interrupted
+    write left a zero-byte file where the catalog records 3.5 MB - the repair must land **at that
+    path**. Without this it lands beside it as ``…_1.jpg``, the drive keeps the ruined file and
+    gains a second one, and the catalog row still points at the corpse. That is `(ain)`'s
+    self-worsening shape arriving from the dedup side.
+
+    **The evidence that it is ours is the catalog's own row for this content on this drive**
+    (``copy_relative``), not a guess about the file: a stranger's zero-byte file at the same path
+    has no such row and is still suffixed around.
     """
+    if reclaimable is not None and relative == reclaimable:
+        return relative, False
     if not destination.exists(relative):
         return relative, False
     posix = PurePosixPath(relative)
@@ -1799,7 +1817,15 @@ def _execute_one_write(resolution: Resolution, run: _WriteRun) -> ActionResult:
             "already organized at this path",
         )
 
-    final_relative, renamed = _free_relative(run.destination, relative)
+    # ⚠ **The path this content already occupies on this drive, if any.** `(aja)`: dedup only lets
+    # us get here when that copy is not credible, so re-writing it in place is the repair - and
+    # `copy_relative` is what proves the file is ours rather than a stranger's collision.
+    reclaimable = (
+        run.catalog.copy_relative(resolution.hashes.sha256, run.drive_uuid)
+        if run.catalog is not None and run.drive_uuid is not None and resolution.hashes.sha256
+        else None
+    )
+    final_relative, renamed = _free_relative(run.destination, relative, reclaimable=reclaimable)
     # Source hash is the dedup identity; computed now for any unique-size file the
     # scan skipped, since the file is being read for upload anyway.
     source_sha = resolution.hashes.sha256 or sha256_file(decision.source)

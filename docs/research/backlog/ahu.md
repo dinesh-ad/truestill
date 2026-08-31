@@ -20,7 +20,7 @@
 
   ## THE CHAIN
 
-  `cli.py:2606` takes `Path(args.destination)` **unresolved**, and `cli.py:2616` stores it
+  `cli.py:2852` takes `Path(args.destination)` **unresolved**, and `cli.py:2862` stores it
   verbatim as the hint. `write_decisions` then refuses on every save:
   `decisions.py:741` `if not root.is_absolute():` -> `decisions.py:746`. Nothing retries and
   nothing rewrites the hint, so **the refusal is permanent for that drive**.
@@ -48,7 +48,7 @@
   **Every `set_setting(drive_path_hint(...))` in the repo is in a test, and every one passes an
   absolute `tmp_path`** - `str(root)`, `str(gone)`. Checked:
   `grep -rn "set_setting(drive_path_hint" packages/` returns test files plus four production
-  sites (`cli.py:1225`, `cli.py:2616`, `service/organize.py:1114`, `service/drives.py:388`,
+  sites (`cli.py:1225`, `cli.py:2862`, `service/organize.py:1114`, `service/drives.py:388`,
   `service/verify.py:96`). No test drives `main()` with a relative destination.
 
   That is `handoff-2026-08-25.md` §1's *"a test constructing its input differently from the real
@@ -70,7 +70,7 @@
 
   ## THE FIX, AND WHAT IT MUST NOT BE
 
-  Resolve at the boundary - `Path(args.destination).resolve()` at `cli.py:2606` - and audit the
+  Resolve at the boundary - `Path(args.destination).resolve()` at `cli.py:2852` - and audit the
   other four hint writers for the same. **Not** relaxing `decisions.py:741`: the guard is what
   turned this from a silent misfile into a reported one, and it is the reason this entry exists.
 

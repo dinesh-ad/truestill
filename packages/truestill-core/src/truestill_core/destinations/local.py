@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import errno
 import os
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from datetime import datetime
 from pathlib import Path
+from stat import S_ISREG
 
 from truestill_core.destinations.base import (
     CrossDeviceError,
@@ -265,6 +266,31 @@ class LocalDestination(Destination):
         except OSError as exc:
             message = f"cannot checksum {relative_path!r}: {exc}"
             raise DestinationError(message) from exc
+
+    def sizes(self) -> Mapping[str, int]:
+        """Relative path -> byte size, from the walk that :meth:`list` already does.
+
+        ⚠ **The stat is not extra.** ``rglob`` + ``is_file()`` stats every entry to answer
+        "is this a file"; ``st_size`` comes out of the same call. `(aja)`
+
+        **A file that cannot be stat'd is omitted rather than guessed at**, which reads to a
+        caller as "no evidence for this path" - the same answer as absence, and the safe one:
+        it can only cause a re-copy, never a skip.
+        """
+        found: dict[str, int] = {}
+        try:
+            if not self._root.exists():
+                return found
+            for path in self._root.rglob("*"):
+                try:
+                    stat = path.stat()
+                except OSError:
+                    continue
+                if S_ISREG(stat.st_mode):
+                    found[path.relative_to(self._root).as_posix()] = stat.st_size
+        except OSError:
+            return found
+        return found
 
     def list(self) -> list[str]:
         try:

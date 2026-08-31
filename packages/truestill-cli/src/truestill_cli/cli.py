@@ -102,7 +102,7 @@ from truestill_core.decisions import (
     withheld_count,
     write_decisions,
 )
-from truestill_core.dedup import DedupIndex
+from truestill_core.dedup import DedupIndex, credible_copies
 from truestill_core.destinations import Destination, LocalDestination, RcloneDestination
 from truestill_core.destinations.base import DestinationError
 from truestill_core.drive import (
@@ -2083,7 +2083,10 @@ def _build_destination(spec: str, *, rclone: bool) -> Destination:
 
 
 def _shas_on_destination(
-    args: argparse.Namespace, drive_uuid: str | None, catalog: Catalog
+    args: argparse.Namespace,
+    drive_uuid: str | None,
+    catalog: Catalog,
+    destination: Destination,
 ) -> dict[str, str] | None:
     """What this destination already holds, for `(aei)`'s per-destination dedup.
 
@@ -2107,7 +2110,16 @@ def _shas_on_destination(
         return None
     if drive_uuid is None:
         return {}
-    return {str(r["sha256"]): str(r["relative"]) for r in catalog.copies_on_drive(drive_uuid)}
+    rows = catalog.copies_on_drive(drive_uuid)
+    # ⚠ **A row is a claim; the destination is asked whether it is still true.** `(aja)`: an
+    # interrupted run leaves rows for copies the medium never took, and skipping on that row is
+    # how the re-run - the obvious remedy - repairs nothing. The stat this costs is the one
+    # `sizes()` already does; see `dedup.credible_copies`.
+    return credible_copies(
+        {str(r["sha256"]): str(r["relative"]) for r in rows},
+        sizes=destination.sizes(),
+        expected={str(r["sha256"]): (None if r["size"] is None else int(r["size"])) for r in rows},
+    )
 
 
 def _local_drive_marker(args: argparse.Namespace) -> DriveMarker | None:
@@ -3166,7 +3178,7 @@ def _run_pipeline(
         #   rclone   -> None from `_shas_on_destination` itself, catalog-global as before
         # Pinned by `test_dedup_scope_comes_from_the_marker.py`.
         drive_uuid = drive_marker.uuid if drive_marker is not None else None
-        on_destination = _shas_on_destination(args, drive_uuid, catalog)
+        on_destination = _shas_on_destination(args, drive_uuid, catalog, destination)
         resolutions = resolve(
             decisions,
             index,

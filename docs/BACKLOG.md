@@ -267,20 +267,6 @@ is invisible here is retired, not free.**
   threshold and no review, so it is a reporting shape rather than a feature.
   Body: [`research/backlog/aii.md`](research/backlog/aii.md).
 
-- **(aja) A RE-RUN REPAIRS NOTHING AN INTERRUPTION BROKE, BECAUSE THE ROW WRITTEN TOO EARLY SAYS
-  THERE IS NOTHING TO DO.** Filed 2026-08-31 (P166, soak eleven), measured under a **physical
-  mid-write pull** on exFAT. `organize --apply` said **2062 organized**; **1,223 were true**. The
-  stick was pulled; **836 photographs are zero bytes**. The user re-runs - the obvious remedy - and
-  gets **"2,068 already on this drive"**, **exit 0**, and **838 of 839 unchanged**, confirmed by
-  re-stat'ing the recorded path list cold. 🔑 **The row written too early is the same row that
-  suppresses the repair**: dedup asks `file_copies`, and `file_copies` is precisely what the
-  interruption falsified. ⚠ **Its arithmetic is internally honest, which makes it worse** -
-  `467 + 11 = 478`, exactly the `not attempted` count, so it converged perfectly on work it never
-  started and not at all on work it recorded wrongly. **Every automatic path reports success; only
-  `verify` dissents.** Ranked first in soak eleven. On NTFS the re-run **dies instead of lying**
-  (`(ajd)`), so the mechanism is untested there. Body:
-  [`research/backlog/aja.md`](research/backlog/aja.md).
-
 - **(ajb) `rescan` HOLDS THE RECORDED SIZE AND STATS THE REAL ONE, AND COMPARES NEITHER.** Filed
   2026-08-31 (P166). After a mid-write pull left **836 files at zero bytes** against a catalog
   recording 3.5 MB each, `rescan` called them **"in place"** in 0.28 s. The catalog has a size for

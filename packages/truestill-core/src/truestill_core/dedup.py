@@ -38,7 +38,7 @@ entry and it is a property of the geometry, not of any implementation.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 
 import numpy as np
 
@@ -226,3 +226,49 @@ class DedupIndex:
         if path in self._catalog_paths:
             return DuplicateOrigin.CATALOG
         return DuplicateOrigin.RUN
+
+
+def credible_copies(
+    recorded: Mapping[str, str],
+    *,
+    sizes: Mapping[str, int] | None,
+    expected: Mapping[str, int | None],
+) -> dict[str, str]:
+    """Drop recorded copies the destination contradicts. `(aja)`
+
+    ``recorded`` is sha -> relative path, as the catalog holds it. ``sizes`` is what the
+    destination actually has (``None`` when it cannot say cheaply). ``expected`` is sha -> the
+    byte size the catalog recorded for that copy.
+
+    🔑 **A `file_copies` row is a claim, not an observation, and until now nothing re-checked it.**
+    The row is written when the bytes are handed to the kernel, so an interruption leaves rows
+    describing copies the medium never took - measured on removable media as **836 zero-byte
+    files on exFAT and 304 unreadable on NTFS** against confident rows. Dedup then reads those
+    rows, reports *"already on this drive"*, and **the row that was wrong defends itself**: the
+    files most in need of re-copying are exactly the ones skipped.
+
+    **The field answers this by looking, not by remembering.** ``rsync``'s default quick check
+    stats the destination and compares **size and mtime** on every run - it keeps no record of
+    what it sent last time - and reserves checksums for ``--checksum`` because they cost I/O on
+    both sides. ``restic`` and ``borg`` keep an index **inside the repository**; when a
+    client-side cache diverges the documented remedy is to delete the cache, because the
+    repository is the truth. Truestill's ``file_copies`` is a client-side cache with no such
+    fallback.
+
+    ⚠ **Size, not content.** A copy whose size matches and whose bytes are wrong survives this
+    filter - one such file was measured on each of exFAT and NTFS - and only ``verify`` can find
+    it. That is `rescan`'s PLACED reasoning applied here: this costs the stat the walk already
+    did, and hashing would cost the library.
+
+    ⚠ **``sizes is None`` keeps today's behaviour**, because it means the destination cannot
+    answer cheaply, never that everything is well. An rclone remote takes that branch.
+
+    **Complexity O(recorded)** - dictionary lookups, no walk of its own.
+    """
+    if sizes is None:
+        return dict(recorded)
+    return {
+        sha: relative
+        for sha, relative in recorded.items()
+        if (want := expected.get(sha)) is None or sizes.get(relative) == want
+    }
