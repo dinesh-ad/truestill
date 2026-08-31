@@ -293,19 +293,6 @@ is invisible here is retired, not free.**
   strictest set is named and deliberately not ruled. Body:
   [`research/backlog/ajc.md`](research/backlog/ajc.md).
 
-- **(ajd) `backup` LETS SOME `OSError`s ESCAPE AS A PYTHON TRACEBACK, WHERE `organize` WRITES A
-  SENTENCE.** Filed 2026-08-31 (P166), measured twice. A vanished drive (`EIO`, `backup.py:490`)
-  and a corrupt directory on the **recovery** run (`EINVAL`, `backup.py:478`) both reached the user
-  as raw tracebacks with source paths. **`organize` met the identical accident and answered** with
-  a named file, a cause in English, `2062 organized / 1 failed / 478 not attempted` and **exit 4**.
-  ⚠ **Not uniform, and the entry says so**: `backup` handles the FAT32 size ceiling **properly** -
-  clean message, exit 1, the 4 GiB `.partial` removed - so *some* errnos are classified and some
-  escape. 🔑 **And the preflight is not shared**: `organize` refuses an oversized file in **1 second
-  having written 0 bytes**, naming the remedy; `backup` offers to proceed, writes **4.0 GiB**, then
-  blocks ~15 minutes flushing pages for a file that can never exist. **`backup` is the command a
-  user runs when they are already worried.** Body:
-  [`research/backlog/ajd.md`](research/backlog/ajd.md).
-
 - **(ajf) SHOULD A COMMAND SAY "COPIED" BEFORE THE MEDIUM HAS THE BYTES? A WORDING RULING, NOT A
   DEFECT.** Filed 2026-08-31 (P167), split out of `(aiz)` when its consequence half shipped.
   `backup --apply` printed *"Copied 356 file(s), 717 MB"* in **4.74 s** with **570 MiB still dirty

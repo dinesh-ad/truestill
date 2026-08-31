@@ -133,8 +133,8 @@
   *"E must ship with a fix to `_discard_to_drive`, which treats a non-empty `would_lose` as
   permission to proceed"* UNTIL 2026-08-26. THERE IS NO POLARITY BUG AND THERE NEVER WAS.**
   Calling it *"permission to proceed"* is true of the control flow and misleading as a
-  description, because it omits three gates: preview-only by default (`cli.py:1658`), an explicit
-  `--apply`, and a typed `discard` confirmation (`cli.py:1658`). The retraction lived thirty-four
+  description, because it omits three gates: preview-only by default (`cli.py:1659`), an explicit
+  `--apply`, and a typed `discard` confirmation (`cli.py:1659`). The retraction lived thirty-four
   lines below this claim, where a reader meets it second; it is here now.
 
   ## ⚠ STEP 2 SHIPPED 2026-08-26 (P113) - THE NAMED ROOT IS AUTHORITATIVE
@@ -329,7 +329,7 @@
 
   | | shape | verdict |
   |---|---|---|
-  | **A** | the recovery destination is not registered as a drive | ⛔ **RULED OUT.** `IMPLEMENTATION_STANDARDS.md` §3.1 binds creation on **both** surfaces; `cli.py:2831` rules that an identity minted afterwards *"leaves the run's own files unattached"*; `(aei)` makes destination identity an input to dedup. An opt-out flag was already refused at `cli.py:2789` |
+  | **A** | the recovery destination is not registered as a drive | ⛔ **RULED OUT.** `IMPLEMENTATION_STANDARDS.md` §3.1 binds creation on **both** surfaces; `cli.py:2831` rules that an identity minted afterwards *"leaves the run's own files unattached"*; `(aei)` makes destination identity an input to dedup. An opt-out flag was already refused at `cli.py:2790` |
   | **B** | suppress publishing while the catalog is known-rebuilt | ⚠ **PARTLY RULED OUT, and needs a concept that does not exist.** No rebuilt/young/age notion anywhere; `test_catalog_session.py` rules the trigger deliberately coarse and calls the refreshed organize stamp intended; `decisions-on-drive-research.md` states every reachable drive is meant to hold every decision. And `(aci)`/`would_lose` is the already-recorded remedy - B would be a second one |
   | **C** | `restore` reads one root only, behind a flag | ✅ **NOT RULED ON.** The ruling is only *"the named root is read from the PATH, never from a lookup"* (`cli.py:1408`). Reading the others is stated as a **convenience**, justified by *"on a fresh machine that list is simply empty"* - which this scenario falsifies. Constraint: `apply_documents` owns the per-drive loop structurally; a flag must not move it |
   | **D** | creation-date-aware ranking | ✅ **NOT RULED ON, but needs new data.** A per-section override precedent exists - `_merge_confirmations` (`decisions.py:381`) resolves on the row's stamp, not the document's. ⚠ But drive age is **not derivable**: `marker.created` exists (`drive.py:947`) and is never written to the catalog or read during reconcile, and `drives.first_seen` is when *this* catalog first saw the drive, so on a rebuilt catalog it is the rebuild day - **actively wrong in the one case restore exists for** |

@@ -34,6 +34,7 @@ from truestill_core.archive_extract import extract_archive_set
 from truestill_core.archive_ingest import archives_at, precheck_archives
 from truestill_core.backup import (
     BackupPair,
+    BackupStoppedError,
     _files_missing_on_target,
     _gb,
     copy_to_drive,
@@ -4277,6 +4278,23 @@ def _cmd_backup(args: argparse.Namespace) -> int:
             progress=_progress_printer("copying"),
             cancel=threading.Event(),
         )
+    except BackupStoppedError as exc:
+        # ⚠ **The arm that was missing, and its absence is `(ajd)`.** Only `ValueError` was caught
+        # here, so a drive that vanished mid-copy reached the user as a Python traceback while
+        # `organize` answered the identical accident with a sentence and a count. What landed is
+        # printed FIRST, because a stop that reports nothing is the worse defect - `organize`'s own
+        # handler calls that "a false custody record, which is worse than no record".
+        _end_of_tier()
+        print(f"\n{exc.copied:>9,}  copied before the run stopped")
+        if exc.failures:
+            print(f"{len(exc.failures):>9,}  failed")
+        print(f"error: {exc.detail}", file=sys.stderr)
+        print(
+            f"       {len(missing) - exc.copied:,} file(s) were not attempted. Re-run the same "
+            "command\n       when the drive is back: it copies only what is still missing.",
+            file=sys.stderr,
+        )
+        return 4
     except ValueError as exc:
         _end_of_tier()
         print(f"error: {exc}", file=sys.stderr)

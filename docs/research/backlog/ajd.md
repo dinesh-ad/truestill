@@ -6,8 +6,8 @@
 > clean message, exit 1, the 4 GiB `.partial` removed. **SOME** errnos are classified and some
 > escape, which is a more useful claim than the one first written and a narrower one.
 
-*Body of backlog entry `(ajd)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is
-shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(ajd)`, **shipped 2026-08-31** - the closure is in [`SHIPPED.md`](../../SHIPPED.md);
+the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
 
 Filed 2026-08-31 (P166, soak eleven, pass 2), measured twice on real removable media. The run is
 [`soak-eleven-record.md`](../../soak-eleven-record.md).

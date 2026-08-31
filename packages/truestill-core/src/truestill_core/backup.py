@@ -464,6 +464,49 @@ def _recorder(
     return record
 
 
+class BackupStoppedError(OSError):
+    """A backup stopped part way, carrying what it managed. `(ajd)`
+
+    ⚠ **An `OSError` SUBCLASS, deliberately, and eleven tests are why.** The first version derived
+    from `Exception` and broke every existing `except OSError` handler in the app and its tests -
+    which is the contract `_copy_missing` documented as *"re-raised UNCHANGED"*. Subclassing keeps
+    that promise intact (same type for every existing catcher, same `errno`) while **adding** the
+    counts a surface needs. A fix that quietly narrows what callers may catch is a second defect.
+
+    🔑 **The core was right to raise and the SURFACES had no arm for it.** `_stop_the_run` re-raises
+    a persistent failure on purpose so the record gets written and the run ends; the CLI then
+    caught only `ValueError`, so an `OSError` from a drive that vanished reached the user as a
+    **Python traceback with source paths**. `organize` met the identical accident and answered with
+    a named file, a cause in English, `2062 organized / 1 failed / 478 not attempted` and exit 4.
+
+    ⚠ **It carries the counts because a stop that reports nothing is the worse defect.**
+    `organize`'s own handler records that passing an empty block wrote *"a false custody record,
+    which is worse than no record"*. Backup's user could not tell 124 copied from 2,000 without
+    running `verify` themselves.
+
+    **The original error stays as ``__cause__``**, so a surface can still classify the errno and
+    a defect of ours is still distinguishable from an answer about the drive.
+    """
+
+    def __init__(
+        self,
+        *,
+        copied: int,
+        copied_names: list[str],
+        bytes_copied: int,
+        failures: list[tuple[str, str]],
+        cause: OSError,
+    ) -> None:
+        # `cause` rather than a `detail`/`errno` pair: they always come from the same object, and
+        # splitting them is how one gets passed without the other.
+        super().__init__(cause.errno, str(cause))
+        self.copied = copied
+        self.copied_names = copied_names
+        self.bytes_copied = bytes_copied
+        self.failures = failures
+        self.detail = str(cause)
+
+
 def _copy_missing(
     run: _CopyRun, progress: ProgressCallback, cancel: threading.Event
 ) -> tuple[int, list[str], int, list[tuple[str, str]]]:
@@ -542,12 +585,29 @@ def _copy_missing(
         # longer raises - `_copy_verified` returns a verdict and the loop carries on
         # (`ENGINEERING_STANDARD.md` §4 Errors). What still raises past this point is a guard
         # above the copy saying stop: `_stop_if_ground_moved` or `device.check`. The record is
-        # written and the exception re-raised UNCHANGED.
+        # written and the stop re-raised as `BackupStoppedError`, carrying the counts. `(ajd)`
         # An ABORT: a guard above the copy said stop. The record gets the per-file failures so
         # far AND the stop, which are different facts - `never_attempted` is non-zero only here.
         aborted = (attempting.relative, str(exc)) if attempting is not None else ("", str(exc))
         run.record(done, failures, aborted)
-        raise
+        # ⚠ **Wrapped, not re-raised bare - `(ajd)`.** The record above is written either way; what
+        # changes is that the counts now travel with the stop, so a surface can say what landed
+        # instead of printing a traceback. The original stays as `__cause__` so the errno is still
+        # classifiable and a defect of ours is still tellable from an answer about the drive.
+        # ⚠ **Only an `OSError` is wrapped, and that is the whole scope of `(ajd)`.** A health
+        # stop raises `ValueError` and the surfaces already catch it with a worded sentence; an
+        # `OSError` was the one that walked past every handler and reached the user as a
+        # traceback. Wrapping the others too would change the type eleven passing tests rely on
+        # to say something they already say.
+        if not isinstance(exc, OSError):
+            raise
+        raise BackupStoppedError(
+            copied=copied,
+            copied_names=copied_names,
+            bytes_copied=copied_bytes,
+            failures=failures,
+            cause=exc,
+        ) from exc
     run.record(done, failures, None)
     return copied, copied_names, copied_bytes, failures
 

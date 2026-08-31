@@ -38,6 +38,41 @@ recording shipped work as unstarted, which is the more expensive direction of th
   `test_an_invalid_utf8_document_does_not_brick_a_successful_command`. Body:
   [`research/backlog/aje.md`](research/backlog/aje.md).
 
+- **(ajd) A STOPPED BACKUP NOW SAYS WHAT LANDED, INSTEAD OF PRINTING A TRACEBACK.** Shipped
+  2026-08-31 (P167). Measured twice in soak eleven, on two code paths.
+
+  A stick pulled during `backup --apply` gave the user a raw `OSError` traceback with source paths
+  and line numbers. **`organize` met the identical accident four hours earlier** and answered with
+  a named file, a cause in English, `2062 organized / 1 failed / 478 not attempted`, and exit 4.
+
+  🔑 **THE ROOT CAUSE WAS THE SURFACE, NOT THE RAISE.** `_stop_the_run` re-raises on purpose so the
+  run record is written - that is `(agi)` working. **The CLI caught only `ValueError`**, so every
+  `OSError` walked straight past it. A correct core with no arm to catch it still crashes.
+
+  **`BackupStoppedError` carries the counts out of the dying frame**, the way `RunStoppedError`
+  does for organize, and the CLI prints what landed **before** the reason - because `organize`'s
+  own handler records that an empty block is *"a false custody record, which is worse than no
+  record"*, and backup's user could not tell 124 copied from 2,000 without running `verify`.
+
+  ## ⚠ TWO CORRECTIONS THE TESTS FORCED, BOTH WORTH KEEPING
+
+  - **It is an `OSError` SUBCLASS.** The first version derived from `Exception` and broke **eleven
+    passing tests** across the app - which is exactly the contract `_copy_missing` documented as
+    *"re-raised UNCHANGED"*. Subclassing keeps every existing `except OSError` working and the
+    `errno` intact while **adding** the counts. **A fix that quietly narrows what callers may catch
+    is a second defect.**
+  - **Only an `OSError` is wrapped.** A health stop raises `ValueError` and both surfaces already
+    word it; wrapping those too changed a type that passing tests rely on to say what they already
+    say. The scope is the errno that walked past every handler, and nothing wider.
+
+  ⚠ **`backup` is not uniformly careless, and the entry says so**: it handles the FAT32 size
+  ceiling properly - clean message, exit 1, the 4 GiB `.partial` removed. *Some* errnos were
+  classified and some escaped.
+
+  **Three mutations, control first, all caught**: the core raising bare again, the surface losing
+  its arm, and the stop reporting no counts.
+  Body: [`research/backlog/ajd.md`](research/backlog/ajd.md).
+
 - **(aiz) AN INTERRUPTED BACKUP IS NOW RECOVERABLE: THE SECOND RUN ASKS THE TARGET.** Shipped
   2026-08-31 (P167), **the consequence half of `(aiz)`**; the wording half is open in
   [`BACKLOG.md`](BACKLOG.md) and is a product call.
