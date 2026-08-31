@@ -85,3 +85,9 @@ Draft release deleted, remote tag deleted, local tag and branch deleted. `origin
 **one head (`main`) and one tag (`preserved/abw-finding-3`)**, verified by `git ls-remote`. The
 scratch commit was pushed as a **tag only**, never as a branch, so `CLAUDE.md`'s one-head rule
 held throughout.
+
+> ⚠ **What `origin` holds has changed since, and this paragraph is left as it was measured.**
+> On 2026-08-31 (P164) `preserved/abw-finding-3` was deleted - `(aix)` shipped the feature it
+> preserved and refused its shape - so `git ls-remote` now answers **one head (`main`) and one tag
+> (`v0.1.0`)**. The teardown above is still an accurate record of 2026-08-30, and the one-head
+> finding it exists to report is unaffected. `CLAUDE.md`'s *Live refs* table is the current answer.

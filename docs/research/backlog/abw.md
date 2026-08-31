@@ -1,6 +1,6 @@
 # (abw) An already-named trip is re-asked, and until this commit the answer was discarded.
 
-*Body of backlog entry `(abw)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(abw)`, **closed 2026-08-31** - the closure is in [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md). Findings (1), (2) and (4) shipped as code; (3) was answered by `(aix)`, not fixed.*
 
 - **(abw) An already-named trip is re-asked, and until this commit the answer was discarded.**
   Three findings, recorded 2026-08-08 while checking a premise for folder-name suggestions. The
@@ -156,9 +156,14 @@
       that decides "did anything change" in its own `WHERE` clause, plus five tests including the
       one that matters - a blank reply must never erase an existing name, or a bare Save would
       strip every named trip in the library.
-      - ⚠ **SUPERSEDED 2026-08-31.** `Catalog.rename_row` ships the `WHERE`-clause idea the
-        attempt got right - *"did anything change"* decided by the same statement that changes it,
-        widened into the **lease** that `(aix)` stage 2b needed. What does not survive is the
-        premise: it renamed the row and left the disk alone. **The tag `preserved/abw-finding-3`
-        is therefore no longer unmerged work**, and this entry stays open only until it is
-        deleted and its row leaves `CLAUDE.md`.
+      - ⚠ **SUPERSEDED, AND THE TAG IS DELETED (2026-08-31, P164).** `Catalog.rename_row` ships
+        the `WHERE`-clause idea the attempt got right - *"did anything change"* decided by the same
+        statement that changes it, widened into the **lease** that `(aix)` stage 2b needed. What
+        does not survive is the premise: it renamed the row and left the disk alone.
+        **Superseded work is not unmerged work**, so `CLAUDE.md`'s rule stopped protecting
+        `preserved/abw-finding-3` and started applying to it, and it was removed from the remote
+        with the maintainer's authorisation. ⚠ **The stash it was copied from was already gone**
+        (`git stash list` empty), so the tag was by then the only copy - checked before deleting,
+        along with the fact that its strongest case is guarded today by
+        `test_re_ingest_one_photo_into_a_named_trip_does_not_re_ask` and, structurally, by finding
+        (2). `git ls-remote` now shows one head and one tag, the release.

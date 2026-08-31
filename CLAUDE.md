@@ -153,14 +153,23 @@ wants it (2026-08-15). Unmerged work that must survive lives under a **tag** ins
 
 | tag | peels to | what it is |
 |---|---|---|
-| `preserved/abw-finding-3` | `66f6c22` | `(abw)` finding (3), **analysed and not merged** - a feature question, not a defect. Was the branch `wip/trip-rename-finding-3`. See [`research/backlog/abw.md`](docs/research/backlog/abw.md). ⚠ **SUPERSEDED 2026-08-31**: `(aix)` shipped the feature and refused this shape - it renamed the row and left the disk alone. **It is no longer unmerged work, so the rule below says delete it**; `(abw)` stays open to own that until it is done. |
+| `v0.1.0` | `5118e1a` | the first published release (2026-08-30). A **release** tag, not preserved work - the only ref here that is meant to be permanent. See [`release-rehearsal-record.md`](docs/release-rehearsal-record.md). |
 
-**Why a tag rather than deleting it, and this is the rule below applied rather than dodged:**
-those 148 lines existed on the remote *only* as that branch - `66f6c22`'s own message reads
-*"preserved from stash@{0}"* - so deleting it would have returned them to a local stash on one
+⚠ **THERE IS NO PRESERVED WORK ON THE REMOTE AS OF 2026-08-31, and that is the rule finishing
+rather than the rule lapsing.** `preserved/abw-finding-3` (`66f6c22`, 148 lines, was the branch
+`wip/trip-rename-finding-3`) held `(abw)` finding (3)'s unmerged attempt from 2026-08-15 until
+`(aix)` shipped the feature and **refused that shape** - it renamed the catalog row and left the
+disk alone. Superseded work is not unmerged work, so the rule below stopped protecting it and
+started applying to it, and it was deleted with the maintainer's authorisation.
+
+**Why it was a tag for those sixteen days, which is the rule applied rather than dodged:** those
+148 lines existed on the remote *only* as that branch - `66f6c22`'s own message reads *"preserved
+from stash@{0}"* - so deleting it **then** would have returned them to a local stash on one
 machine, which is the exact leak this section was written about. A tag is a remote ref like any
-other: it survives a fresh clone, and it keeps the branch list clean. `git show <tag>` reads it,
-`git switch -c <name> <tag>` resumes it.
+other: it survives a fresh clone, and it keeps the branch list clean. `git show <tag>` reads one,
+`git switch -c <name> <tag>` resumes one. ⚠ **The stash it was copied from no longer exists**
+(`git stash list` is empty), so by the end the tag was the only copy - which is why deleting it
+needed the entry's analysis first, and got it.
 
 ⚠ **THE RULE: a ref that outlives its session is named here and owned by a backlog entry, or it
 is deleted.** No third option, and a tag is not an exemption from it - it is a way to satisfy the

@@ -104,8 +104,9 @@ recording shipped work as unstarted, which is the more expensive direction of th
   It asked whether the screen should be able to rename at all. **Yes - as its own action.** The
   sentence it explained is gone. The name discard on the commit path is **unchanged and now
   correct rather than merely pinned**: a re-proposal recomputed from a fresh scan must not
-  overwrite a name, and a rename is a deliberate keystroke on a different control. `(abw)` stays
-  open only to retire the ref `preserved/abw-finding-3`, whose approach this entry refused.
+  overwrite a name, and a rename is a deliberate keystroke on a different control. `(abw)` closed
+  the next day (P164), once the ref `preserved/abw-finding-3` - whose approach this entry refused -
+  had been deleted.
 
   ## ⚠ THE RESIDUALS, RANKED BY WHAT A USER CAN DO NEXT
 
@@ -118,6 +119,58 @@ recording shipped work as unstarted, which is the more expensive direction of th
 
   Not this entry's: `(abn)`'s outside-rename repair. The contribution stands - a coherent
   whole-folder move is the highest-confidence repair case it will ever have.
+
+- **(abw) AN ALREADY-NAMED TRIP WAS RE-ASKED, AND THE ANSWER WAS DISCARDED - ALL FOUR FINDINGS
+  CLOSED.** Closed 2026-08-31 (P164). Filed 2026-08-08 while checking a premise for folder-name
+  suggestions; findings (1), (2) and (4) shipped as code between then and 2026-08-15, and (3) was
+  **answered by `(aix)`** rather than fixed. Body:
+  [`research/backlog/abw.md`](research/backlog/abw.md).
+
+  ## THE FOUR FINDINGS
+
+  | # | what it was | how it closed |
+  |---|---|---|
+  | 1 | `assemble_trip_review` re-offered trips the catalog had already named - `claimed_days` means *"claimed by a proposal in THIS run"* | proven against the real catalog, then fixed |
+  | 2 | the screen **could not tell**: `ReviewCardPayload` carried no name, so a named trip rendered an empty box | `existing_name`, shown as **text, not a field** (`3ffb8d5`) |
+  | 4 | the event half of the same defect, and *"already named"* turned out to be **two questions** - same signature (named) versus changed signature (a new cluster that merely overlaps one) | `ExistingNames` carries both keyings side by side; collapsing them fails a pinned case |
+  | 3 | `commit_trips` discards a new name for an already-claimed trip | **answered, not fixed** - see below |
+
+  🔑 **`existing_name`, not `name`, and the distinction is load-bearing.** The browser already uses
+  `card.name` as its own store for what the user has typed. A catalog name in that field would be
+  indistinguishable from something the user wrote and would be sent back as their answer.
+
+  ## FINDING (3) WAS ANSWERED BY `(aix)`, AND THE DISCARD IS UNCHANGED
+
+  On 2026-08-15 it stopped being a defect and became a **feature question**: *should the screen be
+  able to rename at all?* `(aix)` shipped the answer - **yes, as its own action** - so the sentence
+  this finding explained (*"already named - renaming is not available here"*) is gone from
+  `app.js`.
+
+  ⚠ **The discard it was filed against is unchanged and is now correct rather than merely pinned.**
+  A re-proposal recomputed from a fresh scan knows nothing about the name and must not overwrite
+  it (`trip-grouping-research.md` §6); a rename is a deliberate keystroke on a different control.
+  **Two valid repairs of one defect - remove the question, or honour the answer - and the entry
+  ended up with both, in the right places.**
+
+  ## ⚠ THE REF, AND WHY THIS ENTRY OUTLIVED ITS OWN FINDINGS BY SIXTEEN DAYS
+
+  An unmerged attempt at (3) - 148 lines including a **106-line test `git stash show --stat` does
+  not list** - was preserved as the tag `preserved/abw-finding-3` (`66f6c22`) on 2026-08-15, after
+  starting life as a branch and, before that, as a week-old stash. `CLAUDE.md`'s rule is that **a
+  ref outliving its session is named there and owned by a backlog entry, or it is deleted**, so
+  this entry stayed open to own it long after every finding had closed.
+
+  **Deleted 2026-08-31 with the maintainer's authorisation**, because `(aix)` shipped the feature
+  and refused that shape: it renamed the catalog row and left the disk alone, which is the
+  three-way divergence `(aix)` exists to prevent. **Superseded work is not unmerged work.** What
+  survived is the one idea it got right - *"did anything change"* decided by the same statement
+  that changes it - now `Catalog.rename_row`'s `WHERE`, widened into `(aix)` stage 2b's lease.
+
+  ⚠ **Checked before deleting rather than after**: the stash it was copied from no longer exists
+  (`git stash list` is empty), so the tag was by then the **only** copy. Its strongest case - *a
+  blank reply must never erase a stored name* - is guarded today by
+  `test_re_ingest_one_photo_into_a_named_trip_does_not_re_ask` and, structurally, by finding (2):
+  the card renders the name as text, so a blank reply cannot reach the branch at all.
 
 - **(ais) A PATH RENDERED WITH THE PLATFORM'S SEPARATOR IS NOW REFUSED ON EVERY LANE.** Shipped
   2026-08-30 (P147), one commit after being filed. The separator half; the encoding half shipped
@@ -3013,6 +3066,9 @@ recording shipped work as unstarted, which is the more expensive direction of th
     verified rather than assumed:
     - the path was introduced **2026-07-31** (`5db91b9`, the `(aae)` commit);
     - **no `v*` tag exists** - the only tag in the repository is `preserved/abw-finding-3`;
+      *(⚠ both halves are false as of 2026-08-31 and the line is left as measured: `v0.1.0` was
+      cut 2026-08-30 and `preserved/abw-finding-3` was deleted 2026-08-31. This is the expiry the
+      bullet below predicts, not a correction to it - the retirement had already shipped.)*
     - `release.yml` fires on `tags: ["v*"]`, and its **three runs were all `workflow_dispatch`**
       with `dry_run` defaulting to `true` (*"build and verify, publish nothing"*);
     - so the only way to hold a legacy catalog is to have run truestill from a git **checkout**

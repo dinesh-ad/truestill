@@ -114,10 +114,38 @@ research standard, which `ENGINEERING_STANDARD.md` §3 already owns.
   *fixed-under-another-name* family - `(abi)`, `(aak)`, `(abs)` were all true when filed and went
   false under a commit naming a different letter, which no closure guard can see.
 
-⚠ **Not retroactive, and that is a ruling rather than laziness.** Roughly **42 of the 90** open
-entries carry a negative headline today and **6 of 149** bodies record a check; demanding one of
-the rest would go red on the past, which is the failure the paragraph above already explains about
-the closure guard. ⚠ **And it is a convention, deliberately not a hook.** What counts as a negative
+⚠ **Not retroactive, and that is a ruling rather than laziness.** Demanding a check of the rest
+would go red on the past, which is the failure the paragraph above already explains about the
+closure guard. **Recounted 2026-08-31 (P164): 59 of 115 open entries carry a negative headline and
+26 of them record a check** (48 of all 205 bodies do). ⚠ **The gap has narrowed a great deal and
+the ruling survives it** - bodies recording a check went from 4% to 23%, so the convention is being
+followed, and roughly forty entries would still go red.
+
+🔑 **THE CRITERIA ARE WRITTEN DOWN BECAUSE THE OLD NUMBERS COULD NOT BE RE-DERIVED.** This sentence
+read *"roughly 42 of the 90 … and 6 of 149"* until 2026-08-31, counted on a corpus that had grown
+to 115 and 205 - and the two judgements behind 42 and 6 were nobody's to reproduce, which is this
+section's own rule broken one level up: *a recorded command carries a date, so a later reader
+re-runs it instead of re-deriving the premise.* So the judgements are now **stated regexes over
+the entry titles and the bodies**, re-runnable by anyone:
+
+```
+negative headline : \b(never|not|no|nothing|nobody|none|neither|nor|cannot|without|unbuilt
+                    |unread|unused|unseen|untested|unreachable|unsigned|silent|blind|missing
+                    |lacks?|absent|fails? to|does not|is not|has no|are not)\b
+                    MINUS the status markers - "NOT built", "RECORD ONLY", "DEFERRED",
+                    "RETIRED", "POST-LAUNCH" - which say what WE did, not what the code does
+records a check   : a run command (`grep`, `git ls-files`, `git log -S`, `| wc -l`) or the
+                    words "checked, not assumed" / "rather than assumed" / "verified from code"
+```
+
+⚠ **They are approximations and are labelled as such** - 68 titles match before the 9 status
+markers are subtracted, and a regex cannot read English. **An approximation whose criterion is on
+the page beats a judgement whose criterion is not**, because only the first can be argued with.
+⚠ **And a half-refresh was refused**: updating 90 and 149 while leaving 42 and 6 would have
+produced four numbers from two different days in one sentence, which reads as current and is not.
+Either re-derive all four or date the sentence - never half of each.
+
+⚠ **And it is a convention, deliberately not a hook.** What counts as a negative
 claim is a judgement about English, and a guard that has to make one fires on ordinary prose - the
 `_PENDING` list in `test_backlog_references.py` was narrowed twice for exactly that. The full
 argument is `ENGINEERING_STANDARD.md` §4's **seventieth member**.
@@ -892,18 +920,6 @@ is invisible here is retired, not free.**
   entry](research/backlog/aby.md)
 - **(abz) Organize shows one population three ways and connects none of them.** [Full
   entry](research/backlog/abz.md)
-- **(abw) An already-named trip is re-asked, and until this commit the answer was discarded.**
-  ✅ **ALL FOUR FINDINGS ARE NOW CLOSED. (3) was answered 2026-08-31 by `(aix)`**, which asked
-  the same question - *should the screen be able to rename at all?* - and shipped the answer as its
-  own action. `app.js` no longer renders *"already named - renaming is not available here"*, so
-  **do not read this entry and conclude the door is still shut.** The discard it was filed against
-  is unchanged and correct.
-  ⚠ **WHAT KEEPS IT OPEN IS A REF, NOT A DEFECT**: the preserved attempt under the tag
-  `preserved/abw-finding-3` (peels to `66f6c22`; was a branch until 2026-08-15) is now **superseded
-  by shipped code** - it renamed the catalog row and left the disk alone, which `(aix)` measured as
-  the wrong shape. `CLAUDE.md`'s rule is that such a ref is owned by an entry or deleted, so the
-  remaining work is one `git push --delete` and one row removed from `CLAUDE.md` - **a ref
-  operation, deliberately not done inside a docs commit.** [Full entry](research/backlog/abw.md)
 - **(abt) The unhinted-residue prompt is CLI-only, because the app cannot ask mid-job.** Recorded
   2026-08-07. [Full entry](research/backlog/abt.md)
 - **(abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.** [Full
