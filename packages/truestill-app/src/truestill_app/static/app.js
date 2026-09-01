@@ -1067,8 +1067,26 @@ function organizeCompletion(r) {
       places</a>.</div></div>`);
   }
   if (r.failed) {
+    // `(ajl)`. The count was the WHOLE message until 2026-09-01: a run that failed 1,130 of 1,324
+    // files said "1,130 files could not be organized." and named none of them, while the CLI has
+    // named up to `models.FAILURE_PREVIEW_LIMIT` of them since `(afd)`. The field's rule is the
+    // same one: never a flat failure that hides which files, never a flat success that hides them
+    // either.
+    //
+    // **Collapsed by default, and stated rather than implied.** Twenty filenames are detail, not
+    // the headline - the same `<details class="more">` the clean-empty preview uses, and the same
+    // "Showing N of M" truncation sentence the grid and the duplicate list already print. A list
+    // that quietly showed 20 of 1,130 would read as "these are the failures".
+    const f = r.failed_files;
+    const named = f && f.shown && f.shown.length
+      ? `<details class="more"><summary>Show which ▾</summary><div class="mono">`
+        + f.shown.map((x) => `${esc(x.name)} - ${esc(x.detail)}`).join("<br>")
+        + `</div>${f.total > f.shown.length
+            ? `<div class="k">Showing ${nfmt(f.shown.length)} of ${plural(f.total, "file")}.</div>`
+            : ""}</details>`
+      : "";
     notes.push(`<div class="banner warn"><div>${plural(r.failed, "file")} could not be
-      ${verb}.</div></div>`);
+      ${verb}.${named}</div></div>`);
   }
   // ⚠ The run WORKED and its record did not. Said because the record is automatic, so a user
   // never asked for it and would never know it was missing - which is what makes its absence the

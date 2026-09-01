@@ -39,6 +39,7 @@ from truestill_core.insights import capture_span, duplicate_bytes, largest_files
 from truestill_core.layout import LayoutScheme
 from truestill_core.layout_settings import pin_existing_layout, resolve_scheme
 from truestill_core.models import (
+    FAILURE_PREVIEW_LIMIT,
     ActionResult,
     ActionStatus,
     DuplicateOrigin,
@@ -180,6 +181,34 @@ class UnreadableSample(TypedDict):
     path: str
     #: Already worded for a person by `models.unreadable_label` - never the raw enum value.
     reason: str
+
+
+class FailureSample(TypedDict):
+    """One file the run could not organize, and why - the app's half of `cli._print_capped`."""
+
+    name: str
+    #: The reason, already worded for a person by core. Never an enum value or a raw errno.
+    detail: str
+
+
+class FailedReport(TypedDict):
+    """Named failures plus the count they were taken from. `(ajl)`
+
+    **The same `{total, shown}` bargain `_duplicate_report` and `_unreadable_files` already make**
+    in this file, for the reason `_unreadable_files` states: truncation is a fact the payload
+    carries, never something the renderer infers from a list length.
+
+    ⚠ **NOT grouped by reason, and that is blocked rather than skipped.** The field's advice is to
+    summarise by cause, and `cli._print_capped` already counts distinct reasons with
+    `_reason_key` - **but `(aiv)` measured that `_reason_key` collapses NEITHER message shape**,
+    because both `_upload_failure` and `metadata_not_preserved_note` lead with an **unquoted**
+    source filename, so 2,519 files failing for one condition counted as *"2519 distinct
+    reasons"*. Shipping a grouped payload today would put that defect on a second surface.
+    Grouping waits for `(aiv)`, and behind it `(aep)`'s structured `detail`.
+    """
+
+    total: int
+    shown: list[FailureSample]
 
 
 class UnreadableReport(TypedDict):
@@ -498,6 +527,27 @@ def _skipped_folders(source: HasSkippedFolders) -> list[SkippedFolders]:
         }
         for group in skipped_folder_groups(source)
     ]
+
+
+def _failed_report(results: list[ActionResult]) -> FailedReport:
+    """Name the failures, up to core's cap, and say how many there were. `(ajl)`
+
+    🔑 **THE CAP IS `models.FAILURE_PREVIEW_LIMIT`, WHICH THE CLI ALSO READS**, so the two
+    surfaces cannot name a different number of files for the same run. `(afd)` ruled the cap and
+    it is not re-derived here.
+
+    **The name, not the path.** `cli._print_capped` prints
+    ``result.resolution.decision.source.name``; this ships the same field, so a user comparing a
+    terminal run with a screen sees the same identifier rather than two spellings of one file.
+    """
+    failed = [r for r in results if r.status is ActionStatus.FAILED]
+    return {
+        "total": len(failed),
+        "shown": [
+            {"name": r.resolution.decision.source.name, "detail": r.detail}
+            for r in failed[:FAILURE_PREVIEW_LIMIT]
+        ],
+    }
 
 
 def _unreadable_files(resolutions: list[Resolution]) -> UnreadableReport:
@@ -1349,6 +1399,8 @@ class CompletionBase(TypedDict):
     moved_in_place: int
     moved_by_copy: int
     failed: int
+    #: The failures, named up to core's cap, with the total they came from. `(ajl)`
+    failed_files: FailedReport
     #: Whether the run left the library clean. Read by `jobs.py` to pick the terminal
     #: status; `(aiq)`. Counts `MOVE_KEPT` as unclean, which `failed` does not.
     finished_clean: bool
@@ -1563,6 +1615,9 @@ def _completion(
         "moved_in_place": sum(1 for r in results if r.status is ActionStatus.MOVED_IN_PLACE),
         "moved_by_copy": sum(1 for r in results if r.status is ActionStatus.MOVED),
         "failed": sum(1 for r in results if r.status is ActionStatus.FAILED),
+        # `(ajl)`. The scalar above stays - it is what the headline counts - and this is the
+        # detail the CLI has always printed and the app never had.
+        "failed_files": _failed_report(results),
         # `(aiq)`. ⚠ **`MOVE_KEPT` is counted here and NOT in `failed`, on purpose.** It is in
         # neither `_ORGANIZED_STATUSES` nor `failed`, so before this it fell out of both
         # tallies and reached no pixel - a `--move` that could not remove the source read as

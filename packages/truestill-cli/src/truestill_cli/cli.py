@@ -198,6 +198,7 @@ from truestill_core.migrate import (
     undo_migration,
 )
 from truestill_core.models import (
+    FAILURE_PREVIEW_LIMIT,
     ActionResult,
     ActionStatus,
     DateSource,
@@ -293,7 +294,9 @@ _PINNED_NOTICE = (
 #: How many items any capped list names before eliding the rest. ⚠ **Six sites share it**, so
 #: it is not `status`'s - it was documented as that until 2026-08-22 while five other lists
 #: already borrowed it, which is how a shared constant reads as one command's setting.
-_STATUS_PREVIEW = 20
+#: The CLI's local name for core's `FAILURE_PREVIEW_LIMIT`. **Read, never redefined** - the app
+#: names failures at the same cap, and `(afd)`'s ruling has one home. `(ajl)`
+_STATUS_PREVIEW = FAILURE_PREVIEW_LIMIT
 
 #: Exit code for "another process holds the catalog; nothing to fix, try again shortly".
 #:

@@ -46,7 +46,7 @@
   ## 2. ⚠ `--discard` CONVERTS A RECOVERABLE STATE INTO A PERMANENT ONE
 
   **Read this before the fix shapes.** It is the action a stuck user takes: it is the only other
-  flag `restore` has, and its help (`cli.py:622`) reads *"DESTRUCTIVE: overwrite the drive's
+  flag `restore` has, and its help (`cli.py:623`) reads *"DESTRUCTIVE: overwrite the drive's
   decisions with this catalog's"* - which a user whose names came back wrong will read as *"make
   the drive agree with me"*.
 

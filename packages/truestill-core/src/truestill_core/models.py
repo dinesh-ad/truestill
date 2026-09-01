@@ -801,6 +801,21 @@ def format_inferred_local_shift_line(shift: InferredLocalShift) -> str:
     )
 
 
+#: How many failed files a surface names before it says how many more. **One home, both
+#: surfaces** - `STOP_WORDING`'s rule applied to a number rather than to wording.
+#:
+#: **The ruling is `(afd)`'s and is not re-derived here.** Measured 2026-08-22: a destination that
+#: refused after ten files produced **2,096 `FAILED` lines from ONE reason** - printed 2,096 times,
+#: beside a summary that already said `2096  failed`. The cap is what closed that.
+#:
+#: ⚠ **It lives in core because `truestill-app` imports core and never the CLI** (checked: zero
+#: occurrences of `truestill_cli` under `packages/truestill-app/src`). Before `(ajl)` the number
+#: existed only as `cli._STATUS_PREVIEW`, so the app could not name failures at the same cap the
+#: CLI does without copying it - and two copies of a presentation rule is how the two surfaces
+#: come to disagree about the same run.
+FAILURE_PREVIEW_LIMIT = 20
+
+
 @dataclass(frozen=True, slots=True)
 class ActionResult:
     """What actually happened to one file during execution."""
