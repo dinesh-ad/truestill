@@ -1,8 +1,7 @@
 # (ajg) `backup` STILL CRASHES ON A VANISHED DRIVE: `(ajd)` CAUGHT ONE EXCEPTION AND THERE ARE TWO
 
-*Body of backlog entry `(ajg)`, under **Approved - still to build**. The index is
-[`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with
-[`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(ajg)`, **SHIPPED 2026-09-01**. The closure is in [`SHIPPED.md`](../../SHIPPED.md);
+the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
 
 Filed 2026-09-01 from [`soak-twelve-record.md`](../../soak-twelve-record.md) 12b, **measured on a
 loop device unmounted mid-copy**. One day after `(ajd)` shipped.
@@ -53,13 +52,51 @@ one"*. It was enumerated **per exception**: `(ajd)` found the class that was esc
 and stopped. **The unit that would have caught this is per (surface x raising call site)** - every
 `raise` reachable from `_cmd_backup`, against every `except` it has.
 
-## FIX
+## ✅ FIXED 2026-09-01 (P170) - ONE BOUNDARY, AND THE ENUMERATION WRITTEN DOWN
 
-Catch `DestinationError` beside `BackupStoppedError` in `_cmd_backup` and print the same shape:
-what landed first, then the sentence, then a next step. ⚠ **`DestinationError` carries no counts**,
-which is why this is not a one-line addition - either it gains them the way `BackupStoppedError`
-did, or the handler reports what it can and says the rest is unknown. **Do not print a count the
-type cannot supply.**
+**Not another arm.** `_cmd_backup` now has a single handler over `cli._BACKUP_STOPS`, the shape
+`organize` already uses (`_stopped_run_exit`, `except (RunStoppedError, DestinationError)`).
+
+🔑 **THE ENUMERATION WAS DERIVED BY READING `_copy_missing`'s HANDLER, NOT BY COLLECTING
+DEFECTS** - which is the whole correction. That handler catches `Exception`, writes the run record,
+then wraps the cause in `BackupStoppedError` **only when it is an `OSError`** and bare-re-raises
+everything else. So exactly four classes leave it:
+
+| class | raised by | before P170 |
+|---|---|---|
+| `BackupStoppedError` | `_copy_missing`, wrapping an `OSError` cause | ✅ caught (`(ajd)`) |
+| `ValueError` | `_stop_if_ground_moved`, the health watcher | ✅ caught |
+| **`DestinationError`** | `device.check`, the vanished-drive guard - **a `RuntimeError`** | ❌ **traceback** |
+| **`sqlite3.Error`** | `record_copy` / `mark_copy_verified` inside the loop | ❌ **traceback** |
+
+⚠ **The fourth was found by READING, never by measurement**, and is named rather than omitted: no
+soak has produced a catalog write failing mid-backup. Listing it costs one word; omitting it costs
+this entry a third time.
+
+**The count is not invented for the three that cannot supply one.** Only `BackupStoppedError`
+carries `copied`. `DestinationError` comes from a guard that runs **before** each copy, so the run
+may have copied many or none - printing `0 copied` would be the false custody record
+`_stopped_run_exit` names as worse than no record. The run record is written for every abort
+regardless, so nothing is lost.
+
+⚠ **What was deliberately NOT done: core still attaches counts to one class only.**
+`_copy_missing`'s handler holds `copied` and `failures` for **every** abort and gives them to the
+`OSError` path alone. Widening that is a change to the raise, and this was scoped to the surface.
+It is the obvious next move and it is not this entry.
+
+## PROOF
+
+`test_every_backup_stop_reaches_the_user_as_a_sentence.py` drives **every** member of
+`_BACKUP_STOPS` through the real `main(["backup", ...])` boundary and asserts exit 4, a sentence,
+and no traceback - so a fifth class added to core with no arm fails here, which a tuple alone could
+never notice. Control green, then two mutations, **both caught and both restored**:
+
+* reverting `_BACKUP_STOPS` to `(ajd)`'s two arms -> **5 failed**
+* making the handler print `0 copied` for a type carrying no count -> **3 failed**
+
+⚠ **The drift test caught its own author.** Its first form asserted `issubclass(OSError,
+_BACKUP_STOPS)`, which is backwards - an `OSError` does not *arrive* as `OSError`, core wraps it
+into `BackupStoppedError`. The test now states that mapping instead of assuming it.
 
 ## WHAT IS NOT ESTABLISHED
 

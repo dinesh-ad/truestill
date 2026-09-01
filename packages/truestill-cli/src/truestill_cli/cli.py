@@ -4235,6 +4235,66 @@ def _confirm_cleanup(count: int, *, permanent: bool) -> bool | None:
     )
 
 
+#: Every exception class that can reach `_cmd_backup`'s boundary from `copy_to_drive`. `(ajg)`
+#:
+#: **Derived by reading `_copy_missing`'s handler rather than by collecting defects**, which is the
+#: correction `(ajg)` is: that handler catches `Exception`, writes the run record, then wraps the
+#: cause in `BackupStoppedError` **only when it is an `OSError`** and bare-re-raises everything
+#: else. So the classes that leave it are exactly:
+#:
+#: * `BackupStoppedError` - an abort whose cause was an `OSError`. The only one carrying counts.
+#: * `ValueError` - `_stop_if_ground_moved`, the health watcher, and `copy_to_drive`'s own
+#:   preflight refusals.
+#: * `DestinationError` - `device.check`, the vanished-drive guard. **A `RuntimeError`**, which is
+#:   why neither of the two arms `(ajd)` left behind could see it.
+#: * `sqlite3.Error` - `record_copy` / `mark_copy_verified` inside the loop. ⚠ **Reached by
+#:   reading, never by measurement**: no soak has produced a catalog write failing mid-backup, and
+#:   it is named here rather than left out because the cost of listing it is one word and the cost
+#:   of omitting it is this entry a third time.
+#:
+#: ⚠ **A tuple is not a census.** It cannot notice a fifth class appearing in core; what pins it is
+#: `test_every_backup_stop_reaches_the_user_as_a_sentence.py`, which drives each of these through
+#: the real boundary and asserts a sentence rather than a traceback.
+_BACKUP_STOPS = (BackupStoppedError, ValueError, DestinationError, sqlite3.Error)
+
+
+def _backup_stopped_exit(exc: Exception, *, planned: int) -> int:
+    """Say what the stopped backup managed, then what stopped it. `(ajg)`
+
+    ⚠ **ONLY `BackupStoppedError` CARRIES COUNTS, and this does not invent the others.** `(ajg)`'s
+    body ruled that explicitly: *"Do not print a count the type cannot supply."* A
+    `DestinationError` is raised by a guard that runs **before** each copy, so the run may have
+    copied many files or none and the type says nothing either way - printing `0 copied` would be
+    the false custody record `_stopped_run_exit` names as worse than no record.
+
+    **The counts are recoverable and deliberately not recovered here.** `_copy_missing`'s handler
+    holds `copied` and `failures` for every abort and attaches them to one class only; widening
+    that is a change to core's raise, and `(ajg)` was scoped to the surface. The run record is
+    written either way, so nothing is lost - `truestill status` and the record know what landed.
+    """
+    if isinstance(exc, BackupStoppedError):
+        # What landed is printed FIRST, because a stop that reports nothing is the worse defect -
+        # `organize`'s own handler calls that "a false custody record, which is worse than no
+        # record".
+        print(f"\n{exc.copied:>9,}  copied before the run stopped")
+        if exc.failures:
+            print(f"{len(exc.failures):>9,}  failed")
+        print(f"error: {exc.detail}", file=sys.stderr)
+        print(
+            f"       {planned - exc.copied:,} file(s) were not attempted. Re-run the same "
+            "command\n       when the drive is back: it copies only what is still missing.",
+            file=sys.stderr,
+        )
+        return 4
+    print(f"error: {exc}", file=sys.stderr)
+    print(
+        "       The backup stopped. What had already been copied is recorded, so re-running "
+        "the\n       same command copies only what is still missing.",
+        file=sys.stderr,
+    )
+    return 4
+
+
 def _cmd_backup(args: argparse.Namespace) -> int:
     """Copy the library to a second drive, verifying every file after it lands. `(ahf)` stage 2.
 
@@ -4305,27 +4365,15 @@ def _cmd_backup(args: argparse.Namespace) -> int:
             progress=_progress_printer("copying"),
             cancel=threading.Event(),
         )
-    except BackupStoppedError as exc:
-        # ⚠ **The arm that was missing, and its absence is `(ajd)`.** Only `ValueError` was caught
-        # here, so a drive that vanished mid-copy reached the user as a Python traceback while
-        # `organize` answered the identical accident with a sentence and a count. What landed is
-        # printed FIRST, because a stop that reports nothing is the worse defect - `organize`'s own
-        # handler calls that "a false custody record, which is worse than no record".
+    except _BACKUP_STOPS as exc:
+        # 🔑 **ONE BOUNDARY, EVERY STOP - `(ajg)`, and the shape `organize` already uses**
+        # (`_stopped_run_exit`, `except (RunStoppedError, DestinationError)`). `(ajd)` added an arm
+        # for **one exception class** the day before `(ajg)` was measured, and a second class walked
+        # past it into a traceback. The lesson is not "add another arm": it is that the surfaces
+        # were enumerated per DEFECT and the unit that catches this is per (surface x class that
+        # can reach it). `_BACKUP_STOPS` is that enumeration, written down where it can be read.
         _end_of_tier()
-        print(f"\n{exc.copied:>9,}  copied before the run stopped")
-        if exc.failures:
-            print(f"{len(exc.failures):>9,}  failed")
-        print(f"error: {exc.detail}", file=sys.stderr)
-        print(
-            f"       {len(missing) - exc.copied:,} file(s) were not attempted. Re-run the same "
-            "command\n       when the drive is back: it copies only what is still missing.",
-            file=sys.stderr,
-        )
-        return 4
-    except ValueError as exc:
-        _end_of_tier()
-        print(f"error: {exc}", file=sys.stderr)
-        return 4
+        return _backup_stopped_exit(exc, planned=len(missing))
     _end_of_tier()
 
     print(f"\nCopied {outcome.copied} file(s), {_gb(outcome.bytes_copied)}.")

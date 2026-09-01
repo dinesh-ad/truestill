@@ -22,6 +22,27 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ajg) EVERY WAY A BACKUP CAN STOP NOW REACHES THE USER AS A SENTENCE.** ✅ **CLOSED
+  2026-09-01 (P170).** Filed the same day from soak twelve's app half: `backup` on a vanished drive
+  printed an **eight-frame traceback**, one day after `(ajd)` shipped to stop exactly that.
+  `_cmd_backup` caught `BackupStoppedError` and `ValueError`; `device.check` raises
+  **`DestinationError`**, a `RuntimeError`, which neither arm could see.
+
+  🔑 **Closed by the UNIT, not by another arm.** `(ajd)` enumerated per *defect* - find the class
+  that escaped, catch it, stop. The enumeration here was derived by **reading `_copy_missing`'s
+  handler**: it catches `Exception`, writes the record, wraps the cause in `BackupStoppedError`
+  **only when it is an `OSError`**, and bare-re-raises the rest. Four classes leave it, and
+  `cli._BACKUP_STOPS` names all four - the fourth, `sqlite3.Error`, found by reading and **never
+  measured**, named anyway because omitting it costs this entry a third time.
+
+  One boundary handler, the shape `organize` already used. **No count is invented** for the three
+  classes that carry none - `0 copied` would be the false custody record `_stopped_run_exit` calls
+  worse than no record. ⚠ **Core still attaches counts to one class only**; widening that is a
+  change to the raise and was deliberately left out of a surface fix. Pinned by
+  `test_every_backup_stop_reaches_the_user_as_a_sentence.py`, which drives every member of the
+  tuple through the real `main()` boundary; two mutations caught. Body:
+  [`research/backlog/ajg.md`](research/backlog/ajg.md).
+
 - **(ajf) A BACKUP NOW SAYS WHAT TO DO WITH THE DRIVE, AND THE COUNT STAYS UNQUALIFIED.**
   ✅ **CLOSED 2026-09-01 (P169).** Filed 2026-08-31 as a wording ruling, not a defect - `(aiz)` and
   `(ajb)` had already closed the data-loss path, leaving only whether the sentence was honest.

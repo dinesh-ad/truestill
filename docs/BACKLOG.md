@@ -295,21 +295,6 @@ is invisible here is retired, not free.**
   sentence works today on every platform; this exists so the option is priced.
   Body: [`research/backlog/ajh.md`](research/backlog/ajh.md).
 
-- **(ajg) `backup` STILL CRASHES ON A VANISHED DRIVE: `(ajd)` CAUGHT ONE EXCEPTION AND THERE ARE
-  TWO.** Filed 2026-09-01 from soak twelve's app half, **measured on a loop device unmounted
-  mid-copy**, one day after `(ajd)` shipped. `_cmd_backup` catches only `BackupStoppedError`;
-  `run.device.check(run.target)` (`backup.py:541`) raises **`DestinationError`**, which is neither
-  that class nor an `OSError`, so it reaches the user as an **eight-frame traceback with source
-  paths**, exit 1, and no count of what landed. `organize` catches it in two places
-  (`cli.py:3267`, `:3808`); `backup` in none. 🔑 **`(ajd)`'s own comment describes this exact
-  outcome as the thing it closed** - still true for the other class. The class is the
-  2026-08-31 handoff's **C**, with its DO applied one level too shallow: the surfaces were
-  enumerated **per exception**, and the unit that catches this is per (surface x raising call
-  site). ⚠ **Not a one-line fix** - `DestinationError` carries no counts, so the handler either
-  gains them or says what it cannot know. Found by the app half **because the app degraded
-  gracefully and the CLI did not**, which inverts `(aiq)`.
-  Body: [`research/backlog/ajg.md`](research/backlog/ajg.md).
-
 - **(aiy) TWO REGISTRATIONS ON ONE PHYSICAL DEVICE ARE REPORTED AS "NICELY REDUNDANT".** Filed
   2026-08-31 (P165, soak ten), measured. Two drives registered in two folders of **one USB stick**,
   and with the stick **unplugged** `truestill status` said *"All catalogued content has at least
