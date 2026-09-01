@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aji). Next free: (ajj).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajj). Next free: (ajk).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -279,6 +279,23 @@ is invisible here is retired, not free.**
   characters are legal on ext4. Whether a **destination that may travel** should be held to the
   strictest set is named and deliberately not ruled. Body:
   [`research/backlog/ajc.md`](research/backlog/ajc.md).
+
+- **(ajj) THREE COMMANDS LET A CATALOG WRITE ESCAPE TO THE USER, AND ONLY ONE OF THEM CATCHES
+  IT.** Filed 2026-09-01 (P171) from `(ajg)`'s own *"what is not established"*, **by reading each
+  loop's handler rather than by collecting defects**. 🔑 **The asked question answers NO and it is
+  structural**: `backup` had `(ajg)`'s shape because `_copy_missing` **re-raises**; `migrate` and
+  `undo` catch `DestinationError` / `OSError` **per item** and return the abort as **data**
+  (`AppliedMoves.stopped`/`.refused`, `UndoOutcome`, `UndoSkipped`), so `_cmd_migrate_layout` and
+  `_cmd_migrate_undo` having **no `except` at all is correct**. `migrate.py` holds exactly two
+  `raise`s, both `VerificationFailedError`, which **subclasses `DestinationError`** and lands in
+  the handler two lines away. ⚠ **But one residual class is shared and now asymmetric**: a catalog
+  write raises `sqlite3.Error`, which is neither - `_apply_move` writes inside a `DestinationError`
+  arm, and `forget_organized` is called **outside** undo's `except OSError` entirely. Neither is
+  caught before `main`. **`backup` now catches it and these two do not**, deliberately: `(ajg)` was
+  a measured traceback and the arm came free inside a handler that had to exist, while here there
+  is no measured case and adding handlers on a code read alone is what `(aji)` was not allowed to
+  do. ⚠ **Nothing here was run.** What would settle it is named.
+  Body: [`research/backlog/ajj.md`](research/backlog/ajj.md).
 
 - **(aji) A VANISHED DRIVE FAILS 1,130 FILES ONE AT A TIME, AND THE RULE THAT ALLOWS IT IS
   JUSTIFIED BY ANOTHER COMMAND'S WIRING.** Filed 2026-09-01 (P170) from soak twelve 12b and
