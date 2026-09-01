@@ -22,6 +22,28 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ajf) A BACKUP NOW SAYS WHAT TO DO WITH THE DRIVE, AND THE COUNT STAYS UNQUALIFIED.**
+  ✅ **CLOSED 2026-09-01 (P169).** Filed 2026-08-31 as a wording ruling, not a defect - `(aiz)` and
+  `(ajb)` had already closed the data-loss path, leaving only whether the sentence was honest.
+  **Ruled: candidate 4, with the condition in the sentence.**
+  `backup.EJECT_BEFORE_UNPLUGGING` is one wording home in core, `STOP_WORDING`'s rule, read by the
+  CLI and handed to `app.js` in the payload: *"If this drive unplugs, eject it first - that is what
+  finishes the write. Then run: truestill verify"*.
+
+  🔑 **Candidate 1 - print only after a `sync()` - was ELIMINATED on a technical constraint.**
+  `os.sync` is Unix-only (typeshed: `if sys.platform != "win32"`), `ci.yml` gates on Windows, and
+  `catalog_backup.py` already records an `os.fsync` Windows defect caught only by the three-OS
+  lane. fsyncgate removes the payoff where it does run: a writeback error marks the dirty pages
+  **clean** and reports to the first caller only.
+
+  ⚠ **The condition is in the sentence because it cannot be in the code.** Five checks establish
+  that removability is undetectable today; a filesystem-type proxy was refused with a measurement
+  because it is **silent on an ext4 USB stick**. Detection is `(ajh)`, a separate letter.
+  ⚠ **The count above stays unqualified** - a finished copy must not read as unfinished. Pinned by
+  `test_the_eject_note_has_one_wording_home.py`, five tests, mutation-proved: retyping the sentence
+  in the CLI turns it red. Body:
+  [`research/backlog/ajf.md`](research/backlog/ajf.md).
+
 - **(aje) ONE INVALID BYTE IN `.truestill-decisions.json` BRICKS EVERY CATALOG OPEN.** ✅ **CLOSED
   2026-08-31.** Filed the same day from soak twelve's damage matrix. `read_decisions` claimed
   **Never raises** and raised `UnicodeDecodeError` on invalid UTF-8 - a `ValueError`, not an

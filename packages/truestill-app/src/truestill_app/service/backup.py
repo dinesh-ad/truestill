@@ -26,6 +26,7 @@ from typing import Literal, NotRequired, TypedDict
 
 from truestill_core.backup import (
     _FREE_SPACE_MARGIN,
+    EJECT_BEFORE_UNPLUGGING,
     UNREAD_FOLDERS_REASON,
     UNREAD_FOLDERS_TITLE,
     BackupPair,
@@ -177,6 +178,9 @@ class BackupRunSummary(TypedDict):
     #: invariant baked into a type is one nothing can report a violation of.
     verified: bool
     target_path: str
+    #: `(ajf)`. The words come from core so both surfaces say the same thing; `app.js` renders
+    #: what it is handed and maps nothing of its own, which is `(ahc)`'s shape.
+    eject_note: str
     elapsed_seconds: NotRequired[float]
 
 
@@ -193,6 +197,7 @@ def _nothing_copied(label: str, target: Path) -> BackupRunSummary:
         "bytes_copied": 0,
         "verified": True,
         "target_path": str(target),
+        "eject_note": EJECT_BEFORE_UNPLUGGING,
     }
 
 
@@ -249,6 +254,7 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget[BackupRunSumma
             # code left users believing the backup was fine.
             "verified": not failures,
             "target_path": str(target),
+            "eject_note": EJECT_BEFORE_UNPLUGGING,
         }
 
     return target_job

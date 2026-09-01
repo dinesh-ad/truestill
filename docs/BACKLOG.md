@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajg). Next free: (ajh).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajh). Next free: (aji).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -280,6 +280,21 @@ is invisible here is retired, not free.**
   strictest set is named and deliberately not ruled. Body:
   [`research/backlog/ajc.md`](research/backlog/ajc.md).
 
+- **(ajh) TRUESTILL CANNOT TELL A REMOVABLE DRIVE FROM A FIXED ONE, AND ALREADY READS THE LINE
+  THAT SAYS SO.** Filed 2026-09-01, split out of `(ajf)` when its wording half shipped. **Not a
+  defect** - nothing is wrong today, because `(ajf)` put the condition in the sentence rather than
+  in a gate. Five checks, all negative: no `/sys/block/*/removable`, no udisks2, no
+  `GetDriveTypeW`, a `drives` table of six columns with no device or mount point, and every
+  `removable` hit in the tree is `cleanup.py`'s removable **folders**. 🔑 **The answer is in a line
+  this code already reads and discards**: `filesystem.parse_proc_mounts` walks `/proc/mounts` and
+  keeps `fields[2]`, dropping `fields[3]` - the mount options - and `fields[0]`, the device.
+  ⚠ **A filesystem-type proxy is REFUSED with a measurement**: it fires on an internal Windows
+  NTFS disk and is **silent on an ext4 USB stick**, which is the dangerous direction. Whatever is
+  built must fail toward saying the line, per `stores_access_control`'s *"unknown means yes"*.
+  macOS inherits `filesystem.py`'s recorded blindness. ⚠ **Not obviously worth doing** - the
+  sentence works today on every platform; this exists so the option is priced.
+  Body: [`research/backlog/ajh.md`](research/backlog/ajh.md).
+
 - **(ajg) `backup` STILL CRASHES ON A VANISHED DRIVE: `(ajd)` CAUGHT ONE EXCEPTION AND THERE ARE
   TWO.** Filed 2026-09-01 from soak twelve's app half, **measured on a loop device unmounted
   mid-copy**, one day after `(ajd)` shipped. `_cmd_backup` catches only `BackupStoppedError`;
@@ -294,25 +309,6 @@ is invisible here is retired, not free.**
   gains them or says what it cannot know. Found by the app half **because the app degraded
   gracefully and the CLI did not**, which inverts `(aiq)`.
   Body: [`research/backlog/ajg.md`](research/backlog/ajg.md).
-
-- **(ajf) SHOULD A COMMAND SAY "COPIED" BEFORE THE MEDIUM HAS THE BYTES? A WORDING RULING, NOT A
-  DEFECT.** Filed 2026-08-31 (P167), split out of `(aiz)` when its consequence half shipped.
-  `backup --apply` printed *"Copied 356 file(s), 717 MB"* in **4.74 s** with **570 MiB still dirty
-  in RAM** on a 1.34 MiB/s stick; `organize` does the same. ⚠ **The harm that made this urgent is
-  gone** - `(aiz)` shipped, so a false row no longer defends itself and the next run repairs it -
-  **what is left is whether the sentence is honest.** 🔑 **This is a product call and a defect fix
-  is not where it belongs.** `safe_copy` refuses `fsync` in its own words and nominates
-  `copy_sha256` and `verify` to own durability. The field settled the same argument for `rsync`
-  with `sync()` before exit - Ts'o, *"not a big deal, and not all that costly"*; Mason, *"if we
-  crash just after the rsync, the backup logs won't know"* - and **fsyncgate is why that makes the
-  TIMING honest without making the outcome certain**, because a writeback failure leaves pages
-  neither written nor marked dirty. **Candidates**: ⚠ *"copied" only after a `sync()`* is
-  **ELIMINATED** - `os.sync` is Unix-only (typeshed: `if sys.platform != "win32"`) and `ci.yml`
-  gates on Windows, and `catalog_backup.py` already records an `os.fsync` Windows defect caught
-  only by that lane. **Still open**: say *"copied, not yet flushed"*; say nothing different and
-  let `verify` own it; or say *"copied"* and append the `verify` next step on removable media only.
-  Related: `(aiz)`, `(aja)`, [`soak-eleven-record.md`](soak-eleven-record.md) §5.
-  Body: [`research/backlog/ajf.md`](research/backlog/ajf.md).
 
 - **(aiy) TWO REGISTRATIONS ON ONE PHYSICAL DEVICE ARE REPORTED AS "NICELY REDUNDANT".** Filed
   2026-08-31 (P165, soak ten), measured. Two drives registered in two folders of **one USB stick**,

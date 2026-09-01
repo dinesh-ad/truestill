@@ -1343,7 +1343,10 @@ function backupCompletion(r) {
     done: r.cancelled ? "Stopped" : "Done",
     headline: `${mediaCount(r)} copied to ${esc(r.to || "the drive")}`
       + (r.cancelled ? " before you stopped it" : ""),
-    sub: "Your library now lives in more than one place.",
+    sub: "Your library now lives in more than one place."
+      // `(ajf)`: rendered, never composed here. The words are core's `EJECT_BEFORE_UNPLUGGING`,
+      // handed over in the payload, so the CLI and this card cannot drift.
+      + (r.eject_note ? ` ${r.eject_note}` : ""),
     stats: [
       { value: fmtBytes(r.bytes_copied), label: "copied" },
       r.elapsed_seconds ? { value: fmtDuration(r.elapsed_seconds), label: "taken" } : null,

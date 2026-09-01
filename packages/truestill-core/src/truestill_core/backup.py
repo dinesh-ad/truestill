@@ -73,6 +73,36 @@ BACKUP_PATH_HINT = "path_hint.backup"
 #: entry names its own drive and the title stays true of one side or both.
 UNREAD_FOLDERS_TITLE = "Some folders could not be read"
 
+#: What to do with the drive once the copy is reported. **One wording home** - `STOP_WORDING`'s
+#: rule, the same one `UNREAD_FOLDERS_TITLE` above follows: a core fact both surfaces state, so it
+#: is not written twice in two languages. `(ajf)`
+#:
+#: 🔑 **IT IS A CONDITIONAL INSTRUCTION, NOT A HEDGE ON THE COUNT.** The sentence above it -
+#: *"Copied N file(s)"* - stays unqualified and true: the copy completed and was verified. On a
+#: fixed disk those bytes are as durable as anything else the machine holds. What this adds is
+#: what to do **if the drive is one that gets unplugged**, and the reader decides whether that is
+#: theirs. Wording it as a hedge would make every successful backup read as unfinished, which is
+#: the cry-wolf `run_health` calls the failure mode to fear.
+#:
+#: ⚠ **THE CONDITION IS IN THE SENTENCE BECAUSE IT CANNOT BE IN THE CODE.** Truestill cannot tell
+#: whether a destination is removable - five checks, all negative, are named in `(ajf)`'s body -
+#: so a gate would have to guess. A filesystem-type proxy was refused with a measurement: it
+#: fires on an internal Windows NTFS disk and stays silent on an **ext4 USB stick**, which is the
+#: dangerous direction. Detection is `(ajh)`, and it is a separate letter rather than a
+#: prerequisite. This sentence is true on every destination without knowing which it is.
+#:
+#: **Eject is primary and `verify` is the net.** Ejecting is the mechanism that actually flushes,
+#: and every desktop OS ships it; `verify` is what catches the case where they did not. The field
+#: states the harm plainly: *"pulling it before all updates have completed might simply mean part
+#: of a file is missing (typical of NTFS) or may actually corrupt the filesystem itself (on FAT
+#: based filesystems)"* - which soaks ten and eleven measured independently, on three filesystems,
+#: at 836 zero-byte files on exFAT and a volume that refused to mount on NTFS.
+EJECT_BEFORE_UNPLUGGING = (
+    "If this drive unplugs, eject it first - that is what finishes the write. "
+    "Then run: truestill verify"
+)
+
+
 #: ⚠ **The claim this exists to correct is *"every photo on X is already on Y"*.** That sentence
 #: is computed from `file_copies` rows, and a file under a folder the attach could not list never
 #: got one - so it was never a candidate to copy and the reassurance is false. Measured in

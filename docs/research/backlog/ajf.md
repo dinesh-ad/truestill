@@ -1,8 +1,7 @@
 # (ajf) SHOULD A COMMAND SAY "COPIED" BEFORE THE MEDIUM HAS THE BYTES? A WORDING RULING, NOT A DEFECT.
 
-*Body of backlog entry `(ajf)`, under **Approved - still to build**. The index is
-[`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with
-[`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(ajf)`, **SHIPPED 2026-09-01**. The closure is in [`SHIPPED.md`](../../SHIPPED.md);
+the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
 
 Filed 2026-08-31 (P167), split out of `(aiz)` when its consequence half shipped. Body written
 2026-09-01 - **the entry was open for a day with no body, the only one of 118 in that state**; the
@@ -100,7 +99,55 @@ codebase **does** `os.fsync` its small metadata (`drive`, `drive_lock`, `decisio
 `archive_extract`, `catalog_backup` - five sites) and deliberately does **not** fsync media.
 Candidate 1 flips exactly the bulk path that asymmetry was chosen for.
 
-## THE REMAINING CANDIDATES - THIS IS AD'S CALL
+## 🔑 RULED 2026-09-01: CANDIDATE 4, WITH THE CONDITION IN THE SENTENCE
+
+**Shipped.** `backup.EJECT_BEFORE_UNPLUGGING`, one wording home in core, read by both surfaces:
+
+> **`If this drive unplugs, eject it first - that is what finishes the write. Then run: truestill verify`**
+
+**Eject is primary, `verify` is the net.** Ejecting is the mechanism that actually flushes and
+every desktop OS ships it; `verify` catches the case where they did not. The field states the
+harm plainly - *"pulling it before all updates have completed might simply mean part of a file is
+missing (typical of NTFS) or may actually corrupt the filesystem itself (on FAT based
+filesystems)"* - which soaks ten and eleven measured independently, on three filesystems.
+
+⚠ **THE COUNT ABOVE IT STAYS UNQUALIFIED.** *"Copied N file(s)"* is true: the copy completed and
+was verified, and on a fixed disk those bytes are as durable as anything else the machine holds.
+This is a conditional **instruction about the drive**, not a hedge on the copy. A sentence that
+made every successful backup read as unfinished would be the cry-wolf `run_health`'s docstring
+names as the failure mode to fear. Pinned by `test_the_copied_count_is_not_hedged_by_it`.
+
+### ⚠ WHY THE CONDITION IS IN THE SENTENCE AND NOT IN THE CODE
+
+**Truestill cannot tell whether a destination is removable. Five checks, all negative, run
+2026-09-01:**
+
+| check | result |
+|---|---|
+| `grep -rn removable packages/*/src` | every hit is `cleanup.py`'s removable **folders**. Zero device hits |
+| `/sys/block/*/removable` | **zero occurrences** in the tree |
+| udisks2 / `GetDriveTypeW` | **zero occurrences** |
+| `filesystem.parse_proc_mounts` | reads `/proc/mounts` and takes **only field 2 (fstype)** - it already reads the line carrying the answer and **drops field 4, where the flags are** |
+| the `drives` table | six columns - `uuid, label, first_seen, last_seen, last_verified, notes`. No device, no mount point, no filesystem |
+
+And the word *"eject"* appeared **nowhere** in the product before this entry; every `grep -i eject`
+hit was *"rejected"*.
+
+🔑 **A filesystem-type proxy was REFUSED with a measurement, not a preference.** `facts_for()`
+returns a real answer (`vfat`, measured against a loop volume), but gating on it **fails both
+ways**: it fires on an internal Windows NTFS disk, and it stays silent on an **ext4 USB stick** -
+the dangerous direction, and the case where a user is most likely to be surprised, because they
+believe ext4 is the safe one. A gate that is wrong in the dangerous direction is worse than no
+gate. `filesystem.py` is also **unknown on macOS by design**, so the proxy is absent for a whole
+platform.
+
+**Detection is `(ajh)`, a separate letter rather than a prerequisite** - it would have delayed a
+one-line honesty fix behind a per-platform feature. The sentence above is true on every
+destination without knowing which it is.
+
+## THE CANDIDATES AS THEY STOOD
+
+
 
 ~~1. **Say *"copied"* only after a `sync()`.**~~ **ELIMINATED above** - unimplementable on
 Windows, and worthless where it does run.

@@ -33,6 +33,7 @@ from truestill_core.app_paths import (
 from truestill_core.archive_extract import extract_archive_set
 from truestill_core.archive_ingest import archives_at, precheck_archives
 from truestill_core.backup import (
+    EJECT_BEFORE_UNPLUGGING,
     BackupPair,
     BackupStoppedError,
     _files_missing_on_target,
@@ -4328,6 +4329,9 @@ def _cmd_backup(args: argparse.Namespace) -> int:
     _end_of_tier()
 
     print(f"\nCopied {outcome.copied} file(s), {_gb(outcome.bytes_copied)}.")
+    # `(ajf)`: the count above is unqualified and true; this is what to do next if the drive
+    # is one that gets unplugged. Wording from core so the app says the same thing.
+    print(f"  {EJECT_BEFORE_UNPLUGGING}")
     for relative, why in outcome.failures:
         print(f"  failed: {relative} -- {why}", file=sys.stderr)
     if outcome.failures:
