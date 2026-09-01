@@ -15,7 +15,41 @@ recorded and named, exit 1. Two lines above the rule that permits this, the `NO_
 `persists_for_the_run` calls exactly that shape the reason to stop: *"At that point every
 remaining file fails, so continuing buys N failures describing one condition."*
 
-## 🔑 THE RULING: A THIRD THING. THE GUARD IS CORRECT AND ITS JUSTIFICATION IS NOT
+## ⚠ CORRECTION 2026-09-01 (P171): THE MECHANISM BELOW IS WRONG ON ITS LOAD-BEARING CLAIM
+
+**This entry said `DestinationDevice.check` is never reached on organize's per-file path, because
+`exists()` raises first. THE PRESERVED EVIDENCE SAYS OTHERWISE, and it was in the transcript this
+entry was written from.** `cli_van2.err`, line 4 - **the very first failure of the run**:
+
+```
+FAILED: Canon EOS 100D.jpg: /run/media/<user>/S12V2 is no longer the drive this run started
+on -- it looks like the drive was disconnected or unmounted. ...
+```
+
+🔑 **That is `check`'s own sentence. The guard IS reached, and it fires first.** The tail confirms
+two arms, not one: *"and 1,116 more FAILED (**2 distinct reasons in total**)"* - the device guard,
+then `cannot probe` for the files after it.
+
+**So the real mechanism is sharper than the one below, and worse.** The guard fires **correctly**,
+per file, and `_record_failure_or_stop` then hands its exception to `persists_for_the_run`, which
+returns `False` because a `DestinationError` carries **no `__cause__`**. **A correctly-firing
+stop-the-run guard is downgraded to a per-file failure and re-fired 1,130 times.** The
+classifier's blindness is not a latent gap next to the mechanism - it **is** the mechanism.
+
+⚠ **AND ONE THING IS NOW UNKNOWN THAT THIS ENTRY ASSERTED.** It claimed `exists()`'s `cannot
+probe` arm fires on a vanished root. **Measured twice on 2026-09-01 and it does not**: a path
+under a removed mountpoint answers `ENOENT`, which is in `_ABSENT_ERRNOS`, so `reach()` returns
+`Reach.MISSING` and `exists()` returns `False` **without raising** - with and without an active
+writer. So some *other* errno produced `REFUSED` in the soak and **I have not reproduced it**.
+Named as unknown rather than guessed.
+
+**What survives unchanged**: `persists_for_the_run` returns `False` for these exceptions, the run
+does not stop, and `(aji)`'s ruling that `GONE` must not persist stands on its own measurement.
+**What is retracted**: *"`check` is never reached"*, and the table below that contrasts `backup`
+with `organize` on that basis. The original is kept beneath rather than deleted, because the
+correction is only legible next to what it corrects.
+
+## 🔑 THE RULING: A THIRD THING. THE GUARD IS CORRECT AND ITS JUSTIFICATION IS NOT (AS FILED - SEE THE CORRECTION ABOVE)
 
 **Two independent reasons the run does not stop, and only the second is about `GONE` at all.**
 

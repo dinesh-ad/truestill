@@ -322,6 +322,15 @@ is invisible here is retired, not free.**
   `local.py:153` is NOT fixed either**: both had to change or neither does anything, and the
   ruling is neither. What fits the measurement is **striking**, which `RunHealth` already
   implements - and which is inert on a 6 s run. What remains open is that shape.
+  ⚠ **CORRECTED the same day: the mechanism first filed was WRONG on its load-bearing claim.**
+  This entry said `check` is never reached because `exists()` raises first. The preserved
+  transcript's **first failure line is `check`'s own sentence** - the guard IS reached and fires
+  first, and the tail says *2 distinct reasons*. So a correctly-firing stop-the-run guard is
+  **downgraded to a per-file failure** by `persists_for_the_run`, which sees no `__cause__`, and
+  re-fires 1,130 times. ⚠ **And `exists()`'s `cannot probe` arm could NOT be reproduced**: a path
+  under a removed mountpoint answers `ENOENT`, which `reach()` maps to `MISSING`, so it returns
+  `False` without raising - measured twice, with and without an active writer. The errno that
+  produced `REFUSED` in the soak is **unknown and named as unknown**.
   Body: [`research/backlog/aji.md`](research/backlog/aji.md).
 
 - **(ajh) TRUESTILL CANNOT TELL A REMOVABLE DRIVE FROM A FIXED ONE, AND ALREADY READS THE LINE
