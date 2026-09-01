@@ -62,6 +62,8 @@ class VerifyJobSummary(TypedDict):
     #: of such copies cannot report four zeros and read as a clean verify (§9).
     unverifiable: int
     problems: list[VerifyProblem]
+    #: Whether the drive is clean. `(aiq)`; matches `_cmd_verify`'s exit-1 condition exactly.
+    finished_clean: bool
     elapsed_seconds: NotRequired[float]
     #: Set only when this drive's identity also answers at a second live path. `(adx)` gap 1: the
     #: catalog counts both places as one drive, so its custody claim is short by one - the only
@@ -125,6 +127,16 @@ def verify_run(path: Path, db: Path) -> JobTarget[VerifyJobSummary] | DriveUnava
             "unreadable": counts.get("unreadable", 0),
             "unverifiable": counts.get("unverifiable", 0),
             "problems": problems,
+            # 🔑 **`(aiq)`. A FINDING, not a failure of the run - and it still counts as
+            # unclean, because that is the line the CLI already draws.** `_cmd_verify` returns
+            # `1 if (missing or mismatch or unreadable)`, so a verify that does its job
+            # perfectly and finds seven missing files is a non-zero exit there while the app
+            # said "done". ⚠ `unverifiable` is deliberately NOT here: it means no recorded hash
+            # to check against, a gap in the catalog rather than damage on the drive, and the
+            # CLI does not exit 1 for it either.
+            "finished_clean": not (
+                counts.get("missing", 0) or counts.get("mismatch", 0) or counts.get("unreadable", 0)
+            ),
         }
         # Absent rather than empty when there is nothing to say, so a screen can test presence.
         if second_place is not None:

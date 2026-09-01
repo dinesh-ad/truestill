@@ -215,6 +215,8 @@ class MigrationApplySummary(TypedDict):
     #: Moves this run could not apply and did not stop for. Named, never a silent shortfall
     #: between `migrated` and the plan.
     refused: list[MigrationRefusalPayload]
+    #: Whether the run left the library clean - read by `jobs.py`. `(aiq)`.
+    finished_clean: bool
     leftover_empty_folders: NotRequired[LeftoverEmptyFolders]
     groups: NotRequired[list[AppliedReviewGroupPayload]]
     elapsed_seconds: NotRequired[float]
@@ -314,6 +316,10 @@ def migration_apply(
             "refused": [
                 {"relative": relative, "reason": reason} for relative, reason in outcome.refused
             ],
+            # `(aiq)`. Both halves count: a run stopped by the ground moving, and moves it
+            # refused and did not stop for. `stopped` alone would call a run that refused
+            # forty moves clean.
+            "finished_clean": outcome.stopped is None and not outcome.refused,
         }
         if leftovers is not None:
             result["leftover_empty_folders"] = leftovers
@@ -368,6 +374,8 @@ class UndoJobSummary(TypedDict):
     stopped: MigrationStopPayload | None
     run_id: str | None
     applied: bool
+    #: Whether the reversal left the library clean - read by `jobs.py`. `(aiq)`.
+    finished_clean: bool
     elapsed_seconds: NotRequired[float]
 
 
@@ -420,6 +428,10 @@ def migration_undo(
             "refused": [
                 {"relative": relative, "reason": reason} for relative, reason in outcome.refused
             ],
+            # `(aiq)`. Both halves count: a run stopped by the ground moving, and moves it
+            # refused and did not stop for. `stopped` alone would call a run that refused
+            # forty moves clean.
+            "finished_clean": outcome.stopped is None and not outcome.refused,
             "run_id": run_id,
             "applied": apply,
         }

@@ -19,9 +19,9 @@ import queue
 import threading
 import time
 import uuid
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Literal, TypedDict
+from typing import Any, Final, Literal, TypedDict
 
 from truestill_core.catalog_busy import (
     CATALOG_BUSY_CODE,
@@ -61,6 +61,48 @@ type JobTarget[T] = Callable[[ProgressCallback, threading.Event], T]
 _SENTINEL_DONE = "done"
 _SENTINEL_ERROR = "error"
 
+#: The three terminal statuses a job that RETURNED can carry. A job that raised is `type: error`
+#: and has no status of its own.
+#:
+#: ⚠ **THREE, BECAUSE TWO WERE MEASURED TO BE INSUFFICIENT.** Until 2026-09-01 this was derived
+#: from control flow alone - `"cancelled" if cancel.is_set() else "done"` - so it asked *did the
+#: target return*, never *what did it return*. Soak twelve's app half measured `organize` onto a
+#: drive that vanished: **1,130 of 1,324 files failed and the terminal event said
+#: `status: "done"`.** A run that lost 85% of its work reported success. `(aiq)`
+#:
+#: **The field reached three states independently, twice, and both times by way of the same
+#: mistake.** BackInTime ignored `rsync`'s exit 23, switched to treating it as an error, and then
+#: *every* snapshot reported failure; their own remedy was *"Introduce a new snapshot result state
+#: 'Warning' (currently we have only OK and with errors)"* (#1587). Proxmox arrived at
+#: *"Backup job finished with errors"* as an outcome distinct from both. The trap runs in both
+#: directions: success hides the shortfall, and blanket failure teaches people to ignore the
+#: status entirely.
+#:
+#: 🔑 **THE LINE IS THE CLI'S, NOT A NEW ONE.** `truestill` already exits **1** for exactly this
+#: state - `(air)` quotes it as *"finished, but something is wrong with the library"* - and
+#: `_cmd_verify` returns 1 on `missing or mismatch or unreadable`, which is a **finding** rather
+#: than work it could not do. So the third state is not "the run broke": it is **the run finished
+#: and the library is not clean**, and this makes the app say what the CLI already says.
+STATUS_DONE: Final = "done"
+STATUS_CANCELLED: Final = "cancelled"
+STATUS_COMPLETED_WITH_ERRORS: Final = "completed_with_errors"
+
+#: The key a summary sets to declare its own verdict. **The SERVICE decides, never this module.**
+#:
+#: ⚠ **This is why the fix was not one line, and the reason is layering rather than caution.**
+#: There are thirteen job shapes and "not clean" is spelled differently in each: `failed` for
+#: organize / backup / bake, `missing`/`mismatch`/`unreadable` for verify, `stopped`/`refused` for
+#: migrate and undo, `applied is False` for an interrupted rename. `jobs.py` holds every shape in
+#: one registry and discharges ``T`` at :meth:`start`, so it **cannot** know which key means what
+#: - and a table here would put thirteen services' vocabulary in the one module that is supposed
+#: to be blind to it.
+#:
+#: **Absent means clean, and for most shapes that is correct rather than a default.** A preview
+#: computes and returns; there is no partial state for it to be in. What absence must never hide
+#: is a *mutating* shape that forgot - which is what
+#: `test_a_run_with_failures_is_not_done.py` pins, shape by shape.
+FINISHED_CLEAN: Final = "finished_clean"
+
 #: How long a reader parks on the queue before emitting a keepalive and looking around.
 #:
 #: Not tuned for latency - a queued event wakes the read immediately, so this costs a real job
@@ -73,6 +115,27 @@ DRIVE_BUSY_CODE: Literal["DriveBusy"] = "DriveBusy"
 
 #: Completed jobs kept per process, newest first. See `_retire_finished` (F17).
 MAX_RETAINED_JOBS = 50
+
+
+def _terminal_status(summary: object, *, cancelled: bool) -> str:
+    """The status of a job that RETURNED, from what it returned rather than from how it ended.
+
+    ⚠ **CANCELLED WINS OVER UNCLEAN, deliberately.** A run the user stopped may also have failed
+    files, and both are true - but *why it ended* is the more specific fact and the one the person
+    already knows they caused. `(aiq)` records that the cancel path *"returns normally, carries the
+    full summary, and already renders 'Stopped - N files organized before you stopped it'"* - that
+    half was correct before this change and is not disturbed by it.
+
+    **Only a `Mapping` can carry a verdict.** Every mutating target returns a `TypedDict`; the
+    check is `isinstance(..., Mapping)` for the same reason :meth:`start` uses it to inject
+    ``elapsed_seconds`` - the runtime question has always been "is this a dict", not "is this one
+    of thirteen listed types".
+    """
+    if cancelled:
+        return STATUS_CANCELLED
+    if isinstance(summary, Mapping) and summary.get(FINISHED_CLEAN) is False:
+        return STATUS_COMPLETED_WITH_ERRORS
+    return STATUS_DONE
 
 
 def _underlying(exc: Exception) -> Exception:
@@ -389,7 +452,7 @@ class JobManager:
             try:
                 try:
                     summary = target(progress, job.cancel)
-                    job.status = "cancelled" if job.cancel.is_set() else "done"
+                    job.status = _terminal_status(summary, cancelled=job.cancel.is_set())
                     # Measured here rather than in each op: every job wants it, and the job is the
                     # only layer that sees the whole run including setup. Runtime guarantee for
                     # dict summaries only -- see JobTarget docstring (NotRequired on service types).

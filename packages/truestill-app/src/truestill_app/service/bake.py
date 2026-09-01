@@ -162,6 +162,9 @@ class BakeSummary(TypedDict):
     videos_reason: str
     #: Present but the write was not confirmed by exiftool: reported, never assumed fine.
     failed: int
+    #: Whether the run left the library clean - read by `jobs.py` for the terminal status.
+    #: `(aiq)`.
+    finished_clean: bool
     #: The copy named by the catalog is not on the drive.
     absent: int
     #: Stopped because a migration started on this drive mid-run.
@@ -214,6 +217,9 @@ def bake_run(
             "videos_skipped": outcome.videos_skipped,
             "videos_reason": VIDEO_EXCLUSION_REASON,
             "failed": outcome.failed,
+            # `(aiq)`. A bake that could not write some dates left the library short of what
+            # was asked for, which is the CLI exit-1 state.
+            "finished_clean": not outcome.failed,
             "absent": outcome.absent,
         }
         if outcome.refused is not None:

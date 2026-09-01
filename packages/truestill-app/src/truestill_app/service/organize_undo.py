@@ -70,6 +70,8 @@ class OrganizeUndoJobSummary(TypedDict):
     #: Never-silent applies to a run's own ending, not only to its files.
     stopped: OrganizeUndoStopped | None
     skipped: list[OrganizeUndoSkipped]
+    #: Whether the reversal left the library clean - read by `jobs.py`. `(aiq)`.
+    finished_clean: bool
     elapsed_seconds: NotRequired[float]
 
 
@@ -131,6 +133,13 @@ def organize_undo(*, db: Path, apply: bool) -> JobTarget[OrganizeUndoJobSummary]
             "applied": apply,
             "still_armed": still_armed,
             "record_error": record_error,
+            # `(aiq)`. Three ways an undo ends unclean: it stopped, it skipped files, or its
+            # own record could not be written. ⚠ **`record_error` counts** - `(afu)` ruled that
+            # a run whose record is missing is news, because the record is automatic and the
+            # user never asked for it.
+            "finished_clean": (
+                outcome.stopped is None and not outcome.skipped and record_error is None
+            ),
             "stopped": (
                 None
                 if outcome.stopped is None

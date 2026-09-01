@@ -85,7 +85,11 @@ UNBOUND: dict[str, str] = {
 #: Per payload, the keys its own screen does **not** read. ⚠ **An exact set, not a floor** - see
 #: the module docstring. Each row says what the field is, not merely that it is unread.
 UNREAD: dict[str, dict[str, str]] = {
+    "RenameRunPayload": {
+        "finished_clean": "⚠ READ BY `jobs.py`, NOT BY THIS SCREEN, and that is the point of it. `(aiq)`. `_terminal_status` turns it into the terminal event's `status`, which every screen consumes through `streamJob` - so the fact reaches the user as the outcome word rather than as a field. Declared here because this guard follows `d.summary` and cannot see a consumer one layer up; a row that says nothing would be indistinguishable from a dead key.",
+    },
     "BakeSummary": {
+        "finished_clean": "⚠ READ BY `jobs.py`, NOT BY THIS SCREEN, and that is the point of it. `(aiq)`. `_terminal_status` turns it into the terminal event's `status`, which every screen consumes through `streamJob` - so the fact reaches the user as the outcome word rather than as a field. Declared here because this guard follows `d.summary` and cannot see a consumer one layer up; a row that says nothing would be indistinguishable from a dead key.",
         "absent": "⚠ THE FIELD `(abm)` AND `(ahl)` BOTH NAMED AND NEITHER COULD SEE. A bake run "
         "reports what failed and stays silent about files the catalog expected and could not "
         "find. A candidate for RENDERING, not deletion - `bakeCompletion` is where it belongs",
@@ -109,6 +113,7 @@ UNREAD: dict[str, dict[str, str]] = {
         "template": "the layout string; the screen renders `moves` instead",
     },
     "OrganizeUndoJobSummary": {
+        "finished_clean": "⚠ READ BY `jobs.py`, NOT BY THIS SCREEN, and that is the point of it. `(aiq)`. `_terminal_status` turns it into the terminal event's `status`, which every screen consumes through `streamJob` - so the fact reaches the user as the outcome word rather than as a field. Declared here because this guard follows `d.summary` and cannot see a consumer one layer up; a row that says nothing would be indistinguishable from a dead key.",
         "applied": "the screen branches on which handler fired, not on the flag",
         "dest_root": "the browser holds the path it submitted",
         "elapsed_seconds": "no duration on this screen",
@@ -121,6 +126,7 @@ UNREAD: dict[str, dict[str, str]] = {
         "RENDERING",
     },
     "UndoJobSummary": {
+        "finished_clean": "⚠ READ BY `jobs.py`, NOT BY THIS SCREEN, and that is the point of it. `(aiq)`. `_terminal_status` turns it into the terminal event's `status`, which every screen consumes through `streamJob` - so the fact reaches the user as the outcome word rather than as a field. Declared here because this guard follows `d.summary` and cannot see a consumer one layer up; a row that says nothing would be indistinguishable from a dead key.",
         "applied": "as `OrganizeUndoJobSummary.applied`",
         "elapsed_seconds": "no duration on this screen",
         "label": "the drive is named elsewhere on the card",
@@ -128,7 +134,10 @@ UNREAD: dict[str, dict[str, str]] = {
         "stopped": "⚠ read on the migrate-undo screen through a different path; unread from the "
         "summary itself",
     },
-    "VerifyJobSummary": {"elapsed_seconds": "this screen shows no duration"},
+    "VerifyJobSummary": {
+        "elapsed_seconds": "this screen shows no duration",
+        "finished_clean": "⚠ READ BY `jobs.py`, NOT BY THIS SCREEN, and that is the point of it. `(aiq)`. `_terminal_status` turns it into the terminal event's `status`, which every screen consumes through `streamJob` - so the fact reaches the user as the outcome word rather than as a field. Declared here because this guard follows `d.summary` and cannot see a consumer one layer up; a row that says nothing would be indistinguishable from a dead key.",
+    },
 }
 
 

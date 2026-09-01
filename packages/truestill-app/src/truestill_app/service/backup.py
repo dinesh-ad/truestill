@@ -173,6 +173,10 @@ class BackupRunSummary(TypedDict):
     #: Files this run could not copy. `ENGINEERING_STANDARD.md` §4 Errors: one bad file does not
     #: abort the batch, so it is counted and named rather than ending the run. `(afw)` Stage 4.
     failed: int
+    #: Whether the run left the library clean - `jobs.py` reads it for the terminal status.
+    #: `(aiq)`. For a backup that means nothing failed to copy: a copy that fails is work the
+    #: run could not do, and the CLI already exits 1 for it.
+    finished_clean: bool
     #: ⚠ **`bool`, and it was `Literal[True]` until 2026-08-23** - the type itself asserted the
     #: claim, so mypy would have rejected the honest value. That is worth more than the flag: an
     #: invariant baked into a type is one nothing can report a violation of.
@@ -196,6 +200,7 @@ def _nothing_copied(label: str, target: Path) -> BackupRunSummary:
         "audio": 0,
         "bytes_copied": 0,
         "verified": True,
+        "finished_clean": True,
         "target_path": str(target),
         "eject_note": EJECT_BEFORE_UNPLUGGING,
     }
@@ -246,6 +251,7 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget[BackupRunSumma
             "audio": breakdown["audio"],
             "bytes_copied": copied_bytes,
             "failed": len(failures),
+            "finished_clean": not failures,
             # ⚠ **DERIVED, never asserted** (`(afw)` Stage 4). This was the literal `True`, and
             # the comment justifying it said *"a copy that failed that check aborts the run"* -
             # which stopped being true the moment one bad file stopped aborting. A custody

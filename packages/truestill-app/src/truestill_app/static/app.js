@@ -607,6 +607,22 @@ function legendFor(folders) {
 // actually produced it: an undated batch shows no year range, a run with no duplicates shows
 // no savings line. Nothing here is computed for effect -- the same honesty rule the custody
 // strip obeys applies hardest at the moment a user feels good about the result.
+// The word at the top of a completion card, from the run's own verdict. `(aiq)`
+//
+// ⚠ **THREE STATES, because two were measured to be too few.** A run that failed 1,130 of 1,324
+// files used to reach this card as "Done": `jobs.py` derived the status from whether the target
+// RETURNED, never from what it returned. The service now says so in `finished_clean` and the
+// terminal event carries `status: "completed_with_errors"`.
+//
+// **Read from the summary, not from the status string.** The status is the wire contract and this
+// is the screen; a card that is handed a summary without a stream (the undo and rename cards
+// rebuild from a fetch) still gets the right word.
+function outcomeWord(r) {
+  if (r && r.cancelled) return "Stopped";
+  if (r && r.finished_clean === false) return "Finished with errors";
+  return "Done";
+}
+
 function completionCard({ headline, sub, grid = "", statsLine = "", stats = [], chips = "", notes = [], legend = "", done = "Done" }) {
   const statRows = stats
     .filter((s) => s && s.value)
@@ -1070,7 +1086,7 @@ function organizeCompletion(r) {
     notes.push(cleanupOfferNote(r.leftover_empty_folders));
   }
   return completionCard({
-    done: r.cancelled ? "Stopped" : "Done",
+    done: outcomeWord(r),
     headline: `${plural(r.organized || 0, "file")} ${verb}`
       + (r.cancelled ? " before you stopped it" : ""),
     // NOTHING between the headline and the photos, and the numbers as a line beneath them. The
@@ -1340,7 +1356,7 @@ function backupCompletion(r) {
     with <b>Check a connected backup drive</b> above — a backup is only as good as its last
     check.</div>`);
   return completionCard({
-    done: r.cancelled ? "Stopped" : "Done",
+    done: outcomeWord(r),
     headline: `${mediaCount(r)} copied to ${esc(r.to || "the drive")}`
       + (r.cancelled ? " before you stopped it" : ""),
     sub: "Your library now lives in more than one place."

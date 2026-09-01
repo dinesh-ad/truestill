@@ -29,6 +29,43 @@
 > *"1,130 files could not be organized."*, and `metadata_ok` still has zero occurrences in
 > `truestill-app`.
 
+## ✅ THE STATUS ROOT SHIPPED 2026-09-01 (P171). THE COUNT ROOT DID NOT
+
+**One of the two roots below is closed.** `jobs._terminal_status` derives the terminal status from
+what the target **returned**, and each service declares its own verdict in `finished_clean` -
+because `jobs.py` holds thirteen shapes in one registry and cannot know that "unclean" is `failed`
+for organize, `missing`/`mismatch`/`unreadable` for verify, `stopped`/`refused` for migrate and
+undo, and an unfinished `renamed` for a rename. **A third status**, `completed_with_errors`, and
+the two completion cards say *"Finished with errors"* through one `outcomeWord` helper.
+
+🔑 **THE LINE IS THE CLI's, NOT A NEW ONE.** `_cmd_verify` already returns
+`1 if (missing or mismatch or unreadable)` - a **finding**, not work it could not do - and `(air)`
+quotes exit 1 as *"finished, but something is wrong with the library"*. So the app now says what
+the CLI has always said, and `verify` is deliberately in scope for that reason.
+
+⚠ **THE COUNT ROOT IS STILL OPEN and this entry stays open for it.** `_completion` still ships a
+scalar `failed` and no per-file list; the screen still reads *"1,130 files could not be
+organized."* with no names. That is gap 1 below, it needs `(afd)`'s cap and a renderer, and
+folding a screen redesign into a status fix is what `CLAUDE.md`'s browser-lane rule exists to
+prevent.
+
+### ⚠ It is additive on the wire and a NARROWING of `done`, and both halves must be said
+
+**Additive**: a new member. Verified in `app.js` - `ok` comes from `type`, never from `status`
+(`const failed = d.type === "error"`), and the dispatch is
+`!ok -> onError`, `status === "cancelled" -> onCancelled`, **else -> onSuccess**. An unknown status
+therefore renders exactly as it does today. Nothing crashes and nothing is hidden.
+
+**Narrowing**: a run that previously carried `status: "done"` **with failures** now carries
+`completed_with_errors`. A consumer keying on `status === "done"` to mean *finished* would miss
+those runs. **Checked: no consumer anywhere in this tree does that** - `grep` for `=== "done"`
+across `app.js` and `frontend/src` returns nothing, and `"cancelled"` is the only status value
+compared against.
+
+🔑 **So it ships in 0.2.0, not a patch on 0.1.0.** v0.1.0 is published and the no-users regime
+expired at the tag; narrowing the meaning of a value already on the wire is a behaviour change a
+consumer can observe, whatever the enum does.
+
 ## ⚠ TWO ROOTS, NOT ONE, AND THEY ARE IN DIFFERENT LAYERS
 
 **Established by reading, 2026-09-01.** The count and the status do not share a cause, so neither

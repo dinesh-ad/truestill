@@ -110,6 +110,8 @@ class RenameRunPayload(TypedDict):
     #: true. `(afm)`: a second copy of a fact is free to disagree with the first.
     name_now: str | None
     stopped: MigrationStopPayload | None
+    #: Whether the rename completed. `(aiq)`; False for an interrupted rename.
+    finished_clean: bool
 
 
 _KINDS: dict[str, RenameKind] = {"trip": RenameKind.TRIP, "event": RenameKind.EVENT}
@@ -254,6 +256,11 @@ def rename_run(
                 "renamed": outcome.renamed,
                 "name_now": catalog.named_row_name(kind, row_id),
                 "stopped": stop_payload(outcome.stopped) if outcome.stopped else None,
+                # `(aiq)`. ⚠ **`renamed is False` with `moved > 0` is the unclean state**, and
+                # this field says so rather than leaving the reader to infer it: the catalog
+                # still holds the old name over a partly-moved folder. A rename that moved
+                # nothing and renamed nothing had nothing to do and is clean.
+                "finished_clean": outcome.stopped is None and outcome.renamed,
             }
 
     return target

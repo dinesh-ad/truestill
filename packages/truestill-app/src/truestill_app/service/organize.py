@@ -1349,6 +1349,9 @@ class CompletionBase(TypedDict):
     moved_in_place: int
     moved_by_copy: int
     failed: int
+    #: Whether the run left the library clean. Read by `jobs.py` to pick the terminal
+    #: status; `(aiq)`. Counts `MOVE_KEPT` as unclean, which `failed` does not.
+    finished_clean: bool
     #: The photos this run put into the library, for the result grid. Capped; see
     #: `GRID_SAMPLE_LIMIT`. Present on every run, empty-shown when the run organized no photos.
     organized_sample: OrganizedSample
@@ -1560,6 +1563,14 @@ def _completion(
         "moved_in_place": sum(1 for r in results if r.status is ActionStatus.MOVED_IN_PLACE),
         "moved_by_copy": sum(1 for r in results if r.status is ActionStatus.MOVED),
         "failed": sum(1 for r in results if r.status is ActionStatus.FAILED),
+        # `(aiq)`. ⚠ **`MOVE_KEPT` is counted here and NOT in `failed`, on purpose.** It is in
+        # neither `_ORGANIZED_STATUSES` nor `failed`, so before this it fell out of both
+        # tallies and reached no pixel - a `--move` that could not remove the source read as
+        # a clean run. The count half is `(air)`; the VERDICT half is here, because a library
+        # left with sources it was asked to remove is not clean.
+        "finished_clean": not any(
+            r.status in {ActionStatus.FAILED, ActionStatus.MOVE_KEPT} for r in results
+        ),
         # Run order, not "the best 48": any other ordering would be a judgement about which of a
         # user's photos matter, made with no evidence, on the screen that exists to show them
         # what they have. First-seen is the only order the run actually knows.
