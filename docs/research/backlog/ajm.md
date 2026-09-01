@@ -58,6 +58,38 @@ cry-wolf argument, applied to a test rather than to a guard.
 `(ajk)`. **The pattern was the accumulation, and half of it dissolved on inspection**, which is
 itself the argument for diagnosing rather than filing.
 
+## ⚠ ONE MEASURED ANSWER ON WHETHER THE LANE EARNS ITS 26 MINUTES - `d7ba4d8`, 2026-09-01
+
+**Recorded here rather than in the commit, because the commit is pushed and this is the entry
+that owns the lane's cost.** It is one data point, not a ruling.
+
+`d7ba4d8` changed four screen surfaces and the lane was dispatched on it:
+
+```
+983 passed, 3 skipped in 1280.82s (0:21:20)
+```
+
+**It found nothing, and four mutants had already been caught by `pytest` in seconds** - including
+both surface-level ones (the unconditional literal returning, and the strip ignoring the verdict),
+which is precisely the proof `e6ef82c`'s two survivors demanded. 🔑 **So the lane confirmed a
+renderer that is being deleted.** `app.js` goes with the React migration; what survives that
+commit is `independence_note` and `independence` **on the payload**, and those are pinned by an
+HTTP test inside `make check`.
+
+**The honest verdict: not warranted, and the maintainer said so unprompted after asking for it.**
+The rule in `CLAUDE.md` - *"the test of 'reaches a screen' is whether the change could make a
+screen STOP SHOWING SOMETHING"* - is satisfied by this diff and still points the wrong way here,
+because the thing at risk was reachable from pytest. ⚠ **The sharper question is not "does it
+reach a screen" but "can pytest see the thing that could break?"** For a renderer reading a payload
+field, it can - `test_the_rearrange_card_name.py`'s precedent is exactly that, and this commit used
+it. For layout, focus, or anything the browser computes, it cannot.
+
+⚠ **THIS IS ONE RUN AND IT MUST NOT BE READ AS "SKIP THE LANE".** `(aer)` is the counter-example
+in the same file's history: one 28-minute run returned 6 red on a wording collision. **The
+distinguisher this data point offers is what KIND of screen change it was** - a field rendered as
+text, versus wording or layout the browser decides. Two points do not make a rule; the next
+person weighing it now has one measured on each side.
+
 ## THE FIX SHAPE, NOT RULED
 
 1. **Make the test control its own input** - render a fixed-length path, or assert on a path the

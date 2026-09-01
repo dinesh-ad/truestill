@@ -1382,6 +1382,16 @@ function backupCompletion(r) {
     // `(aiy)`: this read "Your library now lives in more than one place." as an UNCONDITIONAL
     // string literal - true or false, on every backup ever run, consulting no query at all. It
     // now renders core's verdict, handed over in the payload.
+    //
+    // ⚠ THIS RENDERER IS A STOPGAP WITH A KNOWN END DATE, and the two halves end differently.
+    // `independence_note` on `BackupRunSummary` SURVIVES: it is core's sentence on the payload,
+    // and React reads the same field. This line does NOT - `app.js` is deleted by the React
+    // migration, and `react-migration-plan.md` names the condition: the 52 e2e files that assert
+    // on rendered words are "required green against the React one before the old is deleted".
+    // **Do not preserve this line during the migration**; port the FIELD and let the island
+    // render it. Same end as `(ahl)`'s dead-key guard and its P83 census, which are retired with
+    // this file rather than inherited - a renderer nobody retires is how a dead surface outlives
+    // the thing it rendered.
     sub: (r.independence_note ? `Your library: ${r.independence_note}.` : "")
       // `(ajf)`: rendered, never composed here. The words are core's `EJECT_BEFORE_UNPLUGGING`,
       // handed over in the payload, so the CLI and this card cannot drift.
@@ -1910,6 +1920,8 @@ async function loadCustody() {
   // is the only verdict the product can PROVE, so it is the only one that changes the tone;
   // `unknown` is stated in the sentence and never dressed as an alarm, which is `DriveReach`'s
   // own ruling that the alarming fold is the worse one for a custody tool.
+  // `(aiy)`: the FIELD survives the React migration and this LINE does not - the full
+  // stopgap note is on `backupCompletion`'s `sub`. Port the payload, not the renderer.
   const notIndependent = s.independence === "not_independent";
   const tone = atRisk || notIndependent ? "at-risk" : anyDrive && s.files ? "safe" : "neutral";
   // THE AGE OF THE CLAIM, said ALWAYS rather than only when it is bad - `(abg)`. A count of
@@ -3077,6 +3089,8 @@ async function loadDrives() {
     // stick filled two pips in success green on both cards. A proven shared device is ONE
     // failure domain, so it fills one pip; `unknown` is left alone because the alarming fold is
     // the worse one for a custody tool - `DriveReach`'s own ruling.
+    // `(aiy)`: the FIELD survives the React migration and this LINE does not - the full
+    // stopgap note is on `backupCompletion`'s `sub`. Port the payload, not the renderer.
     const pips = lib.independence === "not_independent" ? 1 : Math.min(drives.length, 3);
     const strip = [0, 1, 2].map((i) => (i < pips ? "▪" : "▫")).join(" ");
     const collides = (sharedLabel.get(d.label) || 0) > 1;
