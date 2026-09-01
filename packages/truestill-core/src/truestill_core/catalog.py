@@ -2630,6 +2630,39 @@ class Catalog:
             )
         )
 
+    def holder_sets(self) -> list[sqlite3.Row]:
+        """Each distinct combination of drives that holds multi-copy content, with a file count.
+
+        For `status`'s independence verdict. ⚠ **GROUPED BY THE COMBINATION, NOT BY FILE, AND THAT
+        IS THE WHOLE REASON THIS IS AFFORDABLE.** The verdict depends only on *which drives* hold a
+        piece of content, never on which file it is, so a library of 100k files across three drives
+        collapses to a handful of rows here. Returning one row per file would put a full
+        `file_copies` scan in front of a command whose fresh path deliberately *"touches no disk"*.
+
+        ``COUNT(*) > 1`` because single-copy content is `single_copy_shas`'s question and must not
+        be answered twice - a lone copy is honestly one failure domain, and saying so here as well
+        would tell a user two things about one fact.
+
+        Excludes copies known absent, matching :meth:`single_copy_shas`. ⚠ `stats_summary` does
+        **not**, which is a real divergence and its own entry rather than something reconciled
+        beside a redundancy verdict. `(aiy)`
+        """
+        return list(
+            self._conn.execute(
+                """
+                SELECT holders, COUNT(*) AS files FROM (
+                    SELECT sha256, group_concat(drive_uuid) AS holders
+                    FROM (
+                        SELECT sha256, drive_uuid FROM file_copies
+                        WHERE missing_at IS NULL ORDER BY sha256, drive_uuid
+                    )
+                    GROUP BY sha256 HAVING COUNT(*) > 1
+                )
+                GROUP BY holders
+                """
+            )
+        )
+
     def single_copy_count(self) -> int:
         """How many files exist on exactly one drive -- the number, without the names.
 

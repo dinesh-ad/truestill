@@ -108,7 +108,9 @@ from truestill_core.dedup import DedupIndex, credible_copies
 from truestill_core.destinations import Destination, LocalDestination, RcloneDestination
 from truestill_core.destinations.base import DestinationError
 from truestill_core.drive import (
+    LIBRARY_REDUNDANCY,
     MARKER_NAME,
+    CopyIndependence,
     CustodyFreshness,
     CustodyTier,
     DriveGhostError,
@@ -124,6 +126,7 @@ from truestill_core.drive import (
     existing_marker_path,
     ghost_drive_at,
     ghost_drive_refusal,
+    library_independence,
     locate_drive,
     needs_marker_upgrade,
     path_is_usable_dir,
@@ -2005,6 +2008,14 @@ def _cmd_status(args: argparse.Namespace) -> int:
         registered = catalog.list_drives()
         holding = [d for d in registered if d["file_count"]]
         freshness = custody_freshness(catalog, holding, registered)
+        # `(aiy)`. ⚠ **THIS IS THE ONE THING HERE THAT TOUCHES DISK, AND IT IS A DELIBERATE
+        # CHANGE.** The comment below records that a fresh claim left `status` touching nothing;
+        # a redundancy verdict cannot be reached from the catalog alone, because the catalog
+        # stores no device. One `stat` per HOLDING drive, never per file - `holder_sets` groups by
+        # the drive combination. `truestill drives` already calls `drive_reach` the same way
+        # (`cli.py`, `_print_drive_table`), so a dead mount is exposure this CLI already has
+        # rather than exposure this line invents.
+        independence, affected = library_independence(catalog)
         # Inside the catalog block because the route needs a settings read, and only computed
         # when one is being offered: a fresh claim leaves `truestill status` touching no disk.
         route = (
@@ -2014,7 +2025,19 @@ def _cmd_status(args: argparse.Namespace) -> int:
         )
     age = _custody_age_lines(freshness, route)
     if not singles:
-        print("All catalogued content has at least two drive copies. Nicely redundant.")
+        # `(aiy)`. **The count and the independence are two facts and both are said.** The count
+        # was the whole sentence until 2026-09-01, and it read *"Nicely redundant."* about two
+        # folders of one USB stick with the stick in a drawer - soak ten measured exactly that.
+        # Wording from `drive.LIBRARY_REDUNDANCY`, core's one home, so no second surface can word
+        # this differently.
+        print("All catalogued content has at least two drive copies.")
+        detail = LIBRARY_REDUNDANCY[independence]
+        if independence is CopyIndependence.POSSIBLY_INDEPENDENT:
+            print(f"  They are {detail}.")
+        elif independence is CopyIndependence.UNKNOWN:
+            print(f"  {detail}.")
+        else:
+            print(f"  WARNING: {affected:,} file(s) {detail}.", file=sys.stderr)
         print("\n".join(age))
         return 0
     print(f"At risk: {len(singles)} file(s) exist on only ONE drive (3-2-1 wants >=2):")

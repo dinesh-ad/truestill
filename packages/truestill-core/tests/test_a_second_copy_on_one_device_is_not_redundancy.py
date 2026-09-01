@@ -96,9 +96,26 @@ def test_the_same_device_twice_is_proven_not_independent() -> None:
     assert copy_independence([7, 7]) is CopyIndependence.NOT_INDEPENDENT
 
 
-def test_proof_beats_absence() -> None:
-    """Two known-equal devices settle it even when a third holder cannot be asked."""
-    assert copy_independence([7, 7, None]) is CopyIndependence.NOT_INDEPENDENT
+def test_two_distinct_devices_are_enough_even_with_a_duplicate() -> None:
+    """⚠ **CORRECTED 2026-09-01 (P179).** The test is distinct devices, not duplicate detection.
+
+    Content on ``[7, 7, 9]`` survives device 7 failing, so calling it not-independent would be
+    false - and `reclaim`'s surface said *"every copy on ONE DEVICE"* about exactly that shape
+    until this was fixed. It over-warned and never under-warned, so nothing was unsafe; a warning
+    that fires when nothing is wrong is the cry-wolf `run_health` names as the failure mode to
+    fear.
+    """
+    assert copy_independence([7, 7, 9]) is CopyIndependence.POSSIBLY_INDEPENDENT
+
+
+def test_an_unknown_holder_can_supply_the_missing_diversity() -> None:
+    """``[7, 7, None]`` is UNKNOWN, not proven: the unasked drive may be somewhere else."""
+    assert copy_independence([7, 7, None]) is CopyIndependence.UNKNOWN
+
+
+def test_a_lone_copy_is_honestly_one_failure_domain() -> None:
+    """True, and `single_copy` is where a user is told about it - see `ReclaimPlan.not_independent`."""
+    assert copy_independence([9]) is CopyIndependence.NOT_INDEPENDENT
 
 
 def test_an_unaskable_holder_is_unknown_not_a_verdict() -> None:

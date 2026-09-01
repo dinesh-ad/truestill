@@ -43,7 +43,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, NamedTuple, Protocol
+from typing import Any, Final, NamedTuple, Protocol
 from uuid import uuid4
 
 from truestill_core.destinations.base import device_of
@@ -185,22 +185,99 @@ class CopyIndependence(StrEnum):
 def copy_independence(devices: Sequence[int | None]) -> CopyIndependence:
     """The verdict for one piece of content, from its holders' device ids. Pure.
 
-    ``None`` is a holder that could not be asked. **Proof beats absence**: two known-equal devices
-    return :attr:`NOT_INDEPENDENT` even when a third holder is unknown, because the shared failure
-    is already established and a later answer cannot unshare it.
+    🔑 **THE TEST IS THE COUNT OF DISTINCT DEVICES, NOT THE PRESENCE OF A DUPLICATE.** The question
+    a user has is *"does one device failing take everything?"*, so **two distinct devices is
+    enough** - content on ``[7, 7, 9]`` survives device 7, and calling that not-independent would
+    be false.
 
-    ⚠ **This says nothing about HOW MANY copies there are.** One holder returns
-    :attr:`POSSIBLY_INDEPENDENT` - trivially, nothing contradicts it - and *"is one copy enough"*
-    is a different question with its own answer (`reclaim.ReclaimPlan.single_copy`,
-    `catalog.single_copy_shas`). Folding the two would make one number answer two questions, which
-    is how the count came to be trusted for a fact it never held.
+    ⚠ **CORRECTED 2026-09-01 (P179).** The first cut tested ``len(known) != len(set(known))`` -
+    *any* duplicate - and returned :attr:`NOT_INDEPENDENT` for ``[7, 7, 9]`` while `reclaim`'s
+    surface said *"every copy on ONE DEVICE"*, which was **not true of that content**. It
+    over-warned and never under-warned, so nothing was ever unsafe; but a warning that fires when
+    nothing is wrong is the cry-wolf `run_health` calls the failure mode to fear.
+
+    ``None`` is a holder that could not be asked, and **an unknown holder can supply the diversity
+    that is missing**: ``[7, 7, None]`` is :attr:`UNKNOWN`, not proven, because the unasked drive
+    may be elsewhere. Only ``[7, 7]`` with nothing unknown is proven.
+
+    ⚠ **This says nothing about HOW MANY copies there are.** A single holder is one failure domain
+    and returns :attr:`NOT_INDEPENDENT` honestly - but *"is one copy enough"* is a different
+    question with its own answer (`reclaim.ReclaimPlan.single_copy`, `catalog.single_copy_shas`),
+    and a surface must not report both about the same file. Folding the two would make one number
+    answer two questions, which is how the count came to be trusted for a fact it never held.
     """
-    known = [d for d in devices if d is not None]
-    if len(known) != len(set(known)):
-        return CopyIndependence.NOT_INDEPENDENT
-    if len(known) != len(devices):
+    known = {d for d in devices if d is not None}
+    unknown = sum(1 for d in devices if d is None)
+    if len(known) > 1:
+        return CopyIndependence.POSSIBLY_INDEPENDENT
+    if unknown:
         return CopyIndependence.UNKNOWN
-    return CopyIndependence.POSSIBLY_INDEPENDENT
+    return CopyIndependence.NOT_INDEPENDENT
+
+
+#: What a surface says about a whole library's redundancy, one sentence per state. `(aiy)`
+#:
+#: **One wording home, `STOP_WORDING`'s rule** - `status` and any later surface say the same thing
+#: about the same fact, and there is no second sentence to drift.
+#:
+#: ⚠ **THE REASSURING ONE IS QUALIFIED AND STAYS REASSURING.** A user with two genuinely separate
+#: drives must still read this as good news - that false negative is the regression to fear, not
+#: the false positive - so it names what was checked rather than hedging.
+#:
+#: ⚠ **AND *"Nicely redundant"* IS GONE FROM THE UNQUALIFIED CASE.** It is the phrase soak ten
+#: caught: printed about two folders of one USB stick with the stick in a drawer.
+#:
+#: ⚠ **EACH VALUE COMPLETES A SENTENCE ITS CALLER STARTS**, so a new member must be written to fit
+#: both shapes: ``f"{n} file(s) {detail}."`` and ``f"They are {detail}."``. The first cut read
+#: *"1 file(s) every copy is on ONE device"* on the real CLI - grammatical only in isolation, which
+#: is what a constant tested by eye rather than by running the command looks like.
+LIBRARY_REDUNDANCY: Final[dict[CopyIndependence, str]] = {
+    CopyIndependence.NOT_INDEPENDENT: (
+        "have every copy on ONE device, so they do not survive that device failing"
+    ),
+    CopyIndependence.UNKNOWN: (
+        "Truestill cannot tell whether the copies are on separate devices - it can only check "
+        "drives it can see. Connect them and re-run to find out"
+    ),
+    CopyIndependence.POSSIBLY_INDEPENDENT: (
+        "on separate devices, so one drive failing does not take both"
+    ),
+}
+
+
+def library_independence(catalog: object) -> tuple[CopyIndependence, int]:
+    """The worst verdict across a library's multi-copy content, and how many files hold it.
+
+    **The predicate is `copy_independence` and is not re-implemented here** - this resolves the
+    population and the devices, then asks it. `reclaim` asks the same function about a different
+    population, which is one idea with two callers rather than two implementations.
+
+    **Worst-first, because a summary line reports the weakest link**:
+    :attr:`~CopyIndependence.NOT_INDEPENDENT` beats :attr:`~CopyIndependence.UNKNOWN` beats
+    :attr:`~CopyIndependence.POSSIBLY_INDEPENDENT`. A library where most content is fine and some
+    is on one device is not fine.
+
+    ⚠ **ONE `stat` PER DRIVE, NEVER PER FILE.** `catalog.holder_sets` groups by the drive
+    combination, so the device of each drive is asked at most once however large the library is.
+    """
+    devices: dict[str, int | None] = {}
+    worst = CopyIndependence.POSSIBLY_INDEPENDENT
+    affected = 0
+    for row in catalog.holder_sets():  # type: ignore[attr-defined]
+        uuids = [u for u in str(row["holders"] or "").split(",") if u]
+        for u in uuids:
+            if u not in devices:
+                devices[u] = device_for_drive(catalog, u)
+        verdict = copy_independence([devices[u] for u in uuids])
+        if verdict is CopyIndependence.NOT_INDEPENDENT:
+            if worst is not CopyIndependence.NOT_INDEPENDENT:
+                worst, affected = CopyIndependence.NOT_INDEPENDENT, 0
+            affected += int(row["files"])
+        elif verdict is CopyIndependence.UNKNOWN and worst is not CopyIndependence.NOT_INDEPENDENT:
+            if worst is not CopyIndependence.UNKNOWN:
+                worst, affected = CopyIndependence.UNKNOWN, 0
+            affected += int(row["files"])
+    return worst, affected
 
 
 def device_for_drive(catalog: object, uuid: str) -> int | None:

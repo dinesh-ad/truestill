@@ -14,10 +14,31 @@ the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 Filed 2026-08-31 (P165, soak ten), **measured on real removable media**. Rewritten 2026-09-01
 (P177) from the P176 census.
 
+## 0. PROGRESS - TWO SURFACES DONE, FOUR TO GO
+
+| surface | state |
+|---|---|
+| `reclaim`'s delete gate | ✅ **`e6ef82c`** - `ReclaimPlan.not_independent`, warned before the `delete originals` prompt |
+| `status` | ✅ **P179** - `drive.library_independence`, wording from `drive.LIBRARY_REDUNDANCY` |
+| `custody_floor` (the app's strip) | ⬜ reaches a screen |
+| `stats_summary` (the Stats screen) | ⬜ reaches a screen |
+| `list_drives` (drive cards, `drives.length`) | ⬜ reaches a screen |
+| `app.js`'s unconditional literal | ⬜ reaches a screen |
+
+⚠ **THE FOUR THAT REMAIN ALL REACH A SCREEN**, so they need the browser lane and should be **one
+commit rather than four** - the same payload and the same wording home, and four separate screen
+commits would run the 26-minute lane four times to answer one question.
+
+⚠ **AND THE PREDICATE ITSELF WAS CORRECTED IN P179.** `e6ef82c` shipped
+`copy_independence` testing *any duplicate device* rather than *fewer than two distinct devices*,
+so `[7, 7, 9]` returned `NOT_INDEPENDENT` while the surface said *"every copy on ONE DEVICE"* -
+false of that content. It over-warned and never under-warned, so nothing was unsafe; the fix is in
+`drive.copy_independence` with the original rule quoted beside it.
+
 ## 1. 🔑 THE HARM: A DELETE GATED ON A COUNT THAT CANNOT SEE A DEVICE
 
 `truestill reclaim --apply` - argparse's own help: *"actually delete sources (default: preview
-only)"* - is guarded by one warning, `cli.py:4969`:
+only)"* - is guarded by one warning, `cli.py:4992`:
 
 ```python
     if plan.single_copy:
@@ -103,7 +124,7 @@ wrong everywhere.
 ```
 
 True of `custody_freshness`. **False of the redundancy verdict one line above it** - the strip
-reads `custody_floor`, `status` reads `single_copy_shas`. Core says so itself, `catalog.py:2645`:
+reads `custody_floor`, `status` reads `single_copy_shas`. Core says so itself, `catalog.py:2678`:
 
 > The strip now uses :meth:`custody_floor`, which this method cannot replace: reading
 > ``FROM file_copies`` makes a file with no copy row invisible here.
@@ -137,7 +158,7 @@ and it is why the answer is three states rather than a better boolean.
 > and the honest answer - *we do not know* - is available, so it is reported.**
 
 `DriveReach` went from a boolean to three states for this reason. **The redundancy claim is still
-a boolean.** `drive_reach` (`drive.py:636`) is called by `service/drives.py:598`, `bake.py:235`
+a boolean.** `drive_reach` (`drive.py:708`) is called by `service/drives.py:598`, `bake.py:235`
 and `cli.py:1118`; ⚠ **`_cmd_status` never calls it.**
 
 ⚠ **Silence is refused** on the same grounds: for a custody tool a user who reads nothing concludes

@@ -70,8 +70,17 @@ class ReclaimPlan:
         Two folders on one USB stick are two `file_copies` rows, so `copies` is 2 and
         :attr:`single_copy` is empty - the guard that stands between a user and
         ``reclaim --apply`` never fires. This is the bucket that fires instead.
+
+        ⚠ **``copies > 1`` EXCLUDES WHAT :attr:`single_copy` ALREADY SAYS.** A lone copy is
+        honestly one failure domain, so `drive.copy_independence` returns ``NOT_INDEPENDENT`` for
+        it - but reporting one file under two warnings tells a user two things about one fact.
+        This bucket is the case the count **cannot** see; that one is the case it can.
         """
-        return [c for c in self.candidates if c.independence is CopyIndependence.NOT_INDEPENDENT]
+        return [
+            c
+            for c in self.candidates
+            if c.independence is CopyIndependence.NOT_INDEPENDENT and c.copies > 1
+        ]
 
     @property
     def independence_unknown(self) -> list[ReclaimCandidate]:
