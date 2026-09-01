@@ -72,6 +72,22 @@ excluded: a closure is provenance, not instruction.
 caught **two**. Catching the rest honestly means citing symbols rather than line numbers, which is
 a different and larger change - **named here, not smuggled in.**
 
+> ⚠ **ADDED 2026-09-01 (P180) - THE LIMIT ABOVE, MEASURED. Nothing in the 2026-08-23 entry is
+> changed; this is evidence filed beside it.** A **fifteen-line comment** added to `app.js`
+> - a stopgap marker, not a refactor - moved every line below 1385 and displaced **46 citations
+> across 16 documents, 18 of them in the living set**. The guard saw **none of it**: every
+> displaced citation landed on real code, which is precisely the case this section names as
+> uncoverable. Worse, two citations in `(abz)` were **already** pointing at unrelated code before
+> that commit, and became visible only because the shift happened to push one onto a blank line -
+> so of roughly 48 wrong pointers in play, the guard reported **one, by accident**. 🔑 **The cost
+> of line citations is not paid at refactors; it is paid at every edit, including a comment**, and
+> that is the argument for citing symbols. The repair was mechanical - diff old against new, map
+> the equal runs, let each citation follow its own content, then assert every move lands on a
+> byte-identical line - and it repairs only the correctness that already existed: several of the
+> moved citations point at `}` or a bare `//`. ⚠ **The first pass rewrote all 46 and was wrong**:
+> eight of the sixteen documents are records, and `_living_documents()` was asked which it owns
+> rather than the question being judged by hand. `63723b2`.
+
 ## Also audited, and clean
 
 * **`CLAUDE.md`'s document map is complete** - all **64** non-body documents are named in it,
