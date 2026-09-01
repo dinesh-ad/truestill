@@ -9,6 +9,13 @@ built.** Evidence at `/data/TruestillLibrary/aji-gone-probe-2026-09-01/`.
 
 ## ⚠ FIRST BLOCKER: THE `REFUSED` ARM DOES NOT REPRODUCE, AND NOTHING SHOULD BE BUILT UNTIL IT DOES
 
+⚠ **THIS IS A BLOCKER ENTRY AND IT ROTS DIFFERENTLY FROM A NORMAL ONE.** Its value is *"do not
+build yet, and here is the census for when you can"*. **If the `REFUSED` arm is never reproduced
+it should be RETIRED, not left sitting in "Approved - still to build" looking like work somebody
+signed off.** The honest end state may well be that `exists()`'s causeless raise at `local.py:154`
+is fixed on its own merits and **the classifier question dies unanswered** - and that is a
+legitimate outcome for this letter rather than a failure to finish it.
+
 `(aji)` rests partly on `LocalDestination.exists` raising *"cannot probe ...: the filesystem
 refused to describe it"* on a vanished drive. **Three attempts, 2026-09-01, none reproduced it:**
 
@@ -118,14 +125,32 @@ construction **invents evidence** - the same refusal `(ajg)` made when it declin
 count the type could not supply. And routing it through `GONE` collides with `(aji)`'s probe,
 which says `GONE` must not persist.
 
-## ⚠ A SECOND INSTRUMENT DOUBT, FOUND HERE AND NOT CHASED
+## ✅ THE "SECOND INSTRUMENT DOUBT" WAS WRONG, AND THE RETRACTION IS THE FINDING
 
-Both the soak and attempt 3 printed *"2 distinct reasons in total"*, but attempt 3's
-`last-run.json` holds **one** distinct failure detail across all 257.
-`cli._print_capped` computes it as `len({_reason_key(r.detail or "") for r in results})`. **Why it
-said two is not determined.** It does not weaken the soak evidence - that printed both messages
-*literally* rather than deriving a count - but the number should not be used as evidence until
-someone looks.
+**Filed here on 2026-09-01 and withdrawn the same day.** This section reported that
+`cli._print_capped` printed *"2 distinct reasons in total"* while the run record held one, and
+that *"why it said two is not determined"*.
+
+**It is determined. The counter was RIGHT and I was wrong.** Re-read from the preserved
+`last-run.json` with `_reason_key`'s own normalisation applied:
+
+```
+FAILED-ish entries found: 258
+distinct _reason_key values: 2
+    257  '/run/media/<user>/RREPRO is no longer the drive this run started on -- it looks like…'
+      1  'could not copy 261dc441_Leica V-LUX (Typ 114).jpg to : the drive is not there any more'
+```
+
+There genuinely were **two** distinct failure details: 257 from `DestinationDevice.check`, and
+**one** from `_upload_failure` - the single file that was mid-copy when the unmount landed. My
+first pass reported *"267 distinct reason shapes"* and printed only the top eight, so the
+singleton was never on screen.
+
+🔑 **THE ADMISSION IS THE POINT, AND IT IS THE THIRD TIME.** `(aiq)`'s mechanism, `(aji)`'s
+mechanism, and now an accusation against a working instrument - **all three were summaries of
+evidence I already held, and all three dissolved when the line was read instead.** That is exactly
+what `CLAUDE.md`'s *"quote the line, do not summarise it"* was recorded for, one day before this
+one. **No entry is filed against `_print_capped`.** The real instrument defect is `(ajm)`.
 
 ## RELATED
 
