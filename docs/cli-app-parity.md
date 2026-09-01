@@ -19,7 +19,12 @@ grep -c 'add_parser(' packages/truestill-cli/src/truestill_cli/cli.py
 grep -c 'Route(' packages/truestill-app/src/truestill_app/server.py
 ```
 
-On 2026-08-23 those read **17** and **50**.
+⚠ **No reading is recorded here, deliberately.** This line held *"On 2026-08-23 those read 17 and
+50"* until 2026-09-01, by which date both had moved and neither had been noticed - the paragraph
+above says the commands are the answer, so a number underneath them is the drift it warns about
+wearing the warning as cover. **Run the two commands.** The counts that this document is actually
+*for* - how many subcommands have no route, and how many are partial - are derived from the table
+below, not from these two totals, and moving totals do not disturb them.
 
 `test_the_cli_app_parity_table_is_complete.py` fails when a subcommand exists that the table below
 does not list, so a new command cannot ship and leave this silently stale. **It checks

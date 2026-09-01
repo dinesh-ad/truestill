@@ -291,9 +291,13 @@ is invisible here is retired, not free.**
   with `sync()` before exit - Ts'o, *"not a big deal, and not all that costly"*; Mason, *"if we
   crash just after the rsync, the backup logs won't know"* - and **fsyncgate is why that makes the
   TIMING honest without making the outcome certain**, because a writeback failure leaves pages
-  neither written nor marked dirty. **Candidates, none ruled**: say *"copied"* only after a
-  `sync()`; say *"copied, not yet flushed"*; say nothing different and let `verify` own it.
+  neither written nor marked dirty. **Candidates**: ⚠ *"copied" only after a `sync()`* is
+  **ELIMINATED** - `os.sync` is Unix-only (typeshed: `if sys.platform != "win32"`) and `ci.yml`
+  gates on Windows, and `catalog_backup.py` already records an `os.fsync` Windows defect caught
+  only by that lane. **Still open**: say *"copied, not yet flushed"*; say nothing different and
+  let `verify` own it; or say *"copied"* and append the `verify` next step on removable media only.
   Related: `(aiz)`, `(aja)`, [`soak-eleven-record.md`](soak-eleven-record.md) §5.
+  Body: [`research/backlog/ajf.md`](research/backlog/ajf.md).
 
 - **(aiy) TWO REGISTRATIONS ON ONE PHYSICAL DEVICE ARE REPORTED AS "NICELY REDUNDANT".** Filed
   2026-08-31 (P165, soak ten), measured. Two drives registered in two folders of **one USB stick**,
@@ -330,6 +334,7 @@ is invisible here is retired, not free.**
   backup's summary and then exempts `/api/organize/run` in its own comment. **Not built in P145
   deliberately** - it is app work of one class, and folding it into a `cli.py` commit would make
   a screen change ride on a core one. Related: `(aim)`, `(air)`, `(aer)`.
+  Body: [`research/backlog/aiq.md`](research/backlog/aiq.md).
 
 - **(air) A `--move` THAT COULD NOT REMOVE THE SOURCE EXITS 0.** Filed 2026-08-30 (P145), from
   `(aim)`'s route census; **filed rather than decided**. `MOVE_KEPT` means the copy is in the
@@ -343,6 +348,7 @@ is invisible here is retired, not free.**
   `(aiq)`**: `MOVE_KEPT` is in neither `_ORGANIZED_STATUSES` nor `failed`, so it falls out of both
   tallies and its label reaches no pixel. **Do not fold this into a summary-wording change** - it
   alters an exit code, which is a contract a script reads. Related: `(aim)`, `(aiq)`.
+  Body: [`research/backlog/air.md`](research/backlog/air.md).
 
 > ⚠ **`(ait)` AND `(aiu)` LEAD THIS GROUP DELIBERATELY.** They are **instrument** defects, not
 > product ones, and they rank above the two product findings below them because a wrong answer key
