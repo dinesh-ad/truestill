@@ -1641,16 +1641,26 @@ class Catalog:
         """Source files whose content has a copy on ``drive_uuid``, for reclaim evaluation.
 
         Returns ``source_path, sha256, size, relative, copy_sha256`` (the copy on this drive, to
-        re-verify) and ``copy_count`` (total copies of this content across all drives, for the
-        min-copies redundancy check). The caller re-hashes the copy and confirms the source still
+        re-verify), ``copy_count`` (total copies of this content across all drives, for the
+        min-copies redundancy check) and ``holder_uuids`` (which drives those copies are on, for
+        the independence check). The caller re-hashes the copy and confirms the source still
         exists before deleting anything.
+
+        ⚠ **``holder_uuids`` DELIBERATELY MATCHES ``copy_count``'s POPULATION, INCLUDING COPIES
+        MARKED MISSING.** Filtering one and not the other would let a single plan disagree with
+        itself - *"2 copies"* beside *"1 holder"*. That both should probably exclude
+        ``missing_at`` is true and is a **separate** question: `single_copy_shas` and
+        `custody_floor` exclude it, `stats_summary` does not, and reconciling the three is its own
+        entry rather than something smuggled in beside a delete gate. `(aiy)`
         """
         return list(
             self._conn.execute(
                 """
                 SELECT f.source_path, f.sha256, f.size,
                        fc.relative, fc.copy_sha256,
-                       (SELECT COUNT(*) FROM file_copies WHERE sha256 = f.sha256) AS copy_count
+                       (SELECT COUNT(*) FROM file_copies WHERE sha256 = f.sha256) AS copy_count,
+                       (SELECT group_concat(drive_uuid) FROM file_copies
+                        WHERE sha256 = f.sha256) AS holder_uuids
                 FROM files f
                 JOIN file_copies fc ON fc.sha256 = f.sha256 AND fc.drive_uuid = ?
                 """,

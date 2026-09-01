@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from truestill_core.catalog import Catalog
+from truestill_core.drive import CopyIndependence, copy_independence, device_for_drive
 from truestill_core.hashing import sha256_file
 from truestill_core.progress import Phase, Progress, ProgressCallback
 
@@ -30,6 +31,10 @@ class ReclaimCandidate:
     copies: int  # total recorded copies of this content across all drives
     relative: str  # the copy on the connected drive, to re-verify
     expected_sha: str  # copy_sha256 (or the source sha for legacy copies)
+    #: Whether this content's holders can fail separately. `(aiy)`. **Never a count** - `copies`
+    #: above answers "how many", this answers "how many failure domains", and conflating them is
+    #: the defect this field exists for.
+    independence: CopyIndependence = CopyIndependence.UNKNOWN
 
 
 @dataclass(frozen=True)
@@ -57,6 +62,26 @@ class ReclaimPlan:
     def single_copy(self) -> list[ReclaimCandidate]:
         """Candidates whose content would exist in only one place after the source is freed."""
         return [c for c in self.candidates if c.copies <= 1]
+
+    @property
+    def not_independent(self) -> list[ReclaimCandidate]:
+        """Candidates **proven** to have all their copies inside one failure domain. `(aiy)`
+
+        Two folders on one USB stick are two `file_copies` rows, so `copies` is 2 and
+        :attr:`single_copy` is empty - the guard that stands between a user and
+        ``reclaim --apply`` never fires. This is the bucket that fires instead.
+        """
+        return [c for c in self.candidates if c.independence is CopyIndependence.NOT_INDEPENDENT]
+
+    @property
+    def independence_unknown(self) -> list[ReclaimCandidate]:
+        """Candidates with at least one holder that could not be asked. **The common case.**
+
+        A drive in a drawer cannot be stat'd, so this is most content most of the time. It is
+        reported and **never refused** - see `cli._print_reclaim_plan`, which states what is not
+        known rather than implying a verdict either way.
+        """
+        return [c for c in self.candidates if c.independence is CopyIndependence.UNKNOWN]
 
 
 @dataclass(frozen=True)
@@ -142,6 +167,17 @@ def plan_reclaim(
     unexplained empty plan.
     """
     candidates: list[ReclaimCandidate] = []
+    #: uuid -> device, asked at most once per drive. `(aiy)`. A stat per DRIVE, not per file:
+    #: there are a handful of drives and there may be a hundred thousand candidates.
+    devices: dict[str, int | None] = {}
+
+    def _independence(holder_uuids: str | None) -> CopyIndependence:
+        uuids = [u for u in (holder_uuids or "").split(",") if u]
+        for u in uuids:
+            if u not in devices:
+                devices[u] = device_for_drive(catalog, u)
+        return copy_independence([devices[u] for u in uuids])
+
     unverified = 0
     below = 0
     in_place = 0
@@ -178,6 +214,7 @@ def plan_reclaim(
                 copies=int(row["copy_count"]),
                 relative=str(row["relative"]),
                 expected_sha=str(expected),
+                independence=_independence(row["holder_uuids"]),
             )
         )
     return ReclaimPlan(

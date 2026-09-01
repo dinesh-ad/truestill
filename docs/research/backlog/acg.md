@@ -11,7 +11,7 @@
   - ⚠ **CORRECTION, 2026-08-26 (P103): "the albums tables are empty today" IS FALSE, and this
     entry is larger than it says.** `takeout.py:244` records an album per media file, `cli.py:2485`
     builds `IngestContext.albums` **unconditionally** on every ingest, and the rows land via
-    `organizer.py:2121` -> `catalog.py:3113`. **`--map-albums` does not gate any of it** - it
+    `organizer.py:2121` -> `catalog.py:3384`. **`--map-albums` does not gate any of it** - it
     selects the event-naming prompt only (`cli.py:540`). So every Takeout user with album folders
     already has album names written to their drive on each save and **silently discarded on each
     restore**. `agy.md:65-68` flagged this sentence as worth re-checking and declined to; it is now

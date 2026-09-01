@@ -238,8 +238,8 @@ rather than treated as a triage failure.
   Filed 2026-08-31 (P165, soak ten), **rewritten 2026-09-01 (P177) after a census** - it was filed
   as a `status` sentence and **a reader who met that first would rank it as reporting**.
   🔑 **THE HARM IS A DELETE.** `truestill reclaim --apply` *"actually delete sources"*, guarded by
-  one warning (`cli.py:4969`); `ReclaimPlan.single_copy` is `reclaim.py:59`
-  `[c for c in self.candidates if c.copies <= 1]`, and `copies` is `catalog.py:1653`
+  one warning (`cli.py:4969`); `ReclaimPlan.single_copy` is `reclaim.py:64`
+  `[c for c in self.candidates if c.copies <= 1]`, and `copies` is `catalog.py:1661`
   `(SELECT COUNT(*) FROM file_copies WHERE sha256 = f.sha256)`. `file_copies` is keyed
   `(sha256, drive_uuid)`, so **two folders on one stick give `copy_count = 2`, the warning does not
   fire, and the originals are deleted** on the strength of a copy that fails with the first.
@@ -251,10 +251,10 @@ rather than treated as a triage failure.
   `reclaim_candidates.copy_count`, `list_drives`, plus `drives.length` in the browser);
   `app.js:1380` asserts *"Your library now lives in more than one place."* as an **unconditional
   literal with no query**; and `cli.py:2003`'s *"the same rule the app's custody strip uses"* is
-  **false about the leg it names** - `catalog.py:2635` says so itself.
+  **false about the leg it names** - `catalog.py:2645` says so itself.
   🔑 **`st_dev` CAN FALSIFY AND NEVER CONFIRM** - `local.py:213` *"``st_dev`` can agree across btrfs
   subvolumes and bind mounts"* - so same device proves **not** independent and different device
-  proves nothing. Hence **three states, not a boolean**, which `drive.py:135` already ruled for
+  proves nothing. Hence **three states, not a boolean**, which `drive.py:136` already ruled for
   `DriveReach`: *"both folds lie… the honest answer - we do not know - is available, so it is
   reported."* ⚠ **`_cmd_status` never calls `drive_reach`.**
   ⚠ **NOT this entry**: a device identity that survives unplugging needs a filesystem UUID or

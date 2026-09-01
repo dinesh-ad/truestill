@@ -93,7 +93,7 @@ The one-home rule (`(afe)`) is right and stays; **the ruling: a shared sentence 
 per-surface closing clause, not a fork of the facts.** Filed on this entry because its rewrite
 already owns these sentences' shape - pick them up together:
 
-1. `ghost_drive_refusal` (`drive.py:751`) - *"re-run with --force-new-identity"* - in app
+1. `ghost_drive_refusal` (`drive.py:818`) - *"re-run with --force-new-identity"* - in app
    payloads since `(agr)` part 2 (`drive_support.py`, the ghost branch).
 2. `second_location_note` (`drive.py:489`) - *"truestill drives --init ... --force-new-identity"*
    - carried whole into the verify summary (`verify.py:132`) and rendered in the app's

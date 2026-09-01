@@ -27,7 +27,7 @@ only)"* - is guarded by one warning, `cli.py:4969`:
         )
 ```
 
-`ReclaimPlan.single_copy` is `reclaim.py:57-59`:
+`ReclaimPlan.single_copy` is `reclaim.py:62-64`:
 
 ```python
     @property
@@ -36,7 +36,7 @@ only)"* - is guarded by one warning, `cli.py:4969`:
         return [c for c in self.candidates if c.copies <= 1]
 ```
 
-and `copies` comes from `catalog.py:1653`:
+and `copies` comes from `catalog.py:1661`:
 
 ```sql
                        (SELECT COUNT(*) FROM file_copies WHERE sha256 = f.sha256) AS copy_count
@@ -63,7 +63,7 @@ Last checked: 2026-08-31 (the oldest of the drives holding copies).
 
 ⚠ **AND THE SENTENCE IS IDENTICAL IN ALL FOUR CASES**, which is a sharper statement of the defect
 than *"it counts registrations"*. `single_copy_shas` reads `file_copies` rows with
-`missing_at IS NULL`, and `missing_at` is set only by `verify` - `catalog.py:3202`: *"Remember that
+`missing_at IS NULL`, and `missing_at` is set only by `verify` - `catalog.py:3212`: *"Remember that
 we looked for this copy on a drive **that was there**, and it was not."* **Unplugging sets
 nothing.**
 
@@ -103,7 +103,7 @@ wrong everywhere.
 ```
 
 True of `custody_freshness`. **False of the redundancy verdict one line above it** - the strip
-reads `custody_floor`, `status` reads `single_copy_shas`. Core says so itself, `catalog.py:2635`:
+reads `custody_floor`, `status` reads `single_copy_shas`. Core says so itself, `catalog.py:2645`:
 
 > The strip now uses :meth:`custody_floor`, which this method cannot replace: reading
 > ``FROM file_copies`` makes a file with no copy row invisible here.
@@ -128,7 +128,7 @@ and it is why the answer is three states rather than a better boolean.
 
 ## 5. THE PRECEDENT IS IN THIS FILE'S OWN NEIGHBOUR, VERBATIM
 
-`drive.py:135`:
+`drive.py:136`:
 
 > **Three states, not a boolean.** A boolean would have to fold ``UNKNOWN`` into one of the other
 > two, and both folds lie. Read as connected it invents a drive that may not be plugged in; read
@@ -137,7 +137,7 @@ and it is why the answer is three states rather than a better boolean.
 > and the honest answer - *we do not know* - is available, so it is reported.**
 
 `DriveReach` went from a boolean to three states for this reason. **The redundancy claim is still
-a boolean.** `drive_reach` (`drive.py:569`) is called by `service/drives.py:598`, `bake.py:235`
+a boolean.** `drive_reach` (`drive.py:636`) is called by `service/drives.py:598`, `bake.py:235`
 and `cli.py:1118`; ⚠ **`_cmd_status` never calls it.**
 
 ⚠ **Silence is refused** on the same grounds: for a custody tool a user who reads nothing concludes

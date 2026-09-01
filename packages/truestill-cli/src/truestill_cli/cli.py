@@ -4971,6 +4971,28 @@ def _print_reclaim_plan(plan: ReclaimPlan, *, label: str, min_copies: int) -> No
             f"  WARNING: {len(plan.single_copy)} file(s) would then exist in only ONE place "
             f"(raise --min-copies to exclude them)"
         )
+    # 🔑 **`(aiy)`. THE COUNT ABOVE CANNOT SEE A DEVICE, AND THIS IS WHAT IT MISSES.** Two folders
+    # on one USB stick are two `file_copies` rows, so `copies` is 2, `single_copy` is empty, and
+    # the warning above stays silent while `--apply` deletes the originals. Printed HERE, before
+    # the `delete originals` prompt, because a warning a user reads after the delete is not a
+    # guard.
+    if plan.not_independent:
+        print(
+            f"  WARNING: {len(plan.not_independent)} file(s) have every copy on ONE DEVICE. "
+            "Freeing the source leaves no copy that survives that device failing.",
+            file=sys.stderr,
+        )
+    # ⚠ **STATED, NOT REFUSED, AND THAT IS THE RULING.** A drive in a drawer cannot be stat'd, so
+    # this is most content most of the time; refusing it would make `reclaim` unusable for the
+    # ordinary user, and proceeding in silence is the defect above. So it says **what is not
+    # known** and claims nothing either way - `drive.py`'s `DriveReach` docstring settled the same
+    # question one noun over: *"both folds lie"*, and the honest answer is available.
+    if plan.independence_unknown:
+        print(
+            f"  NOTE: for {len(plan.independence_unknown)} file(s) Truestill cannot tell whether "
+            "the copies are on separate devices - a drive it cannot see cannot be checked. "
+            "Connect the other drives and re-run to find out."
+        )
 
 
 def _cmd_reclaim(args: argparse.Namespace) -> int:

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from truestill_cli.cli import main
 from truestill_core.catalog import Catalog
-from truestill_core.drive import create_marker
+from truestill_core.drive import create_marker, drive_path_hint
 from truestill_core.hashing import sha256_file
 
 
@@ -213,3 +213,87 @@ def test_reclaim_asks_for_at_least_as_much_as_clean_empty_permanent(
     # `clean` is the recoverable word and must never be what this act asks for.
     assert "'clean'" not in asked[-1]
     assert capsys.readouterr()
+
+
+def _seed_two_drives_on_one_device(db: Path, stick: Path, source: Path) -> None:
+    """Soak ten's shape: two registered drives in two folders of ONE device. `(aiy)`"""
+    content = b"content-a"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_bytes(content)
+    sha = sha256_file(source)
+    with Catalog(db) as catalog:
+        for name in ("drive", "backup"):
+            root = stick / name
+            root.mkdir(parents=True, exist_ok=True)
+            copy = root / "Camera/a.jpg"
+            copy.parent.mkdir(parents=True, exist_ok=True)
+            copy.write_bytes(content)
+            marker = create_marker(root, f"Drive {name}")
+            catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+            catalog.set_setting(drive_path_hint(marker.uuid), str(root))
+            catalog.record_uploaded(
+                source_path=str(source),
+                original_name=source.name,
+                sha256=sha,
+                copy_sha256=sha,
+                perceptual=None,
+                size=len(content),
+                captured_at=None,
+                category="Camera",
+                relative="Camera/a.jpg",
+                drive_uuid=marker.uuid,
+            )
+            if name == "drive":
+                _seed_two_drives_on_one_device.first = root  # type: ignore[attr-defined]
+
+
+def test_the_user_is_told_before_the_prompt_when_both_copies_are_on_one_device(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """⚠ **THE SURFACE, and it is where the harm lands.** `(aiy)`
+
+    Core knowing is not enough: the plan is printed **before** the `delete originals` prompt, and a
+    warning the user reads after the delete is not a guard. A mutation that leaves
+    `ReclaimPlan.not_independent` correct and stops the CLI printing it **survived** until this
+    test existed - the same shape `(ahl)` catches for payload fields no renderer reads.
+    """
+    db = tmp_path / "c.sqlite"
+    _seed_two_drives_on_one_device(db, tmp_path / "stick", tmp_path / "src/a.jpg")
+    first = _seed_two_drives_on_one_device.first  # type: ignore[attr-defined]
+
+    assert main(["reclaim", str(first), "--db", str(db)]) == 0
+
+    printed = capsys.readouterr()
+    both = printed.out + printed.err
+    assert "ONE DEVICE" in both, "the user was not told the copies share a failure domain"
+    assert "would then exist in only ONE place" not in both, (
+        "the old single-copy guard fired; this case is exactly the one it cannot see"
+    )
+
+
+def test_a_drive_it_cannot_see_is_reported_as_unknown_and_never_blocks(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """⚠ **THE RULING, and the case that is most of the time.** `(aiy)`
+
+    A second drive in a drawer cannot be stat'd. Refusing every unknown would make `reclaim`
+    unusable; proceeding in silence is the defect. So it **says what is not known** and claims
+    nothing either way - `drive.py`'s `DriveReach` settled the same question one noun over:
+    *"both folds lie"*, and the honest answer is available.
+
+    **And it must not block**: the plan still offers the candidate and the command still exits 0.
+    """
+    db = tmp_path / "c.sqlite"
+    _seed_two_drives_on_one_device(db, tmp_path / "stick", tmp_path / "src/a.jpg")
+    first = _seed_two_drives_on_one_device.first  # type: ignore[attr-defined]
+    with Catalog(db) as catalog:
+        for row in catalog.list_drives():
+            if str(row["label"]) != "Drive drive":
+                catalog.set_setting(drive_path_hint(str(row["uuid"])), str(tmp_path / "drawer"))
+
+    assert main(["reclaim", str(first), "--db", str(db)]) == 0, "unknown must not block"
+
+    both = capsys.readouterr()
+    text = both.out + both.err
+    assert "cannot tell whether" in text, "the user was not told what is NOT known"
+    assert "ONE DEVICE" not in text, "unknown was reported as a proven verdict"

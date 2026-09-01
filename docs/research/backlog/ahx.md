@@ -88,7 +88,7 @@
   ⚠ **And `(acg)`'s justifying premise is false** - corrected in that entry the same day. It reads
   *"the albums tables are empty today"*; `takeout.py:244` -> `cli.py:2484` builds
   `IngestContext.albums` **unconditionally** on every ingest -> `organizer.py:2121` ->
-  `catalog.py:3113`. `--map-albums` does not gate it. Every Takeout user with album folders has
+  `catalog.py:3384`. `--map-albums` does not gate it. Every Takeout user with album folders has
   album names written to their drive on every save and silently discarded on every restore, which
   is what makes the missing sentence matter rather than being tidy-up.
 

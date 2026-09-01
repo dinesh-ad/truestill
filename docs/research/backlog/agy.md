@@ -110,7 +110,7 @@ something reads the column or the call is removed. Whoever answers this row answ
 ## Null reported
 
 **`file_copies.date_baked_at` is NOT write-only**, though a first pass flagged it: it is read at
-`catalog.py:1837` and `catalog.py:1858`, both in `WHERE` clauses. The first pass searched only
+`catalog.py:1851` and `catalog.py:1858`, both in `WHERE` clauses. The first pass searched only
 `SELECT` lists. Recorded because it is the same mistake this census exists to avoid - **a `WHERE`
 is a read** - and because that column is `(agv)`'s subject, where a false "nobody reads it" would
 have been expensive.

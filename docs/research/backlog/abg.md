@@ -16,7 +16,7 @@
     entry. Reachability is a **precondition** for the state, not a detail of it.
   - ⚠ **`GONE`'s justification is narrower than this entry claims, and the narrower one is the
     real one.** `OFFLINE` is not "we have not looked recently": `drive_reach` is a **live** marker
-    read and `drive.py:128` says verbatim *"we know where it was; it is not there now"*. So `GONE`
+    read and `drive.py:149` says verbatim *"we know where it was; it is not there now"*. So `GONE`
     is **not** the first state meaning we looked. What it adds is **durability** - it persists an
     observation that is currently computed and thrown away (`service/verify.py:72-79` produces
     `CopyStatus.MISSING` per copy and records nothing; `mark_copy_verified` fires only on

@@ -38,7 +38,7 @@ import json
 import os
 import threading
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -46,6 +46,7 @@ from pathlib import Path
 from typing import Any, NamedTuple, Protocol
 from uuid import uuid4
 
+from truestill_core.destinations.base import device_of
 from truestill_core.drive_unwritable import explain_unwritable_drive
 
 #: Marker filename written at a drive's root. The only name this code ever writes.
@@ -147,6 +148,72 @@ class DriveReach(StrEnum):
     CONNECTED = "connected"  # the remembered path is there and carries this drive's marker
     OFFLINE = "offline"  # we know where it was; it is not there now
     UNKNOWN = "unknown"  # no remembered path, so there is nothing to check
+
+
+class CopyIndependence(StrEnum):
+    """Whether the drives holding one piece of content can fail separately. `(aiy)`
+
+    **Three states, and the reason is `DriveReach`'s above, one question over.** A boolean would
+    have to fold ``UNKNOWN`` into one of the other two and both folds lie: read as independent it
+    blesses two folders on one stick, read as not-independent it frightens a user whose second
+    drive is simply in a drawer.
+
+    🔑 **THE ASYMMETRY IS THE DESIGN, AND IT IS NOT SYMMETRICAL BY ACCIDENT.**
+    `destinations/local.py` records what ``st_dev`` cannot do, in its own words:
+
+        Device identity is never predicted -- ``st_dev`` can agree across btrfs subvolumes and
+        bind mounts where a rename still fails. The kernel is asked, and its answer is final.
+
+    * Two roots sharing a device **prove** they are not independent. That is soak ten's case.
+    * Two roots differing **prove nothing** - two partitions of one disk differ, two disks in one
+      enclosure differ, two mounts of one device differ.
+
+    **So this can falsify redundancy and can never confirm it**, which is why the third member is
+    :attr:`POSSIBLY_INDEPENDENT` and must never be renamed to anything that reads as confirmed.
+    """
+
+    #: Two or more holders answered with the same device. **Proven** to share a failure.
+    NOT_INDEPENDENT = "not_independent"
+    #: At least one holder could not be asked - offline, or no remembered path. Most drives, most
+    #: of the time: a drive in a drawer cannot be stat'd.
+    UNKNOWN = "unknown"
+    #: Every holder answered and all answers differed. **The strongest thing that can be said**,
+    #: and it is not "independent".
+    POSSIBLY_INDEPENDENT = "possibly_independent"
+
+
+def copy_independence(devices: Sequence[int | None]) -> CopyIndependence:
+    """The verdict for one piece of content, from its holders' device ids. Pure.
+
+    ``None`` is a holder that could not be asked. **Proof beats absence**: two known-equal devices
+    return :attr:`NOT_INDEPENDENT` even when a third holder is unknown, because the shared failure
+    is already established and a later answer cannot unshare it.
+
+    ⚠ **This says nothing about HOW MANY copies there are.** One holder returns
+    :attr:`POSSIBLY_INDEPENDENT` - trivially, nothing contradicts it - and *"is one copy enough"*
+    is a different question with its own answer (`reclaim.ReclaimPlan.single_copy`,
+    `catalog.single_copy_shas`). Folding the two would make one number answer two questions, which
+    is how the count came to be trusted for a fact it never held.
+    """
+    known = [d for d in devices if d is not None]
+    if len(known) != len(set(known)):
+        return CopyIndependence.NOT_INDEPENDENT
+    if len(known) != len(devices):
+        return CopyIndependence.UNKNOWN
+    return CopyIndependence.POSSIBLY_INDEPENDENT
+
+
+def device_for_drive(catalog: object, uuid: str) -> int | None:
+    """The filesystem device a registered drive is on right now, or ``None`` if it cannot be asked.
+
+    ``None`` for a drive that is not :attr:`DriveReach.CONNECTED`, and for one whose remembered
+    path refuses to be described. **Never a guess** - the caller turns ``None`` into
+    :attr:`CopyIndependence.UNKNOWN`, which is the honest answer and the common one.
+    """
+    hint = catalog.get_setting(drive_path_hint(uuid))  # type: ignore[attr-defined]
+    if hint is None or drive_reach(str(hint), uuid) is not DriveReach.CONNECTED:
+        return None
+    return device_of(Path(str(hint)))
 
 
 def drive_path_hint(uuid: str) -> str:
