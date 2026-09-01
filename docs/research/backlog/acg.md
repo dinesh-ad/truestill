@@ -13,10 +13,21 @@
     builds `IngestContext.albums` **unconditionally** on every ingest, and the rows land via
     `organizer.py:_record_then_stop_if_it_will_recur` -> `catalog.py:Catalog.record_uploaded`. **`--map-albums` does not gate any of it** - it
     selects the event-naming prompt only (`cli.py:_build_parser`). So every Takeout user with album folders
-    already has album names written to their drive on each save and **silently discarded on each
-    restore**. `agy.md:65-68` flagged this sentence as worth re-checking and declined to; it is now
+    already has album names written to their drive on each save and discarded on each restore.
+    `agy.md:65-68` flagged this sentence as worth re-checking and declined to; it is now
     checked. The entry stands, its premise does not, and the ranking should follow the corrected
     one. That a restore never *says* the section was dropped is `(ahx)`, filed separately.
+  - ⚠ **CORRECTION TO THE CORRECTION, 2026-09-01 (P184): "SILENTLY discarded" WAS WRONG BY A WHOLE
+    SURFACE, and the entry carried it for a week.** The CLI **does** say so.
+    `decisions.py` sets `not_applied=("albums",) if decisions.albums else ()`;
+    `decisions.py:withheld_count` walks `REPORT_FIELD_NOTE` so a new omission field joins the
+    count without anyone remembering it; and `cli.py:_print_restore_plan` looks up
+    `REPORT_FIELD_NOTE[field.name]` to name the section. **The app does not**:
+    `grep -rn not_applied packages/truestill-app/src` returns **0 files**.
+    🔑 **So the true claim is "reported in the terminal, silent on every screen"** - the same shape
+    as `(ajn)`, one letter away on the same list, and that half is `(ahx)`'s. **The loss itself is
+    unchanged and is what this entry is about**: `file_albums` keys on rowids, so membership cannot
+    be rebuilt on a machine that never saw the catalog, however loudly the drop is announced.
   - **Whoever implements albums inherits `(ack)`'s bug** unless membership travels as content
     hashes. The rule is already written in `decisions.py`'s module docstring: identity travels
     inside the row it identifies. A sha256 does; a rowid does not.

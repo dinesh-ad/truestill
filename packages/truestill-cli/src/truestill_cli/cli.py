@@ -275,7 +275,7 @@ from truestill_core.undo import (
     plan_undo,
     run_undo,
 )
-from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
+from truestill_core.verify import VERIFY_WORDING, CopyStatus, CopyToVerify, verify_copies
 
 from truestill_cli import __version__
 from truestill_cli.events_review import Prompt, album_prompt, run_event_stage
@@ -1797,6 +1797,9 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     print(_SEPARATOR)
     print(f"  verified : {counts.get('verified', 0)}")
     print(f"  MISSING  : {counts.get('missing', 0)}")
+    # `(aba)`: reported beside MISSING because it is what MISSING used to say wrongly, and a
+    # reader comparing the two lines is exactly who needs to see the distinction.
+    print(f"  MOVED    : {counts.get('moved', 0)}  ({VERIFY_WORDING[CopyStatus.MOVED]})")
     print(f"  MISMATCH : {counts.get('mismatch', 0)}")
     print(f"  UNREADABLE : {counts.get('unreadable', 0)}")
     # Counted, not merely listed: without this line a drive of unrecorded-hash copies reports

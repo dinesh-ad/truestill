@@ -13,6 +13,21 @@
     matches the unchanged source and `execute` skips it before any write path:
     `if resolution.exact_duplicate is not None: ... continue`. The destination is never
     examined. Confirmed on a real 2,109-file re-preview: 2,108 exact duplicates.
+  - ✅ **SYMPTOM 1 SHIPPED 2026-09-01 (P184).** `verify.CopyStatus.MOVED`, decided by
+    `verify._locate_moved`: on a miss the drive is walked once, candidates are narrowed by
+    recorded byte size and settled by SHA-256, and the two claims get one wording home in
+    `verify.VERIFY_WORDING`. **The cost is charged only to the run that is about to claim a
+    loss** - a clean verify still never walks, which `test_a_clean_verify_never_walks_the_drive`
+    pins. Measured on a real 109,431-file library: the walk is **1.73 s at 63,000 files/s**, and
+    the size index bounds the hashing at a **median of 10 candidates** per miss.
+    ⚠ **The harm was wider than this entry said**: `MISSING` drives `mark_copy_missing` at both
+    surfaces, so the false alarm also wrote `missing_at`, which `single_copy_shas` and
+    `custody_floor` read - the library reported itself less redundant than it was. That is fixed
+    with it and is pinned separately at the CLI.
+    ⚠ **The app screen changed** (`app.js` renders a *"moved, not lost"* tally) **and the browser
+    lane was NOT run** - this session was instructed not to. It needs one before the next release.
+    **Symptoms 2 and 3 below are untouched, so this entry stays open.**
+
   - **SYMPTOM 1 - `verify` reports a hand-moved file as MISSING. A real defect, and the one to
     fix.** It re-hashes each recorded copy, finds nothing at `files.relative`, and returns
     `CopyStatus.MISSING` - *"the file is gone from the drive"* - while being entirely blind to

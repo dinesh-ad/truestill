@@ -56,6 +56,9 @@ class VerifyJobSummary(TypedDict):
     label: str
     verified: int
     missing: int
+    #: `(aba)`: not at the recorded path, but the bytes are on this drive. Its own count because
+    #: it is what `missing` used to say wrongly, and the two need to be readable side by side.
+    moved: int
     mismatch: int
     unreadable: int
     #: Present and readable, but no recorded hash to check against. Its own count so a drive
@@ -123,6 +126,7 @@ def verify_run(path: Path, db: Path) -> JobTarget[VerifyJobSummary] | DriveUnava
             "label": marker.label,
             "verified": counts.get("verified", 0),
             "missing": counts.get("missing", 0),
+            "moved": counts.get("moved", 0),
             "mismatch": counts.get("mismatch", 0),
             "unreadable": counts.get("unreadable", 0),
             "unverifiable": counts.get("unverifiable", 0),
@@ -133,7 +137,9 @@ def verify_run(path: Path, db: Path) -> JobTarget[VerifyJobSummary] | DriveUnava
             # perfectly and finds seven missing files is a non-zero exit there while the app
             # said "done". ⚠ `unverifiable` is deliberately NOT here: it means no recorded hash
             # to check against, a gap in the catalog rather than damage on the drive, and the
-            # CLI does not exit 1 for it either.
+            # CLI does not exit 1 for it either. ⚠ `moved` is deliberately NOT here either: the
+            # bytes are on the drive and nothing was lost, so calling the run unclean would
+            # reinstate the false alarm `(aba)` exists to remove, one field over.
             "finished_clean": not (
                 counts.get("missing", 0) or counts.get("mismatch", 0) or counts.get("unreadable", 0)
             ),
