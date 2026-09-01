@@ -335,9 +335,6 @@ rather than treated as a triage failure.
 - **(acn) DOES A GPS FIX TIME COUNT AS CAPTURE EVIDENCE? A RULING, NOT A BUG.** [Full
   entry](research/backlog/acn.md)
 
-- **(acg) ALBUM MEMBERSHIP CANNOT LEAVE THIS MACHINE - the same class as `(ack)`, waiting.**
-  Recorded 2026-08-09. [Full entry](research/backlog/acg.md)
-
 - **(aca) The app and the CLI disagree about when an organize run needs confirming.** [Full
   entry](research/backlog/aca.md)
 

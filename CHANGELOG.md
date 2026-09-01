@@ -6,6 +6,26 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **`verify` no longer calls a file lost because you tidied it.** If a photograph is not where the
+  catalog recorded it, Truestill now looks for the same bytes elsewhere on the drive before saying
+  anything, and reports **moved, not lost** with the place it found it. A file that really is gone
+  still reads as gone and still exits non-zero - the two are different facts with different
+  remedies. The search runs only when something is missing, so a clean check costs what it always
+  did.
+- **A second copy on the same device is no longer counted as redundancy.** `reclaim` will not
+  delete your originals on the strength of a copy it cannot show is independent, `status` says so
+  in plain words, and the Backups, Stats and drive cards agree with it. Truestill can prove two
+  copies share a device and can never prove they do not, so the third answer - *we cannot tell* -
+  is reported rather than guessed.
+- **Album membership survives moving to another machine.** Albums used to travel as a list of
+  names with nothing in them; the drive's document now carries which photographs are in each album,
+  by content. A photograph the new library has not seen yet is kept in the document and counted,
+  not dropped - plug in the drive that holds it, scan, and restore again.
+- A backup that stops now tells you what landed instead of printing a traceback, and a run that
+  finishes with failures no longer reports itself as simply "done".
+
 ### Added
 
 - **Rename a trip or an event**, from the CLI: `truestill rename trip <id> "<new name>"`

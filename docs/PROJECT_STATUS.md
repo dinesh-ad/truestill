@@ -212,6 +212,28 @@ narrative, or volatile counts.
 
 ---
 
+### ⚠ 2026-09-01: THE CUSTODY CLAIM WAS WRONG WHEREVER IT WAS MADE, AND IS NOW RIGHT ON SIX SURFACES
+
+`(aiy)` is closed. **A second copy on the same physical device was counted as redundancy by six
+independent implementations of one denominator**, and one of them stood between a user and
+`reclaim --apply`, which argparse calls *"actually delete sources"*. Two folders on one USB stick
+are two `file_copies` rows.
+
+🔑 **The design is that `st_dev` can FALSIFY and can never CONFIRM** - same device proves not
+independent, different device proves nothing - so the answer is three states
+(`drive.CopyIndependence`), on `drive.DriveReach`'s recorded precedent that *"both folds lie"*.
+`reclaim`, `status`, the custody strip, Stats and the drive cards now read one predicate and render
+one sentence from `drive.LIBRARY_REDUNDANCY`.
+
+**`(aba)` symptom 1 shipped with it**: `verify` no longer reports a hand-moved file as MISSING. It
+looks for the bytes elsewhere on the drive first and answers **MOVED**, and the false alarm was
+worse than a wrong line - `MISSING` drives `mark_copy_missing`, so it also wrote `missing_at`, which
+`single_copy_shas` and `custody_floor` read. **The library reported itself less redundant than it
+was**, which is the number `(aiy)` had just fixed.
+
+⚠ **The browser lane has not run since `d7ba4d8`.** `app.js` changed again in `f92c232`. Run it
+before a release; `docs/handoff-2026-09-01.md` carries the rest of what is owed.
+
 ## 1b. The build order - engine, then contract, then UI
 
 ⚠ **Written down 2026-08-25 because it never had been.** The maintainer has worked to this since

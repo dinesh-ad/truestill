@@ -64,6 +64,36 @@ recording shipped work as unstarted, which is the more expensive direction of th
   `(aiy)`'s own §6 kept out because they are wrong independent of any device question.
   Body: [`research/backlog/aiy.md`](research/backlog/aiy.md).
 
+- **(acg) ALBUM MEMBERSHIP NOW TRAVELS BY CONTENT, NOT BY ROWID.** ✅ **CLOSED 2026-09-01
+  (P185).** Recorded 2026-08-09 from the schema while fixing `(ack)`; corrected twice on the way
+  out, and both corrections are the point.
+  🔑 **THE PREMISE WAS WRONG ABOUT THE MECHANISM.** The entry said membership travelled in a form
+  that could not resolve. It did not travel at all -
+  `albums=tuple({"name": name} for name in catalog.all_album_names())` carried the vocabulary and
+  nothing else. **Rowids are a local storage detail and were never the transport.**
+  **The fix**: `catalog.Catalog.album_members` returns `name -> [sha256]`, `decisions` writes it
+  beside the name, and `decisions._apply_albums` resolves each member with `knows_content`.
+  ⚠ **NO SCHEMA CHANGE, so no migration on a published product** - `albums.name` and
+  `files.sha256` are already `UNIQUE`. That is `(ack)`'s method rather than a second ruling:
+  *"Fixed at the gather, because apply cannot repair what the document discarded […] No schema
+  change was needed."* `(ack)` was **shipped, not waiting**, which this entry's index line said for
+  three weeks.
+  ⚠ **MERGED BY UNION, NOT FIRST-WINS** - the design decision the plan did not cover. Two drives
+  hold different partial views of one album, so `_merge_section`'s first-wins would drop the other
+  drive's members: this entry's own harm one layer up. Safe **because membership is append-only**,
+  checked rather than assumed - two `INSERT OR IGNORE` writers, zero `DELETE`. A future remove must
+  revisit `_merge_albums` in the same commit.
+  **Location never enters**: `file_albums` joins to `files`, not `file_copies`, so `(aba)`'s
+  *"not at the recorded path"* / *"not on this drive"* - both facts about a **copy** - do not reach
+  an album. Content the catalog knows is applied; content it does not is counted into
+  `awaiting_content` and **kept in the document**. `not_applied` no longer names albums.
+  **The field said this could not be done** - PhotoPrism #721, a 2018 Piwigo/Gallery2/Silvermine
+  survey finding *"no path to create a portable album"*, digiKam keying on volume UUID, Immich
+  users told to prefer tags. It was cheap here only because a document already goes to the drive.
+  Four mutants, both directions. **Two letters filed rather than folded in**: `(ajp)` (an orphaned
+  membership row plus rowid reuse) and `(ajq)` (portable export, refused with its research).
+  Body: [`research/backlog/acg.md`](research/backlog/acg.md).
+
 - **(aiq) A RUN THAT FAILS MOST OF ITS FILES REPORTS "done", AND NAMES NONE OF THEM.**
   ✅ **CLOSED 2026-09-01 (P175), TWO THIRDS BUILT AND THE THIRD RE-FILED.** Found still open by the
   P174 audit: the work shipped and no commit ever wrote `Closes (aiq)`.
