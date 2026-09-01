@@ -22,6 +22,48 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aiy) A SECOND COPY ON THE SAME DEVICE COUNTED AS REDUNDANCY, AND IT GATED A DELETE.**
+  ✅ **CLOSED 2026-09-01 (P178-P180), THREE COMMITS, SIX SURFACES.** Filed 2026-08-31 (P165) from
+  soak ten, **rewritten 2026-09-01 (P177) after a census** that re-ranked it: it was filed as a
+  `status` sentence, and the same count stood between a user and `truestill reclaim --apply` -
+  argparse's own *"actually delete sources"*.
+  🔑 **THE ROOT.** `file_copies` is keyed `(sha256, drive_uuid)`, so **two folders on one USB
+  stick are two rows**. Six independent implementations counted registrations and none could see a
+  device.
+  **The predicate**, `e6ef82c`: `drive.copy_independence` and `drive.CopyIndependence` - **three
+  states, not a boolean**, on `drive.py:136`'s own precedent for `DriveReach`. `st_dev` can
+  **falsify and never confirm** (`local.py:213` *"``st_dev`` can agree across btrfs subvolumes and
+  bind mounts"*), so the third state is `POSSIBLY_INDEPENDENT` and reads as nothing stronger.
+  ⚠ **That commit shipped the predicate WRONG** - it tested *any duplicate device* rather than
+  *fewer than two distinct*, so `[7, 7, 9]` returned `NOT_INDEPENDENT` while the surface said
+  *"every copy on ONE DEVICE"*. **It over-warned and never under-warned, so nothing was unsafe.**
+  Corrected in `8511aef` with the original rule quoted beside it, and every surface's tests now
+  carry a **three-holder, two-device** case - more members than states - because the two-drive case
+  that reproduces the defect cannot catch that class.
+  **`reclaim`** (`e6ef82c`) - `ReclaimPlan.not_independent` and `.independence_unknown`, warned
+  before the delete prompt. **`status`** (`8511aef`) - `drive.library_independence`, wording from
+  `drive.LIBRARY_REDUNDANCY`, **one home in core** on `STOP_WORDING`'s pattern.
+  **The four screen surfaces in one commit** - `custody_floor`'s strip, `stats_summary`,
+  `list_drives`' pips and `app.js:1380`, which asserted *"Your library now lives in more than one
+  place."* as an **unconditional literal with no query at all**. One commit rather than four
+  because they share a payload and a wording home, and four would have run the 26-minute browser
+  lane four times to answer one question.
+  ⚠ **Core knowing is not a guard.** `e6ef82c` left two mutants alive because core was correct
+  while a surface could silently stop printing; each of the six surfaces now has a test that drives
+  the real surface, and `app.js` is pinned from pytest on `test_the_rearrange_card_name.py`'s
+  precedent. Mutation-proved **in both directions** - all-independent and all-not-independent each
+  turn a different test red.
+  ⚠ **A HARNESS CONSTRAINT, recorded because it was tripped over**: a P176 probe resolved every
+  drive hint and `stat`'d one under a fenced cloud mount. **Any harness must filter the fenced
+  roots BEFORE resolving.** The fence is machine-local configuration the product does not know
+  about, so it binds harnesses, not code.
+  ⚠ **The before/after diff on the real catalog is a NULL** - it holds 395 files on exactly one
+  drive, so it never reaches the reassuring branch. The regression was met by constructed cases and
+  by **two real filesystems**, not a fake.
+  **The remainder is `(ajo)`, still open** - the three divergent `missing_at` filters, which
+  `(aiy)`'s own §6 kept out because they are wrong independent of any device question.
+  Body: [`research/backlog/aiy.md`](research/backlog/aiy.md).
+
 - **(aiq) A RUN THAT FAILS MOST OF ITS FILES REPORTS "done", AND NAMES NONE OF THEM.**
   ✅ **CLOSED 2026-09-01 (P175), TWO THIRDS BUILT AND THE THIRD RE-FILED.** Found still open by the
   P174 audit: the work shipped and no commit ever wrote `Closes (aiq)`.

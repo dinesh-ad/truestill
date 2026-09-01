@@ -876,7 +876,9 @@ function custodyMetrics(safety) {
   const lead = [
     none ? metric(nfmt(none), "not on any drive", "at-risk") : "",
     one ? metric(nfmt(one), "on one drive only", "at-risk") : "",
-    metric(nfmt(many), "on two or more drives", many ? "safe" : ""),
+    // `(aiy)`. "on two or more drives" counts REGISTRATIONS; two folders on one stick are two.
+    // It stops reading `safe` when the product can prove they share a device.
+    metric(nfmt(many), "on two or more drives", many && safety.independence !== "not_independent" ? "safe" : ""),
   ].filter(Boolean).join("");
 
   const secondary = [
@@ -1377,7 +1379,10 @@ function backupCompletion(r) {
     done: outcomeWord(r),
     headline: `${mediaCount(r)} copied to ${esc(r.to || "the drive")}`
       + (r.cancelled ? " before you stopped it" : ""),
-    sub: "Your library now lives in more than one place."
+    // `(aiy)`: this read "Your library now lives in more than one place." as an UNCONDITIONAL
+    // string literal - true or false, on every backup ever run, consulting no query at all. It
+    // now renders core's verdict, handed over in the payload.
+    sub: (r.independence_note ? `Your library: ${r.independence_note}.` : "")
       // `(ajf)`: rendered, never composed here. The words are core's `EJECT_BEFORE_UNPLUGGING`,
       // handed over in the payload, so the CLI and this card cannot drift.
       + (r.eject_note ? ` ${r.eject_note}` : ""),
@@ -1900,7 +1905,13 @@ async function loadCustody() {
     ? `<div class="catalog-path mono" id="custody-catalog" data-full="${esc(s.catalog_path)}" title="${esc(s.catalog_path)}">${esc(s.catalog_path)}</div>`
     : "";
   renderCatalogNotice(s);
-  const tone = atRisk ? "at-risk" : anyDrive && s.files ? "safe" : "neutral";
+  // `(aiy)`. **A library whose copies share one device is not "safe"**, however many copies the
+  // count reports - two folders on one USB stick are two rows and one failure. `NOT_INDEPENDENT`
+  // is the only verdict the product can PROVE, so it is the only one that changes the tone;
+  // `unknown` is stated in the sentence and never dressed as an alarm, which is `DriveReach`'s
+  // own ruling that the alarming fold is the worse one for a custody tool.
+  const notIndependent = s.independence === "not_independent";
+  const tone = atRisk || notIndependent ? "at-risk" : anyDrive && s.files ? "safe" : "neutral";
   // THE AGE OF THE CLAIM, said ALWAYS rather than only when it is bad - `(abg)`. A count of
   // copies is a true statement about the moment each row was written, read as a statement about
   // now. Showing the date only once it is stale would teach a reader that its absence means
@@ -1922,7 +1933,14 @@ async function loadCustody() {
     parts.push(`last checked ${esc(agedDay(s.custody_dated_at, s.custody_dated_days, s.custody_tier))}`);
   }
   const age = parts.length ? `, ${parts.join("; ")}` : "";
-  line.innerHTML = `<span class="${tone}">${esc(safe)}</span><span class="k">${age}</span>${catalogPath}`;
+  // `(aiy)`. The tone alone would leave a user with a red strip and no reason. The sentence is
+  // core's `LIBRARY_REDUNDANCY`, handed over in the payload and rendered as given - the shape
+  // `eject_note` established. Shown for the two states that say something a user can act on;
+  // `possibly_independent` adds nothing the count has not already said.
+  const independence = s.independence && s.independence !== "possibly_independent" && s.independence_note
+    ? `<span class="k"> ${esc(s.independence_note)}.</span>`
+    : "";
+  line.innerHTML = `<span class="${tone}">${esc(safe)}</span>${independence}<span class="k">${age}</span>${catalogPath}`;
   refreshCatalogPathFit();
 }
 window.addEventListener("resize", debounce(() => { refreshCatalogPathFit(); alignPanelWithContent(); }, 50));
@@ -3055,7 +3073,11 @@ async function loadDrives() {
   const sharedLabel = new Map();
   drives.forEach((d) => sharedLabel.set(d.label, (sharedLabel.get(d.label) || 0) + 1));
   const cards = drives.map((d) => {
-    const pips = Math.min(drives.length, 3);  // ambient: how many places this library lives in
+    // `(aiy)`. **This counted REGISTRATIONS and called them places.** Two folders on one USB
+    // stick filled two pips in success green on both cards. A proven shared device is ONE
+    // failure domain, so it fills one pip; `unknown` is left alone because the alarming fold is
+    // the worse one for a custody tool - `DriveReach`'s own ruling.
+    const pips = lib.independence === "not_independent" ? 1 : Math.min(drives.length, 3);
     const strip = [0, 1, 2].map((i) => (i < pips ? "▪" : "▫")).join(" ");
     const collides = (sharedLabel.get(d.label) || 0) > 1;
     return `<div class="card"><div class="tally" style="grid-template-columns:1fr auto">

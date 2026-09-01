@@ -68,7 +68,7 @@ population:
   seven soak/scratch, the fenced mounts pruned not walked - and only the manufactured specimen
   carries the signature. No release, no tag: no other machine has run the minting code.
 - ⚠ **This ruling is conditional on `(agr)` part 1 holding** (`_refuse_ghost_before_minting`,
-  `drives.py:246`). If that guard is ever removed or bypassed, the population argument and the
+  `drives.py:248`). If that guard is ever removed or bypassed, the population argument and the
   cry-wolf argument both die, and this ruling dies with them.
 - **Detection's would-be home, named and deliberately not built**: the converse of `(adx)`'s
   `second_location_note` - one identity at two paths, mirrored to two identities at one path -

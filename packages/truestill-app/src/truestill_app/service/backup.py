@@ -36,7 +36,7 @@ from truestill_core.backup import (
     copy_to_drive,
 )
 from truestill_core.catalog_session import open_catalog
-from truestill_core.drive import read_marker
+from truestill_core.drive import LIBRARY_REDUNDANCY, library_independence, read_marker
 from truestill_core.progress import ProgressCallback
 
 from truestill_app.jobs import JobTarget
@@ -182,15 +182,23 @@ class BackupRunSummary(TypedDict):
     #: invariant baked into a type is one nothing can report a violation of.
     verified: bool
     target_path: str
+    #: `(aiy)`. The library's redundancy verdict AFTER this backup, so the completion card stops
+    #: asserting *"Your library now lives in more than one place."* with no query behind it - it
+    #: was an unconditional string literal, true or false, on every backup ever run.
+    independence_note: str
     #: `(ajf)`. The words come from core so both surfaces say the same thing; `app.js` renders
     #: what it is handed and maps nothing of its own, which is `(ahc)`'s shape.
     eject_note: str
     elapsed_seconds: NotRequired[float]
 
 
-def _nothing_copied(label: str, target: Path) -> BackupRunSummary:
+def _nothing_copied(label: str, target: Path, note: str) -> BackupRunSummary:
     """The summary for a run that stopped before copying anything. Still ``verified``: nothing
-    was written, so nothing went unchecked."""
+    was written, so nothing went unchecked.
+
+    ``note`` is passed in rather than computed here because this function has no catalog - and
+    giving it one to read a sentence would be a wider seam than the sentence is worth. `(aiy)`
+    """
     return {
         "copied": 0,
         "failed": 0,
@@ -201,9 +209,21 @@ def _nothing_copied(label: str, target: Path) -> BackupRunSummary:
         "bytes_copied": 0,
         "verified": True,
         "finished_clean": True,
+        "independence_note": note,
         "target_path": str(target),
         "eject_note": EJECT_BEFORE_UNPLUGGING,
     }
+
+
+def _redundancy_note(db: Path) -> str:
+    """The library's redundancy sentence, read once at the end of a backup. `(aiy)`
+
+    Its own catalog open because `target_job` works from a path, not a handle. **The alternative
+    was to keep asserting** *"Your library now lives in more than one place."* - an unconditional
+    string literal that consulted nothing, true or false, on every backup ever run.
+    """
+    with open_catalog(db) as catalog:
+        return LIBRARY_REDUNDANCY[library_independence(catalog)[0]]
 
 
 def backup_run(source: Path, target: Path, db: Path) -> JobTarget[BackupRunSummary]:
@@ -228,7 +248,7 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget[BackupRunSumma
             # there. Returning here rather than falling through means a cancelled run cannot be
             # answered with "not enough space" - a true statement about a run nobody asked to
             # continue, and a confusing one to be handed after pressing stop.
-            return _nothing_copied(tgt_marker.label, target)
+            return _nothing_copied(tgt_marker.label, target, _redundancy_note(db))
         outcome = copy_to_drive(
             BackupPair(
                 source=source,
@@ -252,6 +272,8 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget[BackupRunSumma
             "bytes_copied": copied_bytes,
             "failed": len(failures),
             "finished_clean": not failures,
+            # `(aiy)`. Computed AFTER the copy, so the card reports the library as it now is.
+            "independence_note": _redundancy_note(db),
             # ⚠ **DERIVED, never asserted** (`(afw)` Stage 4). This was the literal `True`, and
             # the comment justifying it said *"a copy that failed that check aborts the run"* -
             # which stopped being true the moment one bad file stopped aborting. A custody

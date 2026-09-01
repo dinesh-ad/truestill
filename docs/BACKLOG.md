@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajn). Next free: (ajo).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajo). Next free: (ajp).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -214,7 +214,7 @@ is invisible here is retired, not free.**
 ## Build next
 
 **The list to read.** Every entry here has a symptom an ordinary person meets in ordinary use -
-no unusual drive, no second process, no interrupted run. Sixteen on 2026-09-01.
+no unusual drive, no second process, no interrupted run. Sixteen on 2026-09-01 - `(aiy)` shipped that day and `(ajo)`, the remainder it named, took its place.
 
 ⚠ **THIS IS A TRIAGE, NOT A PROOF, AND THE HEADING MUST NOT BE READ AS ONE.** Each entry below was
 confirmed against today's code by **one decisive check**, named in its body - not by a full read.
@@ -234,33 +234,26 @@ rather than treated as a triage failure.
   worse wording; an absent one, which is `(aek)`'s and `(aep)`'s shape.
   Body: [`research/backlog/ajn.md`](research/backlog/ajn.md).
 
-- **(aiy) A SECOND COPY ON THE SAME DEVICE COUNTS AS REDUNDANCY, AND IT GATES A DELETE.**
-  Filed 2026-08-31 (P165, soak ten), **rewritten 2026-09-01 (P177) after a census** - it was filed
-  as a `status` sentence and **a reader who met that first would rank it as reporting**.
-  🔑 **THE HARM IS A DELETE.** `truestill reclaim --apply` *"actually delete sources"*, guarded by
-  one warning (`cli.py:4992`); `ReclaimPlan.single_copy` is `reclaim.py:64`
-  `[c for c in self.candidates if c.copies <= 1]`, and `copies` is `catalog.py:1661`
-  `(SELECT COUNT(*) FROM file_copies WHERE sha256 = f.sha256)`. `file_copies` is keyed
-  `(sha256, drive_uuid)`, so **two folders on one stick give `copy_count = 2`, the warning does not
-  fire, and the originals are deleted** on the strength of a copy that fails with the first.
-  The `status` sentence is the symptom - and ⚠ **it is identical in all four cases** (both online
-  and separate, same device, one offline, both offline), because `missing_at` is set only by
-  `verify` on a drive *"that was there"* and **unplugging sets nothing**.
-  **The census: 17 wrong surfaces, six independent implementations of the same denominator**
-  (`single_copy_shas`, `single_copy_count`, `custody_floor`, `stats_summary`,
-  `reclaim_candidates.copy_count`, `list_drives`, plus `drives.length` in the browser);
-  `app.js:1380` asserts *"Your library now lives in more than one place."* as an **unconditional
-  literal with no query**; and `cli.py:2003`'s *"the same rule the app's custody strip uses"* is
-  **false about the leg it names** - `catalog.py:2678` says so itself.
-  🔑 **`st_dev` CAN FALSIFY AND NEVER CONFIRM** - `local.py:213` *"``st_dev`` can agree across btrfs
-  subvolumes and bind mounts"* - so same device proves **not** independent and different device
-  proves nothing. Hence **three states, not a boolean**, which `drive.py:136` already ruled for
-  `DriveReach`: *"both folds lie… the honest answer - we do not know - is available, so it is
-  reported."* ⚠ **`_cmd_status` never calls `drive_reach`.**
-  ⚠ **NOT this entry**: a device identity that survives unplugging needs a filesystem UUID or
-  volume serial, is **`(ajh)`-class platform work**, and `st_dev` cannot do it - it is a mount-time
-  number. Comparing two connected roots is one stat, portable, already written.
-  Body: [`research/backlog/aiy.md`](research/backlog/aiy.md).
+- **(ajo) THREE CORE HELPERS ANSWER "IS THIS FILE IN TWO PLACES?" THREE WAYS, AND THE
+  STATS SCREEN IS THE ODD ONE.**
+  Filed 2026-09-01 (P180), split out of `(aiy)` as **that entry's own §6 required** - *"wrong
+  today independent of any device question - its own entry, not folded in here."*
+  🔑 **Run, not argued.** One catalog, one file, two drives, `verify` having found the second copy
+  absent: `single_copy_shas` → 1 at-risk row, `custody_floor` → `one_copy: 1`, and
+  `stats_summary` → `files_on_two_plus_drives = 1`. **`status` and the custody strip say one
+  place; the Stats screen says two or more.** Same catalog, same instant.
+  The cause is one missing clause - `stats_summary`'s rollup (`catalog.py:2160`) reads
+  `FROM file_copies` with no `missing_at` test, while the other three exclude absent copies **and
+  each says why**: *"A copy looked for and not found is not a place"* (`catalog.py:2610`).
+  ⚠ **NOT "add the clause everywhere".** `list_drives` deliberately does the opposite and must stay
+  - a drive list reports **history**, and the codebase already draws that line in
+  `single_copy_shas`'s own docstring. **A promise about now filters; a record of the past does
+  not**, and `stats_summary` is a promise about now on the wrong side of it.
+  ⚠ **Ranked honestly BELOW `(aiy)`: nothing here gates a delete** - `reclaim` reads
+  `reclaim_candidates.copy_count`. The cost is a screen contradicting two others about custody, in
+  the reassuring direction, at the moment `verify` has just proved a copy gone.
+  `holder_sets` and `drive.library_independence` are already on the filtering side and are not
+  touched. Body: [`research/backlog/ajo.md`](research/backlog/ajo.md).
 
 - **(aiv) THE FAILURE CAP COUNTS 2,519 REASONS FOR ONE FACT, WHICH IS THE DEFECT `(afd)` CLOSED.**
   Filed 2026-08-30 (P148, soak nine), measured at scale. An `EPERM` at `copystat` for every one of

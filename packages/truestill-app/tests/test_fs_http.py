@@ -54,6 +54,9 @@ def test_library_status_is_honest_when_empty(client: TestClient) -> None:
         "files_no_copy",
         "files_one_copy",
         "redundancy_floor",
+        # `(aiy)`: the library redundancy verdict and its sentence, from core.
+        "independence",
+        "independence_note",
         # Files that HAVE a copy, and the weakest of those. The rail reports on these; a file
         # with no copy at all is a Stats finding and must not drag the rail's floor to zero.
         "files_on_a_drive",

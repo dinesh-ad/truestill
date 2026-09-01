@@ -20,12 +20,14 @@ from truestill_core.catalog_startup import (
 )
 from truestill_core.decisions import Decisions, gather_decisions, notice_for
 from truestill_core.drive import (
+    LIBRARY_REDUNDANCY,
     DriveGhostError,
     DriveReach,
     create_marker,
     custody_freshness,
     ghost_drive_at,
     ghost_drive_refusal,
+    library_independence,
     path_is_usable_dir,
     reach_of,
     read_marker,
@@ -713,6 +715,20 @@ class LibraryStatus(TypedDict):
     #: `CustodyFreshness` was put in core to avoid. Never an alarm - see `CustodyTier`.
     custody_tier: str
     single_copy: int
+    #: Whether the drives holding copies can fail separately. `(aiy)`. One of
+    #: `CopyIndependence`'s three values; **never a boolean** - `drive.py`'s own ruling is that
+    #: both folds lie, and a screen has the same duty as a terminal.
+    independence: str
+    #: The sentence for that verdict, from core's `drive.LIBRARY_REDUNDANCY`. ⚠ **Handed over,
+    #: never composed here** - the shape `(ajf)`'s `eject_note` established, so four screens and
+    #: two commands cannot word one fact six ways.
+    #:
+    #: ⚠ **THE FILE COUNT IS DELIBERATELY NOT SHIPPED.** `library_independence` returns one and
+    #: `truestill status` prints it, but no screen reads it - the strip already carries its own
+    #: counts from `custody_floor`, and a second one here would be two numbers about one fact.
+    #: `test_no_thirty_fifth_dead_payload_key` caught it as a computed key nobody reads, which is
+    #: `(ahl)`'s defect, so it was removed rather than justified.
+    independence_note: str
     #: Files with no recorded copy at all - invisible to `single_copy`, which reads
     #: `file_copies`, and the most exposed thing in the library.
     files_no_copy: int
@@ -799,6 +815,9 @@ def library_status(
         # DRIVES and is kept only for callers that want it; it must never be the number a
         # sentence about files is written against.
         custody = catalog.custody_floor()
+        # `(aiy)`. One `stat` per HOLDING drive - `holder_sets` groups by the drive combination,
+        # never by file. The catalog stores no device, so this cannot be answered from it.
+        independence, _ = library_independence(catalog)
         # DISTINCT CONTENT, not the sum over drives. Summing `total_size` per drive made a
         # backed-up library report twice its size - the panel said 5.2 GB where Stats said 4.9
         # about the same 1,997 photos, and the gap was exactly the backup drive.
@@ -825,6 +844,8 @@ def library_status(
         "custody_dated_days": freshness.dated_days,
         "custody_tier": freshness.tier.value,
         "single_copy": single_copy,
+        "independence": str(independence),
+        "independence_note": LIBRARY_REDUNDANCY[independence],
         "files_no_copy": int(custody["no_copy"]),
         "files_one_copy": int(custody["one_copy"]),
         "redundancy_floor": int(custody["floor"]),

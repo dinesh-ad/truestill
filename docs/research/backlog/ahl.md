@@ -97,7 +97,7 @@
   | key | declared | why nothing reads it |
   |---|---|---|
   | `run_id` | `migrate.py:340`, `:356`; `organize_undo.py:43`, `:49`, `:58` | the client posts back the handle it was given; the server resolves the run |
-  | `uuid` | `drives.py:498`; `trips.py:344` | screens key on the label; `app.js:3046` says the server resolves the uuid |
+  | `uuid` | `drives.py:501`; `trips.py:344` | screens key on the label; `app.js:3046` says the server resolves the uuid |
   | `event_id` | `trips.py:459` | selection is echoed by position, not id |
   | `trip_id` | `trips.py:466` | as `event_id` |
 

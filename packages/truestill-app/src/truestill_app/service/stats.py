@@ -8,7 +8,7 @@ from typing import TypedDict
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog
 from truestill_core.date_explain import explain, explain_evidence
-from truestill_core.drive import was_ever_checked
+from truestill_core.drive import library_independence, was_ever_checked
 from truestill_core.organizer import (
     AUDIO_EXTENSIONS,
     IMAGE_EXTENSIONS,
@@ -70,6 +70,11 @@ class LibraryStatsSafety(TypedDict):
     videos: int
     audio: int
     files_on_two_plus_drives: int
+    #: `(aiy)`. The counts above are REGISTRATIONS - two folders on one stick are two - so the
+    #: screen needs the verdict to know whether "two or more drives" may read as safe. One of
+    #: `CopyIndependence`'s three values; the sentence lives in core's `LIBRARY_REDUNDANCY` and
+    #: is rendered by the strip, not repeated here.
+    independence: str
     files_on_one_drive: int
     files_on_zero_drives: int
     zero_drive_samples: list[str]
@@ -174,6 +179,10 @@ def library_stats(db: Path) -> LibraryStats:
         format_counts = catalog.stats_counts_by_format(MEDIA_EXTENSIONS)
         zero_drive_samples = catalog.stats_zero_drive_samples(limit=12)
         dates = _date_provenance(catalog)
+        # `(aiy)`. **Inside the block**: it reads `holder_sets` and each drive's hint, so it needs
+        # the open handle. The first cut called it from the return dict, outside - which raised
+        # `Cannot operate on a closed database` in eleven tests rather than shipping quietly.
+        independence, _ = library_independence(catalog)
 
     image_exts = {ext.lstrip(".").lower() for ext in IMAGE_EXTENSIONS}
     video_exts = {ext.lstrip(".").lower() for ext in VIDEO_EXTENSIONS}
@@ -190,6 +199,7 @@ def library_stats(db: Path) -> LibraryStats:
             "videos": videos,
             "audio": audio,
             "files_on_two_plus_drives": int(summary["files_on_two_plus_drives"] or 0),
+            "independence": str(independence),
             "files_on_one_drive": int(summary["files_on_one_drive"] or 0),
             "files_on_zero_drives": int(summary["files_on_zero_drives"] or 0),
             "zero_drive_samples": zero_drive_samples,

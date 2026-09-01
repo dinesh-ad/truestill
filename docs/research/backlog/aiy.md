@@ -8,26 +8,30 @@
 > The original reading is kept in §8 rather than deleted, because the correction is only legible
 > next to it.
 
-*Body of backlog entry `(aiy)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md);
-the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(aiy)`, **SHIPPED 2026-09-01**. The closure is in [`SHIPPED.md`](../../SHIPPED.md);
+the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
 
 Filed 2026-08-31 (P165, soak ten), **measured on real removable media**. Rewritten 2026-09-01
 (P177) from the P176 census.
 
-## 0. PROGRESS - TWO SURFACES DONE, FOUR TO GO
+## 0. PROGRESS - ALL SIX DONE, CLOSED 2026-09-01
 
 | surface | state |
 |---|---|
 | `reclaim`'s delete gate | ✅ **`e6ef82c`** - `ReclaimPlan.not_independent`, warned before the `delete originals` prompt |
 | `status` | ✅ **P179** - `drive.library_independence`, wording from `drive.LIBRARY_REDUNDANCY` |
-| `custody_floor` (the app's strip) | ⬜ reaches a screen |
-| `stats_summary` (the Stats screen) | ⬜ reaches a screen |
-| `list_drives` (drive cards, `drives.length`) | ⬜ reaches a screen |
-| `app.js`'s unconditional literal | ⬜ reaches a screen |
+| `custody_floor` (the app's strip) | ✅ **P180** - `independence` on `/api/library/status`, tone and sentence |
+| `stats_summary` (the Stats screen) | ✅ **P180** - `independence` on `/api/library/stats`, the `safe` class |
+| `list_drives` (drive cards, `drives.length`) | ✅ **P180** - pips report failure domains, not registrations |
+| `app.js`'s unconditional literal | ✅ **P180** - `independence_note` on `BackupRunSummary` |
 
-⚠ **THE FOUR THAT REMAIN ALL REACH A SCREEN**, so they need the browser lane and should be **one
-commit rather than four** - the same payload and the same wording home, and four separate screen
-commits would run the 26-minute lane four times to answer one question.
+**The four screen surfaces were one commit rather than four** - the same payload and the same
+wording home, and four separate screen commits would have run the 26-minute browser lane four
+times to answer one question.
+
+⚠ **WHAT DID NOT CLOSE WITH IT: the three divergent `missing_at` filters, now `(ajo)`.** §6 below
+kept them out as *"wrong today independent of any device question"*, and that held - the fix here
+reads `holder_sets`, which filters, so this entry never had to answer their question.
 
 ⚠ **AND THE PREDICATE ITSELF WAS CORRECTED IN P179.** `e6ef82c` shipped
 `copy_independence` testing *any duplicate device* rather than *fewer than two distinct devices*,
@@ -177,7 +181,9 @@ what one who reads *"redundant"* concludes.
 - **The three divergent `missing_at` filters.** `single_copy_shas` and `custody_floor` exclude
   copies known absent; `stats_summary` (`catalog.py:2178`) does **not**, so three core helpers
   answer one question three ways. **Wrong today independent of any device question** - its own
-  entry, not folded in here.
+  entry, not folded in here. ✅ **Filed 2026-09-01 as `(ajo)`, with the divergence run rather than
+  argued**: on one catalog at one instant, `status` and the strip say one place while the Stats
+  screen says two or more.
 
 ## 7. ⚠ A HARNESS CONSTRAINT, RECORDED WHERE A MEASUREMENT WILL MEET IT
 

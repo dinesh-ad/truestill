@@ -170,6 +170,8 @@ def test_library_stats_reports_custody_and_shape(client: TestClient, tmp_path: P
         "videos",
         "audio",
         "files_on_two_plus_drives",
+        # `(aiy)`: the redundancy verdict, so a screen stops calling two folders of one stick safe.
+        "independence",
         "files_on_one_drive",
         "files_on_zero_drives",
         "zero_drive_samples",
