@@ -1,51 +1,48 @@
-"""A document describing work still to be done must point at code that exists. `(ago)`
+"""A living document's citations must resolve. `(ago)`
 
-`BACKLOG.md` records this exposure in its own text, under *Consciously out of scope*: **"Nothing
-would tell us. Checked: no test or guard asserts a line number."** It was written about a
-JavaScript formatter rewriting `app.js`, and the exposure is wider than that - **632 `path:line`
-citations** across the corpus, drifting under every ordinary refactor.
+The exposure was recorded in `BACKLOG.md`'s own text long before anything acted on it: **"Nothing
+would tell us. Checked: no test or guard asserts a line number."** The pattern has a name - *docs
+as tests* - and the study behind it found **230 stale code-element references across 82
+repositories**, 23% of those analysed.
 
-The industry name for the remedy is **docs as tests**: use tooling to detect stale documentation
-and fail the build on it, rather than relying on review. The published study behind it found *230
-stale code-element references across 82 repositories*, 23% of those analysed, and the technique it
-recommends is exactly this - a cheap grep that flags references which have vanished from source.
+⚠ **THE FORMAT IS A SYMBOL, NOT A LINE, SINCE 2026-09-01, and that is the whole of `(ago)`'s
+second half.** The line format failed in a way this guard could not see: **a fifteen-line comment**
+added to `app.js` displaced **46 citations across 16 documents, 18 of them live**, and every one
+landed on real code. Two citations in `(abz)` had been wrong for weeks and surfaced only because
+the shift happened to push one onto a blank line, so of ~48 wrong pointers the old guard reported
+**one, by accident**. `scripts/cite_symbols.py` carries the measurements and the refusal of a
+content hash.
 
-⚠ **THE SCOPE IS "LIVING", NOT "ALL", AND THAT IS THE WHOLE DESIGN.** This repo's doctrine is that
-**a record is never rewritten** - *"a record rewritten to stay correct stops being one"* - so
-research notes, audits, soak records and `SHIPPED.md` closures describe what was true when they
-were written and their citations are allowed to age. Measured 2026-08-23: **31 of 32** unresolved
-citations in the corpus sit in exactly those documents. A guard over all of them would go red on
-the past on the day it was written, get switched off, and take its real signal with it
-(`ENGINEERING_STANDARD.md` §4).
+⚠ **THE SCOPE IS "LIVING", NOT "ALL", AND THAT IS UNCHANGED.** A record is never rewritten - *a
+record rewritten to stay correct stops being one* - so research notes, audits, soak records and
+`SHIPPED.md` closures keep the citations they were written with, **line numbers included**. Two
+formats coexist in the corpus **because the documents differ in kind**, not because a migration
+was left half-done: a living document is read in order to *do* something and must resolve today;
+a record says what was true when it was written.
 
-**What is left is the set where a stale pointer actively misleads**: the binding canon, the current
-guides, and the body of every backlog entry that is **still open** - the documents somebody reads
-in order to *do something*.
+⚠ **WHAT IT STILL CANNOT SEE, stated rather than implied** (§4's twenty-second member):
 
-⚠ **WHAT IT CANNOT SEE, stated rather than implied** (§4's twenty-second member). It checks that a
-cited file exists, that the line is in range, and that the line is **not blank**. It cannot tell
-that a line moved *within* a file to another piece of real code. Measured on the audit that
-produced it: of five drifted citations found by hand, this would have caught **two**. The blank
-line is the cheap half of the signal and nobody cites one on purpose; catching the rest honestly
-would mean citing symbols rather than line numbers, which is a different and larger change.
+* **A symbol whose body was rewritten completely** is still a valid citation. That is docpin's
+  content-hash case, and it was **refused on a measurement**: 83 of 220 cited symbols had their
+  body change in twelve days, so a hash would have demanded 83 re-records in that window.
+* **A symbol that no longer says what the prose claims.**
+* **Precision inside a long symbol.** 207 citations point inside a body rather than at a
+  declaration; the reader now scans the enclosing symbol. Median **32 lines**, 74% under 50, but
+  **12% over 80**. That is the trade this format makes - a precise pointer that decays fast, for a
+  coarser one that holds - and it is named here so whoever writes the next citation knows it.
 """
 
 from __future__ import annotations
 
 import re
-import subprocess
+import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+
+import cite_symbols as cite
+
 ROOT = Path(__file__).resolve().parents[3]
-
-#: A citation names a source file and a line. Documentation-only references (`.md:12`) are
-#: excluded deliberately: prose moves for prose reasons, and `test_doc_pointers_resolve.py`
-#: already owns whether a document exists at all.
-CITE = re.compile(r"([A-Za-z0-9_./-]+\.(?:py|js|css|html|yaml|yml|toml|sh)):(\d+)(?:-(\d+))?")
-
-#: Third-party files legitimately cited by name and correctly absent from this tree. Pillow's
-#: internals are quoted by `(aev)` and the soak records because the defect was **in** them.
-FOREIGN = ("TiffImagePlugin.py", "Image.py", "PIL/")
 
 #: Binding canon and current guides. `SHIPPED.md` is deliberately NOT here: a closure describes a
 #: run that happened, which makes it provenance rather than instruction.
@@ -62,10 +59,15 @@ LIVING = (
     "docs/cli-app-parity.md",
 )
 
+#: Basenames carried by BOTH `truestill-core` and an app service. Under the line format a citation
+#: into one of these was **skipped in silence** - *"a bare basename several files share; not this
+#: guard's question"* - which left **46 citations, 13% of the corpus**, unchecked. The symbol is
+#: the discriminator: measured over all six pairs, **0 of 237 symbol names appear on both sides**.
+SHARED_BASENAMES = ("migrate.py", "trips.py", "backup.py", "takeout.py", "bake.py", "verify.py")
+
 
 def _tracked() -> set[str]:
-    out = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True)
-    return set(out.stdout.split())
+    return cite.tracked_files()
 
 
 def _open_letters() -> set[str]:
@@ -84,32 +86,47 @@ def _living_documents() -> list[str]:
 
 
 def _problems(document: Path, tracked: set[str]) -> list[str]:
-    by_name: dict[str, list[str]] = {}
-    for path in tracked:
-        by_name.setdefault(Path(path).name, []).append(path)
+    """Everything wrong with `document`'s citations. **It never skips in silence.**
 
-    found = []
-    for match in CITE.finditer(document.read_text(encoding="utf-8")):
-        raw, low, high = match.group(1), int(match.group(2)), match.group(3)
-        if any(marker in raw for marker in FOREIGN):
+    The line guard returned early on an ambiguous basename, and that early return was 13% of the
+    corpus going unchecked without saying so. Anything this cannot resolve is now reported.
+    """
+    text = document.read_text(encoding="utf-8")
+    found: list[str] = []
+
+    for match in cite.SYMBOL_CITE.finditer(text):
+        raw, symbol = match.group(1), match.group(2)
+        if any(marker in raw for marker in cite.FOREIGN):
             continue
-        exact = raw.lstrip("./")
-        candidates = by_name.get(Path(raw).name, [])
-        if exact in tracked:
-            target = exact
-        elif len(candidates) == 1:
-            target = candidates[0]
-        elif not candidates:
+        _, why = cite.resolve(raw, symbol, tracked)
+        if why is not None:
+            found.append(f"{match.group(0)} - {why}")
+
+    for match in cite.LINE_CITE.finditer(text):
+        raw, low = match.group(1), int(match.group(2))
+        if any(marker in raw for marker in cite.FOREIGN):
+            continue
+        options = cite.candidates(raw, tracked)
+        if not options:
             found.append(f"{match.group(0)} - no tracked file of that name")
             continue
-        else:
-            continue  # a bare basename several files share; not this guard's question
+        if len(options) > 1:
+            found.append(f"{match.group(0)} - {len(options)} files of that name; name the symbol")
+            continue
+        target = options[0]
         lines = (ROOT / target).read_text(encoding="utf-8", errors="replace").splitlines()
-        top = int(high) if high else low
+        top = int(match.group(3)) if match.group(3) else low
         if top > len(lines):
             found.append(f"{match.group(0)} - {target} has {len(lines)} lines")
         elif not lines[low - 1].strip():
             found.append(f"{match.group(0)} - {target} line {low} is blank")
+        elif (span := cite.enclosing(cite.symbols_for(target), low)) is not None:
+            # ⚠ THE ANTI-REGRESSION RULE, and it is why the format cannot quietly come back.
+            # A line is a legitimate pointer only where no symbol encloses it - a `.toml` key, a
+            # `.yml` step, an import block, a module docstring. Where a symbol DOES enclose it,
+            # the citation has a stable name available and must use it.
+            found.append(f"{match.group(0)} - inside {span.name}; cite the symbol, not the line")
+
     return found
 
 
@@ -125,58 +142,111 @@ def test_every_living_document_cites_code_that_exists() -> None:
     assert not stale, (
         "these documents describe work still to be done and cite code that is not there:\n"
         + "\n".join(f"  {d}\n      " + "\n      ".join(p) for d, p in sorted(stale.items()))
-        + "\n\nFix the citation - the code moved and the document did not. If the document is a "
-        "RECORD of something that was true once, it does not belong in this guard's scope; see "
-        "the module docstring for why records are excluded rather than updated."
+        + "\n\nFix the citation - the code moved and the document did not. Cite a SYMBOL "
+        "(`drive.py:library_independence`), not a line; `uv run python scripts/cite_symbols.py "
+        "<doc>` converts one. If the document is a RECORD of something that was true once, it "
+        "does not belong in this guard's scope; see the module docstring for why records are "
+        "excluded rather than updated."
     )
 
 
 def test_the_guard_is_actually_reading_citations() -> None:
-    """Anti-vacuity, and it is not optional here.
+    """Anti-vacuity, RE-BASED for the symbol format rather than ported.
 
-    A scope built from a glob and a regex can silently match nothing - a renamed directory, a
-    tightened pattern - and a guard over an empty set passes forever. `(agn)` is the local
-    precedent: a stub whose breakage was indistinguishable from the condition under test.
+    A scope built from a glob and a regex can silently match nothing, and a guard over an empty
+    set passes forever. `(agn)` is the local precedent: a stub whose breakage was
+    indistinguishable from the condition under test.
+
+    **How the thresholds were measured**, 2026-09-01, so a later reader can re-derive rather than
+    trust them: `_living_documents()` yields **128** documents, **50** of which carry citations;
+    after the conversion those hold **315 symbol citations** and **16 line citations** - the
+    latter all into `.toml`, `.yml`, `.html`, an import block or a module docstring, where no
+    symbol exists. The old thresholds were `> 20` documents and `> 50` citations against a corpus
+    of 348 line citations; `> 200` keeps the same generous margin under 315 and still catches a
+    regex that stops matching or a scope that collapses.
     """
     documents = _living_documents()
     assert len(documents) > 20, f"the living-document scope collapsed to {len(documents)}"
 
-    tracked = _tracked()
-    seen = sum(len(CITE.findall((ROOT / d).read_text(encoding="utf-8"))) for d in documents)
-    assert seen > 50, f"only {seen} citations found across {len(documents)} documents"
-    assert _problems(ROOT / "docs/BACKLOG.md", tracked) == [], "fixture check: the backlog is clean"
+    seen = sum(
+        len(cite.SYMBOL_CITE.findall((ROOT / d).read_text(encoding="utf-8"))) for d in documents
+    )
+    assert seen > 200, f"only {seen} symbol citations found across {len(documents)} documents"
+    assert _problems(ROOT / "docs/BACKLOG.md", _tracked()) == [], "fixture check: backlog is clean"
 
 
-def test_the_detector_catches_a_blank_line_and_a_line_past_the_end(tmp_path: Path) -> None:
-    """⚠ **THE DETECTOR NEEDS ITS OWN INPUT, and this was found by two surviving mutations.**
+def test_the_six_shared_basenames_are_checked_rather_than_skipped() -> None:
+    """🔑 **The measurable win, asserted rather than taken on trust.**
 
-    With the corpus clean, deleting the blank-line rule and deleting the range rule each killed
-    nothing - there was no longer anything for them to find. A guard whose only evidence is *the
-    world happens to be tidy* is unfalsifiable, and it would stay green through its own deletion.
-
-    So the rules are exercised against a document written here, resolving against **real tracked
-    files** rather than a stub, and the blank line is *located* rather than hardcoded so the
-    fixture cannot rot the way the citations it guards did.
+    Under the line format a citation naming one of these was skipped in silence - 46 of 348, 13%
+    of the corpus, and exactly the pairs where confusing core with the app service matters most.
+    Two consequences of that hole were found the day it closed: `service/trips.py:498` and
+    `service/backup.py:51` both pointed at **blank lines**, and `trips.py:476` pointed **past the
+    end** of a 224-line file. The old guard reported none of the three.
     """
     tracked = _tracked()
-    real = "packages/truestill-core/src/truestill_core/catalog.py"
-    lines = (ROOT / real).read_text(encoding="utf-8").splitlines()
-    blank = next(i for i, line in enumerate(lines, start=1) if not line.strip())
-    code = next(i for i, line in enumerate(lines, start=1) if line.strip())
+    documents = _living_documents()
+    citations = [
+        match.group(0)
+        for document in documents
+        for match in cite.SYMBOL_CITE.finditer((ROOT / document).read_text(encoding="utf-8"))
+        if Path(match.group(1)).name in SHARED_BASENAMES
+    ]
+
+    assert citations, "fixture check: the corpus should still cite the shared-basename files"
+
+    unresolved = []
+    for citation in citations:
+        raw, symbol = citation.rsplit(":", 1)
+        if cite.resolve(raw, symbol, tracked)[1] is not None:
+            unresolved.append(citation)
+    assert unresolved == [], f"skipped or unresolvable: {unresolved}"
+
+
+def test_a_line_citation_is_refused_where_a_symbol_exists(tmp_path: Path) -> None:
+    """The anti-regression rule: the old format cannot come back where a name is available.
+
+    The fixture *locates* its target at runtime rather than hardcoding a line, which in a file
+    about line-citation rot is not a stylistic choice.
+    """
+    tracked = _tracked()
+    target = "packages/truestill-core/src/truestill_core/drive.py"
+    span = next(s for s in cite.symbols_for(target) if s.name == "library_independence")
+    inside = span.start + (span.end - span.start) // 2
 
     document = tmp_path / "doc.md"
+    document.write_text(f"see `drive.py:{inside}`\n", encoding="utf-8")
+    problems = _problems(document, tracked)
+    assert problems, "a line citation where a symbol exists was accepted"
+    assert "cite the symbol" in problems[0]
 
-    document.write_text(f"see `catalog.py:{code}`\n", encoding="utf-8")
-    assert _problems(document, tracked) == [], "a citation onto real code was reported as stale"
+    document.write_text("see `drive.py:library_independence`\n", encoding="utf-8")
+    assert _problems(document, tracked) == [], "the symbol form was rejected"
 
-    document.write_text(f"see `catalog.py:{blank}`\n", encoding="utf-8")
-    assert _problems(document, tracked), f"a citation onto blank line {blank} was not caught"
 
-    document.write_text(f"see `catalog.py:{len(lines) + 500}`\n", encoding="utf-8")
-    assert _problems(document, tracked), "a citation past the end of the file was not caught"
+def test_the_detector_catches_a_symbol_that_is_not_there(tmp_path: Path) -> None:
+    """⚠ **THE DETECTOR NEEDS ITS OWN INPUT, and this was found by two surviving mutations.**
 
-    document.write_text("see `no_such_module_anywhere.py:12`\n", encoding="utf-8")
+    With the corpus clean, deleting a rule killed nothing - there was no longer anything for it to
+    find. A guard whose only evidence is *the world happens to be tidy* is unfalsifiable and would
+    stay green through its own deletion. So the rules are exercised against a document written
+    here, resolving against **real tracked files** rather than a stub.
+    """
+    tracked = _tracked()
+    document = tmp_path / "doc.md"
+
+    document.write_text("see `drive.py:library_independence`\n", encoding="utf-8")
+    assert _problems(document, tracked) == [], "a citation onto a real symbol was called stale"
+
+    document.write_text("see `drive.py:no_such_symbol_at_all`\n", encoding="utf-8")
+    assert _problems(document, tracked), "a citation onto a missing symbol was not caught"
+
+    document.write_text("see `no_such_module_anywhere.py:whatever`\n", encoding="utf-8")
     assert _problems(document, tracked), "a citation into a file that does not exist was not caught"
+
+    lines = (ROOT / "pyproject.toml").read_text(encoding="utf-8").splitlines()
+    document.write_text(f"see `pyproject.toml:{len(lines) + 500}`\n", encoding="utf-8")
+    assert _problems(document, tracked), "a line past the end of a symbol-less file was not caught"
 
 
 def test_the_detector_is_silent_about_third_party_files(tmp_path: Path) -> None:
@@ -194,7 +264,8 @@ def test_records_are_outside_the_scope_on_purpose() -> None:
 
     `SHIPPED.md` and the research records carry citations that have legitimately aged - measured
     at 31 of 32 unresolved in the corpus - and pulling them in would make this guard red on the
-    day it was written.
+    day it was written. **They keep line numbers, and that is a decision rather than an unfinished
+    migration**: a record says what was true when it was written.
     """
     documents = _living_documents()
 

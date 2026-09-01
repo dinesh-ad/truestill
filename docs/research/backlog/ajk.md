@@ -12,7 +12,7 @@ built.** Evidence at `/data/TruestillLibrary/aji-gone-probe-2026-09-01/`.
 ⚠ **THIS IS A BLOCKER ENTRY AND IT ROTS DIFFERENTLY FROM A NORMAL ONE.** Its value is *"do not
 build yet, and here is the census for when you can"*. **If the `REFUSED` arm is never reproduced
 it should be RETIRED, not left sitting in "Approved - still to build" looking like work somebody
-signed off.** The honest end state may well be that `exists()`'s causeless raise at `local.py:154`
+signed off.** The honest end state may well be that `exists()`'s causeless raise at `local.py:LocalDestination.exists`
 is fixed on its own merits and **the classifier question dies unanswered** - and that is a
 legitimate outcome for this letter rather than a failure to finish it.
 
@@ -47,18 +47,18 @@ the reason to stop.
 
 ### Six call sites, and three of them can be handed something unreadable
 
-`persists_for_the_run` is called at `backup.py:301`, `backup.py:339`, `organizer.py:2118`,
-`migrate.py:1340`, `migrate.py:1569` and `undo.py:467`. **Null: none in `truestill-cli` or
+`persists_for_the_run` is called at `backup.py:_copy_verified`, `backup.py:_copy_verified`, `organizer.py:_record_then_stop_if_it_will_recur`,
+`migrate.py:apply_moves`, `migrate.py:undo_migration` and `undo.py:run_undo`. **Null: none in `truestill-cli` or
 `truestill-app`** - it is core-only, and `underlying_oserror` has no caller outside
 `drive_unwritable.py`.
 
 Three are structurally safe: both `backup` sites are handed a bare `OSError` captured by
-`safe_copy`, and `undo.py:467` sits under `except OSError`. **The exposed three are
-`organizer.py:2118`, `migrate.py:1340` and `migrate.py:1569`.**
+`safe_copy`, and `undo.py:run_undo` sits under `except OSError`. **The exposed three are
+`organizer.py:_record_then_stop_if_it_will_recur`, `migrate.py:apply_moves` and `migrate.py:undo_migration`.**
 
 🔑 **AND `migrate` ALREADY BUILT THE ESCAPE HATCH, NARROWLY.** Both its call sites read
 `if persists_for_the_run(exc) or isinstance(exc, VerificationFailedError):` - an explicit
-exemption for the one causeless raise its author hit. **`organizer.py:2118` has no disjunct at
+exemption for the one causeless raise its author hit. **`organizer.py:_record_then_stop_if_it_will_recur` has no disjunct at
 all.** The precedent for *"some refusals are not the classifier's to grade"* is already in the
 tree, applied to one class by someone who met this wall and did not generalise it.
 
@@ -69,13 +69,13 @@ Of **22** raises of `DestinationError` or a subclass in core, **exactly one disc
 
 | site | what it refuses | an `OSError` to chain? |
 |---|---|---|
-| **`destinations/local.py:154`** `exists()` | `Reach.REFUSED` | ⚠ **YES, and it is discarded** - `reach()` returns a verdict only, and `probe()` returns `tuple[Reach, os.stat_result \| None]`: **the stat, not the error** |
-| `destinations/base.py:88` `DestinationDevice.check` | device id != latched baseline | **NO** - `device_of` swallows the error and returns `None`; this is a comparison |
-| `destinations/base.py:118,121` `check_contained` | path shape (absolute, anchored, `..`) | **NO** - pure string analysis, no syscall |
-| `destinations/base.py:233,241,246,251` `Destination` ABC | backend does not support adopt / relocate / remove / checksum | **NO** - capability refusal |
-| `destinations/local.py:231` `relocate` | `source.is_file()` is False | **NO** - a boolean test |
-| `organizer.py:1965` preflight | `preflight.may_proceed` is False | **NO** - a computed verdict, and raised *before* the loop |
-| `migrate.py:1098,1489` `VerificationFailedError` | hash mismatch after relocate | **NO** - deliberate, and compensated by the `isinstance` disjunct |
+| **`destinations/local.py:LocalDestination.exists`** `exists()` | `Reach.REFUSED` | ⚠ **YES, and it is discarded** - `reach()` returns a verdict only, and `probe()` returns `tuple[Reach, os.stat_result \| None]`: **the stat, not the error** |
+| `destinations/base.py:DestinationDevice.check` `DestinationDevice.check` | device id != latched baseline | **NO** - `device_of` swallows the error and returns `None`; this is a comparison |
+| `destinations/base.py:check_contained,121` `check_contained` | path shape (absolute, anchored, `..`) | **NO** - pure string analysis, no syscall |
+| `destinations/base.py:Destination.adopt,241,246,251` `Destination` ABC | backend does not support adopt / relocate / remove / checksum | **NO** - capability refusal |
+| `destinations/local.py:LocalDestination.relocate` `relocate` | `source.is_file()` is False | **NO** - a boolean test |
+| `organizer.py:_refuse_impossible_destination` preflight | `preflight.may_proceed` is False | **NO** - a computed verdict, and raised *before* the loop |
+| `migrate.py:_apply_move,1489` `VerificationFailedError` | hash mismatch after relocate | **NO** - deliberate, and compensated by the `isinstance` disjunct |
 | ten sites in `local.py` | write-path failures | already `from exc` / `from outcome.error` |
 
 ⚠ **THE FRAMING THIS ENTRY WAS COMMISSIONED UNDER IS FALSE, AND THAT IS THE FINDING.** The brief
@@ -93,10 +93,10 @@ could read that instead. **Measured: raising inside a `try` block sets neither `
 
 ### Two more blind spots, named and not chased
 
-* **`MetadataBakeError`** (`organizer.py:1123`, raised `:1296`) **is** an `OSError`, so the walk
+* **`MetadataBakeError`** (`organizer.py:MetadataBakeError`, raised `:1296`) **is** an `OSError`, so the walk
   stops on it - but it is built with one string argument, so `errno is None` and
   `classify_unwritable` answers `OTHER`. It classifies as non-persistent by construction.
-* **`undo.py:402-403`** (`_why_not`) catches `OSError` from `sha256_file` and returns `UNREADABLE`
+* **`undo.py:_identity_check`** (`_why_not`) catches `OSError` from `sha256_file` and returns `UNREADABLE`
   **without consulting the classifier at all**, so an `EIO` on the pre-flight read is silently
   per-file.
 

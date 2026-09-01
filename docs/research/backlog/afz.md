@@ -6,7 +6,7 @@
 
   ## The leak
 
-  `scripts/mutation_matrix.py:539`:
+  `scripts/mutation_matrix.py:_pytest`:
 
   ```python
   report = Path(tempfile.mkdtemp()) / "r.xml"
@@ -49,15 +49,15 @@
 
   ## Also named, deliberately not fixed here
 
-  - **`scripts/shoot_screens.py:170`** - `temp = tempfile.TemporaryDirectory()` held in a local
+  - **`scripts/shoot_screens.py:main`** - `temp = tempfile.TemporaryDirectory()` held in a local
     with no `with` and no explicit cleanup. The finalizer removes it when `main()` returns, so it
     is clean on the ordinary path and **leaks on abnormal exit**. A smaller instance of the same
     class, in another hand-run script.
-  - **`exif.py:265`** - `NamedTemporaryFile(delete=False)`, cleaned in a `finally`. Leaks a
+  - **`exif.py:write_metadata_batch`** - `NamedTemporaryFile(delete=False)`, cleaned in a `finally`. Leaks a
     `.args` **file** only on `SIGKILL`. Listed so a later sweep does not re-derive that it is
     fine.
-  - Clean and checked: `organizer.py:1249`, `profile_organize_preview.py:266`,
-    `flake_report.py:179`, `benchmark_hashing.py:75` - all context-managed or `finally`-cleaned.
+  - Clean and checked: `organizer.py:_bake_queue`, `profile_organize_preview.py:profile_preview`,
+    `flake_report.py:main`, `benchmark_hashing.py:main` - all context-managed or `finally`-cleaned.
   - **No test in the repo calls `tempfile` at all.** Zero matches across `packages/*/tests` and
     `tests/`.
 

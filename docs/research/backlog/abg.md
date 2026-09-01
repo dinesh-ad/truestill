@@ -16,9 +16,9 @@
     entry. Reachability is a **precondition** for the state, not a detail of it.
   - ⚠ **`GONE`'s justification is narrower than this entry claims, and the narrower one is the
     real one.** `OFFLINE` is not "we have not looked recently": `drive_reach` is a **live** marker
-    read and `drive.py:149` says verbatim *"we know where it was; it is not there now"*. So `GONE`
+    read and `drive.py:DriveReach` says verbatim *"we know where it was; it is not there now"*. So `GONE`
     is **not** the first state meaning we looked. What it adds is **durability** - it persists an
-    observation that is currently computed and thrown away (`service/verify.py:72-79` produces
+    observation that is currently computed and thrown away (`service/verify.py:verify_run.target` produces
     `CopyStatus.MISSING` per copy and records nothing; `mark_copy_verified` fires only on
     success). A narrower claim honestly stated beats a flattering one.
   - ✅ **STAGE 2 SHIPPED 2026-08-11 - and it leads with a defect STAGE 1 INTRODUCED.** Stage 1
@@ -118,8 +118,8 @@
     three worlds that collapse into `OFFLINE` today: path absent; path present and **empty**; path
     present holding **someone else's files**.
     - **The blast radius is unusually small, checked rather than estimated.** `DriveReach` has
-      **six** consumers - `cli.py:1033`, `cli.py:1137`, `decisions.py:1651`, `drives.py:533`,
-      `organize.py:433`, `bake.py:354` - and **every one tests `CONNECTED` and nothing else**. Not
+      **six** consumers - `cli.py:_migrate_marker`, `cli.py:_recorded_drives`, `decisions.py:save_decisions_to_reachable_drives`, `drives.py:WhereResult`,
+      `organize.py:_library_facts`, `bake.py:bake_confirmed_dates` - and **every one tests `CONNECTED` and nothing else**. Not
       one branches on `OFFLINE` versus `UNKNOWN`, so a fourth state is **additive by
       construction**: every existing caller keeps behaving identically, because they all ask "is it
       here" and a new not-here state answers that the same way.

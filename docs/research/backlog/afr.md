@@ -11,7 +11,7 @@
   ~/.local/share/Truestill/locks/   5 files, all 0 bytes, from one afternoon of testing
   ```
 
-  `release` does `os.ftruncate(fd, 0)` and closes the descriptor (`drive_lock.py:208,219`).
+  `release` does `os.ftruncate(fd, 0)` and closes the descriptor (`drive_lock.py:DriveLock.acquire,219`).
   Nothing ever removes the file. So the directory gains **one file per distinct drive key and
   keeps it** - and because a key is `uuid:<marker>` for a marked drive and **`path:<resolved>`
   otherwise**, every destination path ever organized leaves one behind, including one-off folders

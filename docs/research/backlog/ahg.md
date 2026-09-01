@@ -72,7 +72,7 @@
   | reader | effect |
   |---|---|
   | `test_the_cli_app_parity_table_is_complete.py` | **survives if each CLI cell still names the subcommand**, because it text-matches AST-derived names against the document. The re-key must keep the name in the cell |
-  | `test_live_documents_cite_code_that_exists.py:62` | the document is in the LIVING set, so every `file:line` in the new cells must resolve. More cells means more citations to keep true |
+  | `test_live_documents_cite_code_that_exists.py:LIVING` | the document is in the LIVING set, so every `file:line` in the new cells must resolve. More cells means more citations to keep true |
   | `CLAUDE.md`'s map row | states **"5 subcommands with no route, plus `catalog --move`, and six partial"**. ⚠ **"six partial" is already wrong - there are FIVE partial rows today**, corrected in P68 while checking this. A capability re-key changes the shape of that claim entirely and it must be rewritten, not adjusted |
   | `agq.md:33` | already notes the completeness test *"will not see this by itself"* - the same limit, recorded once already |
   | `PROJECT_STATUS.md:225`, `ahd.md`, `SHIPPED.md`, `user-evidence-log.md:66`, `ENGINEERING_STANDARD.md:776` and `:2006` | prose references to the document as a whole; none cites a row, so none breaks |

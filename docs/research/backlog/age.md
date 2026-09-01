@@ -8,7 +8,7 @@
   ## The measurement was fixed; the report was not
 
   `(aek)` removed the `0`-means-two-things conflation from `filesystem.preflight_destination`, and
-  the comment states the rule (`filesystem.py:253-258`). The repair is real:
+  the comment states the rule (`filesystem.py:preflight_destination`). The repair is real:
 
   ```python
   free: int | None
@@ -18,7 +18,7 @@
       free = None
   ```
 
-  **Then it is thrown away one line later** (`filesystem.py:271`):
+  **Then it is thrown away one line later** (`filesystem.py:preflight_destination`):
 
   ```python
   free_bytes=need if free is None else free,
@@ -28,9 +28,9 @@
   `make check` rewrote it to `free_bytes = (need if free is None else free,)` - a tuple assignment
   the file does not contain - because ruff formats Python inside Markdown. `(agf)`, found here.
 
-  `DestinationPreflight` (`filesystem.py:192-237`) has **no field carrying "this was not
+  `DestinationPreflight` (`filesystem.py:DestinationPreflight`) has **no field carrying "this was not
   measured"**. So an unmeasurable destination becomes *exactly enough*, `may_proceed` is `True`,
-  and `cli._print_preflight` (`cli.py:2339-2357`) prints **nothing**.
+  and `cli._print_preflight` (`cli.py:_print_report`) prints **nothing**.
 
   🔑 **The conflation was removed where it was MEASURED and reappeared where it is REPORTED.** The
   `int | None` lands, does its job for one expression, and is collapsed back into a number before
@@ -42,7 +42,7 @@
   Someone will reach for `(aek)`'s own sentence, so it is answered here:
 
   > *"An unmeasurable destination must not be reported as full: it fails later, and louder, with
-  > the real reason rather than a space figure nobody could obtain."* (`filesystem.py:269-270`)
+  > the real reason rather than a space figure nobody could obtain."* (`filesystem.py:preflight_destination`)
 
   **That is an argument about a RUN, and this is a PREVIEW.** A preview exists to say what will
   happen *before* it happens. A preview that reports the destination is fine when nothing was
@@ -55,8 +55,8 @@
 
   ## ⚠ AND IT REACHES THE ARCHIVE PATH TOO (added 2026-08-23, `(agg)`)
 
-  `precheck_archives` calls `space_for` (`archive_ingest.py:199`), which is the **same**
-  `shutil.disk_usage` question `preflight_destination` asks - and `archive_ingest.py:215-224` is
+  `precheck_archives` calls `space_for` (`archive_ingest.py:precheck_archives`), which is the **same**
+  `shutil.disk_usage` question `preflight_destination` asks - and `archive_ingest.py:_nearest` is
   explicit that it must be asked *there*, because *"extraction writes a staging tree to this drive
   before organize sees anything, so organize's own preflight never gets a turn."*
 
@@ -70,7 +70,7 @@
   - Whether `DestinationPreflight` gains a field (`free_measured: bool`, or `free_bytes: int |
     None` carried through) or whether the preview simply declines to state a space line it could
     not obtain. The second is smaller and matches §9's *named, never counted*.
-  - Whether `Destination.preflight`'s default (`destinations/base.py:195-198`), which returns
+  - Whether `Destination.preflight`'s default (`destinations/base.py:Destination.facts`), which returns
     `free_bytes=need` as a deliberate stand-down for remotes, should be distinguishable from a
     failed local measurement. Today they are the same number for different reasons - which is this
     entry's own shape, one layer down.

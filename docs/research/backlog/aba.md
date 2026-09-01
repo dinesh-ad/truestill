@@ -59,20 +59,20 @@ population:
 
 - **The signature is inexact by construction.** Two `path_hint.drive.*` values equal with a
   marker present for one identity is byte-identical to a legitimate re-registration at a reused
-  mountpoint: the old drive's hint is deliberately kept (`drives.py:587` - it is what lets an
+  mountpoint: the old drive's hint is deliberately kept (`drives.py:list_drives` - it is what lets an
   absent drive read OFFLINE rather than UNKNOWN), and `--force-new-identity` records nothing
-  (`cli.py:1173` skips the check and mints). Since `(agr)` part 1 shut the silent mint, every
+  (`cli.py:_print_adoption_refusal` skips the check and mints). Since `(agr)` part 1 shut the silent mint, every
   future occurrence of the signature is an explicit human ruling - **a detector built now would
   fire only on people who followed our own instruction.**
 - **Population zero, measured 2026-08-23**: eleven catalogs censused - both live catalogs,
   seven soak/scratch, the fenced mounts pruned not walked - and only the manufactured specimen
   carries the signature. No release, no tag: no other machine has run the minting code.
 - ⚠ **This ruling is conditional on `(agr)` part 1 holding** (`_refuse_ghost_before_minting`,
-  `drives.py:248`). If that guard is ever removed or bypassed, the population argument and the
+  `drives.py:_refuse_ghost_before_minting`). If that guard is ever removed or bypassed, the population argument and the
   cry-wolf argument both die, and this ruling dies with them.
 - **Detection's would-be home, named and deliberately not built**: the converse of `(adx)`'s
   `second_location_note` - one identity at two paths, mirrored to two identities at one path -
-  at the same call site, `verify.py:92`, before the two writes that destroy the evidence. Zero
+  at the same call site, `service/verify.py:verify_run.target`, before the two writes that destroy the evidence. Zero
   new mechanism if it is ever justified.
 - **The remedies, named not designed.** (1) Report only - the honest floor: the shadowed files
   are on THIS computer's disk, unmount to see them. (2) Merge the phantom's copies into the

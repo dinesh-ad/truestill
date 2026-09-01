@@ -7,8 +7,8 @@
 - **(kk) Persist GPS at ingest - THE CAPTURE HALF SHIPPED AT v17; `GPSDateStamp` did not.** Found while designing trip
   grouping (`trip-grouping-research.md` §5), and the scope is much wider than trips.
   - ✅ **CORRECTED 2026-08-09: THE CAPTURE HALF SHIPPED AT v17 AND THIS ENTRY WAS WRONG.**
-    Traced end to end rather than assumed: `exif.py:72-73` requests `GPSLatitude`/`GPSLongitude`,
-    `models.py:477` (`CaptureContext.from_metadata`) converts them, `catalog.py` writes
+    Traced end to end rather than assumed: `exif.py:REQUESTED_TAGS` requests `GPSLatitude`/`GPSLongitude`,
+    `models.py:CaptureContext.from_metadata` (`CaptureContext.from_metadata`) converts them, `catalog.py` writes
     `files.gps_latitude`/`gps_longitude`. Measured on the real catalog: of 395 files ingested
     after v17, **388 carry a camera and 138 carry coordinates**; the 2,300 ingested before it
     carry neither, because v17 deliberately does no backfill. `GPSDateStamp` is still not stored.
@@ -22,7 +22,7 @@
     `GPSDateStamp` half**, so this is not "the rest of a mostly-done item": both halves are
     unstarted, and a reader should not have to infer that from the program's closure notes.
   - **The defect.** GPS is read live from exiftool during an organize run and used for the
-    event-clustering jump cut (`event_review.py:80` builds `EventItem.gps`), and then it is
+    event-clustering jump cut (`event_review.py:gather_camera_items` builds `EventItem.gps`), and then it is
     **never written to the catalog**. `files` has no latitude/longitude column at all, and
     `camera_copies_for_events` selects `sha256, captured_at` and nothing else. The data is
     obtained, used once, and discarded.

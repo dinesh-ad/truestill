@@ -10,7 +10,7 @@
   - ⚠ **RE-MEASURED 2026-08-22: THE COUNT MOVED THE WRONG WAY, AND THE SURVIVOR IS NO LONGER
     UN-OWNABLE.** `uv run pytest` over 2,849 tests reports **7 warnings**, not 1. More usefully,
     the suite now names an allocation site the entry says was unknown:
-    `truestill_core/layout.py:522`, *"ResourceWarning: unclosed database"*, attributed to
+    `truestill_core/layout.py:LayoutTemplate._render_segment.substitute`, *"ResourceWarning: unclosed database"*, attributed to
     `test_the_run_argues_only_while_it_can_be_stopped.py` and others - a collector-timed warning
     landing on whichever test is running, exactly as described, but with the **allocating module
     now visible without `tracemalloc`**.

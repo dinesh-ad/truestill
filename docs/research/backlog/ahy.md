@@ -45,7 +45,7 @@
 
   ⚠ **The missing `path_hint` is a second, independent effect**: without it the drive has no
   recorded location, so the decisions document can never be written to it either - `(ahu)`'s
-  outcome reached by a different route. `cli.py:2862` writes the hint on the registration path;
+  outcome reached by a different route. `cli.py:_approve_registration` writes the hint on the registration path;
   this one does not.
 
   ## RELATED

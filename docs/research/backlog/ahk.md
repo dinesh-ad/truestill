@@ -8,16 +8,16 @@
 
   ## THE WINDOW
 
-  `commit_trips` reads `catalog.trip_for_day` for every day (`trip_review.py:373`) and then calls
+  `commit_trips` reads `catalog.trip_for_day` for every day (`trip_review.py:commit_trips`) and then calls
   `create_trip` (`:378`). **Two transactions.** `BEGIN IMMEDIATE` serialises each of them and does
   nothing about the gap between them.
 
-  The route around it holds nothing. `events_apply` (`server.py:876`) is a plain handler: no
+  The route around it holds nothing. `events_apply` (`server.py:create_app.events_propose`) is a plain handler: no
   `_start_drive_job`, no `jobs.claim`, no `lock_for`. ⚠ **Established by reading the handler, not
   by grepping three symbol names** - the handler's whole body is `sessions.get`, a
   `run_in_threadpool` call and a `JSONResponse`.
 
-  Meanwhile `truestill restore` reaches `create_trip` through `decisions.py:477`, in another
+  Meanwhile `truestill restore` reaches `create_trip` through `decisions.py:reconcile_documents`, in another
   process, against the same catalog.
 
   ## REPRODUCED - AND WHAT THE REPRODUCTION IS NOT
@@ -37,7 +37,7 @@
 
   ## THE TWIN PATH IS HARDENED AGAINST THE NEIGHBOURING SHAPE
 
-  `decisions.py:530-531`, verbatim:
+  `decisions.py:ApplyReport`, verbatim:
 
   > `# Day -> the name of the trip holding it. Read once and kept in step as trips are created, so`
   > `# a document that names one day twice cannot make `create_trip` fail on the day primary key.`

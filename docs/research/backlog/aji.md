@@ -56,11 +56,11 @@ correction is only legible next to what it corrects.
 ### 1. The `GONE` branch is never evaluated, because the exception carries no cause
 
 `organizer` reaches the destination through `destination.exists(...)` **before** any write
-(`organizer.py:1068`, `:1074`, `:1472`). On a vanished root that raises:
+(`organizer.py:_free_relative`, `:1074`, `:1472`). On a vanished root that raises:
 
 ```python
 message = f"cannot probe {relative_path!r}: the filesystem refused to describe it"
-raise DestinationError(message)          # local.py:153 - note: no `from`
+raise DestinationError(message)          # local.py:LocalDestination.exists - note: no `from`
 ```
 
 **Measured 2026-09-01**, not reasoned about:
@@ -138,7 +138,7 @@ would abort a healthy run on a one-second blip** - the cry-wolf `run_health`'s d
 ### What follows, and what does not
 
 * ❌ **Do not add `GONE` to `persists_for_the_run`.** Measured cry-wolf.
-* ❌ **Do not fix the causeless raise at `local.py:153` for this purpose.** `(aji)` established that
+* ❌ **Do not fix the causeless raise at `local.py:LocalDestination.exists` for this purpose.** `(aji)` established that
   both would have to change or neither does anything; the ruling is **neither**. The causeless
   raise remains a real blind spot in the classifier and is now the only live half - it should be
   filed on its own merits, not as a step toward a persistence change that is not happening.

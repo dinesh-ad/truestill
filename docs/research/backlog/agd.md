@@ -28,7 +28,7 @@
   A watcher that was asked to protect a run and could not is degraded by any reading of that
   sentence. It is binding contract, not canon.
 
-  ### Against a new mechanism - `backup.py:247-253`, `_stop_if_ground_moved`'s own docstring
+  ### Against a new mechanism - `truestill_core/backup.py:CopyVerdict`, `_stop_if_ground_moved`'s own docstring
 
   > *"Stop the backup if the ground under it has moved. **Silent when all is well.** … **Raised,
   > not returned, because this loop already stops this way** … A second mechanism for the same
@@ -41,14 +41,14 @@
   ## WHY IT IS ONE ENTRY AND NOT A THIRD OF ONE
 
   Surfacing on **organize alone** was proposed during `(aft)` and refused. `HealthVerdict`
-  (`run_health.py:78-84`) is binary - `ok` plus a sentence read only when `ok` is false - and the
+  (`run_health.py:HealthVerdict`) is binary - `ok` plus a sentence read only when `ok` is false - and the
   three watchers consume it three different ways:
 
   | watcher | today | where a notice would have to go |
   |---|---|---|
-  | `organizer.py:1900` | `ActionResult(..., FAILED, None, detail)` | a per-file result carrying a per-run fact |
-  | `migrate.py:681` | `stopped = verdict.detail` | a new `MigrationOutcome` field |
-  | `backup.py:259` | `raise ValueError(verdict.detail)` | **no non-fatal path exists at all** |
+  | `organizer.py:_execute_one_write` | `ActionResult(..., FAILED, None, detail)` | a per-file result carrying a per-run fact |
+  | `migrate.py:RenameRefusal` | `stopped = verdict.detail` | a new `MigrationOutcome` field |
+  | `truestill_core/backup.py:CopyVerdict` | `raise ValueError(verdict.detail)` | **no non-fatal path exists at all** |
 
   Building the channel for one and leaving two is §4's **fifty-sixth member scheduled rather than
   inherited** - two sites agreeing is what makes the third invisible, and that member is the exact
@@ -58,7 +58,7 @@
   ## THE WORDING, ALREADY RULED
 
   Settled during `(aft)` so it is not re-derived. A label/remedy pair in `models.py`, in the
-  register of `uncompared_label`/`uncompared_remedy` (`models.py:345`, `:350`) - the existing
+  register of `uncompared_label`/`uncompared_remedy` (`models.py:uncompared_label`, `:350`) - the existing
   degraded-but-fine notice, whose remedy deliberately states what still worked.
 
   ```
@@ -76,7 +76,7 @@
     denied)"*. Refused: a reason claims a category **this fix deliberately refuses to determine** -
     every `OSError` on this axis is indefinite, which is the whole design (`(aft)`).
   - ⚠ **Not *"Truestill's catalog folder"*, and not *"nothing was left half-written"*.** The probe
-    is `catalog_path.parent` and `--db` is unconstrained (`cli.py:368-371`), so on
+    is `catalog_path.parent` and `--db` is unconstrained (`cli.py:_LOCKS_DRIVE_AT`), so on
     `--db /media/usb/x.sqlite` the unreachable folder is the **user's**, not ours. And the
     half-written guarantee is `safe_copy`'s, not this one's - a reader takes it as a claim about
     their files.
@@ -86,7 +86,7 @@
   - `run_record.py` `build_run_record`'s `"run"` block - today `stopped` is the only slot and it
     is stop-only. `RUN_RECORD_FORMAT = 1` (`run_record.py:30`) is documented as *"bumped when a
     reader would have to change"*.
-  - `cli._print_run_reports` (`cli.py:2877-2902`), beside `_print_uncompared` /
+  - `cli._print_run_reports` (`cli.py:_register_destination`), beside `_print_uncompared` /
     `_print_suppressed_noise`.
   - The app payload, the way `uncompared` was added - and §9 `:1290` requires the group be
     **absent, not zero**, when there is nothing to say.

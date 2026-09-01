@@ -37,7 +37,7 @@
     every process to share a small amount of memory through a `-shm` file, and SQLite's wording is
     unambiguous: *"All processes using a database must be on the same host computer; WAL does not
     work over a network filesystem."* `_data_dir()` honours a **`TRUESTILL_DATA_DIR`** override
-    (`app_paths.py:107-111`), so a catalog **can** live somewhere that breaks.
+    (`app_paths.py:SESSION_URL_FILENAME`), so a catalog **can** live somewhere that breaks.
     - **And the documented escape hatch points the wrong way for this product.** WAL works without
       shared memory only *"as long as the `locking_mode` is set to EXCLUSIVE before the first
       attempted access"* - which is single-process by construction, and `(adn)` records that this
@@ -70,10 +70,10 @@
   nothing to act on.
 
   - **`Catalog.__init__` makes every open a writer.** `_migrate` executes `BEGIN IMMEDIATE`
-    (`catalog.py:830`) **before** it can read `PRAGMA user_version` - it has to, because reading
+    (`catalog.py:_split_schema`) **before** it can read `PRAGMA user_version` - it has to, because reading
     the version and acting on it is the check-then-act §5.4 closed. So an open that will change
     nothing still takes the write lock.
-  - **The preview job is a reader in its body and a writer at the door.** `organize.py:883-902`
+  - **The preview job is a reader in its body and a writer at the door.** `organize.py:_mode_mechanism`
     reads only - `resolve_scheme`, `heavy_days_for_organize`, `seed_rows`, `known_sizes`,
     `_matched_drives`. It never reaches them: `open_catalog` -> `Catalog(db)` -> `BEGIN
     IMMEDIATE`.

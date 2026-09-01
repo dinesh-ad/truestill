@@ -13,7 +13,7 @@ content, on any drive or on none*, and organizing onto a second drive skipped ev
 recorded from the first.
 
 **The correct model was already in the tree and was never carried across.**
-``service/backup.py:_files_missing_on_target`` asks per-drive and its docstring says why, verbatim:
+``backup.py:_files_missing_on_target`` asks per-drive and its docstring says why, verbatim:
 *"keyed on per-drive presence, not the catalog-global dedup that would wrongly skip a genuine
 second copy."* `IMPLEMENTATION_STANDARDS.md` states the same rule twice - for backup and for the
 preview - and the write path was never brought along.

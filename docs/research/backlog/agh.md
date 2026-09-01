@@ -9,21 +9,21 @@
   ## What is already right, so the entry is not misread as an alarm
 
   The token is ASGI middleware, not a per-route check: `app.add_middleware(LocalGuard, token=token)`
-  (`server.py:1041`) wraps the whole app including the `/static` mount (`server.py:1039`). **A
-  new route cannot forget it** - there is nothing per-route to forget. `security.py:84-94` checks
+  (`server.py:create_app`) wraps the whole app including the `/static` mount (`server.py:create_app`). **A
+  new route cannot forget it** - there is nothing per-route to forget. `security.py:LocalGuard._reject` checks
   Host (421), Origin (403) and the token with `secrets.compare_digest` (403), and the refusal names
-  the session-link *file* rather than the token (`security.py:54-56`).
+  the session-link *file* rather than the token (`security.py:_stale_link_message`).
 
-  The one exemption, `/static/` (`security.py:85-86`), is inert and was checked rather than
+  The one exemption, `/static/` (`security.py:LocalGuard._reject`), is inert and was checked rather than
   assumed: the mount serves the package's own assets, `app.js` reads `window.TRUESTILL_TOKEN` - a
-  global defined by the **protected** HTML at `server.py:186` - and the `token` matches in
+  global defined by the **protected** HTML at `server.py:create_app` - and the `token` matches in
   `tokens.css` are **design tokens**. You need the token to get the token.
 
   ## The gap
 
   **No test enumerates the exemption list.** Coverage today is per-route and per-condition:
-  `test_server.py:20` (missing token), `:33` (bad host), `:39` (cross-origin), `:44` (static is
-  exempt), and the best of them, `test_thumb_route.py:115`, whose docstring has the right instinct
+  `test_server.py:test_missing_token_is_rejected` (missing token), `:33` (bad host), `:39` (cross-origin), `:44` (static is
+  exempt), and the best of them, `test_thumb_route.py:test_without_a_token_it_serves_nothing`, whose docstring has the right instinct
   - *"asserts the new route is on the guarded side of that line rather than trusting that it is."*
 
   Every one of those pins **one** route or **one** condition. Nothing pins that
@@ -46,7 +46,7 @@
 
   **That floor is the load-bearing half** and must be copied with it: a route scan that finds
   nothing passes silently, so it has to assert it found something before asserting anything about
-  what it found. There are 50 routes in `server.py:818-869` today.
+  what it found. There are 50 routes in `server.py:create_app.discard_session` today.
 
   ## SHAPE, NOT DECIDED
 

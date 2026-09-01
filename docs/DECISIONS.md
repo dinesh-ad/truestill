@@ -598,14 +598,14 @@ suite passes locally on 3.14.4 (2,664 passed). `uv.lock` already admits 3.14 unc
   `path_probe.probe_dir` would report an unreadable folder as **missing and creatable** - the
   module's whole purpose inverted - and its guard **skips rather than fails**. The concrete
   blocker. ⚠ **Corrected 2026-08-21 after grepping rather than assuming: it is FIVE sites, not
-  one.** `destinations/local.py:111-118` deliberately raises and would stop;
-  `service/date_rescue.py:286`
-  and `drive_adoption.py:231` each guard it. ⚠ **Corrected 2026-08-23 during a documentation
+  one.** `destinations/local.py:LocalDestination.local_root` deliberately raises and would stop;
+  `service/date_rescue.py:original_candidates`
+  and `drive_adoption.py:_inspect_one` each guard it. ⚠ **Corrected 2026-08-23 during a documentation
   audit**: this said `:167` and claimed *both* sites *"carry a comment stating the rule"*, quoting
   *"cannot look, which is not 'nothing there'"* and *"not evidence either way"*. The first is real
-  and still at `service/date_rescue.py:286`; the second **is no longer in the source** - the guard
+  and still at `service/date_rescue.py:original_candidates`; the second **is no longer in the source** - the guard
   there is a bare `except OSError: continue`, and the wording now survives only in
-  `test_refused_is_never_absent.py:269`, which quotes it. **The behaviour is unchanged and the
+  `test_refused_is_never_absent.py:test_a_refused_sample_is_not_evidence_that_a_drive_is_not_the_library`, which quotes it. **The behaviour is unchanged and the
   decision stands**; what was stale is the evidence offered for it, which is worth more than the
   sentence reading tidily. The deletion path (`reclaim.py`)
   was checked and **fails safe on both versions**. 3.14 did not invent this: its `is_dir()` is

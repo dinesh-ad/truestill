@@ -719,7 +719,7 @@ memory dressed as one.
   mechanism the subject does not share.**
 
   *Worked example - `(aey)`, found 2026-08-21 while researching Python 3.14.*
-  `test_unreadable_paths.py:85` carries the right instinct in its own docstring: *"If
+  `test_unreadable_paths.py:_really_locked` carries the right instinct in its own docstring: *"If
   `Path.is_dir` ever starts swallowing `EACCES`, this fails - which is exactly when someone should
   be made to re-read this module's rationale."* It does not fail. Its helper `_really_locked`
   (`:62-78`) decides whether `chmod 000` really denied by **calling `is_dir()`** - the subject - so
@@ -751,7 +751,7 @@ memory dressed as one.
   *Worked example - `(aei)`, found by the first soak, 2026-08-20.* Deduplication must be scoped per
   destination. That rule existed in the tree, twice:
 
-  - `service/backup.py:_files_missing_on_target`'s docstring states it and names the exact
+  - `backup.py:_files_missing_on_target`'s docstring states it and names the exact
     consequence of getting it wrong: *"keyed on per-drive presence, not the catalog-global dedup
     that would wrongly skip a genuine second copy."*
   - `IMPLEMENTATION_STANDARDS.md` stated it for the **preview**: *"only `file_copies` keyed by
@@ -2106,9 +2106,9 @@ memory dressed as one.
 
   *Worked example, 2026-08-23, and the filer and the fixer were the same person nine days apart.*
   `(agq)` - "the first schema build runs inside a user request" - was filed from an investigation
-  that read `inspect_catalog` (`catalog_startup.py:242`), whose docstring says *"Does **not**
+  that read `inspect_catalog` (`catalog_startup.py:inspect_catalog`), whose docstring says *"Does **not**
   create a missing catalog"*, **which is true**. Three functions below it, `migrate_catalog`
-  (`catalog_startup.py:332`) says *"⚠ This CREATES the file"* and has run at every app boot since
+  (`catalog_startup.py:migrate_catalog`) says *"⚠ This CREATES the file"* and has run at every app boot since
   `b0a5d7e` (2026-08-14) - so the entry described a defect fixed nine days before it was filed,
   by its own author. The same partial read had already put a false sentence into `(adt)`'s close.
 
@@ -2120,6 +2120,33 @@ memory dressed as one.
   mattered. It does not, and now nobody has to re-derive that. The citations `(ago)` really guards
   are the ones that land on a **blank line** or outside the file; a ±2 offset onto the right
   function is the class this rule is content to carry.
+
+  ⚠ **RULED 2026-09-01: THE NAME IS THE CITATION, AND THE NUMBER IS GONE.** The sentence above
+  anticipated this and stopped one step short. A line citation does not only drift under a
+  refactor - **a fifteen-line comment added to `app.js` displaced 46 citations across 16
+  documents, 18 of them live**, and the guard saw none of them, because every one landed on real
+  code. So a living document cites `drive.py:library_independence` rather than that
+  function's line number, and `scripts/cite_symbols.py:convert` rewrites one. ⚠ **Even an example
+  of the old form is refused** - this paragraph originally carried one and the guard went red on
+  it, which is the rule proving itself on its own documentation. **Measured before the format was chosen**: only
+  15.6% of citations sat on a `def`, but 84% had an *enclosing* symbol, and a content hash was
+  refused because 83 of 220 cited symbols changed body in twelve days - 83 re-records to catch a
+  class the evidence does not show.
+
+  **The cost, so whoever writes the next citation knows it**: 207 citations point *inside* a body,
+  so a reader now scans the enclosing symbol - median **32 lines**, 74% under 50, **12% over 80**.
+  🔑 **That is the trade: a precise pointer that decays fast, for a coarser one that holds.** Where
+  the extra precision is load-bearing, quote the line in the prose - the pointer is not the place
+  to carry it.
+
+  ⚠ **RECORDS KEEP LINE NUMBERS, AND THAT IS A DECISION RATHER THAN AN UNFINISHED MIGRATION.**
+  `SHIPPED.md`, the audits and the soak records are outside the guard's scope on the rule that *a
+  record rewritten to stay correct stops being one*, so a reader will meet both formats in one
+  corpus. The two say different things: a living document must resolve **today**, and a record
+  says what was true **when it was written**. A line number is the honest pointer for the second.
+  Sixteen line citations also survive inside living documents, all into `.toml`, `.yml`, `.html`,
+  an import block or a module docstring - places where no symbol exists to name. Anywhere a symbol
+  *does* enclose the line, the guard refuses the number.
 
   This is the reading-side root of the fixed-under-another-name family (`(aci)`, five instances):
   each time, a true statement from the first place looked - an index headline, a docstring, one

@@ -4,7 +4,7 @@
 
 ## The defect, and it is not a performance problem
 
-`CATALOG_BUSY_MESSAGE` (`catalog_busy.py:70-76`) tells the user to *"close the other Truestill
+`CATALOG_BUSY_MESSAGE` (`catalog_busy.py:CATALOG_BUSY_MESSAGE`) tells the user to *"close the other Truestill
 window, or stop the other command in your terminal."* The `(adt)` investigation established that
 the most likely way to meet it is a **first-run schema build** - one window, one user, their
 **first ever click** on a fresh catalog - where **both clauses name things that do not exist**.
@@ -53,7 +53,7 @@ The census found **seven** direct-write service calls across four files with no 
 all (`set_organize_mode`, `set_sidebar_collapsed`, `set_text_size`, `set_library_root`,
 `set_layout`, `confirm_file_date`, the events family) - a class, not a route. So the fix is one
 **app-level exception handler** (`server.py`), mirroring the CLI's top-level catch
-(`cli.py:4739`): busy answers **503** + `Retry-After: 5` with `CATALOG_BUSY_REQUEST_MESSAGE`
+(`cli.py:_cmd_rename`): busy answers **503** + `Retry-After: 5` with `CATALOG_BUSY_REQUEST_MESSAGE`
 (`catalog_busy.py`), which asserts **no second window**; anything else re-raises and keeps its
 500. A new route cannot be added outside it.
 
@@ -66,7 +66,7 @@ keep the path/status prefix. The refusal still lands in the fatal-banner surface
 surface waits for the ladder.
 
 **Found while building**: `create_app` opens an *existing* catalog at construction
-(`server.py:153`, `prepare_catalog`) - so `(agq)`'s in-request first build is the
+(`server.py:_catalog_busy_refusal`, `prepare_catalog`) - so `(agq)`'s in-request first build is the
 **fresh-create case only**, which narrows it.
 
 **What remains here**: the detection ladder and S1/S2/S3 wording.
@@ -76,7 +76,7 @@ surface waits for the ladder.
 The ladder was designed as three tiers, and tier 1 - an in-process registry of builds in flight,
 so a busy refusal could say *"preparing the library"* exactly - **detects a case that cannot
 happen**. The app has created and migrated the catalog at boot, before serving, since `b0a5d7e`
-(2026-08-14, `catalog_startup.py:332`); an in-process, in-request schema build therefore does not
+(2026-08-14, `catalog_startup.py:migrate_catalog`); an in-process, in-request schema build therefore does not
 exist for a request to race. The only reachable "first run preparing" case is **cross-process** -
 a CLI building while the app asks - which an in-process registry can never see. That case lands
 in tier 3's wording (a possibility, softly) or tier 2's flock probe if the builder holds a drive
@@ -93,14 +93,14 @@ The one-home rule (`(afe)`) is right and stays; **the ruling: a shared sentence 
 per-surface closing clause, not a fork of the facts.** Filed on this entry because its rewrite
 already owns these sentences' shape - pick them up together:
 
-1. `ghost_drive_refusal` (`drive.py:818`) - *"re-run with --force-new-identity"* - in app
+1. `ghost_drive_refusal` (`drive.py:ghost_drive_at`) - *"re-run with --force-new-identity"* - in app
    payloads since `(agr)` part 2 (`drive_support.py`, the ghost branch).
-2. `second_location_note` (`drive.py:489`) - *"truestill drives --init ... --force-new-identity"*
-   - carried whole into the verify summary (`verify.py:132`) and rendered in the app's
-   "answers in two places" banner (`app.js:3069`).
-3. `_zero_byte_detail` (`catalog_startup.py:103`) - *"pass --db PATH"* - reaches the app's
-   catalog notice via `catalog_detail` (`drives.py:732`). The app already knows this is CLI
+2. `second_location_note` (`drive.py:custody_freshness`) - *"truestill drives --init ... --force-new-identity"*
+   - carried whole into the verify summary (`verify.py:verify_run.target`) and rendered in the app's
+   "answers in two places" banner (`app.js:loadDrives`).
+3. `_zero_byte_detail` (`catalog_startup.py:_zero_byte_detail`) - *"pass --db PATH"* - reaches the app's
+   catalog notice via `catalog_detail` (`drives.py:LibraryStatus`). The app already knows this is CLI
    instruction - `index.html:126` says so in a comment - but fixed only the banner's placement,
    never the sentence.
-4. `refusal_for` (`decisions.py:1128`) - *"Upgrade Truestill, then run: truestill restore ..."* -
-   rendered verbatim in the drive card (`app.js:2904`).
+4. `refusal_for` (`decisions.py:apply_decisions`) - *"Upgrade Truestill, then run: truestill restore ..."* -
+   rendered verbatim in the drive card (`app.js:startOrganizeRun`).

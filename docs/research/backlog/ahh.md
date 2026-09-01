@@ -10,21 +10,21 @@
 
   ## THE DEFECT
 
-  `commit_trips` (`trip_review.py:328`) iterates the reviewed decisions and **catches
+  `commit_trips` (`trip_review.py:commit_trips`) iterates the reviewed decisions and **catches
   nothing**. Each catalog write is atomic on its own through `Catalog._tx` - `create_trip` writes
   `trips` and `trip_days` in one transaction - but that is **per call, not per apply**. A raise on
   the seventh trip therefore leaves the first six committed, and **nothing anywhere records that
   the run did not finish**.
 
   It is not hypothetical: `create_trip`'s own docstring advertises the `sqlite3.IntegrityError`
-  that would do it (`catalog.py:2745`). `commit_catalog` (`event_review.py:162-190`) has the same
+  that would do it (`catalog.py:Catalog.event_by_signature`). `commit_catalog` (`event_review.py:propose_from_catalog`) has the same
   shape for events.
 
   ## WHY IT CANNOT BE CLEANED UP AFTERWARDS
 
   ⚠ **Checked rather than assumed**: there is no `delete_trip` and no `unname` in the tree. The
   only `DELETE FROM trips|events|trip_days` anywhere is inside `update_trip_days`
-  (`catalog.py:2801`), which deletes a trip's own day rows only to reinsert them. Nothing writes
+  (`catalog.py:Catalog.source_hints_for_drive`), which deletes a trip's own day rows only to reinsert them. Nothing writes
   `migration_journal` on this path either.
 
   So a half-applied naming is **neither undoable nor detectable**.
@@ -48,13 +48,13 @@
   **What was wrong**: the trigger, and the rank.
 
   * The reproduction poisoned `confirmed_days` with a duplicate day. **No caller can.** Checked:
-    zero references to `confirmed_days` outside `trip_review.py`; `service/trips.py:498` builds
+    zero references to `confirmed_days` outside `trip_review.py`; `service/trips.py:apply_event_review_names` builds
     `TripDecision(card.trip, name)` positionally, so days come from `proposal.days`, a `Mapping`.
     The reachable trigger is a cross-process race, which is **`(ahk)`**.
   * It is a **reporting** defect. The catalog stays consistent; the half-state is discoverable
     through `ExistingNames`; **a re-run converges** (proved: a second apply named the remaining
     four, the first six taking `update_trip_days`); and the session survives, because
-    `discard_session` runs only at `server.py:941`.
+    `discard_session` runs only at `server.py:create_app.events_apply`.
   * The user is told the save **failed** while six succeeded - the inverse of `(afa)`, and the
     **safe** direction. **So it ranks below `(abm)`-shaped defects**, not above `(ahi)`/`(ahj)`.
 

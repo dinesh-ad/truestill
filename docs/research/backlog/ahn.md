@@ -115,8 +115,8 @@
      no place for an event stream, so the job summaries have no home"*. **That framing was too
      pessimistic and the derivation says why**: the summaries were never the problem - they are
      component schemas either way - and the stream's own contract is **three fixed shapes**:
-     `progress` (`jobs.py:356`, 6 keys), `done` (`jobs.py:379`, `type`/`status`/`summary`) and
-     `error` (`jobs.py:429`, `type`/`message`/`code`), plus `: ping` comment frames that carry no
+     `progress` (`jobs.py:JobManager.claim`, 6 keys), `done` (`jobs.py:JobManager._abandon`, `type`/`status`/`summary`) and
+     `error` (`jobs.py:JobManager.start`, `type`/`message`/`code`), plus `: ping` comment frames that carry no
      payload. All the variability lives in `done.summary`.
      **The ruling**: the event payloads are OpenAPI **component schemas**, and
      `/api/jobs/{job_id}/events` **references** them as `text/event-stream` with a `oneOf` over the
@@ -127,7 +127,7 @@
      refused because it would leave the run summaries untyped at the consumer, preserving exactly
      the cast stage 5 exists to delete.
      ⚠ **THE FINDING, WHICH OUTLIVES THE RULING: `ok` IS NOT ON THE WIRE.** `streamJob` synthesises
-     `{ok: !failed, ...d}` at `app.js:166`, so the `d` every `runJob` handler reads is a
+     `{ok: !failed, ...d}` at `app.js:streamJob`, so the `d` every `runJob` handler reads is a
      **browser-side adapter**, not the server's contract. A spec written from what the handlers
      read would **freeze that adapter into the contract** and hand React a type for a shape the
      server never sends. Whoever writes stage 4d must describe `jobs.py`'s three envelopes, not
@@ -137,7 +137,7 @@
      **codegen input, not a public contract** - which is what makes the one-frame inaccuracy cost
      nothing and AsyncAPI's ceremony unjustified.
   5. **`NotRequired` must map to optional, read from the AST.**
-     `test_migrate_reports_its_stop.py:149` records that runtime `__required_keys__` is **vacuous**
+     `test_migrate_reports_its_stop.py:test_the_app_summary_carries_the_stop_and_the_refusals` records that runtime `__required_keys__` is **vacuous**
      under `from __future__ import annotations` - every key reads as required. A generator using it
      would be wrong about every optional field, and `elapsed_seconds` is on nearly all of them.
 

@@ -9,10 +9,10 @@
 
   `grep -rn 'record_path_for\|run_index_for\|runs_dir_for\|superseded_record_path\|last-run\|index\.jsonl'`
   over `packages/*/src`, minus the two modules that own the artefacts, returns **three** mentions:
-  `migrate.py:776` (a docstring), and `cli.py:29` / `cli.py:2690`, which are a **write** path.
+  `migrate.py:_plan_relatives` (a docstring), and `cli.py:29` / `cli.py:_print_capped`, which are a **write** path.
   Zero in `static/app.js`. Zero in `frontend/src/`. **Nothing reads a run record.**
 
-  The one human affordance is `truestill organize --report PATH` (`cli.py:433`), whose help says
+  The one human affordance is `truestill organize --report PATH` (`cli.py:_add_common_options`), whose help says
   *"write this run's record here instead of beside the catalog"* - it moves the file, it does not
   read one. It exists for `organize` alone. No app route serves a record.
 

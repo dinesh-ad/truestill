@@ -14,11 +14,11 @@
     consulted.** The catalog is a property of how you launched, not of what you organized into.
     ⚠ *Corrected 2026-08-23, `(aea)`: the description above died with `(adw)` on 2026-08-19 -
     the legacy path and the launched-from-a-terminal gate are both retired, and today's
-    resolution (`app_paths.py:245`) is override-else-data-dir, identical for a double-click and
+    resolution (`app_paths.py:CatalogChoice`) is override-else-data-dir, identical for a double-click and
     a terminal run. Consequences 1 and 2 below are untouched by that and stay this entry's
     weight.*
   - **The disclosure pipe already exists - do not rebuild it** (recorded 2026-08-23, `(aea)`).
-    `CatalogChoice.note` is rendered by `format_startup_lines` (`catalog_startup.py:350`) on
+    `CatalogChoice.note` is rendered by `format_startup_lines` (`catalog_startup.py:format_startup_lines`) on
     every non-`--db` boot, pinned by
     `test_a_choice_note_is_its_own_line_and_an_empty_one_is_silent`; nothing sets it since
     `(adw)`. Whatever this entry rules, the surface half of "say which library and why" is

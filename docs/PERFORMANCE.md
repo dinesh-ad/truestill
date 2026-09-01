@@ -922,7 +922,7 @@ from the 6558 ms observation.
 §5.4 bought `BEGIN IMMEDIATE` on every open and measured the **holder** afterwards (7.57 ms max).
 It never priced the **acquisition**, which every open paid at the time even when it would change
 nothing (see the correction above - `(adu)` has since removed that):
-`Catalog.__init__` calls `_migrate` (`catalog.py:1133`), which takes RESERVED (`catalog.py:1230`)
+`Catalog.__init__` calls `_migrate` (`catalog.py:Catalog.__init__`), which takes RESERVED (`catalog.py:Catalog._migrate`)
 before it can decide the schema is current. `(adt)` item 5 asked what that costs. Throwaway rig,
 CI run **`31904426333`**, three repeats per OS, catalog at schema v19.
 
@@ -1069,7 +1069,7 @@ a live user file, for a bug class this project has not hit.
 **`VACUUM` - not run anywhere, and not worth running.** The real file carries **149 free pages of
 1,554 - 9.6%, about 596 KB** on a 6.37 MB file. Recorded as the baseline for a future decision.
 
-**The album insert loop** (`catalog.py:2281`) inserts row by row with a follow-up `SELECT` per
+**The album insert loop** (`catalog.py:Catalog.files_in_date_tier`) inserts row by row with a follow-up `SELECT` per
 album. Albums are unbuilt and the table is empty, so it costs nothing today; fix it when albums
 are built, not before.
 

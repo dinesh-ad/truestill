@@ -7,8 +7,8 @@
 
   ## WHAT IS TRUE TODAY
 
-  `_start_drive_job` passes `operation="organize preview"` (`server.py:215`) to `jobs.start`,
-  which occupies the drive in `self._occupied` exactly as an apply does (`jobs.py:169-177`). So a
+  `_start_drive_job` passes `operation="organize preview"` (`server.py:create_app._start_drive_job`) to `jobs.start`,
+  which occupies the drive in `self._occupied` exactly as an apply does (`jobs.py:DriveBusyPayload`). So a
   second tab asking for a preview while an organize runs gets `DriveBusyPayload`. The CLI has
   never done this: `truestill organize` without `--apply` reads and reports, whatever else is
   running.

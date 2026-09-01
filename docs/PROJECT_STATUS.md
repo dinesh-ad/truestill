@@ -236,9 +236,9 @@ This is the whole point of the order, and it is what `app.js` failed. Live evide
 
 | computed by a service | read by the surface |
 |---|---|
-| `BakeSummary.absent` (`service/bake.py:166`, emitted `:217`) | **0** in `bakeCompletion` (`app.js:4208`). ⚠ Its sibling `BakePreview.absent` (`:238`) **is** read, at `app.js:4172` |
-| `DriveAttachment.unmatched` (`service/drives.py:132`) | **0**, and correctly so since `(abm)` shipped: the fact is named by `truestill rescan`, not counted twice |
-| `DriveAttachment.unreadable_dirs` (`service/drives.py:137`) | ✅ **surfaced by `(abm)`** 2026-08-25. It was the worst of the four: a file under such a folder gets no copy row, so both surfaces said the backup was complete |
+| `BakeSummary.absent` (`service/bake.py:BakeSummary`, emitted `:217`) | **0** in `bakeCompletion` (`app.js:startMigrateRun`). ⚠ Its sibling `BakePreview.absent` (`:238`) **is** read, at `app.js:clearMigrateConfirm` |
+| `DriveAttachment.unmatched` (`service/drives.py:DriveAttachment`) | **0**, and correctly so since `(abm)` shipped: the fact is named by `truestill rescan`, not counted twice |
+| `DriveAttachment.unreadable_dirs` (`service/drives.py:DriveAttachment`) | ✅ **surfaced by `(abm)`** 2026-08-25. It was the worst of the four: a file under such a folder gets no copy row, so both surfaces said the backup was complete |
 | `migrate.py`'s `stopped` and `refused` | **0** until `(ahc)` closed it 2026-08-25 - a stopped run read as *"Moved N files."* |
 
 ⚠ **THE TWO `absent` ROWS ABOVE USED TO BE ONE, AND IT WAS COUNTED THREE DIFFERENT WAYS.** This
@@ -271,7 +271,7 @@ what stops is changing *what a route returns* under a consumer that already read
    `file_copies.date_baked_at` holds which copies it wrote permanently. A condition that a correct
    run fails is a condition that gets quietly ignored, so the wording follows the ruling rather
    than the other way round. ⚠ **SEVEN** of the nine meet it since 2026-08-29, when `(ahi)`'s undo half shipped; `clean empty`,
-   `archive unpack` and **`undo`** remain (`(ahi)`). ⚠ **THE ABSENT THREE READ *"trip apply, clean empty, archive unpack"* UNTIL 2026-08-27 AND `trip apply` WAS NEVER ONE OF THEM.** Derived from `server.py` by AST rather than recalled: `trip apply` calls `service.migration_apply`, which records - the maintainer established this on 2026-08-26 by reading the ROUTE's call graph rather than the module sharing its name. The operation that actually writes nothing is **migrate's `undo`**: `migration_undo` READS the reversible run's id (`service/migrate.py:395`) and writes no record of its own. Absent from a run history, an undo is the one operation whose absence makes the history lie about the state of the disk. Pinned by `test_the_app_records_what_a_run_did.py`, which
+   `archive unpack` and **`undo`** remain (`(ahi)`). ⚠ **THE ABSENT THREE READ *"trip apply, clean empty, archive unpack"* UNTIL 2026-08-27 AND `trip apply` WAS NEVER ONE OF THEM.** Derived from `server.py` by AST rather than recalled: `trip apply` calls `service.migration_apply`, which records - the maintainer established this on 2026-08-26 by reading the ROUTE's call graph rather than the module sharing its name. The operation that actually writes nothing is **migrate's `undo`**: `migration_undo` READS the reversible run's id (`service/migrate.py:migration_armed_state`) and writes no record of its own. Absent from a run history, an undo is the one operation whose absence makes the history lie about the state of the disk. Pinned by `test_the_app_records_what_a_run_did.py`, which
    lists each surface *with its reason*.
 2. **Every surface reports its own stop.** `(ahc)` closed migrate's last one.
 3. **No route computes a field no consumer reads.** ⚠ **BLOCKED ON `(ahn)`, not on any count.**
@@ -314,7 +314,7 @@ what stops is changing *what a route returns* under a consumer that already read
   record is written on every run.
   🔑 **AND ITS TABLE IS KEYED DIFFERENTLY FROM THE CODE IT GUARDS, WHICH IS WHY THE ARITHMETIC
   NEVER LINED UP.** Two of its five rows are the same operation under another name: `bake` is
-  `operation="set dates"` (`server.py:683`, added by the bake-as-a-job commit) and
+  `operation="set dates"` (`server.py:create_app.dates_bake_run`, added by the bake-as-a-job commit) and
   `organize_undo` is `operation="undo organize"`. A guard whose keys are not the strings the
   routes declare cannot be checked against them by anything, and nothing does. `(agj)` is the defect it would not catch.
   ⚠ **All five of its rows now read `True`**, so the table no longer demonstrates its own
@@ -325,7 +325,7 @@ what stops is changing *what a route returns* under a consumer that already read
   and two censuses over `MigrationStopKind`'s wording, and **nothing enumerates the surfaces** and
   asserts each reports its stop. Nothing proposes one.
 * **Condition 3 was a hand census and is now derived** (`(ahl)`), but only **one end** of it is
-  mechanical. The DECLARED end is an AST pass, and it must be AST: `test_migrate_reports_its_stop.py:149`
+  mechanical. The DECLARED end is an AST pass, and it must be AST: `test_migrate_reports_its_stop.py:test_the_app_summary_carries_the_stop_and_the_refusals`
   records that asserting on `__required_keys__` was **vacuous** under
   `from __future__ import annotations`. The CONSUMED end is a text search over JavaScript -
   stripping comments is worth five keys, measured - so what is buildable is a **declaration**
@@ -342,7 +342,7 @@ what stops is changing *what a route returns* under a consumer that already read
   (69 scoped reads against 25 declared keys). The method is blind in **two different ways**, and
   closing one does not touch the other:
   * **`BakeSummary.absent`** - a **name collision**. `BakePreview.absent` is rendered at
-    `app.js:4172`, so the NAME reads as live and the dead sibling never enters the census.
+    `app.js:clearMigrateConfirm`, so the NAME reads as live and the dead sibling never enters the census.
   * **`DriveAttachment`'s five** (`absent`, `unreadable`, `unmatched`, `unreadable_dirs`,
     `blocked_by`) - **not a TypedDict at all**. It is a frozen dataclass that no route serialises,
     so a payload census cannot see it from either end. `(abm)` reached two of the five by hand.

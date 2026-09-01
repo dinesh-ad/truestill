@@ -70,8 +70,8 @@
   ## ⚠ 1. `date_rescue` IS NOT SILENT - this entry's own claim was wrong
 
   It said *"the user is told nothing at all about that photo"*. Measured: `continue` at
-  `date_rescue.py:286` leaves the value **pre-seeded at `:272`** as `{"status": "unreachable"}`,
-  and `app.js:4182-4170` renders that as **"could not check"**, with the tooltip *"The folder this
+  `date_rescue.py:original_candidates` leaves the value **pre-seeded at `:272`** as `{"status": "unreachable"}`,
+  and `app.js:startMigrateRun` renders that as **"could not check"**, with the tooltip *"The folder this
   was imported from is not reachable, so no backup file could be checked"*.
 
   **What is actually wrong is narrower and different.** `unreachable` is produced by four distinct
@@ -100,7 +100,7 @@
 
   ## 3. A third site nobody had named - `(afo)`
 
-  `cleanup.py:185-186` prints `LEFT ALONE - something is in there (1):` above `Camera/2013   []`.
+  `cleanup.py:plan_cleanup` prints `LEFT ALONE - something is in there (1):` above `Camera/2013   []`.
   Not silence: a false assertion. Split out.
 
   ## ⚠ THE CENTRAL GUESS, FALSIFIED

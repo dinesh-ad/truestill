@@ -8,13 +8,13 @@
   that alters what gets written into a marker on a user's disk. Mixing them would put a change of
   behaviour inside a fix.
   - ⚠ **RE-COUNTED 2026-08-22: FIVE SITES, NOT THREE**, and the line numbers below have all moved
-    - `service/drives.py:364`, `:382`, `:383`, `service/organize.py:1126`, `cli.py:2795`. The
+    - `service/drives.py:attach_drive`, `:382`, `:383`, `service/organize.py:_scope_to_marker`, `cli.py:_print_ingest_report`. The
     registration work since (`(afc)`, `(afn)`) added paths without changing this default, which is
     the entry's own point arriving twice: a literal repeated at each site grows a site every time
     someone adds one. **Cited by symbol from here on**; the original count is kept below because a
     figure that grew is evidence and a figure quietly corrected is not.
   - Three of the four registration sites mint `label=path.name or "Library"`
-    (`service/drives.py:382`, `service/organize.py:1126`, `cli.py:2795`).
+    (`service/drives.py:attach_drive`, `service/organize.py:_scope_to_marker`, `cli.py:_print_ingest_report`).
     ⚠ **THOSE THREE READ `:381`, `:847` AND `:2033` UNTIL 2026-08-27, AND THE MIDDLE ONE WAS
     279 LINES OUT.** The bullet above says *"cited by symbol from here on"* and the numbers six
     lines below it were then repaired twice by OFFSET - `cli.py` went 2017 -> 2025 -> 2033 in one

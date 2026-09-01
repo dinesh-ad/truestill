@@ -23,7 +23,7 @@
     (`drive.py:47`, `:471`), so it **travels with the data** rather than describing the volume
     under it.
   - **A wholesale move self-heals with one command.** After `A -> B`: `truestill verify B` reported
-    **25 verified, 0 missing**, and rewrote the remembered path (`cli.py:1322` (`remember_drive_root`)) - after which
+    **25 verified, 0 missing**, and rewrote the remembered path (`cli.py:_drive_or_explain` (`remember_drive_root`)) - after which
     `truestill drives` read `connected` again. **No repair step, no reconnect flow, no data
     surgery.** `source_repoint.py:3-8` asserts exactly this; it is now measured rather than
     claimed.
@@ -59,7 +59,7 @@
     logical drive (**built**), `drives init --relabel` for a diverged clone (**built**, as
     `--force-new-identity`), and **"warn when one uuid is seen at two distinct mount paths in a
     single run"** - which exists **only on the registration path**. `_print_adoption_refusal`
-    (`cli.py:1197` (`_init_drive`)) refuses and explains both ways forward when someone registers a folder that
+    (`cli.py:_print_adoption_refusal` (`_init_drive`)) refuses and explains both ways forward when someone registers a folder that
     already holds a recorded library. **`verify` has no equivalent check**: it proves the content,
     moves the hint, and says nothing about the path it just stopped pointing at.
   - **What a user could do before this shipped:** nothing they would find. The remedy existed
@@ -110,7 +110,7 @@
     **`offline`**, and `truestill status` listed all 25 files with **no error and no mention that
     anything had moved**. The catalog was completely intact; the only thing wrong was a stale
     hint.
-  - **Why it stays stuck.** `drive_reach` (`drive.py:569-606`) reads the marker **at the remembered
+  - **Why it stays stuck.** `drive_reach` (`drive.py:_SLOW_PATHS`) reads the marker **at the remembered
     path and nowhere else** - by design, since searching for a drive is not something a custody
     tool should do speculatively. So the state persists until someone happens to run
     `truestill verify <new path>`, **and nothing anywhere names that command.** A user is told
@@ -125,11 +125,11 @@
   drive that is gone. Milder here: it produces no error, and the non-clearing is deliberate.
 
   - **Measured** with both keys pointed at the vanished `A`: `library_path` cleared **itself** to
-    `None` (`take_live_path_hint`, `drive_support.py:175`), while `library_root` kept the dead
+    `None` (`take_live_path_hint`, `drive_support.py:take_live_path_hint`), while `library_root` kept the dead
     path and `needs_library_root` stayed `False`.
   - The browser prefills the organize destination with `library_path || library_root`
-    (`app.js:1710`), so the field offers **the path that no longer exists**.
-  - ⚠ **The non-clearing is correct and must not be "fixed" by clearing it.** `drives.py:49-62`
+    (`app.js:renderRestingPanel`), so the field offers **the path that no longer exists**.
+  - ⚠ **The non-clearing is correct and must not be "fixed" by clearing it.** `drives.py:LIBRARY_PATH_HINT`
     records why: `library.root` is *declared*, not observed, and auto-clearing it would make first
     run re-arm every time an external drive was unplugged. **The bug is in what is offered, not in
     what is stored.**

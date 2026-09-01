@@ -25,7 +25,7 @@ Stats screen says it is on two or more drives.** Same catalog, same instant, opp
 
 ## 2. THE CAUSE IS ONE MISSING CLAUSE, AND THE OTHERS SAY WHY THEY HAVE IT
 
-`stats_summary`'s rollup (`catalog.py:2160`) counts every row:
+`stats_summary`'s rollup (`catalog.py:Catalog.stats_summary`) counts every row:
 
 ```sql
             WITH copy_rollup AS (
@@ -39,14 +39,14 @@ Stats screen says it is on two or more drives.** Same catalog, same instant, opp
 ```
 
 The other three exclude absent copies, and each states the rule. `single_copy_shas`
-(`catalog.py:2610`) is the one that argues it:
+(`catalog.py:Catalog.single_copy_shas`) is the one that argues it:
 
 > **A copy looked for and not found is not a place.** This sentence is a promise about now, so it
 > excludes ``missing_at`` rows - see :meth:`list_drives` for why the drive list does the opposite.
 > `(abg)`.
 
-`single_copy_count` (`catalog.py:2666`): *"Excludes copies known absent, on
-:meth:`single_copy_shas`'s reasoning."* `custody_floor` (`catalog.py:2692`) does it in the join -
+`single_copy_count` (`catalog.py:Catalog.single_copy_count`): *"Excludes copies known absent, on
+:meth:`single_copy_shas`'s reasoning."* `custody_floor` (`catalog.py:Catalog.custody_floor`) does it in the join -
 `ON fc.sha256 = f.sha256 AND fc.missing_at IS NULL` - and its docstring says *"The ``LEFT JOIN``
 excludes copies known absent."*
 
@@ -82,7 +82,7 @@ does not vary with what the user cares about.
 ## 5. WHAT IS NOT ESTABLISHED
 
 - **How many real libraries have any `missing_at` set at all.** It is written only by `verify`
-  on a drive that was there (`catalog.py:3244`), so an unplugged drive sets nothing. The real
+  on a drive that was there (`catalog.py:Catalog.mark_copy_missing`), so an unplugged drive sets nothing. The real
   catalog was not probed for this; the divergence above is constructed.
 - **Whether `files_on_two_plus_drives` is the only affected column.** The same rollup feeds
   `any_verified`, and that was not traced.

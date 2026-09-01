@@ -12,9 +12,9 @@ than left inside a closed entry, which would have dropped it silently.
 
 | where | state |
 |---|---|
-| core produces the fact | `models.py:845` `metadata_ok: bool = True`, set at `organizer.py:1702` `metadata_ok=metadata_warning is None` |
-| core owns the sentence | `drive_unwritable.py:219` `metadata_not_preserved_note` - *"One home, because there are now TWO ways to reach this state and they must not word it"* differently |
-| the CLI prints it | `cli.py:2737` `_print_capped([r for r in results if not r.metadata_ok], label="METADATA NOT SET")` |
+| core produces the fact | `models.py:ActionResult` `metadata_ok: bool = True`, set at `organizer.py:_journal_or_delete_source` `metadata_ok=metadata_warning is None` |
+| core owns the sentence | `drive_unwritable.py:metadata_not_preserved_note` `metadata_not_preserved_note` - *"One home, because there are now TWO ways to reach this state and they must not word it"* differently |
+| the CLI prints it | `cli.py:_print_execution` `_print_capped([r for r in results if not r.metadata_ok], label="METADATA NOT SET")` |
 | **the app** | ⚠ **`metadata_ok` has ZERO occurrences under `packages/truestill-app/src`** |
 
 **Check that settles it**: `grep -rc "metadata_ok" packages/truestill-app/src` returns nothing.

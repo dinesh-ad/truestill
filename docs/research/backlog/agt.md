@@ -9,12 +9,12 @@
   - **What qualifies**: a bare `is_file()`/`is_dir()`/`exists()` whose refused-as-`False`
     changes a *sentence or a count*, never a recorded fact and never an action. The seven sites
     that crossed that line are fixed under `(aey)`.
-  - **The list, from the P35 census** (`aey.md` holds the verdicts): `catalog_startup.py:246`
-    and `cli.py:921/1276` - a refused catalog banners briefly as creatable before the open
-    fails loudly; `bake.py:378` - a refused target counts as missing in a preview;
-    `drives.py:219` - a refused stray is absent from the stray report; `left_behind.py:89`;
-    `source_repoint.py:129` - `present=False` for a target that refused; `organizer.py:365` -
-    reachable only through ACLs on a listable parent; `fs_browse.py:95/127` - cosmetic, and
+  - **The list, from the P35 census** (`aey.md` holds the verdicts): `catalog_startup.py:inspect_catalog`
+    and `cli.py:_report_decision_saves/1276` - a refused catalog banners briefly as creatable before the open
+    fails loudly; `bake.py:bake_confirmed_dates` - a refused target counts as missing in a preview;
+    `drives.py:_unrecorded_files` - a refused stray is absent from the stray report; `left_behind.py:files_left_in_source`;
+    `source_repoint.py:plan_repoint` - `present=False` for a target that refused; `organizer.py:scan_source` -
+    reachable only through ACLs on a listable parent; `fs_browse.py:fs_roots/127` - cosmetic, and
     `(aey)` measured the parent-permission gate there.
   - **The fix's shape**: `path_reach.reach` at each site, wording gaining a refused arm - one
     mechanical pass, best done together so the messages stay one voice. Not scheduled; fix

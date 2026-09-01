@@ -18,11 +18,11 @@
 
 | written and never read | its writer | the only reads of its table |
 |---|---|---|
-| `migration_runs.completed_at` | `finish_migration_run`, `catalog.py:1609` | `SELECT run_id ... ORDER BY started_at` (`catalog.py:1622`) |
+| `migration_runs.completed_at` | `finish_migration_run`, `catalog.py:Catalog.finish_migration_run` | `SELECT run_id ... ORDER BY started_at` (`catalog.py:Catalog.reversible_migration`) |
 | `file_copies.copied_at` | `record_copy` / `record_uploaded` INSERTs | six queries over `file_copies`, none names it |
 | `reclaim_journal.reclaimed_at` | the journal INSERT | `SELECT source_path, sha256, freed_bytes` |
 | `skipped_clusters.skipped_at` | the skip INSERT | `SELECT signature` |
-| **`file_albums` - the whole table** | `INSERT OR IGNORE`, `catalog.py:3039` | **none in shipped code** |
+| **`file_albums` - the whole table** | `INSERT OR IGNORE`, `catalog.py:Catalog.create_trip` | **none in shipped code** |
 
 🔑 **WHY THIS CENSUS IS A PROOF RATHER THAN A SUGGESTION, and it is an interlock the repo already
 owns**: `IMPLEMENTATION_STANDARDS.md` requires that *"every catalog query names its columns; none
@@ -53,7 +53,7 @@ consumers, none of them shipped code:
   cannot leave this machine"*, because `PRIMARY KEY (file_id, album_id)` is two catalog rowids.
 - **`docs/decisions-on-drive-research.md:110`** - the drive-document design, which states that
   album membership **must travel** and how.
-- **`packages/truestill-cli/tests/test_ingest.py:88`** - a test that reads it back through a JOIN,
+- **`packages/truestill-cli/tests/test_ingest.py:test_ingest_dedups_recovers_dates_and_bakes_metadata`** - a test that reads it back through a JOIN,
   so the write is pinned even though no product surface consumes it.
 
 **So for this row the question is already answered: deliberate, and waiting.** `--map-albums`
@@ -69,7 +69,7 @@ entry's sentence, and this one only notes that it is conditional.
 
 ## ⚠ A SIBLING ONE LAYER UP: a FUNCTION written and never called
 
-**`video_utc.stills_corroborate_local` (`video_utc.py:200`) has no production caller** - checked:
+**`video_utc.stills_corroborate_local` (`video_utc.py:stills_corroborate_local`) has no production caller** - checked:
 `grep -rn "stills_corroborate_local" packages/*/src/ packages/*/tests/` returns its definition and
 **four test references, nothing else**. Same family as the columns above, at the function layer.
 
@@ -110,7 +110,7 @@ something reads the column or the call is removed. Whoever answers this row answ
 ## Null reported
 
 **`file_copies.date_baked_at` is NOT write-only**, though a first pass flagged it: it is read at
-`catalog.py:1851` and `catalog.py:1858`, both in `WHERE` clauses. The first pass searched only
+`catalog.py:Catalog.confirm_date` and `catalog.py:Catalog.copy_is_baked`, both in `WHERE` clauses. The first pass searched only
 `SELECT` lists. Recorded because it is the same mistake this census exists to avoid - **a `WHERE`
 is a read** - and because that column is `(agv)`'s subject, where a false "nobody reads it" would
 have been expensive.

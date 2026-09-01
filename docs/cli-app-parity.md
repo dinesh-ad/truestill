@@ -45,11 +45,11 @@ stage 3 shipping, which is luck rather than maintenance. Count the table; do not
 
 | | why it matters |
 |---|---|
-| `reclaim` | **deliberate.** `app.js:2217` - *"an irreversible removal is not a thing to reach for by accident"* |
-| `restore` | the app can say a restore is needed (`service/drives.py:487-488`) and cannot perform one |
+| `reclaim` | **deliberate.** `app.js:organizeUndoCard` - *"an irreversible removal is not a thing to reach for by accident"* |
+| `restore` | the app can say a restore is needed (`service/drives.py:DriveDecisions`) and cannot perform one |
 | `repoint-sources` | the library-moved remedy is CLI-only; `(adx)` owns the disclosure half |
 | `rescan` | no route; `(abn)` is the open entry about what rescan should *do* |
-| `self-check` | reachable only as a process flag, `__main__.py:285` |
+| `self-check` | reachable only as a process flag, `__main__.py:main` |
 | `catalog --move` | the read half is covered; `move_catalog_to_standard` has **zero** hits in the app package |
 
 **And five more are partial**, mostly in flags rather than in whole features. ⚠ **This said
@@ -83,21 +83,21 @@ because somebody went looking, and this table still cannot show an app-only capa
 
 | subcommand | CLI | app route | state |
 |---|---|---|---|
-| `organize` | `cli.py` `add_parser("organize"` | `/api/organize/{inventory,preview,run,settings}` `server.py:946-949` | **covered**, including `--move` / `--in-place` via `mode` (`service/organize.py:95`, `server.py:230,253`) |
-| `undo-organize` | `cli.py` `add_parser("undo-organize"` | `/api/organize/undo{,/preview,/apply}` `server.py:952-954` | **covered**, preview and apply |
-| `rename` | `cli.py` `add_parser("rename"` | `/api/rename/{preview,run}` `server.py:1026-1027` | **covered** - `(aix)` stage 3. The card's `ev-named` branch offers Rename; preview then commit, and the apply is the same `migrate.apply_rename` the CLI calls |
-| `migrate-layout` | `cli.py` `add_parser("migrate-layout"` | `/api/migrate/{preview,run}` `server.py:1019-1020`; undo `:1027-1029` | **covered**, including `--undo` |
-| `verify` | `cli.py` `add_parser("verify"` | `/api/verify/run` `server.py:887` | **covered** |
-| `where` | `cli.py` `add_parser("where"` | `/api/where` `server.py:991` | **covered**; `--limit` becomes paging |
-| `config` | `cli.py` `add_parser("config"` | `/api/layout{,/preview}` `server.py:900-901` | **covered**; presets resolve client-side to a template |
+| `organize` | `cli.py` `add_parser("organize"` | `/api/organize/{inventory,preview,run,settings}` `server.py:create_app.events_apply` | **covered**, including `--move` / `--in-place` via `mode` (`service/organize.py:ORGANIZE_MODE_KEY`, `server.py:create_app._start_drive_job,253`) |
+| `undo-organize` | `cli.py` `add_parser("undo-organize"` | `/api/organize/undo{,/preview,/apply}` `server.py:create_app.events_preview` | **covered**, preview and apply |
+| `rename` | `cli.py` `add_parser("rename"` | `/api/rename/{preview,run}` `server.py:create_app` | **covered** - `(aix)` stage 3. The card's `ev-named` branch offers Rename; preview then commit, and the apply is the same `migrate.apply_rename` the CLI calls |
+| `migrate-layout` | `cli.py` `add_parser("migrate-layout"` | `/api/migrate/{preview,run}` `server.py:create_app`; undo `:1027-1029` | **covered**, including `--undo` |
+| `verify` | `cli.py` `add_parser("verify"` | `/api/verify/run` `server.py:create_app.events_merge` | **covered** |
+| `where` | `cli.py` `add_parser("where"` | `/api/where` `server.py:create_app.events_apply_to_disk` | **covered**; `--limit` becomes paging |
+| `config` | `cli.py` `add_parser("config"` | `/api/layout{,/preview}` `server.py:create_app.events_merge` | **covered**; presets resolve client-side to a template |
 | `status` | `cli.py` `add_parser("status"` | `/api/drives` `:921`, `/api/library/{status,stats}` `:897,:899` | **covered**; same `single_copy_shas` query both sides |
 | `backup` | `cli.py` `add_parser("backup"` | `/api/backup/{preview,run}` | **covered**, preview and apply. ⚠ The CLI **refuses** an unregistered drive where the app auto-attaches - a ruling, not a gap: registering is a distinct act with its own ghost guard. `(ahf)` |
-| `bake` | `cli.py` `add_parser("bake"` | `/api/dates/bake/{preview,run}` `server.py:976-977` | **covered**, preview and apply. ⚠ The *input* is not: confirming a date is app-only by recorded deferral, so a CLI bake writes only what the app recorded or `truestill restore` brought back. `(ahd)` |
-| `clean-empty` | `cli.py` `add_parser("clean-empty"` | `/api/clean-empty/{preview,apply}` `server.py:895-896` | **partial** - `--permanent` deliberately absent (`service/clean_empty.py:71`), app refuses and points at the CLI |
-| `ingest` | `cli.py` `add_parser("ingest"` | `/api/ingest/{preview,archives/precheck,archives/run}` `server.py:956-958` | ⚠ **partial - preview only.** `service/takeout.py:206` returns `ingest_preview(...)`; there is no apply endpoint. `--tz`, `--prefer-takeout-dates`, `--map-albums` unimplemented |
-| `drives` | `cli.py` `add_parser("drives"` | `/api/drives` `server.py:989` | **partial - list only.** Every marker-writing flag (`--init`, `--label`, `--uuid`, `--adopt-existing`, `--force-new-identity`, `--migrate-marker`) has no route |
-| `analyze` | `cli.py` `add_parser("analyze"` | `/api/organize/inventory` `server.py:946` | **partial** - same walk-and-stat tier; `--all-files` missing |
-| `catalog` | `cli.py` `add_parser("catalog"` | `/api/library/status` `server.py:1017` | **partial - read half only.** `--move` has no route |
+| `bake` | `cli.py` `add_parser("bake"` | `/api/dates/bake/{preview,run}` `server.py:create_app.events_apply_to_disk` | **covered**, preview and apply. ⚠ The *input* is not: confirming a date is app-only by recorded deferral, so a CLI bake writes only what the app recorded or `truestill restore` brought back. `(ahd)` |
+| `clean-empty` | `cli.py` `add_parser("clean-empty"` | `/api/clean-empty/{preview,apply}` `server.py:create_app.events_merge` | **partial** - `--permanent` deliberately absent (`service/clean_empty.py:clean_empty_apply`), app refuses and points at the CLI |
+| `ingest` | `cli.py` `add_parser("ingest"` | `/api/ingest/{preview,archives/precheck,archives/run}` `server.py:create_app.events_preview` | ⚠ **partial - preview only.** `service/takeout.py:archive_ingest_run.target` returns `ingest_preview(...)`; there is no apply endpoint. `--tz`, `--prefer-takeout-dates`, `--map-albums` unimplemented |
+| `drives` | `cli.py` `add_parser("drives"` | `/api/drives` `server.py:create_app.events_apply_to_disk` | **partial - list only.** Every marker-writing flag (`--init`, `--label`, `--uuid`, `--adopt-existing`, `--force-new-identity`, `--migrate-marker`) has no route |
+| `analyze` | `cli.py` `add_parser("analyze"` | `/api/organize/inventory` `server.py:create_app.events_apply` | **partial** - same walk-and-stat tier; `--all-files` missing |
+| `catalog` | `cli.py` `add_parser("catalog"` | `/api/library/status` `server.py:create_app` | **partial - read half only.** `--move` has no route |
 | `reclaim` | `cli.py` `add_parser("reclaim"` | **none** | deliberate |
 | `restore` | `cli.py` `add_parser("restore"` | **none** | |
 | `repoint-sources` | `cli.py` `add_parser("repoint-sources"` | **none** | |
@@ -108,15 +108,15 @@ because somebody went looking, and this table still cannot show an app-only capa
 
 Recorded because *"organize is covered"* is true and hides them: `--all-files`, `--by-device`,
 `--no-rename`, `--no-timestamps`, `--phash-threshold`, `--pool` / `--workers`, `--report` (all
-`_add_common_options`, `cli.py:385-454`), `verify --pool/--workers` (`cli.py:662-663`), and
-`undo-organize --run-id` / `--list` (`cli.py:429-430`). `--rclone` is **out of scope by design**:
-*"The app always writes to a local drive - there is no rclone path here"* (`service/organize.py:1046`).
+`_add_common_options`, `cli.py:_typed_confirmation`), `verify --pool/--workers` (`cli.py:_build_parser`), and
+`undo-organize --run-id` / `--list` (`cli.py:_add_common_options`). `--rclone` is **out of scope by design**:
+*"The app always writes to a local drive - there is no rclone path here"* (`service/organize.py:organize_preview`).
 
 ---
 
 ## The other direction: app-only, no CLI subcommand
 
-Worth knowing before anyone calls the CLI the complete surface. Backup (`server.py:993-994`), the
+Worth knowing before anyone calls the CLI the complete surface. Backup (`server.py:create_app.events_apply_to_disk`), the
 whole events and trips surface (`:903`, `:913-918`), date honesty and baking (`:906-909`),
 thumbnails (`:924`), `reveal` (`:922`), the filesystem picker (`:891-894`), library root (`:898`),
 and UI preferences (`:882-883`).

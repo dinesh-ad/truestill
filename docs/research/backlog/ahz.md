@@ -7,7 +7,7 @@
 
   ## 1. THIS IS TERRITORY THE REPO ALREADY CLAIMED, AND THE CLAIM DOES NOT HOLD
 
-  `would_lose` (`decisions.py:1545`) exists for exactly this, and says so:
+  `would_lose` (`decisions.py:would_lose`) exists for exactly this, and says so:
 
   > A re-attached drive carries names a rebuilt catalog has never seen; writing over them destroys
   > the only copy, **which is precisely what this feature exists to prevent**.
@@ -20,7 +20,7 @@
   keyed events on **signature**, not name, so identical signatures made the difference empty,
   `would_lose` returned `()`, and the write proceeded - **nothing anywhere ruled on a name
   regression under an unchanged signature.** Today `_LOSS_KEYS` is identity-to-**value**
-  (`decisions.py:1443-1455`) and `drive_holdings` (`decisions.py:1489`) computes `missing` **and**
+  (`decisions.py:_LOSS_KEYS`) and `drive_holdings` (`decisions.py:drive_holdings`) computes `missing` **and**
   `changed` as `NameSwap` pairs, so a changed value counts. §"STEP 3 SHIPPED" below has the
   detail. ⚠ **This correction is written HERE rather than appended to the end** - a retraction a
   reader reaches thirty lines after the false claim is not a retraction.
@@ -30,12 +30,12 @@
 
   ⚠ **What `(aia)` closed here, and what it did not** (2026-08-26, so neither reader thinks the
   other letter covers it). `(aia)` owns the *wording*: the `"were older"* sentence is now three
-  sentences chosen by `SupersededReason` (`decisions.py:170`), so a **tie** and an **undated**
+  sentences chosen by `SupersededReason` (`decisions.py:SupersededReason`), so a **tie** and an **undated**
   document are no longer called "older". **This entry owns the ruling**: in the measured case the
   recovery document genuinely *is* newer, the sentence is now accurate, and the loss still happens.
   Wording it correctly does not stop it.
 
-  ⚠ **And the trip half is ruled the other way, deliberately.** `_trip_key` (`decisions.py:429`):
+  ⚠ **And the trip half is ruled the other way, deliberately.** `_trip_key` (`decisions.py:_trip_key`):
 
   > A trip's identity is its DAY SET, not its name. `(ack)` ... **same days with a different name
   > is a RENAME** - the newer name wins - rather than two trips or a conflict to escalate.
@@ -46,15 +46,15 @@
   ## 2. ⚠ `--discard` CONVERTS A RECOVERABLE STATE INTO A PERMANENT ONE
 
   **Read this before the fix shapes.** It is the action a stuck user takes: it is the only other
-  flag `restore` has, and its help (`cli.py:623`) reads *"DESTRUCTIVE: overwrite the drive's
+  flag `restore` has, and its help (`cli.py:_build_parser`) reads *"DESTRUCTIVE: overwrite the drive's
   decisions with this catalog's"* - which a user whose names came back wrong will read as *"make
   the drive agree with me"*.
 
-  - **Its direction is catalog -> drive** (`cli.py:1564`). It never writes a catalog row, so it
+  - **Its direction is catalog -> drive** (`cli.py:_print_restore_plan`). It never writes a catalog row, so it
     **cannot** push the real names back: they are on the drive, not in the catalog.
   - Run in this state it does the opposite. It overwrites the drive's document - **the last
     surviving copy of the real names** - with the catalog's wrong ones, stamped `written=now`
-    (`cli.py:1655`), making them the newest document anywhere and **unbeatable by any later
+    (`cli.py:_cmd_restore`), making them the newest document anywhere and **unbeatable by any later
     reconcile**.
   - ⚠ **Its guard misread the situation, because it used a different identity than the merge
     did - AND STEP 3 CLOSED BOTH HALVES on 2026-08-26.** As filed: `_LOSS_KEYS` keyed trips by
@@ -62,8 +62,8 @@
     holding *"Grandma's 90th"* for the days the catalog called *"Trip 2019"* registered as a loss,
     and the preview printed *"These sections exist there and NOT here, and will be gone: trips"* -
     a warning about the drive that was really a description of a rename. Today `_LOSS_KEYS` keys
-    trips by `_trip_key` (`decisions.py:1444`), the same function the merge uses, and **that
-    sentence no longer exists anywhere in the tree**: `_discard_to_drive` (`cli.py:1604`) prints
+    trips by `_trip_key` (`decisions.py:_LOSS_KEYS`), the same function the merge uses, and **that
+    sentence no longer exists anywhere in the tree**: `_discard_to_drive` (`cli.py:_print_restore_summary`) prints
     `RESTORE_WORDING[RestoreNote.DRIVE_HOLDS_MORE]` and words a rename apart from a loss.
 
   🔑 **Two keyings of one concept in one module is the third instance of one shape in a week**, and
@@ -100,7 +100,7 @@
   2. That run **registers the recovery folder as a drive**, and the dirty close **publishes a
      decisions document to it**.
   3. `truestill restore <drive>` - all three event names dropped, at the time with a false reason.
-     The names are `(ahv)`; the sentence was `(aia)`, fixed 2026-08-26 (`decisions.py:573`).
+     The names are `(ahv)`; the sentence was `(aia)`, fixed 2026-08-26 (`decisions.py:RestoreWording`).
   4. The user re-names the groups in review. Those names **auto-publish to the recovery drive**,
      now stamped newer than the original.
   5. `truestill restore <drive>` again - the user's real names are reported *"older and were not
@@ -133,8 +133,8 @@
   *"E must ship with a fix to `_discard_to_drive`, which treats a non-empty `would_lose` as
   permission to proceed"* UNTIL 2026-08-26. THERE IS NO POLARITY BUG AND THERE NEVER WAS.**
   Calling it *"permission to proceed"* is true of the control flow and misleading as a
-  description, because it omits three gates: preview-only by default (`cli.py:1662`), an explicit
-  `--apply`, and a typed `discard` confirmation (`cli.py:1662`). The retraction lived thirty-four
+  description, because it omits three gates: preview-only by default (`cli.py:_discard_to_drive`), an explicit
+  `--apply`, and a typed `discard` confirmation (`cli.py:_discard_to_drive`). The retraction lived thirty-four
   lines below this claim, where a reader meets it second; it is here now.
 
   ## ⚠ STEP 2 SHIPPED 2026-08-26 (P113) - THE NAMED ROOT IS AUTHORITATIVE
@@ -269,10 +269,10 @@
 
   ## 4. THE TRIP HALF IS WORSE, AND WAS NEARLY MISSED
 
-  Events rename on a signature match (`decisions.py:943`). **Trips never rename at all.**
+  Events rename on a signature match (`decisions.py:_apply_trips`). **Trips never rename at all.**
   `_apply_trips` finds every day already claimed by a differently-named local trip, so
-  `holders != {None}` (`decisions.py:534`) and the trip lands in `conflicting.append(name)`
-  (`decisions.py:953`) - reaching `conflicting_trips`, **a field no surface prints**. Checked:
+  `holders != {None}` (`decisions.py:ApplyReport`) and the trip lands in `conflicting.append(name)`
+  (`decisions.py:_apply_trips`) - reaching `conflicting_trips`, **a field no surface prints**. Checked:
   `grep -rn "conflicting_trips" packages/*/src` returns its definition and construction only.
 
   🔑 **The measurement's most reassuring result was an artefact of the setup, not a property of the
@@ -283,7 +283,7 @@
 
   ## 5. THE RANKING IS CORRECT. DO NOT LOOK FOR A BUG IN THE SORT
 
-  `_ranked` (`decisions.py:245`) does exactly what it documents: `written` descending,
+  `_ranked` (`decisions.py:ReconcileReport`) does exactly what it documents: `written` descending,
   `drive_uuid` ascending as a deterministic tiebreak. 14:08:27 really is later than 14:07:32.
 
   🔑 **The defect is that recency is a proxy for AUTHORITY, and a recovery copy breaks the proxy.**
@@ -292,7 +292,7 @@
   exactly when the timestamp does not track causality.
 
   ⚠ **The sibling case was anticipated and solved; this one is its inverse.** `_merge_section`
-  (`decisions.py:306`) rules *"per decision, never per document"*, because per-document merge
+  (`decisions.py:_Section`) rules *"per decision, never per document"*, because per-document merge
   *"would let a freshly formatted drive - whose empty document is by definition the newest - erase
   a full one."* That answers a freshly-created drive with an **empty** document. This is a
   freshly-created drive with a **populated** one, whose values are derived from the drive it beats.
@@ -317,22 +317,22 @@
   would make it alarming.
 
   **`(aia)` closed the register half the same day.** The marker is now derived from
-  `RestoreWording.actionable` (`decisions.py:531`) in one place (`cli.py:1457`) rather than typed
+  `RestoreWording.actionable` (`decisions.py:ApplyReport`) in one place (`cli.py:_cmd_repoint`) rather than typed
   at each site, so a loss can no longer be printed in the "nothing to do" register by accident.
   ⚠ **The value half WAS open and STEP 1 CLOSED IT** (`98c1d1f`, 2026-08-26). It read *"`Superseded`
   carries `section, drive_label, count, reason` and no values, so no surface can name which trip or
-  event was lost"*. Today `Superseded` (`decisions.py:207`) also carries `swaps: tuple[NameSwap,
-  ...]` and `by_authority: bool`, and `render_swaps` (`decisions.py:726`) names each lost/kept
+  event was lost"*. Today `Superseded` (`decisions.py:Superseded`) also carries `swaps: tuple[NameSwap,
+  ...]` and `by_authority: bool`, and `render_swaps` (`decisions.py:RESTORE_WORDING`) names each lost/kept
   pair. It was a `Superseded` shape change, as this paragraph said.
 
   ## 7. FIX SHAPES - NONE CHOSEN
 
   | | shape | verdict |
   |---|---|---|
-  | **A** | the recovery destination is not registered as a drive | ⛔ **RULED OUT.** `IMPLEMENTATION_STANDARDS.md` §3.1 binds creation on **both** surfaces; `cli.py:2831` rules that an identity minted afterwards *"leaves the run's own files unattached"*; `(aei)` makes destination identity an input to dedup. An opt-out flag was already refused at `cli.py:2790` |
+  | **A** | the recovery destination is not registered as a drive | ⛔ **RULED OUT.** `IMPLEMENTATION_STANDARDS.md` §3.1 binds creation on **both** surfaces; `cli.py:_print_ingest_report` rules that an identity minted afterwards *"leaves the run's own files unattached"*; `(aei)` makes destination identity an input to dedup. An opt-out flag was already refused at `cli.py:_safe_size` |
   | **B** | suppress publishing while the catalog is known-rebuilt | ⚠ **PARTLY RULED OUT, and needs a concept that does not exist.** No rebuilt/young/age notion anywhere; `test_catalog_session.py` rules the trigger deliberately coarse and calls the refreshed organize stamp intended; `decisions-on-drive-research.md` states every reachable drive is meant to hold every decision. And `(aci)`/`would_lose` is the already-recorded remedy - B would be a second one |
-  | **C** | `restore` reads one root only, behind a flag | ✅ **NOT RULED ON.** The ruling is only *"the named root is read from the PATH, never from a lookup"* (`cli.py:1474`). Reading the others is stated as a **convenience**, justified by *"on a fresh machine that list is simply empty"* - which this scenario falsifies. Constraint: `apply_documents` owns the per-drive loop structurally; a flag must not move it |
-  | **D** | creation-date-aware ranking | ✅ **NOT RULED ON, but needs new data.** A per-section override precedent exists - `_merge_confirmations` (`decisions.py:381`) resolves on the row's stamp, not the document's. ⚠ But drive age is **not derivable**: `marker.created` exists (`drive.py:65`) and is never written to the catalog or read during reconcile, and `drives.first_seen` is when *this* catalog first saw the drive, so on a rebuilt catalog it is the rebuild day - **actively wrong in the one case restore exists for** |
+  | **C** | `restore` reads one root only, behind a flag | ✅ **NOT RULED ON.** The ruling is only *"the named root is read from the PATH, never from a lookup"* (`cli.py:_restore_stamp`). Reading the others is stated as a **convenience**, justified by *"on a fresh machine that list is simply empty"* - which this scenario falsifies. Constraint: `apply_documents` owns the per-drive loop structurally; a flag must not move it |
+  | **D** | creation-date-aware ranking | ✅ **NOT RULED ON, but needs new data.** A per-section override precedent exists - `_merge_confirmations` (`decisions.py:_merge_confirmations`) resolves on the row's stamp, not the document's. ⚠ But drive age is **not derivable**: `marker.created` exists (`drive.py:DriveMarker`) and is never written to the catalog or read during reconcile, and `drives.first_seen` is when *this* catalog first saw the drive, so on a rebuilt catalog it is the rebuild day - **actively wrong in the one case restore exists for** |
   | **E** | widen `_LOSS_KEYS` so a name regression under an unchanged signature is a loss | ✅ **NOT RULED ON.** Repairs the guard already ruled to cover this case rather than adding a mechanism. The evidence points here; it is written down, not chosen |
 
   ## RELATED

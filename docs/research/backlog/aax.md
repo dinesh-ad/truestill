@@ -5,11 +5,11 @@
 - **(aax) `time_known` is derived from provenance, not from the value. POST-LAUNCH.** Filed
   2026-08-03 while fixing the stacked date prefix, which this shape is what made possible.
   **Record only - do not build.**
-  - **The shape.** `organizer.py:793` sets `time_known=date_source in (EXIF, INFERRED_LOCAL)`.
+  - **The shape.** `organizer.py:plan` sets `time_known=date_source in (EXIF, INFERRED_LOCAL)`.
     That asks *where did this date come from*, and then uses the answer for *does this date
     have a time*. **Precision is a property of the value; trust is a property of the source**,
     and deriving one from the other is the defect - the two questions have different answers.
-  - **Where they already disagree.** `TAKEOUT` is in `_TRUSTED_DATE_SOURCES` (`models.py:117`),
+  - **Where they already disagree.** `TAKEOUT` is in `_TRUSTED_DATE_SOURCES` (`models.py:DateSource`),
     so a Google `photoTakenTime` is trusted enough to file by without review - yet it is
     **not** in the `time_known` pair, so the copy is named date-only. `photoTakenTime` is a
     real capture instant with a time in it. The time is discarded for no stated reason, and

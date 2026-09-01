@@ -183,7 +183,7 @@ they are retired rather than carried. Reopening one needs a reason the font pass
 (ingest extracting a whole archive into the user's temp). **The premise was false when it was
 filed** - `extract_archive_set` has staged under `destination/.truestill-staging` since the
 feature's first commit (`346135c`, 2026-08-01), three weeks earlier, and that staging *is* the
-entry's own recorded fix-shape. The line it cited, `organizer.py:1251`, is `_MetadataBaker`:
+entry's own recorded fix-shape. The line it cited, `organizer.py:_bake_queue`, is `_MetadataBaker`:
 a hundred files at a time, previous chunk removed before the next is staged.
 
 ⚠ **`Retires`, not `Closes`, and the distinction is the whole point.** A `SHIPPED.md` row would
@@ -201,7 +201,7 @@ comparison - found no camera with a Make and Model that does it, and the three a
 **London and Cardiff photographs taken in winter**, genuinely GMT. Every fix it proposed cost more
 than the defect: 14 of the 37 GPS-comparable stills have a delta that is not a real UTC offset at
 all, nine of them off by twenty-two hours. ⚠ **Its most valuable finding outlives it** - a fix
-aimed at `dates.py:370`'s `is_video` would have done nothing, because `UTC_CONTAINER_TAGS` omits
+aimed at `dates.py:_exif_tier`'s `is_video` would have done nothing, because `UTC_CONTAINER_TAGS` omits
 `DateTimeOriginal` too. The body is kept as a **record** at
 [`research/backlog/aco.md`](research/backlog/aco.md) with its reopen condition, and the live
 evidence found on the way is `(agz)`.
@@ -225,9 +225,9 @@ rather than treated as a triage failure.
 - **(ajn) THE APP CANNOT SAY A COPY ARRIVED WITHOUT ITS TIMESTAMPS.** Filed 2026-09-01 (P175),
   **split out of `(aiq)` when its other two thirds shipped** - this is its gap 3 and the only part
   that survived, carried on its own letter rather than dropped inside a closed entry. Core produces
-  the fact (`models.py:845` `metadata_ok`, set at `organizer.py:1702`) and owns the sentence
-  (`drive_unwritable.py:219` `metadata_not_preserved_note`); the CLI prints it
-  (`cli.py:2737`, label `METADATA NOT SET`). ⚠ **`metadata_ok` has ZERO occurrences under
+  the fact (`models.py:ActionResult` `metadata_ok`, set at `organizer.py:_journal_or_delete_source`) and owns the sentence
+  (`drive_unwritable.py:metadata_not_preserved_note` `metadata_not_preserved_note`); the CLI prints it
+  (`cli.py:_print_execution`, label `METADATA NOT SET`). ⚠ **`metadata_ok` has ZERO occurrences under
   `packages/truestill-app/src`** - `grep -rc metadata_ok packages/truestill-app/src` returns
   nothing. So `(aie)`/`(ain)`'s honest outcome - *"copied and is safe, but this drive does not let
   Truestill set timestamps"* - reaches a terminal user and **never reaches a screen at all**. Not a
@@ -242,9 +242,9 @@ rather than treated as a triage failure.
   absent: `single_copy_shas` → 1 at-risk row, `custody_floor` → `one_copy: 1`, and
   `stats_summary` → `files_on_two_plus_drives = 1`. **`status` and the custody strip say one
   place; the Stats screen says two or more.** Same catalog, same instant.
-  The cause is one missing clause - `stats_summary`'s rollup (`catalog.py:2160`) reads
+  The cause is one missing clause - `stats_summary`'s rollup (`catalog.py:Catalog.stats_summary`) reads
   `FROM file_copies` with no `missing_at` test, while the other three exclude absent copies **and
-  each says why**: *"A copy looked for and not found is not a place"* (`catalog.py:2610`).
+  each says why**: *"A copy looked for and not found is not a place"* (`catalog.py:Catalog.single_copy_shas`).
   ⚠ **NOT "add the clause everywhere".** `list_drives` deliberately does the opposite and must stay
   - a drive list reports **history**, and the codebase already draws that line in
   `single_copy_shas`'s own docstring. **A promise about now filters; a record of the past does
@@ -416,7 +416,7 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
   JUSTIFIED BY ANOTHER COMMAND'S WIRING.** Filed 2026-09-01 (P170) from soak twelve 12b and
   **ruled from the code, not from the soak**. Two independent reasons the run does not stop, and
   **fixing either alone changes nothing**: (1) `exists()` raises a **causeless**
-  `DestinationError` (`local.py:153`, no `from`), so `underlying_oserror` returns `None` and
+  `DestinationError` (`local.py:LocalDestination.exists`, no `from`), so `underlying_oserror` returns `None` and
   `persists_for_the_run` returns `False` at its first guard - every branch below, `GONE` included,
   is dead for it. Measured. The cause is discarded in `probe`, whose signature returns the **stat,
   not the error**. (2) With an ENOENT cause it still returns `False`, because `GONE` deliberately
@@ -434,7 +434,7 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
   ⚠ **`gone(INDEFINITE)` was ZERO** - the split this entry hoped to reuse distinguishes nothing
   here - and **two device ids appeared while readable** (`1816`, `29`), so a stat can succeed and
   describe the filesystem *under* the mountpoint. **Therefore the causeless raise at
-  `local.py:153` is NOT fixed either**: both had to change or neither does anything, and the
+  `local.py:LocalDestination.exists` is NOT fixed either**: both had to change or neither does anything, and the
   ruling is neither. What fits the measurement is **striking**, which `RunHealth` already
   implements - and which is inert on a 6 s run. What remains open is that shape.
   ⚠ **CORRECTED the same day: the mechanism first filed was WRONG on its load-bearing claim.**
@@ -501,7 +501,7 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
   because `_LOSS_KEYS` keyed events on **signature** not name - the first defect class under the
   one place it was ruled to hold (`(aci)`). ⚠ **`--discard` makes it permanent**: it is catalog ->
   drive, so it overwrites the last surviving copy and stamps it newest.
-  **STEPS 1-3 SHIPPED 2026-08-26**: `_LOSS_KEYS` is identity-to-value (`decisions.py:1332`), so a
+  **STEPS 1-3 SHIPPED 2026-08-26**: `_LOSS_KEYS` is identity-to-value (`decisions.py:write_decisions`), so a
   changed name counts as a loss; the drive you name is authoritative per key; and `Superseded`
   names the swaps it withheld. ⚠ **ONE residual keeps this entry open, and it is the trip half:
   `rename_trip` is unbuilt**, so a trip whose days a rebuilt catalog already claimed under
@@ -538,11 +538,11 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
 - **(ahk) THE NAMING ROUTE DOES A CHECK-THEN-INSERT WITH NO LOCK, AND `truestill restore` CAN
   RACE IT.** Filed 2026-08-25 (P74). **Ranked above `(ahh)`**: that entry is how the collision is
   *reported*, this is the collision.
-  `commit_trips` reads `catalog.trip_for_day` for every day (`trip_review.py:373`) and then
+  `commit_trips` reads `catalog.trip_for_day` for every day (`trip_review.py:commit_trips`) and then
   inserts (`:378`) - **two transactions**, so `BEGIN IMMEDIATE` does not close the window. The
-  route around it holds **nothing**: `events_apply` (`server.py:876`) has no
+  route around it holds **nothing**: `events_apply` (`server.py:create_app.events_propose`) has no
   `_start_drive_job`, no `jobs.claim` and no `lock_for`. Meanwhile `truestill restore` reaches
-  `create_trip` through `decisions.py:477` in another process.
+  `create_trip` through `decisions.py:reconcile_documents` in another process.
   ⚠ **The window is reproduced, and the reproduction's limit is stated**: with a second real
   `Catalog` connection opened inside the window, `commit_trips` raises
   `IntegrityError: UNIQUE constraint failed: trip_days.day`, the user's typed name is **gone**,
@@ -550,7 +550,7 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
   does not race two OS processes.** A true collision has a known *shape* and a reproduced
   *window*, not an occurrence observed in the wild.
   🔑 **THE TWIN PATH WAS HARDENED AGAINST THE NEIGHBOURING SHAPE, WHICH IS THE EVIDENCE THIS IS
-  REAL.** `decisions.py:530-531`, verbatim:
+  REAL.** `decisions.py:ApplyReport`, verbatim:
   > `# Day -> the name of the trip holding it. Read once and kept in step as trips are created, so`
   > `# a document that names one day twice cannot make `create_trip` fail on the day primary key.`
   ⚠ **That defends the WITHIN-RUN duplicate and not the cross-process one** - and because it reads
@@ -582,22 +582,22 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
   ✅ **The behaviour is real and reproduced.** Ten decisions with a forced failure on #7: trips
   1-6 committed, 7-10 never attempted, and `migration_journal`, `migration_runs`, `organize_runs`
   and `inplace_runs` all **empty** with no record file written. `commit_trips`
-  (`trip_review.py:363-392`) catches nothing; each `create_trip` is its own transaction.
+  (`trip_review.py:commit_trips`) catches nothing; each `create_trip` is its own transaction.
   ⚠ **THE TRIGGER IN THE FILING WAS NOT REACHABLE, and the entry said otherwise.** The
   reproduction poisoned a decision with a duplicate day - `confirmed_days` is typed
   `Sequence[date]` and `trip_days.day` is `PRIMARY KEY`. **No caller can do that**: checked,
-  `confirmed_days` has **zero** references outside `trip_review.py`, and `service/trips.py:498`
+  `confirmed_days` has **zero** references outside `trip_review.py`, and `service/trips.py:apply_event_review_names`
   builds `TripDecision(card.trip, name)` positionally, so it stays `None` and the days come from
   `proposal.days`, a **`Mapping`** - unique by construction. What is reachable is `(ahk)`'s race.
   🔑 **It is a REPORTING defect, not lost work**, and each half was checked rather than reasoned:
   the catalog stays consistent (one transaction per trip); the half-state **is discoverable**,
-  because re-proposing reads `ExistingNames` (`service/trips.py:135`, `:219`) so the six show as
+  because re-proposing reads `ExistingNames` (`service/trips.py:_event_location`, `:219`) so the six show as
   named and the four return as proposals; **a re-run converges** - proved, a second apply named
   the remaining four and the first six took `update_trip_days` rather than re-create; and the
   **session survives**, because `discard_session` is called from exactly one place
-  (`server.py:941`, the apply-to-**disk** `on_started`), so the typed names are still there.
+  (`server.py:create_app.events_apply`, the apply-to-**disk** `on_started`), so the typed names are still there.
   ⚠ **The user is told the save FAILED while six succeeded** - `events_apply` is a plain route, a
-  non-busy `sqlite3.Error` keeps its 500 by design (`server.py:105-108`), and `guarded` renders a
+  non-busy `sqlite3.Error` keeps its 500 by design (`server.py:_static_fingerprint`), and `guarded` renders a
   fatal banner. That is **failure hiding a partial success**: the inverse of `(afa)`, and the
   **safe** direction - the user under-trusts and a re-run fixes it. **So this ranks BELOW
   `(abm)`-shaped computed-and-unread defects**, not above `(ahi)`/`(ahj)` as originally filed.
@@ -659,7 +659,7 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
 - **(agp) THE BUSY MESSAGE NAMES A SECOND WINDOW THAT DOES NOT EXIST, AT THE USER'S FIRST CLICK.**
   Recorded 2026-08-23, split out of `(adt)` when it closed, **ranked above `(agq)` by the
   maintainer - a wording-and-detection defect, not a lock defect.** `CATALOG_BUSY_MESSAGE`
-  (`catalog_busy.py:70-76`) says *"close the other Truestill window, or stop the other command in
+  (`catalog_busy.py:CATALOG_BUSY_MESSAGE`) says *"close the other Truestill window, or stop the other command in
   your terminal"* - and the likeliest way to meet it is a **first-run schema build**: one window,
   one user, their first ever click, **both clauses naming things that do not exist**. That is the
   product telling a user something false at the exact moment it is failing them.
@@ -686,7 +686,7 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
   it. ⚠ **Both sides are filed because either may win.** For: §9's never-silent clause
   (`IMPLEMENTATION_STANDARDS.md:1354`) makes a *degraded* outcome something that must be counted
   and named, and it is binding contract. Against: `_stop_if_ground_moved`'s own docstring
-  (`backup.py:247-253`) argues that *"a second mechanism for the same class of event would be a
+  (`truestill_core/backup.py:CopyVerdict`) argues that *"a second mechanism for the same class of event would be a
   second thing to keep in step"* - made about the stop path, and it applies to a notice path.
   🔑 **It is one entry, not organize's third of one**: `HealthVerdict` is binary and the three
   watchers consume it three ways - an `ActionResult`, a `MigrationOutcome` field, and a `raise`
@@ -698,7 +698,7 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
 
 - **(age) `(aek)`'s SILENT DIRECTION SURVIVES INSIDE `(aek)`'s OWN FIX.** Recorded 2026-08-23,
   found while investigating `(aft)`. `preflight_destination` correctly records `free: int | None`
-  (`filesystem.py:259-263`) and then **throws it away one line later**: `free_bytes=need if free
+  (`filesystem.py:preflight_destination`) and then **throws it away one line later**: `free_bytes=need if free
   is None else free` (`:271`), with `DestinationPreflight` carrying **no field** for *"this was not
   measured"*. So unmeasurable becomes *exactly enough*, `may_proceed` is `True`, and
   `cli._print_preflight` prints nothing. 🔑 **The conflation was removed where it was MEASURED and
@@ -890,7 +890,7 @@ and they are not product defects; keeping them in one drawer stops them competin
   `valid`, `code` - **except `JobStarted`**, which is one key, `job_id`, and no literal.
   ⚠ **Checked, not assumed**: an AST pass over every union arm reachable from a route, reported in
   the body. `_start_drive_job` returns **three** shapes, so all **15** job-start sites return a
-  union, and `app.js:244` tells the arms apart with `started.ok === false` - false for `JobStarted`
+  union, and `app.js:runJob` tells the arms apart with `started.ok === false` - false for `JobStarted`
   **only because `ok` is undefined**. The one place in the app where narrowing rests on a key not
   being there.
   **The fix** is `ok: Literal[True]`, additive and almost certainly safe - but it puts a new key on
@@ -908,7 +908,7 @@ and they are not product defects; keeping them in one drawer stops them competin
   measured different surface sets, so the delta measured neither. Corrected when the guard had to
   assert on it.
   ⚠ **34 is a FLOOR, not a count.** A key-name census cannot see a collided field:
-  `BakePreview.absent` is rendered at `app.js:4172` while `BakeSummary.absent` is not read by
+  `BakePreview.absent` is rendered at `app.js:clearMigrateConfirm` while `BakeSummary.absent` is not read by
   `bakeCompletion` at all, so the name never enters the list. `apollo-kotlin#991`, open since 2018,
   is the same limit in another language.
   ⚠ **The document disagrees with itself**: `PROJECT_STATUS.md` said **3 sites** in one place and
@@ -922,7 +922,7 @@ and they are not product defects; keeping them in one drawer stops them competin
   `run_index_for`, `runs_dir_for`, `superseded_record_path`, `last-run` and `index.jsonl` across
   `packages/*/src`, minus the two modules that own them, returns **three** hits - one docstring and
   two **write** paths - and **zero** in `app.js` or `frontend/src/`.
-  The only human affordance is `truestill organize --report PATH` (`cli.py:433`), which moves the
+  The only human affordance is `truestill organize --report PATH` (`cli.py:_add_common_options`), which moves the
   file rather than reading one, and exists for `organize` alone.
   ⚠ **Ruled OUT of `(ahl)`/condition 3 deliberately**: a record has a designed consumer and a dead
   payload key has none; condition 3's subject is the route-to-surface contract; and condition 1
@@ -1000,10 +1000,10 @@ and they are not product defects; keeping them in one drawer stops them competin
 
 - **(agh) `LocalGuard` MAKES FORGETTING THE TOKEN IMPOSSIBLE AND UN-EXEMPTING INVISIBLE.**
   Recorded 2026-08-23. **The token is enforced well** - ASGI middleware wrapping the whole app
-  (`server.py:1041`), so no route can forget it, with Host/Origin checks and
-  `secrets.compare_digest` (`security.py:84-94`), and the single `/static/` exemption verified
+  (`server.py:create_app`), so no route can forget it, with Host/Origin checks and
+  `secrets.compare_digest` (`security.py:LocalGuard._reject`), and the single `/static/` exemption verified
   inert. **The gap is that nothing pins the exemption LIST.** Coverage is per-route
-  (`test_server.py:20,33,39,44`, `test_thumb_route.py:115`); a second `startswith` added to
+  (`test_server.py:test_missing_token_is_rejected,33,39,44`, `test_thumb_route.py:test_without_a_token_it_serves_nothing`); a second `startswith` added to
   `_reject` would be caught by nothing, and it is a two-line change that looks harmless.
   🔑 **The asymmetry is the point**: the middleware makes the common mistake structurally
   impossible and leaves the rare one unguarded - the shape that survives longest, because everyone
@@ -1013,7 +1013,7 @@ and they are not product defects; keeping them in one drawer stops them competin
   [Full entry](research/backlog/agh.md)
 
 - **(afz) `mutation_matrix.py` LEAKS A TEMPORARY DIRECTORY PER MUTANT, IN A SCRIPT NO GATE
-  RUNS.** Recorded 2026-08-23, found while measuring `(afy)`. `scripts/mutation_matrix.py:539` is
+  RUNS.** Recorded 2026-08-23, found while measuring `(afy)`. `scripts/mutation_matrix.py:_pytest` is
   a bare `tempfile.mkdtemp()` with **no cleanup on any path**, called once per mutant - **67
   mutants across three suites**, so ~73 `/tmp/tmp*` directories per sweep. ⚠ **It accumulated
   invisibly for a structural reason**: the script is in no `Makefile` target, no hook and no
@@ -1024,7 +1024,7 @@ and they are not product defects; keeping them in one drawer stops them competin
   it is needed. ⚠ **The commissioning premise was false and is corrected in the entry**: pytest
   does **not** clean `tmp_path` - retention defaults to **3** by design - so "there are
   leftovers" implies nothing, and following it excluded the script while pointing at the suite,
-  which calls `tempfile` **zero** times. Also named, not fixed: `shoot_screens.py:170` leaks on
+  which calls `tempfile` **zero** times. Also named, not fixed: `shoot_screens.py:main` leaks on
   abnormal exit. [Full entry](research/backlog/afz.md)
 
 - **(afx) THE CEILING IS ASYMMETRIC - LOCAL 2000, CI 3600. THE 3.79 s WAS A CONTENDED READING.**
@@ -1054,7 +1054,7 @@ and they are not product defects; keeping them in one drawer stops them competin
   [Full entry](research/backlog/afs.md)
 
 - **(afr) THE LOCK DIRECTORY GROWS ONE EMPTY FILE PER DRIVE, FOREVER.** `DriveLock.release`
-  truncates and never unlinks (`drive_lock.py:208,219`), so `~/.local/share/Truestill/locks/`
+  truncates and never unlinks (`drive_lock.py:DriveLock.acquire,219`), so `~/.local/share/Truestill/locks/`
   gains a 0-byte file per distinct drive key and keeps it - and `path:` keys mean **every
   destination ever organized** leaves one. ⚠ **Nothing breaks and deletion is safe, because the
   flock is the truth and not the file** - which is exactly why it needs a letter rather than a
@@ -1115,12 +1115,12 @@ like approved work.
   `_ABSENT_ERRNOS`, so `exists()` returns `False` without raising. The errno that produced
   `REFUSED` in soak twelve is **unknown**, and **no classifier change is warranted until it
   reproduces**. 🔑 **The brief's premise is FALSE and that is the finding**: *"give
-  `DestinationError` a cause"* is impossible at `base.py:88` - `device_of` swallows the error, so
+  `DestinationError` a cause"* is impossible at `base.py:DestinationDevice.check` - `device_of` swallows the error, so
   there is **no exception object at that point** (and raising inside a `try` sets neither
   `__cause__` nor `__context__`, measured). Of **22** raise sites **exactly one** discards an
-  available `OSError`: `local.py:154`, because `probe()` returns the **stat, not the error**.
+  available `OSError`: `local.py:LocalDestination.exists`, because `probe()` returns the **stat, not the error**.
   ⚠ **`persists_for_the_run` has SIX call sites**, three of them exposed - and **`migrate` already
-  carries `or isinstance(exc, VerificationFailedError)` while `organizer.py:2118` has no disjunct
+  carries `or isinstance(exc, VerificationFailedError)` while `organizer.py:_record_then_stop_if_it_will_recur` has no disjunct
   at all**. Two further blind spots named: `MetadataBakeError` is an `OSError` with `errno is
   None`, and `undo._why_not` never consults the classifier. **Candidate ruling recorded, not
   ruled**: `check`'s raise should bypass the classifier, supported by `backup` already stopping on
@@ -1380,13 +1380,13 @@ rather than assumed.
   reversible with `--undo`. What has no CLI is the **naming**: turning *"these 40 photos are the
   Goa trip"* into a `trips` row.
   It is **review-shaped**, and unlike the date rescue there is **no durable intermediate at all**.
-  The proposed names live in a browser array (`app.js:3394`, no `localStorage`) and a
+  The proposed names live in a browser array (`app.js:rcRunArchives`, no `localStorage`) and a
   process-local dict capped at 32 that calls itself *"Mutable UI-only review state"*
   (`server.py:49`), and both die on reload. The request body sends the names as a **positional
   array** zipped against the server's session cards, so the identities never leave the process. A
   CLI could not consume a review - it would have to **own** one, which is the different and more
   dangerous feature the date-rescue row above already refuses.
-  ⚠ **`server.py:675` held this decision in a comment** - *"session-based; merge/split are UI-only,
+  ⚠ **`server.py:create_app.dates_bake_run` held this decision in a comment** - *"session-based; merge/split are UI-only,
   no CLI path"* - and this register did not. This row is that decision arriving where it can be
   audited.
   **What would reopen it**: a durable pre-apply record, a `trip_confirmations` analogue of

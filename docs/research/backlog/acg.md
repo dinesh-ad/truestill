@@ -9,10 +9,10 @@
   catalog. Not live only because `gather_decisions` takes album *names* and `apply_decisions`
   reports them under `not_applied` - the albums tables are empty today.
   - ⚠ **CORRECTION, 2026-08-26 (P103): "the albums tables are empty today" IS FALSE, and this
-    entry is larger than it says.** `takeout.py:244` records an album per media file, `cli.py:2485`
+    entry is larger than it says.** `takeout.py:scan_takeout` records an album per media file, `cli.py:_print_duplicate_space`
     builds `IngestContext.albums` **unconditionally** on every ingest, and the rows land via
-    `organizer.py:2121` -> `catalog.py:3384`. **`--map-albums` does not gate any of it** - it
-    selects the event-naming prompt only (`cli.py:540`). So every Takeout user with album folders
+    `organizer.py:_record_then_stop_if_it_will_recur` -> `catalog.py:Catalog.record_uploaded`. **`--map-albums` does not gate any of it** - it
+    selects the event-naming prompt only (`cli.py:_build_parser`). So every Takeout user with album folders
     already has album names written to their drive on each save and **silently discarded on each
     restore**. `agy.md:65-68` flagged this sentence as worth re-checking and declined to; it is now
     checked. The entry stands, its premise does not, and the ranking should follow the corrected

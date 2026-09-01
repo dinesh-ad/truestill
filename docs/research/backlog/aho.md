@@ -24,7 +24,7 @@
 
   `_start_drive_job` returns **three** shapes from one route: a refusal Mapping, a
   `DriveBusyPayload`, and `JobStarted`. So **every one of the 15 job-start sites returns a union**,
-  and `app.js` tells the arms apart at `app.js:244` with `started.ok === false` - which is false
+  and `app.js` tells the arms apart at `app.js:runJob` with `started.ok === false` - which is false
   for `JobStarted` **only because `ok` is `undefined`**.
 
   🔑 **It is the one place in the app where narrowing rests on a key not being there.** It works,

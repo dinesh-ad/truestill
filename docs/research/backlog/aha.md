@@ -20,7 +20,7 @@ try it here.
 | the user edits | the path | what they get |
 |---|---|---|
 | **the SOURCE**, then re-organizes | new bytes → new `files.sha256`, which `IMPLEMENTATION_STANDARDS.md` §3's dual-hash rule makes **the dedup identity** → the content is not in this drive's `file_copies` scope → **copied again**. The original undated copy keeps its own row and stays. | **A DUPLICATE.** Two files, one photo, two dates. Wasted space and a count that disagrees with the library. |
-| **the LIBRARY COPY** in place | `file_copies.copy_sha256` still holds the pre-edit hash → `verify` re-reads and reports **MISMATCH**, then prints *"(read-only: Truestill never repairs; re-copy the source to restore a bad file.)"* (`cli.py:1802`) | **DESTRUCTIVE ADVICE.** Following it overwrites the edited file with the pre-edit source and discards the user's work. |
+| **the LIBRARY COPY** in place | `file_copies.copy_sha256` still holds the pre-edit hash → `verify` re-reads and reports **MISMATCH**, then prints *"(read-only: Truestill never repairs; re-copy the source to restore a bad file.)"* (`cli.py:_cmd_verify`) | **DESTRUCTIVE ADVICE.** Following it overwrites the edited file with the pre-edit source and discards the user's work. |
 
 ⚠ **The hash cache is NOT the mechanism here, checked rather than assumed.** It is keyed on
 `path + size + mtime_ns` (`hash_cache.py`), so an edit changes both and it **misses and re-hashes**

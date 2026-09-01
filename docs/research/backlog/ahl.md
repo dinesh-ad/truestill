@@ -11,12 +11,12 @@
   name against three surfaces: `static/app.js` **with `//` and `/* */` comments stripped**,
   `frontend/src/**`, and `cli.py`. Derived twice, independently, same figures.
 
-  ⚠ **Both declaration forms, and the second is not optional.** `service/backup.py:51` writes
+  ⚠ **Both declaration forms, and the second is not optional.** `service/backup.py:BackupPreviewOk` writes
   `TypedDict("BackupPreviewOk", {...})` in the functional form because it carries the reserved word
   `from` as a key. A class-body walk misses it entirely.
 
   ⚠ **AST rather than runtime introspection, and the repo already paid for that lesson.**
-  `test_migrate_reports_its_stop.py:149` records a first draft asserting on `__required_keys__`
+  `test_migrate_reports_its_stop.py:test_the_app_summary_carries_the_stop_and_the_refusals` records a first draft asserting on `__required_keys__`
   that was **vacuous**: under `from __future__ import annotations` the annotations are strings, so
   `TypedDict` cannot see through `NotRequired[...]` and every key reads as required. Any guard
   built here inherits that constraint.
@@ -33,9 +33,9 @@
   ## ⚠ 34 IS A FLOOR, NOT A COUNT
 
   **A key-name census cannot see a collided field.** `absent` is declared twice with opposite
-  fates: `BakePreview.absent` (`service/bake.py:238`) **is** rendered at `app.js:4172`;
-  `BakeSummary.absent` (`service/bake.py:166`, emitted `:217`) is not read by `bakeCompletion`
-  (`app.js:4208`) at all. Because the name is *"read somewhere"*, it never enters the 34. So a bake
+  fates: `BakePreview.absent` (`service/bake.py:BakePreview`) **is** rendered at `app.js:clearMigrateConfirm`;
+  `BakeSummary.absent` (`service/bake.py:BakeSummary`, emitted `:217`) is not read by `bakeCompletion`
+  (`app.js:startMigrateRun`) at all. Because the name is *"read somewhere"*, it never enters the 34. So a bake
   run names what failed and stays silent about what it could not find, and this census is
   structurally blind to it.
 
@@ -80,7 +80,7 @@
   `matched_path`, `modes`, `operation`, `redundancy_floor`, `uuid`. (On three surfaces it is
   **one**: 20 -> 21.) Smaller than claimed, and still decisive: each is a field a naive grep
   certifies as live on the strength of a comment that names it. `matched_path`'s only `app.js`
-  occurrence is a comment at `app.js:2702` saying the field *cannot* answer the question.
+  occurrence is a comment at `app.js:willRemainNote` saying the field *cannot* answer the question.
 
   ⚠ **The lesson is the one the correction demonstrates**, not the number: a delta between two
   measurements that differ in more than one variable is not a delta. It is now pinned in
@@ -96,60 +96,60 @@
 
   | key | declared | why nothing reads it |
   |---|---|---|
-  | `run_id` | `migrate.py:340`, `:356`; `organize_undo.py:43`, `:49`, `:58` | the client posts back the handle it was given; the server resolves the run |
-  | `uuid` | `drives.py:501`; `trips.py:344` | screens key on the label; `app.js:3058` says the server resolves the uuid |
-  | `event_id` | `trips.py:459` | selection is echoed by position, not id |
-  | `trip_id` | `trips.py:466` | as `event_id` |
+  | `run_id` | `service/migrate.py:stop_payload`, `:356`; `organize_undo.py:OrganizeUndoStateDisarmed`, `:49`, `:58` | the client posts back the handle it was given; the server resolves the run |
+  | `uuid` | `drives.py:DriveRow`; `trips.py:proposed_review_cards_payload` | screens key on the label; `app.js:loadDrives` says the server resolves the uuid |
+  | `event_id` | `trips.py:split_event_review_card` | selection is echoed by position, not id |
+  | `trip_id` | `trips.py:split_event_review_card` | as `event_id` |
 
   ### A path the client already knows, because it sent it (3)
 
   | key | declared | why nothing reads it |
   |---|---|---|
-  | `dest_root` | `organize_undo.py:52`, `:60` | the browser holds the path it submitted |
-  | `target_path` | `backup.py:150` | as `dest_root` |
-  | `parent` | `fs_browse.py:31` | the browser derives the parent from the path it asked for |
+  | `dest_root` | `organize_undo.py:OrganizeUndoStateArmed`, `:60` | the browser holds the path it submitted |
+  | `target_path` | `service/backup.py:backup_preview` | as `dest_root` |
+  | `parent` | `fs_browse.py:FsDirsOk` | the browser derives the parent from the path it asked for |
 
   ### Preflight facts computed and never surfaced (6)
 
   | key | declared | why nothing reads it |
   |---|---|---|
-  | `claimed_bytes` | `takeout.py:149` | the precheck refuses or proceeds; the arithmetic behind it is not shown |
-  | `free_bytes` | `takeout.py:150` | as `claimed_bytes`. **36 test hits** and no renderer |
-  | `oversized` | `organize.py:854` | the destination limit is reported as a refusal, not as a list |
-  | `occupied` | `clean_empty.py:30` | the preview names folders it will not remove, not why |
-  | `readable` | `clean_empty.py:22`; `fs_browse.py:45`, `:60` | unreadable is expressed by the absence of a result |
-  | `can_register` | `drive_support.py:41`, `:51`; `drives.py:76` | three payloads carry it; the screens branch on the error code |
+  | `claimed_bytes` | `service/takeout.py:ArchivePrecheckPayload` | the precheck refuses or proceeds; the arithmetic behind it is not shown |
+  | `free_bytes` | `service/takeout.py:ArchivePrecheckPayload` | as `claimed_bytes`. **36 test hits** and no renderer |
+  | `oversized` | `organize.py:ModeMechanism` | the destination limit is reported as a refusal, not as a list |
+  | `occupied` | `clean_empty.py:CleanEmptyPreview` | the preview names folders it will not remove, not why |
+  | `readable` | `clean_empty.py:CleanEmptyOccupied`; `fs_browse.py:FsValidateResolved`, `:60` | unreadable is expressed by the absence of a result |
+  | `can_register` | `drive_support.py:DriveCorrectionPayload`, `:51`; `drives.py:RevealErr` | three payloads carry it; the screens branch on the error code |
 
   ### A count a headline replaced (9)
 
   | key | declared | why nothing reads it |
   |---|---|---|
-  | `dates_exif` | `takeout.py:62` | the ingest preview shows one total |
-  | `dates_upload_approx` | `takeout.py:61` | as `dates_exif` |
-  | `exact_duplicates_found` | `stats.py:95` | completeness is rendered as a percentage |
-  | `redundancy_floor` | `drives.py:711` | its own comment says it exists to make a sentence safe to write; the sentence is written from `files_one_copy` |
-  | `catalog_presence` | `drives.py:719` | the custody strip renders a tier, not this string |
-  | `unplaced` | `organize.py:257` | its comment says *"a zero here is a fact and not an omission"* - and no surface states the fact |
-  | `resumed` | `migrate.py:206` | the completion says how many moved, not how many were recovered |
-  | `day_totals` | `trips.py:347` | the proposal renders groups, not per-day counts |
-  | `pending_drives` | `migrate.py:84` | the preview warns per drive in prose |
+  | `dates_exif` | `service/takeout.py:IngestPreviewSummary` | the ingest preview shows one total |
+  | `dates_upload_approx` | `service/takeout.py:IngestPreviewSummary` | as `dates_exif` |
+  | `exact_duplicates_found` | `stats.py:LibraryStatsCompleteness` | completeness is rendered as a percentage |
+  | `redundancy_floor` | `drives.py:LibraryStatus` | its own comment says it exists to make a sentence safe to write; the sentence is written from `files_one_copy` |
+  | `catalog_presence` | `drives.py:LibraryStatus` | the custody strip renders a tier, not this string |
+  | `unplaced` | `organize.py:MatchedDrivePayload` | its comment says *"a zero here is a fact and not an omission"* - and no surface states the fact |
+  | `resumed` | `service/migrate.py:MigrationApplySummary` | the completion says how many moved, not how many were recovered |
+  | `day_totals` | `trips.py:proposed_review_cards_payload` | the proposal renders groups, not per-day counts |
+  | `pending_drives` | `service/migrate.py:MigrationPreviewOk` | the preview warns per drive in prose |
 
   ### A mechanism or echo the UI derives another way (12)
 
   | key | declared | why nothing reads it |
   |---|---|---|
-  | `modes` | `organize.py:649` | the mode list is rendered from the radio group's own markup |
-  | `uses_rename` | `organize.py:804` | the screen branches on the mode name |
-  | `requires_destination` | `organize.py:805` | as `uses_rename` |
-  | `still_armed` | `organize_undo.py:64` | the screen re-fetches state instead of reading the echo |
-  | `named_events` | `trips.py:475` | the apply result is rendered as one count |
-  | `named_trips` | `trips.py:476` | as `named_events` |
-  | `existing_names` | `trips.py:353` | collision avoidance happens server-side |
-  | `source_hints` | `trips.py:355` | the suggestion is shown, not its provenance |
-  | `missing_sidecar` | `takeout.py:48`, `:68` | the ingest summary does not distinguish this cause |
-  | `distance` | `organize.py:160` | the duplicate sample shows the match, not how near |
-  | `matched_path` | `organize.py:158` | ⚠ `app.js:2702` explains in a comment that this field **could never** answer the question the screen asks |
-  | `operation` | `jobs.py:93` | the busy banner names the drive, not the job |
+  | `modes` | `organize.py:_suppressed_diagnostics` | the mode list is rendered from the radio group's own markup |
+  | `uses_rename` | `organize.py:text_size_state` | the screen branches on the mode name |
+  | `requires_destination` | `organize.py:text_size_state` | as `uses_rename` |
+  | `still_armed` | `organize_undo.py:OrganizeUndoJobSummary` | the screen re-fetches state instead of reading the echo |
+  | `named_events` | `trips.py:split_event_review_card` | the apply result is rendered as one count |
+  | `named_trips` | `service/trips.py:ApplyReviewNamesResult` | as `named_events` |
+  | `existing_names` | `trips.py:InvalidEventProposalPayload` | collision avoidance happens server-side |
+  | `source_hints` | `trips.py:InvalidEventProposalPayload` | the suggestion is shown, not its provenance |
+  | `missing_sidecar` | `service/takeout.py:IngestPreviewEmpty`, `:68` | the ingest summary does not distinguish this cause |
+  | `distance` | `organize.py:DuplicateSample` | the duplicate sample shows the match, not how near |
+  | `matched_path` | `organize.py:DuplicateSample` | ⚠ `app.js:willRemainNote` explains in a comment that this field **could never** answer the question the screen asks |
+  | `operation` | `jobs.py:FINISHED_CLEAN` | the busy banner names the drive, not the job |
 
   ## ⚠ THIS DOCUMENT HAS AN EXPIRY DATE
 

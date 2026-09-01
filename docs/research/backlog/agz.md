@@ -104,6 +104,6 @@ proof; the sample is small because the intersection of *has an offset* and *has 
 ## Not designed here
 
 Where it would live is `dates.py`'s EXIF tier and `exif.REQUESTED_TAGS`. ⚠ **Adding a tag changes
-`tags_fingerprint` and invalidates every cached metadata row** (`exif.py:103`) - one full re-read,
+`tags_fingerprint` and invalidates every cached metadata row** (`exif.py:_NUMERIC_TAGS`) - one full re-read,
 paid once. What to *do* with a known instant - store it, sort by it, expose it in the date
 provenance view - is a design question this entry does not answer.
