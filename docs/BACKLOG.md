@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajj). Next free: (ajk).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajk). Next free: (ajl).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -279,6 +279,26 @@ is invisible here is retired, not free.**
   characters are legal on ext4. Whether a **destination that may travel** should be held to the
   strictest set is named and deliberately not ruled. Body:
   [`research/backlog/ajc.md`](research/backlog/ajc.md).
+
+- **(ajk) A CLASSIFIER GRADES A DECISION IT CANNOT READ, AND THE ONE DISCARDED ERRNO IS IN A
+  DIFFERENT ARM.** Filed 2026-09-01 (P172) from `(aji)`'s corrected mechanism, read-only.
+  ⚠ **FIRST BLOCKER: the `REFUSED` arm does not reproduce.** Three attempts - `reach()` alone,
+  `reach()` with a busy volume, and **a real `organize --apply` unmounted mid-run** - gave
+  **257 failures, all *"is no longer the drive"*, zero *"cannot probe"***. `ENOENT` is in
+  `_ABSENT_ERRNOS`, so `exists()` returns `False` without raising. The errno that produced
+  `REFUSED` in soak twelve is **unknown**, and **no classifier change is warranted until it
+  reproduces**. 🔑 **The brief's premise is FALSE and that is the finding**: *"give
+  `DestinationError` a cause"* is impossible at `base.py:88` - `device_of` swallows the error, so
+  there is **no exception object at that point** (and raising inside a `try` sets neither
+  `__cause__` nor `__context__`, measured). Of **22** raise sites **exactly one** discards an
+  available `OSError`: `local.py:154`, because `probe()` returns the **stat, not the error**.
+  ⚠ **`persists_for_the_run` has SIX call sites**, three of them exposed - and **`migrate` already
+  carries `or isinstance(exc, VerificationFailedError)` while `organizer.py:2118` has no disjunct
+  at all**. Two further blind spots named: `MetadataBakeError` is an `OSError` with `errno is
+  None`, and `undo._why_not` never consults the classifier. **Candidate ruling recorded, not
+  ruled**: `check`'s raise should bypass the classifier, supported by `backup` already stopping on
+  the same guard - and synthesising an errno is refused as inventing evidence, `(ajg)`'s rule.
+  Body: [`research/backlog/ajk.md`](research/backlog/ajk.md).
 
 - **(ajj) THREE COMMANDS LET A CATALOG WRITE ESCAPE TO THE USER, AND ONLY ONE OF THEM CATCHES
   IT.** Filed 2026-09-01 (P171) from `(ajg)`'s own *"what is not established"*, **by reading each
