@@ -295,6 +295,16 @@ is invisible here is retired, not free.**
   is NOT ruled**; what would settle it is named, including the measurement that `RunHealth`'s 15 s
   floor **cannot engage on a 6 s run at all**. Nothing was lost - every failure was recorded and
   named; the cost is noise.
+  🔑 **RULED 2026-09-01 (P171): `GONE` must NOT persist, and the measurement is why.** An exFAT
+  loop volume sampled every 2 ms across an unmount/remount - what replugging a stick produces -
+  gave **490 definite-gone readings over 1.057 s and then RECOVERED**. `definite` means *not
+  there now*, never *permanent*, so persisting on one reading aborts a healthy run on a blip.
+  ⚠ **`gone(INDEFINITE)` was ZERO** - the split this entry hoped to reuse distinguishes nothing
+  here - and **two device ids appeared while readable** (`1816`, `29`), so a stat can succeed and
+  describe the filesystem *under* the mountpoint. **Therefore the causeless raise at
+  `local.py:153` is NOT fixed either**: both had to change or neither does anything, and the
+  ruling is neither. What fits the measurement is **striking**, which `RunHealth` already
+  implements - and which is inert on a 6 s run. What remains open is that shape.
   Body: [`research/backlog/aji.md`](research/backlog/aji.md).
 
 - **(ajh) TRUESTILL CANNOT TELL A REMOVABLE DRIVE FROM A FIXED ONE, AND ALREADY READS THE LINE

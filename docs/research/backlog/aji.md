@@ -67,7 +67,56 @@ Measured: `persists_for_the_run` on a `DestinationError` chained to `ENOENT` als
 derived from one caller's wiring** and filed in a module both use. That is the defect, and it is a
 documentation-and-scope defect rather than a logic one - which is why the fix is not obvious.
 
-## ⚠ WHAT IS **NOT** RULED, AND WHAT WOULD SETTLE IT
+## 🔑 RULED 2026-09-01 (P171): `GONE` SHOULD **NOT** PERSIST, AND THE MEASUREMENT IS WHY
+
+**The question named as the one that would settle it was taken.** *Is a definite `GONE` reading
+ever transient?*
+
+**Instrument**: `aji-probe/probe.py`, preserved at
+`/data/TruestillLibrary/aji-gone-probe-2026-09-01/`. An exFAT loop volume, `read_device` sampled
+every 2 ms on its own thread, while the volume was unmounted and remounted underneath - which is
+what a user replugging a stick produces.
+
+```
+samples=1203  alive=713  gone(definite)=490  gone(INDEFINITE)=0
+unmount at t+0.065s, remount at t+1.126s
+definite-gone window: 1.057s
+DID A DEFINITE-GONE READING LATER RECOVER? YES
+distinct device ids seen while alive: [29, 1816]
+```
+
+🔑 **YES. A definite reading recovered after 1.057 s.** `definite` does not mean *permanent*; it
+means *the path is genuinely not there right now*. **So making `GONE` persist on a single reading
+would abort a healthy run on a one-second blip** - the cry-wolf `run_health`'s docstring calls
+*"the failure mode to fear"*, now with a number against it rather than a worry.
+
+⚠ **Two further readings, neither of which was predicted:**
+
+* **`gone(INDEFINITE)` was ZERO.** The `definite` split - the vocabulary this entry hoped to reuse
+  - produced no uncertain reading at all in the scenario it exists for. It distinguishes nothing
+  here, which is worth knowing before anyone builds on it.
+* **Two device ids appeared while the path was readable: `1816` and `29`.** The volume, and the
+  filesystem *underneath* its mountpoint. So a stat can succeed and describe **the wrong
+  filesystem** - which is precisely the "ordinary empty directory" hazard `DestinationDevice`
+  exists for, observed directly. `check` handles it correctly by comparing against a latched
+  baseline; nothing else on the per-file path does.
+
+### What follows, and what does not
+
+* ❌ **Do not add `GONE` to `persists_for_the_run`.** Measured cry-wolf.
+* ❌ **Do not fix the causeless raise at `local.py:153` for this purpose.** `(aji)` established that
+  both would have to change or neither does anything; the ruling is **neither**. The causeless
+  raise remains a real blind spot in the classifier and is now the only live half - it should be
+  filed on its own merits, not as a step toward a persistence change that is not happening.
+* ✅ **The mechanism that fits the measurement is STRIKING, and it already exists.** `RunHealth`
+  requires 3 strikes spanning 15 s, which would ignore a 1.06 s blip and catch a real removal.
+  Routing `exists()`'s refusal into that counter is the shape to build.
+* ⚠ **And that mechanism is inert where it is most needed.** Measured in soak twelve 12b: the
+  1,324-file run took **~6 s** against a 15 s span. **On a small library there is no backstop at
+  all**, so "the watcher will catch it" cannot be the whole answer. Any build must lower the floor
+  or count strikes per FILE rather than per tick.
+
+## ⚠ WHAT WAS NOT RULED BEFORE P171, KEPT AS THE READING IT WAS
 
 **Whether `GONE` should persist.** Not decided here, and deliberately not fixed on the strength of
 one soak.
