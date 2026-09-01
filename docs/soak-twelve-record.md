@@ -93,6 +93,27 @@ Fixed the same night in `2d8a1ca`: catch `UnicodeDecodeError` beside the `OSErro
 `found=True` with a sentence, matching what `drive.read_marker` already did. Closure in
 [`SHIPPED.md`](SHIPPED.md); body in [`research/backlog/aje.md`](research/backlog/aje.md).
 
+## 12b: PREDICTIONS, WRITTEN AND COMMITTED BEFORE THE RUN
+
+**Committed 2026-09-01 in its own commit, before any of 12b executed.** Soak twelve's CLI half
+had no predictions and said so; this half does not repeat that. `(aiq)` is the prediction under
+test - it claims the app is **worse than the CLI on detail** - and it is scored below, not
+restated.
+
+Each claim was re-read in today's code first, so what is predicted is the *outcome*, not the
+mechanism:
+
+| # | prediction | the mechanism it rests on, checked |
+|---|---|---|
+| **P1** | A drive vanishing mid-`organize` shows the app user a sentence and **no counts at all**, where the CLI prints a named file, a cause, `N organized / N failed / N not attempted` and exit 4 | `jobs.py`'s error terminal is `{type, message, code}` - **no `summary` key**; `app.js:170` then forces `summary: failed ? {} : ...` |
+| **P2** | A `backup` that raises behaves the same way - message, no counts - where the CLI after `(ajd)` names what landed | same two sites; `BackupStoppedError` has **zero occurrences in `truestill-app`** |
+| **P3** | The FAT32 ceiling is the one condition where the app is **NOT worse**, because the refusal is a core preflight rather than a stop | `filesystem.py` computes `max_file_bytes_for` and both surfaces consume it; no `jobs.py` error path is involved |
+| **P4** | The app names **no failing file**; the CLI names up to `_STATUS_PREVIEW` of them and says how many more | `service/organize.py:1562` is a scalar `"failed": sum(...)`; `cli._print_capped` names them |
+
+⚠ **P3 is the one I expect to be wrong in the good direction, and it is stated so it can be.**
+If the app refuses identically, `(aiq)`'s framing needs the qualifier that it is worse on *stops*
+and equal on *preflights* - which changes what the entry should build.
+
 ## 12b: THE APP HALF, WHICH NEVER STARTED
 
 **Nothing below was run. It is scope, not result.** The app was to be pointed at a drive carrying
