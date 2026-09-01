@@ -114,24 +114,115 @@ mechanism:
 If the app refuses identically, `(aiq)`'s framing needs the qualifier that it is worse on *stops*
 and equal on *preflights* - which changes what the entry should build.
 
-## 12b: THE APP HALF, WHICH NEVER STARTED
+## 12b: THE APP HALF, RUN 2026-09-01
 
-**Nothing below was run. It is scope, not result.** The app was to be pointed at a drive carrying
-each damaged document while a loop device made the drive vanish underneath it. Both the browser
-lane and the loop device were approved and neither was used.
+**Ran on loop devices, unprivileged.** `udisksctl loop-setup` / `unmount --force` is permitted by
+polkit for the console user here, so **no physical pull was needed and none was asked for** - the
+question soak eleven's method note tells you to ask before declaring something needs root.
+
+⚠ **THE INSTRUMENT WAS VALIDATED BEFORE IT WAS TRUSTED**, which is that same note's other half.
+`udisksctl unmount --force` removes the mountpoint, so `run_health.read_device` answers
+`device=None, definite=True` - the exact reading the watcher counts as a strike, and the same one
+a real yank produces once udisks cleans up. Measured before any product code ran.
+
+⚠ **Two harness defects, recorded because either could have become a false finding.** The first
+run pulled on a **timer** and the run finished first, giving `exit 0` and nothing to see; the
+trigger was changed to *"once N files have landed on the destination"*, which is deterministic
+regardless of speed. The second left **two mounts of one backing file** (`SOAK12VAN` and
+`SOAK12VAN1`) so `loop-delete` detached a device nothing was writing through, and the run
+completed untouched - **a null result that was entirely my own doing.**
+
+### Condition C: the FAT32 ceiling
+
+| | verbatim |
+|---|---|
+| **CLI** | `THIS DESTINATION CANNOT HOLD THIS RUN` / *"These files are too large for this drive (vfat): big_video.mp4 (5.4 GB). Drives formatted FAT32 cannot hold a single file of 4 GB or more, however much free space they show. Use a drive formatted exFAT or NTFS for these."* **exit 4** |
+| **app** | `{"type": "error", "code": "DestinationError", "message": "These files are too large for this drive (vfat): big_video.mp4 (5.4 GB). Drives formatted FAT32 cannot hold a single file of 4 GB or more, however much free space they show. Use a drive formatted exFAT or NTFS for these."}` |
+
+🔑 **Identical, to the character.** The wording is core's, both surfaces read it, and the app is
+**not worse here**. The CLI additionally prints the whole plan above it; the app's event carries
+no counts because there are none - nothing was attempted.
+
+### Condition A: the drive vanishes mid-`organize`
+
+Same source (1,324 files), same destination, unmounted once 150 files had landed.
+
+| | verbatim |
+|---|---|
+| **CLI** | `EXECUTED` / `1136  failed` / `179  organized` / `9  duplicate, skipped`, and on stderr **every failure named**: `FAILED: Canon EOS 20D (1).jpg: cannot probe '2004/...': the filesystem refused to describe it` x19, then `... and 1,116 more FAILED (2 distinct reasons in total).` **exit 1** |
+| **app** | `{"type": "done", "status": "done", "summary": {"organized": 185, "failed": 1130, "outcomes": {...}, ...}}` - 24 summary keys, **not one filename**. `app.js:1053` renders it as a single warn banner: **`1,130 files could not be organized.`** |
+
+🔑 **The app calls it `done`.** A run that failed 1,130 of 1,324 files reaches the screen with
+status `done` and a warn banner; the CLI exits **1**. `(aiq)` predicted the missing filenames and
+did not predict this - **there is no failure STATUS at all**, only a count inside a success.
+
+### Condition B: the backup target vanishes mid-copy
+
+*(Mount paths below read `/run/media/<user>/` - the account name is **redacted**, not reworded; `test_no_incidental_naming` refuses it and is right to.)*
+
+| | verbatim |
+|---|---|
+| **CLI** | a **raw Python traceback**, eight frames, ending `truestill_core.destinations.base.DestinationError: /run/media/<user>/S12BK is no longer the drive this run started on ...` **exit 1** |
+| **app** | `{"type": "error", "code": "DestinationError", "message": "/run/media/<user>/S12BK2 is no longer the drive this run started on -- it looks like the drive was disconnected or unmounted. Nothing was written for this file, and Truestill did not re-create the folders on this computer's own disk, which would have filled it. Reconnect the drive and run again; Truestill continues from where it stopped."}` - no traceback, no counts |
+
+🔑 **HERE THE APP IS BETTER THAN THE CLI, WHICH INVERTS `(aiq)`.** `jobs.py` wraps any exception
+into an error event, so the app shows the sentence core wrote. The CLI shows a stack trace with
+source paths.
+
+## 🔑 THE FINDING: `(ajd)` HAS A SECOND ARM, AND IT IS STILL OPEN
+
+**`_cmd_backup` catches `BackupStoppedError` and nothing else.** `run.device.check(run.target)` at
+`backup.py:541` raises **`DestinationError`**, which is not that class and not a subclass of it,
+so it walks past the handler `(ajd)` added yesterday and reaches the user as a traceback.
+
+⚠ **`(ajd)`'s own comment describes this exact outcome as the thing it fixed**: *"a drive that
+vanished mid-copy reached the user as a Python traceback while `organize` answered the identical
+accident with a sentence and a count."* **That sentence is still true of this arm, one day later.**
+`organize` catches `DestinationError` in two places (`cli.py:3267`, `:3808`); `backup` catches it
+in none - `grep -n DestinationError cli.py` returns six hits and **not one is on the backup path**.
+
+**This is the 2026-08-31 handoff's class C recurring**: *"a correct core with no arm to catch it
+still crashes... when a ruling says the surfaces handle this, enumerate the surfaces and check
+each one."* The enumeration was done per-EXCEPTION rather than per-SURFACE, so a second exception
+class on the same surface was missed.
+
+## 12b: PREDICTIONS, SCORED
+
+**Four written, two correct, one missed, one half - and the half is the informative one.**
+
+| # | predicted | outcome |
+|---|---|---|
+| **P1** | vanish mid-organize -> app shows **no counts** | ❌ **MISSED.** The app showed *full* counts. The prediction assumed a hard stop; a vanished destination produces **per-file failures**, not `RunStoppedError`, so the terminal was `done` and carried the whole summary |
+| **P2** | backup raises -> app has message and no counts; **CLI names what landed** | ⚠ **HALF.** App exactly as predicted. The CLI half is **wrong**: it names nothing, it crashes |
+| **P3** | FAT32 is where the app is **not** worse | ✅ **CORRECT**, and identical to the character |
+| **P4** | app names no failing file; CLI names them | ✅ **CORRECT.** `1,130 files could not be organized.` against 19 named plus a count of the rest |
+
+⚠ **P1's miss is worth more than its success would have been.** `(aiq)` rests on
+`RunStoppedError` escaping and `app.js` forcing `summary: {}`; that path **was never reached** by
+the condition most likely to trigger it in the field. A vanished destination is classified
+`GONE`, and `persists_for_the_run` **deliberately returns `False`** for it - the comment says
+`DestinationDevice.check` *"already fails closed on exactly that"*. On organize it did not:
+**1,130 files each failed individually**, which is precisely the *"N failures describing one
+condition"* the `NO_SPACE` branch two lines above calls the reason to stop. Filed as a question
+rather than a defect, because the guard may simply not be wired on this path and that needs
+reading before it is claimed.
 
 ## 🔑 THE STANDING GAP, MADE COUNTABLE
 
 **Recorded as a number so it stops being a thing people remember and starts being a thing people
 check.** Not an apology - the soaks that ran were worth running.
 
-> **Twelve soaks. The app has been the SUBJECT of none of them.**
+> **Twelve soaks. The app was the subject of exactly one of them - this one, on 2026-09-01.**
+>
+> Eleven were CLI-only. **The first time anyone watched the app fail, it inverted the
+> prediction and found a defect in the CLI.**
 
 ⚠ **Two precisions, because the round number is not quite the true one and the difference is
 checkable:**
 
-1. **Only soak twelve had an app half that was PLANNED and did not run.** Soaks ten and eleven
-   name the app under *what was not done* - a stated gap, not an abandoned plan.
+1. **Only soak twelve had an app half that was planned, and it has now run** - a day late, in
+   its own session. Soaks ten and eleven name the app under *what was not done* - a stated gap,
+   rather than an abandoned plan.
    [`soak-eleven-record.md`](soak-eleven-record.md) §9 is the form: *"The app - every command here
    was the CLI."*
 2. ⚠ **"CLI-only" is not exactly true of soak eleven, by that record's own evidence.** Its NTFS
@@ -141,9 +232,9 @@ checkable:**
    exposes is the useful one: **the app has been used as an INSTRUMENT and never as a SUBJECT.**
    Nobody has watched it fail.
 
-The 2026-08-31 handoff ranks *"nobody has watched the app fail"* third of five, and this is what
-that ranking is counting: the screen's behaviour under every failure these twelve soaks
-manufactured is inferred from a code read.
+The 2026-08-31 handoff ranked *"nobody has watched the app fail"* third of five. **That is now
+false for three conditions and true for every other one.** What watching bought, on the first
+attempt: one prediction inverted, one prediction missed for an instructive reason, and `(ajg)`.
 
 ## ⚠ METHOD, AND THE LIMITS OF THIS ONE
 

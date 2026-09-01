@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajf). Next free: (ajg).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajg). Next free: (ajh).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -279,6 +279,21 @@ is invisible here is retired, not free.**
   characters are legal on ext4. Whether a **destination that may travel** should be held to the
   strictest set is named and deliberately not ruled. Body:
   [`research/backlog/ajc.md`](research/backlog/ajc.md).
+
+- **(ajg) `backup` STILL CRASHES ON A VANISHED DRIVE: `(ajd)` CAUGHT ONE EXCEPTION AND THERE ARE
+  TWO.** Filed 2026-09-01 from soak twelve's app half, **measured on a loop device unmounted
+  mid-copy**, one day after `(ajd)` shipped. `_cmd_backup` catches only `BackupStoppedError`;
+  `run.device.check(run.target)` (`backup.py:541`) raises **`DestinationError`**, which is neither
+  that class nor an `OSError`, so it reaches the user as an **eight-frame traceback with source
+  paths**, exit 1, and no count of what landed. `organize` catches it in two places
+  (`cli.py:3267`, `:3808`); `backup` in none. 🔑 **`(ajd)`'s own comment describes this exact
+  outcome as the thing it closed** - still true for the other class. The class is the
+  2026-08-31 handoff's **C**, with its DO applied one level too shallow: the surfaces were
+  enumerated **per exception**, and the unit that catches this is per (surface x raising call
+  site). ⚠ **Not a one-line fix** - `DestinationError` carries no counts, so the handler either
+  gains them or says what it cannot know. Found by the app half **because the app degraded
+  gracefully and the CLI did not**, which inverts `(aiq)`.
+  Body: [`research/backlog/ajg.md`](research/backlog/ajg.md).
 
 - **(ajf) SHOULD A COMMAND SAY "COPIED" BEFORE THE MEDIUM HAS THE BYTES? A WORDING RULING, NOT A
   DEFECT.** Filed 2026-08-31 (P167), split out of `(aiz)` when its consequence half shipped.
