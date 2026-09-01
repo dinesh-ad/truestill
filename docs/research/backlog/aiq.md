@@ -1,4 +1,55 @@
-# (aiq) THE APP SHOWS A NUMBER FOR FAILURES AND NEVER A FILE, AND SHOWS NOTHING AT ALL ON A STOP.
+# (aiq) A RUN THAT FAILS MOST OF ITS FILES REPORTS "done", AND NAMES NONE OF THEM
+
+> ⚠ **REWRITTEN 2026-09-01 (P170) AGAINST MEASUREMENT.** The title above replaces
+> *"THE APP SHOWS A NUMBER FOR FAILURES AND NEVER A FILE, AND SHOWS NOTHING AT ALL ON A STOP."*
+> **The original body is kept entire beneath, unedited**, because it was an honest reading of the
+> source and the correction is only legible next to it.
+>
+> **This entry was filed from a code read that the P145 brief required.** Soak twelve's app half
+> ran it for the first time on 2026-09-01
+> ([`soak-twelve-record.md`](../../soak-twelve-record.md) 12b). Three things changed:
+>
+> 1. 🔑 **THE REAL DEFECT WAS NOT IN THIS ENTRY.** Measured: `organize` onto a drive that vanished
+>    failed **1,130 of 1,324 files** and the terminal event was
+>    `{"type": "done", "status": "done", …}`. **A run that lost 85% of its work reports success.**
+>    Not a missing filename - a missing *failure state*.
+> 2. ⚠ **GAP 2's MECHANISM WAS NEVER REACHED.** It rests on `RunStoppedError` escaping and
+>    `app.js` forcing `summary: {}`. A vanished destination does not raise: it is classified
+>    `GONE`, `persists_for_the_run` returns `False` for it, and the loop **failed 1,130 files one
+>    at a time and returned normally**. The gap is real for the conditions that *do* raise; it is
+>    not what a user meets when a drive is pulled.
+> 3. ⚠ **THE FRAMING INVERTED ON `backup`.** This entry says the app is worse than the CLI on
+>    detail. On a vanished drive the **app printed the sentence and the CLI printed an eight-frame
+>    traceback** - that is `(ajg)`, found *because* the app degraded gracefully. The app is worse
+>    on organize's detail and **better** on backup's failure. "The app is worse" is not a property
+>    of the app; it is a property of each path.
+>
+> **Gap 1 and gap 3 are unchanged and confirmed**: the failure list is still a scalar
+> (`service/organize.py:1562`), rendered as one banner (`app.js:1053`) reading
+> *"1,130 files could not be organized."*, and `metadata_ok` still has zero occurrences in
+> `truestill-app`.
+
+## ⚠ TWO ROOTS, NOT ONE, AND THEY ARE IN DIFFERENT LAYERS
+
+**Established by reading, 2026-09-01.** The count and the status do not share a cause, so neither
+fix reaches the other:
+
+| | where | what is wrong |
+|---|---|---|
+| **the count** | `service/organize._completion` | the payload carries a **scalar** `failed` and no per-file list. A *payload* defect |
+| **the status** | `jobs.py:392` - `job.status = "cancelled" if job.cancel.is_set() else "done"` | status is derived from **whether the target returned**, never from what it returned. A *job-layer* defect, and **one line** |
+
+🔑 **Both are `(aim)`'s family** - *a report derived from something other than the outcome it
+claims to describe.* `(aim)` was the wrong **tense** (a plan-derived count in outcome tense); this
+is the wrong **source** (control flow instead of the returned outcome). `jobs.py` cannot know what
+"failed" means for every job shape, so the fix is not a `failed > 0` test inside it: the target
+must be able to say *"I completed and I did not succeed"*, and only the service knows that.
+
+⚠ **This is NOT ruled here and must not be hot-patched.** `job.status` is read by
+`_retire_finished` and shipped in every terminal event; changing what "done" means is a payload
+contract change on a surface `PROJECT_STATUS.md` §1b has not declared stable yet. **What is
+established is that there are two roots, in two files, at two layers.**
+
 
 *Body of backlog entry `(aiq)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is
 shared with [`SHIPPED.md`](../../SHIPPED.md).*

@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajh). Next free: (aji).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aji). Next free: (ajj).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -280,6 +280,23 @@ is invisible here is retired, not free.**
   strictest set is named and deliberately not ruled. Body:
   [`research/backlog/ajc.md`](research/backlog/ajc.md).
 
+- **(aji) A VANISHED DRIVE FAILS 1,130 FILES ONE AT A TIME, AND THE RULE THAT ALLOWS IT IS
+  JUSTIFIED BY ANOTHER COMMAND'S WIRING.** Filed 2026-09-01 (P170) from soak twelve 12b and
+  **ruled from the code, not from the soak**. Two independent reasons the run does not stop, and
+  **fixing either alone changes nothing**: (1) `exists()` raises a **causeless**
+  `DestinationError` (`local.py:153`, no `from`), so `underlying_oserror` returns `None` and
+  `persists_for_the_run` returns `False` at its first guard - every branch below, `GONE` included,
+  is dead for it. Measured. The cause is discarded in `probe`, whose signature returns the **stat,
+  not the error**. (2) With an ENOENT cause it still returns `False`, because `GONE` deliberately
+  does. 🔑 **The comment justifying that says `DestinationDevice.check` fails closed *"at the top
+  of every loop"* - TRUE of `backup`, which calls it per iteration and does stop, and FALSE of
+  `organize`, where it sits inside `_make_parent` behind an `exists()` that raises first.** A rule
+  filed in a shared module and justified by one caller's wiring. ⚠ **Whether `GONE` should persist
+  is NOT ruled**; what would settle it is named, including the measurement that `RunHealth`'s 15 s
+  floor **cannot engage on a 6 s run at all**. Nothing was lost - every failure was recorded and
+  named; the cost is noise.
+  Body: [`research/backlog/aji.md`](research/backlog/aji.md).
+
 - **(ajh) TRUESTILL CANNOT TELL A REMOVABLE DRIVE FROM A FIXED ONE, AND ALREADY READS THE LINE
   THAT SAYS SO.** Filed 2026-09-01, split out of `(ajf)` when its wording half shipped. **Not a
   defect** - nothing is wrong today, because `(ajf)` put the condition in the sentence rather than
@@ -308,8 +325,21 @@ is invisible here is retired, not free.**
   vanished path with a real remedy and exit **2**. Related: `(abd)` (one catalog or many).
   Body: [`research/backlog/aiy.md`](research/backlog/aiy.md).
 
-- **(aiq) THE APP SHOWS A NUMBER FOR FAILURES AND NEVER A FILE, AND SHOWS NOTHING AT ALL ON A
-  STOP.** Filed 2026-08-30 (P145), from the surface audit `(aim)` needed and did not have. ⚠
+- **(aiq) A RUN THAT FAILS MOST OF ITS FILES REPORTS "done", AND NAMES NONE OF THEM.**
+  ⚠ **REWRITTEN 2026-09-01 (P170) against measurement** - the headline replaces *"the app shows a
+  number for failures and never a file, and shows nothing at all on a stop"*, which was filed from
+  a code read. **Measured in soak twelve's app half**: `organize` onto a vanished drive failed
+  **1,130 of 1,324 files** and the terminal event was `{"type":"done","status":"done"}`. **A run
+  that lost 85% of its work reports success** - a missing failure STATE, not a missing filename.
+  ⚠ **Two roots, two layers, neither fix reaching the other**: the count is
+  `service/organize._completion`'s scalar (payload), the status is `jobs.py:392`
+  `"cancelled" if job.cancel.is_set() else "done"`, derived from **whether the target returned**
+  rather than from what it returned (job layer, one line). Both are `(aim)`'s family - a report
+  derived from something other than the outcome it describes. ⚠ **Gap 2's mechanism was never
+  reached**: a vanished destination is `GONE`, does not raise, and fails files one at a time - see
+  `(aji)`. ⚠ **The "app is worse" framing INVERTED on backup**: the app printed the sentence and
+  the CLI printed a traceback, which is `(ajg)`. Gaps 1 and 3 confirmed unchanged. Filed 2026-08-30
+  (P145), from the surface audit `(aim)` needed and did not have. ⚠
   **`(aim)` recorded the app as having "already solved" this, and on the TENSE it had** -
   `service/organize._completion` is built only from `results`. Three gaps behind that:
   - ❌ **No per-file failure list exists.** `CompletionBase` carries a scalar
