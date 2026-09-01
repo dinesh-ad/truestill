@@ -45,7 +45,7 @@ stage 3 shipping, which is luck rather than maintenance. Count the table; do not
 
 | | why it matters |
 |---|---|
-| `reclaim` | **deliberate.** `app.js:2205` - *"an irreversible removal is not a thing to reach for by accident"* |
+| `reclaim` | **deliberate.** `app.js:2217` - *"an irreversible removal is not a thing to reach for by accident"* |
 | `restore` | the app can say a restore is needed (`service/drives.py:487-488`) and cannot perform one |
 | `repoint-sources` | the library-moved remedy is CLI-only; `(adx)` owns the disclosure half |
 | `rescan` | no route; `(abn)` is the open entry about what rescan should *do* |

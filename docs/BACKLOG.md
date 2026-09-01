@@ -908,7 +908,7 @@ and they are not product defects; keeping them in one drawer stops them competin
   measured different surface sets, so the delta measured neither. Corrected when the guard had to
   assert on it.
   ⚠ **34 is a FLOOR, not a count.** A key-name census cannot see a collided field:
-  `BakePreview.absent` is rendered at `app.js:4158` while `BakeSummary.absent` is not read by
+  `BakePreview.absent` is rendered at `app.js:4172` while `BakeSummary.absent` is not read by
   `bakeCompletion` at all, so the name never enters the list. `apollo-kotlin#991`, open since 2018,
   is the same limit in another language.
   ⚠ **The document disagrees with itself**: `PROJECT_STATUS.md` said **3 sites** in one place and
@@ -1380,7 +1380,7 @@ rather than assumed.
   reversible with `--undo`. What has no CLI is the **naming**: turning *"these 40 photos are the
   Goa trip"* into a `trips` row.
   It is **review-shaped**, and unlike the date rescue there is **no durable intermediate at all**.
-  The proposed names live in a browser array (`app.js:3380`, no `localStorage`) and a
+  The proposed names live in a browser array (`app.js:3394`, no `localStorage`) and a
   process-local dict capped at 32 that calls itself *"Mutable UI-only review state"*
   (`server.py:49`), and both die on reload. The request body sends the names as a **positional
   array** zipped against the server's session cards, so the identities never leave the process. A

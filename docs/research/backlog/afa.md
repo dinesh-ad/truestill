@@ -71,7 +71,7 @@
 
   It said *"the user is told nothing at all about that photo"*. Measured: `continue` at
   `date_rescue.py:286` leaves the value **pre-seeded at `:272`** as `{"status": "unreachable"}`,
-  and `app.js:4168-4170` renders that as **"could not check"**, with the tooltip *"The folder this
+  and `app.js:4182-4170` renders that as **"could not check"**, with the tooltip *"The folder this
   was imported from is not reachable, so no backup file could be checked"*.
 
   **What is actually wrong is narrower and different.** `unreachable` is produced by four distinct

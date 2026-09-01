@@ -97,10 +97,10 @@ already owns these sentences' shape - pick them up together:
    payloads since `(agr)` part 2 (`drive_support.py`, the ghost branch).
 2. `second_location_note` (`drive.py:489`) - *"truestill drives --init ... --force-new-identity"*
    - carried whole into the verify summary (`verify.py:132`) and rendered in the app's
-   "answers in two places" banner (`app.js:3057`).
+   "answers in two places" banner (`app.js:3069`).
 3. `_zero_byte_detail` (`catalog_startup.py:103`) - *"pass --db PATH"* - reaches the app's
    catalog notice via `catalog_detail` (`drives.py:732`). The app already knows this is CLI
    instruction - `index.html:126` says so in a comment - but fixed only the banner's placement,
    never the sentence.
 4. `refusal_for` (`decisions.py:1128`) - *"Upgrade Truestill, then run: truestill restore ..."* -
-   rendered verbatim in the drive card (`app.js:2892`).
+   rendered verbatim in the drive card (`app.js:2904`).

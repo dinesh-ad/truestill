@@ -128,7 +128,7 @@
     `None` (`take_live_path_hint`, `drive_support.py:175`), while `library_root` kept the dead
     path and `needs_library_root` stayed `False`.
   - The browser prefills the organize destination with `library_path || library_root`
-    (`app.js:1700`), so the field offers **the path that no longer exists**.
+    (`app.js:1710`), so the field offers **the path that no longer exists**.
   - ⚠ **The non-clearing is correct and must not be "fixed" by clearing it.** `drives.py:49-62`
     records why: `library.root` is *declared*, not observed, and auto-clearing it would make first
     run re-arm every time an external drive was unplugged. **The bug is in what is offered, not in

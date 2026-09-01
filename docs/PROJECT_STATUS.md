@@ -236,7 +236,7 @@ This is the whole point of the order, and it is what `app.js` failed. Live evide
 
 | computed by a service | read by the surface |
 |---|---|
-| `BakeSummary.absent` (`service/bake.py:166`, emitted `:217`) | **0** in `bakeCompletion` (`app.js:4194`). ⚠ Its sibling `BakePreview.absent` (`:238`) **is** read, at `app.js:4158` |
+| `BakeSummary.absent` (`service/bake.py:166`, emitted `:217`) | **0** in `bakeCompletion` (`app.js:4208`). ⚠ Its sibling `BakePreview.absent` (`:238`) **is** read, at `app.js:4172` |
 | `DriveAttachment.unmatched` (`service/drives.py:132`) | **0**, and correctly so since `(abm)` shipped: the fact is named by `truestill rescan`, not counted twice |
 | `DriveAttachment.unreadable_dirs` (`service/drives.py:137`) | ✅ **surfaced by `(abm)`** 2026-08-25. It was the worst of the four: a file under such a folder gets no copy row, so both surfaces said the backup was complete |
 | `migrate.py`'s `stopped` and `refused` | **0** until `(ahc)` closed it 2026-08-25 - a stopped run read as *"Moved N files."* |
@@ -342,7 +342,7 @@ what stops is changing *what a route returns* under a consumer that already read
   (69 scoped reads against 25 declared keys). The method is blind in **two different ways**, and
   closing one does not touch the other:
   * **`BakeSummary.absent`** - a **name collision**. `BakePreview.absent` is rendered at
-    `app.js:4158`, so the NAME reads as live and the dead sibling never enters the census.
+    `app.js:4172`, so the NAME reads as live and the dead sibling never enters the census.
   * **`DriveAttachment`'s five** (`absent`, `unreadable`, `unmatched`, `unreadable_dirs`,
     `blocked_by`) - **not a TypedDict at all**. It is a frozen dataclass that no route serialises,
     so a payload census cannot see it from either end. `(abm)` reached two of the five by hand.
