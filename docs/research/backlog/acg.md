@@ -24,10 +24,35 @@
     count without anyone remembering it; and `cli.py:_print_restore_plan` looks up
     `REPORT_FIELD_NOTE[field.name]` to name the section. **The app does not**:
     `grep -rn not_applied packages/truestill-app/src` returns **0 files**.
-    🔑 **So the true claim is "reported in the terminal, silent on every screen"** - the same shape
-    as `(ajn)`, one letter away on the same list, and that half is `(ahx)`'s. **The loss itself is
-    unchanged and is what this entry is about**: `file_albums` keys on rowids, so membership cannot
-    be rebuilt on a machine that never saw the catalog, however loudly the drop is announced.
+    🔑 **So the true claim was "reported in the terminal, and no screen restores at all"** -
+    ⚠ **and even that sentence needed one more correction, made 2026-09-01 (P185).** It first read
+    *"silent on every screen"*, which implies a screen that stays quiet. **There is no such
+    screen**: `grep -rn apply_decisions packages/*/src` finds **no app caller**, and
+    `cli-app-parity.md` already records it - *"`restore` | the app can say a restore is needed
+    (`service/drives.py:DriveDecisions`) and cannot perform one"*. `(ahx)` shipped and owns the CLI;
+    the app half is not an unowned gap but a **route that does not exist**, which is the parity
+    arc's work and neither entry's.
+  - ✅ **SHIPPED 2026-09-01 (P185).** Membership travels as `{"name": …, "members": [sha256, …]}`,
+    built by `catalog.Catalog.album_members` and applied by `decisions._apply_albums`.
+    🔑 **NO SCHEMA CHANGE, so no migration on a published product** - `albums.name` and
+    `files.sha256` are already `UNIQUE`, so the rowids stay local and the document names what they
+    point at. That is `(ack)`'s method rather than a second ruling: *"Fixed at the gather, because
+    apply cannot repair what the document discarded [...] No schema change was needed."*
+    ⚠ **The premise in this entry was wrong about the mechanism.** Membership did not travel in a
+    form that failed to resolve - **it did not travel at all**:
+    `albums=tuple({"name": name} for name in catalog.all_album_names())` carried the vocabulary and
+    nothing else. Rowids are a local storage detail and were never the transport.
+    ⚠ **Merged by UNION, not first-wins**, which `_merge_albums` records: two drives hold different
+    partial views of one album, so first-wins would drop members - this entry's own harm one layer
+    up. Safe because membership is append-only, checked rather than assumed (two `INSERT OR IGNORE`
+    writers, zero `DELETE`). **If a remove ever ships, that merge must be revisited in the same
+    commit.**
+    A member whose content the catalog does not hold is counted into `awaiting_content` and **kept
+    in the document**, never dropped. `not_applied` no longer names albums.
+    ⚠ **Not fixed here, and filed separately**: `forget_organized` deletes a `files` row without
+    touching `file_albums`, there is no foreign key, and the schema has no `AUTOINCREMENT` - so a
+    reused rowid can attach a different photograph to the old one's album. That is wrong today
+    independent of portability.
   - **Whoever implements albums inherits `(ack)`'s bug** unless membership travels as content
     hashes. The rule is already written in `decisions.py`'s module docstring: identity travels
     inside the row it identifies. A sha256 does; a rowid does not.

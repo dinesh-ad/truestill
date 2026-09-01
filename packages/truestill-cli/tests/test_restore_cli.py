@@ -329,15 +329,24 @@ def test_a_real_restore_reports_its_own_outcome(
     of what a user saw. Measured: it is identical to the preview's in the ordinary case - so this
     is not a corrected number, it is that the omissions are unchanged by applying and were never
     said at the moment they became permanent."""
-    root = _drive_with_decisions(tmp_path, albums=[{"name": "Favourites"}])
+    # ⚠ **The album carries a member this catalog has never seen**, which is what makes the
+    # omissions half non-empty now that `(acg)` applies albums instead of dropping them. Before
+    # `(acg)` the section itself was the omission; the property under test - *the apply arm says
+    # what did NOT come back* - is unchanged, and only the instance moved.
+    root = _drive_with_decisions(tmp_path, albums=[{"name": "Favourites", "members": ["a" * 64]}])
     db = tmp_path / "c.sqlite"
     monkeypatch.setattr("builtins.input", lambda *_: "restore")
 
     assert main(["restore", str(root), "--db", str(db), "--apply"]) == 0
     out = capsys.readouterr().out
+    after = out.split("Restored into")[1]
 
     assert "Restored into" in out
     assert "restored," in out, "a completed restore reported no counts at all"
-    assert "albums" in out.split("Restored into")[1], (
-        "the apply arm said nothing about what did NOT come back"
+    assert "not restored" in after, (
+        "the apply arm said nothing about what did NOT come back. `(ahx)` ships the pair - "
+        "IBM CPF3773's '&1 restored. &2 not restored' - so both halves print, zeroes included"
+    )
+    assert "albums" in after, (
+        "a member this catalog does not hold must be named, not silently skipped"
     )

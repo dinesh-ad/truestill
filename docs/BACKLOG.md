@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajo). Next free: (ajp).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajq). Next free: (ajr).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -233,6 +233,20 @@ rather than treated as a triage failure.
   Truestill set timestamps"* - reaches a terminal user and **never reaches a screen at all**. Not a
   worse wording; an absent one, which is `(aek)`'s and `(aep)`'s shape.
   Body: [`research/backlog/ajn.md`](research/backlog/ajn.md).
+
+- **(ajp) A DELETED FILE LEAVES ITS ALBUM MEMBERSHIP BEHIND, AND SQLITE REUSES THE ROWID.**
+  Filed 2026-09-01 (P185) while checking `(acg)`'s migration cost; **split off rather than folded
+  in**, on `(aiy)`/`(ajo)`'s test - wrong today independent of portability.
+  Three facts, each fine alone: `catalog.Catalog.forget_organized` drops the `files` row
+  (`DELETE FROM files WHERE sha256 = ?`) and **does not touch `file_albums`**; the table declares
+  no `REFERENCES` and no `ON DELETE CASCADE`; and `grep -c AUTOINCREMENT catalog.py` returns **0**,
+  so `files.id` is a plain rowid **SQLite may reuse**.
+  🔑 **Together an orphaned row can attach a DIFFERENT photograph to the deleted one's album** -
+  not a missing album but a wrong one, which is the direction `(ack)` named as the expensive one:
+  *"A missing trip is visible to a user; a trip that absorbed another's days is not."*
+  Reachable: `undo.py` calls `forget_organized`. ⚠ **Not measured that it has happened**, and the
+  entry does not claim it. The cascade alternative is a schema migration on a published product.
+  Body: [`research/backlog/ajp.md`](research/backlog/ajp.md).
 
 - **(ajo) THREE CORE HELPERS ANSWER "IS THIS FILE IN TWO PLACES?" THREE WAYS, AND THE
   STATS SCREEN IS THE ODD ONE.**
@@ -1238,6 +1252,24 @@ here because a lost answer key corrupts every measurement taken against it, whic
 ## Ideas / deferred
 
 **Parked deliberately.** Several share machinery - see **Converged programs** before picking one.
+
+- **(ajq) PORTABLE EXPORT: NOTHING TRUESTILL RECORDS SURVIVES LEAVING TRUESTILL.** Filed
+  2026-09-01 (P185) as the **scoped remainder of a refusal**, so the research is not re-derived.
+  `(acg)` made membership survive a rebuilt *Truestill* catalog; nothing makes it survive leaving
+  the product. **The field is unanimous that it cannot be done and that a sidecar is the only
+  mechanism** - PhotoPrism #721 loses albums on a container rebuild; a 2018 survey of Piwigo,
+  Gallery2 and Silvermine found *"no path to create a portable album using any of those systems"*;
+  digiKam keys album roots on the **volume UUID**; and Immich users are advised *"prefer tags over
+  albums so your organizational work is portable"*, because tags reach XMP as `digikam:TagsList`.
+  🔑 **Refused by `(acg)` on four grounds, the second being the one that matters**: per-photo XMP
+  creates a **two-file atomicity problem the product does not have** - every organize, migrate,
+  rename and undo would move a photo and its sidecar together or leave a lie behind, and `(aba)`
+  just measured what one stale path costs. It is also **10,745 new files** on the soak-five library
+  where there is now one. ⚠ **The refusal is scoped, not permanent**: `Catalog.album_members`
+  already returns `name -> [sha256]`, which is exactly an exporter's input.
+  ⚠ **Null reported as a finding: no Truestill user has asked** - `user-evidence-log.md` carries
+  nothing for this, and every citation above is another product's users.
+  Body: [`research/backlog/ajq.md`](research/backlog/ajq.md).
 
 - **(acy) THE NAMING LAYER - characterised across four rounds, measured against what already ships,
   and deliberately NOT built.** Recorded 2026-08-11. [Full entry](research/backlog/acy.md)

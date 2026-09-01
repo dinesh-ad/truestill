@@ -484,12 +484,9 @@ def reconcile_documents(
         ),
         skipped_clusters=tuple(sorted(skipped)),
         date_confirmations=confirmations,
-        albums=_merge_section(
-            ranked,
-            _Section("albums", lambda d: d.albums, lambda a: str(a.get("name") or "")),
-            losses,
-            named_root_uuid=named_root_uuid,
-        ),
+        # `(acg)`: unioned rather than first-wins - see `_merge_albums` for why membership is the
+        # one section with no authority to arbitrate.
+        albums=_merge_albums(ranked),
         written=ranked[0].written if ranked else "",
     )
     return merged, ReconcileReport(
@@ -894,8 +891,52 @@ def _shared_decisions(catalog: Any) -> Decisions:
             }
             for r in catalog.all_date_confirmations()
         ),
-        albums=tuple({"name": name} for name in catalog.all_album_names()),
+        # `(acg)`: the members travel with the name. Without them the section was a bare list of
+        # words - it named the albums and said nothing about what was in them, so a rebuilt
+        # catalog got the vocabulary and none of the work.
+        albums=_albums_with_members(catalog),
     )
+
+
+def _albums_with_members(catalog: Any) -> tuple[dict[str, Any], ...]:
+    """Every album, with the sha256 of every file in it. `(acg)`
+
+    An album with no members is still written: it is a name the user made, and a section that
+    dropped it would lose the vocabulary as well as the membership.
+    """
+    members = catalog.album_members()
+    return tuple(
+        {"name": name, "members": members.get(name, [])} for name in catalog.all_album_names()
+    )
+
+
+def _merge_albums(ranked: Sequence[Decisions]) -> tuple[dict[str, Any], ...]:
+    """Album sections from every document, **unioned per name**. `(acg)`
+
+    🔑 **UNION, NOT FIRST-WINS, AND THE REASON IS THAT MEMBERSHIP IS APPEND-ONLY.** `_merge_section`
+    takes the first value per identity key and reports the rest as `Superseded`, which is right for
+    a trip's days - one authority answers for them. Album membership has no authority: two drives
+    routinely hold *different partial views* of one album, because each was written by the ingest
+    that ran there. Taking the first would silently drop every member the other drive knew about,
+    which is the exact harm `(acg)` exists to remove, reintroduced one layer up.
+
+    ⚠ **Union cannot resurrect a removal, checked rather than assumed**: nothing deletes membership.
+    `grep -rn "file_albums" packages/*/src` finds exactly two writers, both
+    ``INSERT OR IGNORE``, and no ``DELETE`` anywhere. Should a remove ever ship, this merge has to
+    be revisited in the same commit - a union over a table that can lose rows is how a deleted
+    thing comes back.
+
+    Nothing is superseded here, so no loss is reported: with a union there is no loser.
+    """
+    members: dict[str, list[str]] = {}
+    for document in ranked:
+        for row in document.albums:
+            name = str(row.get("name") or "")
+            if not name:
+                continue
+            known = members.setdefault(name, [])
+            known.extend(s for s in row.get("members") or () if s not in set(known))
+    return tuple({"name": n, "members": sorted(set(members[n]))} for n in sorted(members))
 
 
 def _with_drive(shared: Decisions, drive: Any, drive_uuid: str) -> Decisions:
@@ -1061,6 +1102,35 @@ def _apply_events(
     return unmatched, created
 
 
+def _apply_albums(catalog: Any, decisions: Decisions, *, apply: bool) -> tuple[int, int]:
+    """Restore album membership by content. `(acg)`
+
+    🔑 **A member is a sha256, and location never enters.** `file_albums` joins to ``files``, not
+    ``file_copies``, so an album binds a name to *content*. `(aba)`'s distinction between *"not at
+    the recorded path"* and *"not on this drive"* is about a **copy**, and an album has no copies -
+    a member whose only copy has moved, or is on a drive in a drawer, is still a member.
+
+    So there are two outcomes, not three. Content this catalog knows is applied. Content it does
+    not know is **kept in the document and counted**, never dropped: `awaiting_content`'s own words
+    are *"There IS an action: plug in the drive that holds those photos, scan, re-apply. Nothing is
+    dropped in the meantime."*
+    """
+    changed = waiting = 0
+    for album in decisions.albums:
+        name = str(album.get("name") or "")
+        if not name:
+            continue
+        members = [str(sha) for sha in album.get("members") or ()]
+        here = [sha for sha in members if catalog.knows_content(sha)]
+        waiting += len(members) - len(here)
+        if not catalog.album_needs(name, here):
+            continue
+        if apply:
+            catalog.record_album_members(name, here)
+        changed += 1
+    return changed, waiting
+
+
 def apply_decisions(catalog: Any, decisions: Decisions, *, apply: bool = True) -> ApplyReport:  # noqa: PLR0912
     """Write the decisions into a catalog. **Idempotent**: a second apply changes nothing.
 
@@ -1131,6 +1201,12 @@ def apply_decisions(catalog: Any, decisions: Decisions, *, apply: bool = True) -
             )
         bump("date_confirmations")
 
+    changed_albums, albums_waiting = _apply_albums(catalog, decisions, apply=apply)
+    if changed_albums:
+        applied["albums"] = changed_albums
+    if albums_waiting:
+        awaiting["albums"] = albums_waiting
+
     return ApplyReport(
         applied=applied,
         events_here=catalog.event_count(),
@@ -1139,7 +1215,10 @@ def apply_decisions(catalog: Any, decisions: Decisions, *, apply: bool = True) -
         unmatched_events=tuple(unmatched),
         conflicting_trips=tuple(conflicting),
         trips_without_days=tuple(dayless),
-        not_applied=("albums",) if decisions.albums else (),
+        # `(acg)`: albums are applied now, so this no longer names them. The field stays: it is
+        # the channel for a section this function deliberately does not write, and emptying the
+        # tuple is what "we now do this" looks like.
+        not_applied=(),
         created_events=tuple(created),
     )
 

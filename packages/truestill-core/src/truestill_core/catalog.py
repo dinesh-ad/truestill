@@ -3181,6 +3181,75 @@ class Catalog:
     def all_album_names(self) -> list[str]:
         return [str(r["name"]) for r in self._conn.execute("SELECT name FROM albums ORDER BY id")]
 
+    def album_needs(self, name: str, members: Sequence[str]) -> bool:
+        """Whether applying ``name`` with ``members`` would change anything. **Idempotence.**
+
+        `apply_decisions` counts what it actually changed, not what it was offered, so a second
+        restore of the same document must report zero rather than repeating the first run's
+        numbers. Membership is append-only, so "would change" is "holds a member we do not".
+        """
+        row = self._conn.execute("SELECT id FROM albums WHERE name = ?", (name,)).fetchone()
+        if row is None:
+            return True
+        known = {
+            str(r["sha256"])
+            for r in self._conn.execute(
+                "SELECT f.sha256 AS sha256 FROM file_albums fa"
+                " JOIN files f ON f.id = fa.file_id WHERE fa.album_id = ?",
+                (int(row["id"]),),
+            )
+        }
+        return bool(set(members) - known)
+
+    def record_album_members(self, name: str, members: Sequence[str]) -> None:
+        """Put ``members`` (sha256s) in album ``name``, minting the album if it is new. `(acg)`
+
+        ⚠ **A member whose content this catalog does not hold is skipped rather than invented.**
+        `file_albums.file_id` is a rowid into ``files``; with no row there is nothing to point at,
+        and writing a placeholder would be a mark claiming an outcome nobody observed - `(agv)`'s
+        rule. The caller counts those into ``awaiting_content`` and the document keeps them.
+        """
+        with self._tx() as conn:
+            conn.execute("INSERT OR IGNORE INTO albums (name) VALUES (?)", (name,))
+            album_id = int(
+                conn.execute("SELECT id FROM albums WHERE name = ?", (name,)).fetchone()["id"]
+            )
+            for sha in members:
+                row = conn.execute("SELECT id FROM files WHERE sha256 = ?", (sha,)).fetchone()
+                if row is None:
+                    continue
+                conn.execute(
+                    "INSERT OR IGNORE INTO file_albums (file_id, album_id) VALUES (?, ?)",
+                    (int(row["id"]), album_id),
+                )
+
+    def album_members(self) -> dict[str, list[str]]:
+        """Album name -> the sha256 of every file in it. `(acg)`
+
+        🔑 **The join is what makes membership portable, and it needs no schema change.**
+        ``file_albums`` keys two rowids, which is correct for local storage and meaningless to a
+        machine that never saw this catalog. Both tables already carry a key that travels:
+        ``albums.name`` and ``files.sha256`` are each ``UNIQUE``, so the document can name what the
+        rowids point at. This is `(ack)`'s method - *find the natural key the schema already
+        guarantees, put it in the document, leave the rowids alone* - applied to a second noun.
+
+        Sorted so two catalogs holding the same membership produce byte-identical documents; an
+        unstable order would make every reconcile report a disagreement that is not one.
+        """
+        rows = self._conn.execute(
+            """
+            SELECT a.name AS name, f.sha256 AS sha256
+            FROM file_albums fa
+            JOIN albums a ON a.id = fa.album_id
+            JOIN files f ON f.id = fa.file_id
+            ORDER BY a.name, f.sha256
+            """
+        )
+        members: dict[str, list[str]] = {}
+        for row in rows:
+            members.setdefault(str(row["name"]), []).append(str(row["sha256"]))
+        return members
+
     def knows_content(self, sha256: str) -> bool:
         """Whether this catalog has a `files` row for this content. **O(1)**."""
         return (
