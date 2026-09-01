@@ -464,9 +464,16 @@ entries" until 2026-08-22, when the section held 81** - the figure was `(aef)`'s
 reading, quoted here as if it were current. A count in prose rots; the command does not:
 
 ```
-sed -n '/^## Approved - still to build/,/^## Settled technical stances/p' docs/BACKLOG.md \
-  | grep -cE '^ *- \*\*\([a-z]+\)'      # open entries. 81 -> 80 -> 77 -> 76 -> 75 -> 76 across 2026-08-22.
-``` The release question *"is not stored
+grep -cE '^- \*\*\([a-z]{1,3}\)' docs/BACKLOG.md          # every open entry, any section
+sed -n '/^## Build next/,/^## Real, but conditional/p' docs/BACKLOG.md \
+  | grep -cE '^- \*\*\([a-z]{1,3}\)'                      # the list to read
+```
+
+⚠ **THE COMMAND ABOVE REPLACED ONE THAT ROTTED, AND IT ROTTED FOR THE REASON THIS PARAGRAPH
+GIVES.** It used to `sed` between `## Approved - still to build` and `## Settled technical
+stances`; P175 re-sectioned the backlog, both literals vanished, and the command **returned 0** -
+not an error, a plausible number. *"A count in prose rots; the command does not"* is only true of a
+command that does not encode a heading. The first form above encodes nothing. The release question *"is not stored
 anywhere - it is RECOMPUTED from judgement every time it is asked, which is why it comes out
 different."* What follows is such a recomputation, dated so the next one can disagree with a
 version rather than with a memory. It is not a substitute for `(aef)`.
@@ -553,6 +560,38 @@ blocks). Both are detailed below.
 platforms across three dispatch runs, most recently **32555392424**: build, self-check on the
 frozen artefact, installer, install/verify/uninstall, and - since `(aex)` - correct versioning on
 all four artefacts from one derivation. Everything except publish.
+
+## 2c. What the backlog is FOR, measured (2026-09-01)
+
+🔑 **THE OPEN LIST IS THE RESIDUE OF WORK NOBODY PICKED, NOT A PLAN BEING WORKED THROUGH.**
+Derived from git rather than from the entries' own text, in P174:
+
+| week | shipped | **of those, drawn from the open list** | new entries added |
+|---|---|---|---|
+| 2026-08-11 -> 08-18 | 15 | **5** (33%) | 12 |
+| 2026-08-18 -> 08-25 | 79 | **15** (19%) | 35 |
+| 2026-08-25 -> 09-01 | 23 | **2** (9%) | 23 |
+
+In the last week **21 of the 23 shipped entries were filed and shipped inside that same week** -
+they never appeared in the open list at all. Meanwhile **23 were added and stayed.** So the work
+that gets done largely does not pass through this file, and what accumulates in it is precisely
+what nobody builds.
+
+**23 of the entries open today have been open since 1 August or earlier.** At a drain rate of two
+per week, the open list is a sixty-week queue - which is a way of saying it is not a queue.
+
+⚠ **WHAT THIS CHANGES, AND IT IS NOT "FILE FEWER ENTRIES".** Filing is cheap and the entries are
+good; several of them are the only record of a measurement. **What was wrong was the claim the
+file made about itself** - one section named *"Approved - still to build"* holding 109 items, when
+sixteen had a symptom an ordinary person meets and twenty-five were not work at all. P175 split
+the sections by **what an entry is**, so the shape of the file now matches what is in it.
+
+**The number to read is the size of `## Build next`, not the size of the file.**
+
+⚠ **AND THE GROWTH FIGURE THAT PROMPTED THIS WAS WRONG.** It was quoted as *"60 to 122 in a
+week"*; git says **89 open on 2026-08-20** and **101 on 2026-08-25**, so 60 -> 122 spans about
+three and a half weeks. Over the same period `SHIPPED.md` went **61 -> 155**. The backlog grew
+while throughput roughly doubled.
 
 ## 3. Current blockers / risks
 
