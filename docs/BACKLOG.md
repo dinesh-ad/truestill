@@ -234,17 +234,32 @@ rather than treated as a triage failure.
   worse wording; an absent one, which is `(aek)`'s and `(aep)`'s shape.
   Body: [`research/backlog/ajn.md`](research/backlog/ajn.md).
 
-- **(aiy) TWO REGISTRATIONS ON ONE PHYSICAL DEVICE ARE REPORTED AS "NICELY REDUNDANT".** Filed
-  2026-08-31 (P165, soak ten), measured. Two drives registered in two folders of **one USB stick**,
-  and with the stick **unplugged** `truestill status` said *"All catalogued content has at least
-  two drive copies. Nicely redundant."* **The command whose entire purpose is 3-2-1 assurance
-  counts drive REGISTRATIONS, and nothing anywhere compares the underlying device.** Checked
-  rather than assumed: `st_dev` occurs **16 times** in product code, all of it in
-  `service/organize.py`'s same-filesystem guard for `--in-place` and in `run_health.py` -
-  **`drive.py` never asks**. ⚠ **Removable media is exactly where a user does this**: "back up to
-  my other drive" pointing at another folder on the same stick, which then dies as one. The same
-  run showed the honest half working - `drives` reported both **offline** and `verify` refused the
-  vanished path with a real remedy and exit **2**. Related: `(abd)` (one catalog or many).
+- **(aiy) A SECOND COPY ON THE SAME DEVICE COUNTS AS REDUNDANCY, AND IT GATES A DELETE.**
+  Filed 2026-08-31 (P165, soak ten), **rewritten 2026-09-01 (P177) after a census** - it was filed
+  as a `status` sentence and **a reader who met that first would rank it as reporting**.
+  🔑 **THE HARM IS A DELETE.** `truestill reclaim --apply` *"actually delete sources"*, guarded by
+  one warning (`cli.py:4969`); `ReclaimPlan.single_copy` is `reclaim.py:59`
+  `[c for c in self.candidates if c.copies <= 1]`, and `copies` is `catalog.py:1653`
+  `(SELECT COUNT(*) FROM file_copies WHERE sha256 = f.sha256)`. `file_copies` is keyed
+  `(sha256, drive_uuid)`, so **two folders on one stick give `copy_count = 2`, the warning does not
+  fire, and the originals are deleted** on the strength of a copy that fails with the first.
+  The `status` sentence is the symptom - and ⚠ **it is identical in all four cases** (both online
+  and separate, same device, one offline, both offline), because `missing_at` is set only by
+  `verify` on a drive *"that was there"* and **unplugging sets nothing**.
+  **The census: 17 wrong surfaces, six independent implementations of the same denominator**
+  (`single_copy_shas`, `single_copy_count`, `custody_floor`, `stats_summary`,
+  `reclaim_candidates.copy_count`, `list_drives`, plus `drives.length` in the browser);
+  `app.js:1380` asserts *"Your library now lives in more than one place."* as an **unconditional
+  literal with no query**; and `cli.py:2003`'s *"the same rule the app's custody strip uses"* is
+  **false about the leg it names** - `catalog.py:2635` says so itself.
+  🔑 **`st_dev` CAN FALSIFY AND NEVER CONFIRM** - `local.py:213` *"``st_dev`` can agree across btrfs
+  subvolumes and bind mounts"* - so same device proves **not** independent and different device
+  proves nothing. Hence **three states, not a boolean**, which `drive.py:135` already ruled for
+  `DriveReach`: *"both folds lie… the honest answer - we do not know - is available, so it is
+  reported."* ⚠ **`_cmd_status` never calls `drive_reach`.**
+  ⚠ **NOT this entry**: a device identity that survives unplugging needs a filesystem UUID or
+  volume serial, is **`(ajh)`-class platform work**, and `st_dev` cannot do it - it is a mount-time
+  number. Comparing two connected roots is one stat, portable, already written.
   Body: [`research/backlog/aiy.md`](research/backlog/aiy.md).
 
 - **(aiv) THE FAILURE CAP COUNTS 2,519 REASONS FOR ONE FACT, WHICH IS THE DEFECT `(afd)` CLOSED.**
