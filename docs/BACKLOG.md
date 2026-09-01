@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajk). Next free: (ajl).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajm). Next free: (ajn).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -279,6 +279,22 @@ is invisible here is retired, not free.**
   characters are legal on ext4. Whether a **destination that may travel** should be held to the
   strictest set is named and deliberately not ruled. Body:
   [`research/backlog/ajc.md`](research/backlog/ajc.md).
+
+- **(ajm) A BROWSER TEST MEASURES THE MACHINE'S TEMP PATH, NOT THE PRODUCT.** Filed 2026-09-01
+  (P173). **An instrument defect, DIAGNOSED rather than merely observed** - it was reported as
+  *"undiagnosed, costs 26 minutes to learn nothing"* and one run settled it.
+  `test_narrow_top_bar.py::test_the_catalog_path_fits_rather_than_truncating_to_nothing` fails on
+  **both** browsers locally and passes in CI; reproduced at `2ba5cdb` with all work stashed, so it
+  predates P169-P172. 🔑 **The test asserts a path shows whole *"with room to spare"* and does not
+  control the path's length.** `suite_scratch.scratch_root()` decides that and says so in its own
+  docstring - *"`None` is the CI answer and is not a failure: no runner has a `/data`"* - so
+  `tmp_path` is **95 chars here against 77 on CI**. ⚠ **Eighteen characters is the entire
+  difference, and it is NOT flakiness** but a deterministic dependency on whether the machine has
+  a `/data` volume. Ranks by `(ait)`/`(aiu)`'s ruling that instrument defects outrank product
+  findings: a lane that always ends in two known-irrelevant failures is one whose next real
+  failure is indistinguishable from its noise. ⚠ **The other suspected instrument,
+  `cli._print_capped`, was investigated and is CORRECT** - the null is in `(ajk)`.
+  Body: [`research/backlog/ajm.md`](research/backlog/ajm.md).
 
 - **(ajk) A CLASSIFIER GRADES A DECISION IT CANNOT READ, AND THE ONE DISCARDED ERRNO IS IN A
   DIFFERENT ARM.** Filed 2026-09-01 (P172) from `(aji)`'s corrected mechanism, read-only.
