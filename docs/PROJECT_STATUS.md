@@ -487,7 +487,7 @@ any of it**. This list is the part that can be made to see.
 
 | letter | state | why it is on the list |
 |---|---|---|
-| `(aad)` | OPEN | The **only** entry the backlog's own text calls *"LAUNCH-BLOCKING"*. Not a judgement - its own words. |
+| `(aad)` | DONE | ✅ **Closed 2026-09-01 (P175).** `packaging/installer.iss` (`06f3796`) and `packaging/build_deb.py` (`c2120ae`) both exist and the release job builds them. ⚠ **The entry corrected itself on 2026-08-30** and moved its one surviving blocker - the download page - to `(afg)`; it was still being quoted as the launch gate for two days after that, and this row is where that was visible. |
 
 🔒 **THE LIST IS DELIBERATELY SHORT, AND ITS SHORTNESS IS NOT AN OVERSIGHT.** `(aef)` rules that
 populating it *"from the backlog as it stands would encode today's guesses as the answer - the

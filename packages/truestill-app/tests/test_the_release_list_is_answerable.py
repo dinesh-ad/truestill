@@ -52,10 +52,21 @@ def _rows() -> list[tuple[str, str]]:
 
 
 def _open_letters() -> set[str]:
-    """Letters that are still open work, read the way `PROJECT_STATUS.md` §2b's command reads."""
-    text = BACKLOG.read_text(encoding="utf-8")
-    section = text.split("## Approved - still to build", 1)[1].split("## Settled technical", 1)[0]
-    return set(re.findall(r"^ *- \*\*\(([a-z]+)\)", section, re.M))
+    """Every letter still in `BACKLOG.md`, whatever section it sits in.
+
+    ⚠ **BY FILE, NOT BY HEADING, SINCE 2026-09-01 (P175)** - and the sibling guard
+    `test_backlog_references.py` had already made this move for the same reason, in its own words:
+    *"Settledness is now decided by file."* This function still split on
+    ``"## Approved - still to build"`` and ``"## Settled technical"``, so when P175 re-sectioned the
+    backlog into **Build next / Real, but conditional / Internal / Blocked / Rulings / Records**
+    both string literals vanished and `str.split` returned a one-element list - an `IndexError`,
+    not a useful failure.
+
+    **The heading was never the right subject.** An entry in `BACKLOG.md` is open by virtue of
+    being in `BACKLOG.md`; `SHIPPED.md` is where closure lives. Keying on one heading also silently
+    excluded *Ideas / deferred*, which was open work this guard could not see.
+    """
+    return set(re.findall(r"^ *- \*\*\(([a-z]+)\)", BACKLOG.read_text(encoding="utf-8"), re.M))
 
 
 def _shipped_letters() -> set[str]:

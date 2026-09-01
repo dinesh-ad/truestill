@@ -1,6 +1,7 @@
 # (acc) NOTHING PASSIVELY NOTICES A DECISIONS DOCUMENT ON A DRIVE.
 
-*Body of backlog entry `(acc)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(acc)`, **CLOSED 2026-09-01**. The closure is in [`SHIPPED.md`](../../SHIPPED.md);
+the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).**Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 > ⚠ **TITLE ALIGNED TO THE INDEX 2026-08-25, which had carried the corrected claim since the
 > open-entry sweep. The original title was *"A decisions document on a drive would be found by

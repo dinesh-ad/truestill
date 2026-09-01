@@ -88,8 +88,8 @@ contract change on a surface `PROJECT_STATUS.md` §1b has not declared stable ye
 established is that there are two roots, in two files, at two layers.**
 
 
-*Body of backlog entry `(aiq)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is
-shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(aiq)`, **CLOSED 2026-09-01**. The closure is in [`SHIPPED.md`](../../SHIPPED.md);
+the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
 
 Filed 2026-08-30 (P145), from the surface audit `(aim)` needed and did not have. **Read from
 source, not from the browser lane** - which the P145 brief forbade - so the rendering claims are

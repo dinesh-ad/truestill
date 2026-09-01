@@ -22,6 +22,46 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aiq) A RUN THAT FAILS MOST OF ITS FILES REPORTS "done", AND NAMES NONE OF THEM.**
+  ✅ **CLOSED 2026-09-01 (P175), TWO THIRDS BUILT AND THE THIRD RE-FILED.** Found still open by the
+  P174 audit: the work shipped and no commit ever wrote `Closes (aiq)`.
+  **Gap 2, the status** - `eadc643`, `jobs._terminal_status` derives the terminal status from what
+  the target returned and each service declares `finished_clean`; a third status,
+  `STATUS_COMPLETED_WITH_ERRORS`. **Gap 1, the names** - `24986b0`, `service/organize._failed_report`
+  ships `{total, shown}` at `models.FAILURE_PREVIEW_LIMIT`, the cap the CLI reads too, rendered as a
+  collapsed list. ⚠ **GAP 3 SURVIVED AND IS NOW `(ajn)`** - `metadata_ok` has **zero occurrences**
+  under `packages/truestill-app/src`, so the app still cannot say a copy arrived without its
+  timestamps. **Closing this whole would have dropped it silently.** Body:
+  [`research/backlog/aiq.md`](research/backlog/aiq.md).
+
+- **(ael) NO CLI ROUTE COPIES A LIBRARY TO A SECOND DRIVE WITHOUT A SOURCE FOLDER.** ✅ **CLOSED
+  2026-09-01 (P175), built under another letter.** Its own *"WHAT REMAINS"* was **drive-to-drive with
+  no source folder in hand**, and its *"WHAT IS NOT DECIDED"* proposed the spelling:
+  *"`truestill backup <from> <to>` reads plainly"*. That is exactly what shipped in `8d3ed59`
+  (`feat(ahf): truestill backup, and it refuses rather than registering`) - `cli._cmd_backup`,
+  which refuses an unregistered drive rather than minting one. Nothing closed `(ael)` at the time.
+  Body: [`research/backlog/ael.md`](research/backlog/ael.md).
+
+- **(acc) A DECISIONS DOCUMENT ON A REACHED DRIVE IS SURFACED.** ✅ **CLOSED 2026-09-01 (P175).**
+  Shipped in `5507d39` (`feat(cli): a drive that is carrying decisions says so, on both screens that
+  touch one`): `decisions.notice_for`, read by `cli._print_drive_notice` and by
+  `service/drives._drive_decisions`, which puts `DriveDecisions` on the payload. Both surfaces.
+  Body: [`research/backlog/acc.md`](research/backlog/acc.md).
+
+- **(aad) INSTALLERS FOR BOTH PLATFORMS.** ✅ **CLOSED 2026-09-01 (P175).** `packaging/installer.iss`
+  (`06f3796`) and `packaging/build_deb.py` (`c2120ae`) both exist and are built by the release job,
+  rehearsed end to end in [`release-rehearsal-record.md`](release-rehearsal-record.md).
+  ⚠ **The entry had already corrected itself on 2026-08-30** - its own header says the body
+  *"describes work that is now largely"* done and moves the one surviving blocker, the download
+  page, to `(afg)`. It was still being quoted as open for two days after that.
+  Body: [`research/backlog/aad.md`](research/backlog/aad.md).
+
+- **(bbb) RECOVERY OF AN EXIFTOOL `_original` SIDECAR DATE.** ✅ **CLOSED 2026-09-01 (P175).** Safety
+  and recovery both shipped - `organizer.is_exiftool_original_backup` and
+  `service/date_rescue.original_candidates`, the offer landing in `1fc5c95` (step 6). ⚠ **The one
+  unbuilt clause of item 4 was DECIDED AGAINST, not left pending**: the body says the embedded-conflict
+  note was **decided against** and recorded under `(aaj)`, which sits in *Consciously out of scope*. **Nothing remains to build.** Body: [`research/backlog/bbb.md`](research/backlog/bbb.md).
+
 - **(ajg) EVERY WAY A BACKUP CAN STOP NOW REACHES THE USER AS A SENTENCE.** ✅ **CLOSED
   2026-09-01 (P170).** Filed the same day from soak twelve's app half: `backup` on a vanished drive
   printed an **eight-frame traceback**, one day after `(ajd)` shipped to stop exactly that.

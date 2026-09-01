@@ -33,7 +33,8 @@
 > **What is genuinely left**: `(afg)`'s page, one visibility flag, and a decision about signing
 > that `DECISIONS.md` D9 already settles at zero spend.
 
-*Body of backlog entry `(aad)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(aad)`, **CLOSED 2026-09-01**. The closure is in [`SHIPPED.md`](../../SHIPPED.md);
+the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).**Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aad) Desktop installers - LAUNCH-BLOCKING for the paid product.** Ruled by the maintainer,
   2026-07-31. **Rewritten short 2026-08-13; the reasoning behind every line below is in the

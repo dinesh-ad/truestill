@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajm). Next free: (ajn).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajn). Next free: (ajo).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -211,20 +211,140 @@ Shipped entries describe the work rather than repeating the letter. `(e)` and `(
 cited by name in `drive-identity-research.md` and `org-structure-research.md`. **A letter that
 is invisible here is retired, not free.**
 
-## Approved - still to build
+## Build next
 
-- **(aib) THE PERCEPTUAL PIXEL CEILING IS 600 MP, NOT THE 300 MP THE CONSTANT NAMES.** Filed
-  2026-08-26 (P116), split out of `(ahq)`'s comment audit. **A ruling, not a fix.** Pillow's
-  `_decompression_bomb_check` is two-tier - it *warns* above `MAX_IMAGE_PIXELS` and only *raises*
-  above **2x** it - so `MAX_PERCEPTUAL_PIXELS = 300_000_000` sets the suspicion line and the skip
-  is at 600 MP. ⚠ **The test already encoded the doubling and the comment did not.** Neither
-  reading is established: either the constant means what it says and the doubling was inherited by
-  accident, or it is the suspicion line and is misnamed. ⚠ **And the stated purposes differ** -
-  `hashing.py` says OOM, Pillow says decompression bomb - which decides whether the number should
-  track memory or stay fixed. Measured: largest real photograph **39.5 MP**; the only files over
-  300 MP are **5 fuzzed TIFFs, all over 600 too**, so the band is empty in practice and the
-  falsehood has had no observed consequence. Body:
-  [`research/backlog/aib.md`](research/backlog/aib.md).
+**The list to read.** Every entry here has a symptom an ordinary person meets in ordinary use -
+no unusual drive, no second process, no interrupted run. Sixteen on 2026-09-01.
+
+⚠ **THIS IS A TRIAGE, NOT A PROOF, AND THE HEADING MUST NOT BE READ AS ONE.** Each entry below was
+confirmed against today's code by **one decisive check**, named in its body - not by a full read.
+That is enough to say *still plausible*; it is not enough to say *confirmed*. **Nothing was deleted
+on the strength of it**, and an entry that turns out already built should be closed with its commit
+rather than treated as a triage failure.
+
+- **(ajn) THE APP CANNOT SAY A COPY ARRIVED WITHOUT ITS TIMESTAMPS.** Filed 2026-09-01 (P175),
+  **split out of `(aiq)` when its other two thirds shipped** - this is its gap 3 and the only part
+  that survived, carried on its own letter rather than dropped inside a closed entry. Core produces
+  the fact (`models.py:845` `metadata_ok`, set at `organizer.py:1702`) and owns the sentence
+  (`drive_unwritable.py:219` `metadata_not_preserved_note`); the CLI prints it
+  (`cli.py:2737`, label `METADATA NOT SET`). ⚠ **`metadata_ok` has ZERO occurrences under
+  `packages/truestill-app/src`** - `grep -rc metadata_ok packages/truestill-app/src` returns
+  nothing. So `(aie)`/`(ain)`'s honest outcome - *"copied and is safe, but this drive does not let
+  Truestill set timestamps"* - reaches a terminal user and **never reaches a screen at all**. Not a
+  worse wording; an absent one, which is `(aek)`'s and `(aep)`'s shape.
+  Body: [`research/backlog/ajn.md`](research/backlog/ajn.md).
+
+- **(aiy) TWO REGISTRATIONS ON ONE PHYSICAL DEVICE ARE REPORTED AS "NICELY REDUNDANT".** Filed
+  2026-08-31 (P165, soak ten), measured. Two drives registered in two folders of **one USB stick**,
+  and with the stick **unplugged** `truestill status` said *"All catalogued content has at least
+  two drive copies. Nicely redundant."* **The command whose entire purpose is 3-2-1 assurance
+  counts drive REGISTRATIONS, and nothing anywhere compares the underlying device.** Checked
+  rather than assumed: `st_dev` occurs **16 times** in product code, all of it in
+  `service/organize.py`'s same-filesystem guard for `--in-place` and in `run_health.py` -
+  **`drive.py` never asks**. ⚠ **Removable media is exactly where a user does this**: "back up to
+  my other drive" pointing at another folder on the same stick, which then dies as one. The same
+  run showed the honest half working - `drives` reported both **offline** and `verify` refused the
+  vanished path with a real remedy and exit **2**. Related: `(abd)` (one catalog or many).
+  Body: [`research/backlog/aiy.md`](research/backlog/aiy.md).
+
+- **(aiv) THE FAILURE CAP COUNTS 2,519 REASONS FOR ONE FACT, WHICH IS THE DEFECT `(afd)` CLOSED.**
+  Filed 2026-08-30 (P148, soak nine), measured at scale. An `EPERM` at `copystat` for every one of
+  2,519 files - **one** condition, belonging to the mount - printed *"and 2,499 more METADATA NOT
+  SET (**2519 distinct reasons in total**)"*. `cli._reason_key` strips **quoted** fragments, and
+  both producers (`_upload_failure`, `drive_unwritable.metadata_not_preserved_note`) lead with the
+  source filename **unquoted**, so neither collapses. ⚠ **This contradicts `(afd)`'s own recorded
+  measurement** - either the wording changed under the guard (`(aep)`, `(aie)`) or the claim was
+  never true of this shape. Nothing is lost; the harm is a user concluding their drive has 2,519
+  problems when it has one. Body: [`research/backlog/aiv.md`](research/backlog/aiv.md).
+
+- **(aip) MIGRATE AND BACKUP KEEP A COPY WHOSE METADATA WAS REFUSED AND NEVER SAY SO.**
+  Filed 2026-08-29 (P143). **The residue of `(aie)`, and its own letter because it is different
+  work.** That fix reached `relocate` and `backup` for free - both go through
+  `copy_leaving_nothing` - so migrate no longer fails every file in a library and backup no longer
+  discards a verified copy. **Only `organize` reports it.** `upload` returns a warning; `relocate`
+  returns `None` and reports through `MigrationOutcome`, `backup` through `CopyVerdict`. Three
+  outcome shapes, three decisions. ⚠ **A degradation from silence, not from correctness** - and
+  bounded: nothing Truestill decides is computed from a copy's mtime. ⚠ **`relocate` may be
+  unreachable in practice** - a layout migration's source and destination share a filesystem, so a
+  mount that refuses `copystat` never gave the incumbent its metadata either. Check before
+  building; that is a real possible answer.
+  Body: [`research/backlog/aip.md`](research/backlog/aip.md).
+
+- **(aht) THE ARCHIVE STAGING TREE IS NEVER REMOVED.** Filed 2026-08-25 (P98), found in `(ahp)`'s
+  artifact. A 1.61 GB archive leaves **535 files, 1.6 GB** under `.truestill-staging/` beside the
+  organized copy, and **nothing removes it** (`grep -iE "rmtree|unlink|clean"` against
+  `archive_ingest.py` returns nothing).
+  ⚠ **Measured, and it changes the rank**: a second ingest of the same archive **does not stage
+  again** - still 535 files, one directory - so N ingests cost **1x, not Nx**. Untidiness, not a
+  disk a user runs out of. **But the work repeats**: 534 files unpacked again. Cost is per
+  distinct archive.
+  Defensible as it stands - copy mode never deletes a source, and the staging tree *is* that run's
+  source.
+  [Full entry](research/backlog/aht.md)
+
+- **(afq) A PREVIEW OCCUPIES THE DRIVE IN THE APP, AND NOTHING SAYS WHY.** `_start_drive_job`
+  passes `operation="organize preview"` to `jobs.start`, which occupies the drive exactly as an
+  apply does, so a second tab previewing during an organize is refused - while the CLI has never
+  done this. ⚠ **Split out of `(aaw)` rather than folded in**: the lock rests on measured data
+  loss, a preview writes nothing, and letting a UX decision inherit a safety argument it has not
+  earned is what the 2026-08-03 design did without noticing. May well be right; needs its own
+  reason. Filed 2026-08-22. [Full entry](research/backlog/afq.md)
+
+- **(afg) THE DOWNLOAD PAGE HAS NO HOME IN THIS REPOSITORY, AND `truestill.app` EXISTS ONLY IN
+  CONVERSATION.** The
+  domain is bought; **nothing about it is in this repository** - `grep -ri truestill.app` matches
+  only the package identifiers. D9 binds a requirement to a page that does not exist: *"Windows
+  users must be told what SmartScreen will show… on the download page, above the button."*
+  ⚠ **Whether it blocks a first tag is NOT DECIDED and this entry does not assume**; the arguments
+  either way are recorded for the ruling. §4's fifty-eighth member exactly - a live planning
+  assumption invisible to every grep and every audit. Filed 2026-08-22.
+  [Full entry](research/backlog/afg.md)
+
+- **(afa) `unreachable` MEANS FOUR THINGS, AND THE TOOLTIP ASSERTS ONE OF THEM.** ⚠ **Narrowed
+  and retitled 2026-08-22 after a read-only pass falsified its own thesis.** It claimed
+  `date_rescue` told the user nothing; measured, it renders *"could not check"*. What is wrong is
+  that `unreachable` is produced by four distinct causes - no catalog row, no `source_path`, the
+  sidecar refused, the parent is not a directory - and the tooltip asserts one of them for all
+  four. ⚠ **Its central guess is recorded as FALSIFIED**: the three sites shared a cause, not a
+  remedy, and one vocabulary would have fixed neither `(afn)` nor `(afo)`. That finding is worth
+  more than the fix. Found 2026-08-21, narrowed 2026-08-22.
+  [Full entry](research/backlog/afa.md)
+
+- **(acn) DOES A GPS FIX TIME COUNT AS CAPTURE EVIDENCE? A RULING, NOT A BUG.** [Full
+  entry](research/backlog/acn.md)
+
+- **(acg) ALBUM MEMBERSHIP CANNOT LEAVE THIS MACHINE - the same class as `(ack)`, waiting.**
+  Recorded 2026-08-09. [Full entry](research/backlog/acg.md)
+
+- **(aca) The app and the CLI disagree about when an organize run needs confirming.** [Full
+  entry](research/backlog/aca.md)
+
+- **(abn) rescan, beyond the report. `truestill rescan` REPORTS; nothing acts on it yet.** Recorded
+  2026-08-07. [Full entry](research/backlog/abn.md)
+
+- **(abd) ONE CATALOG OR MANY - the question is unanswered, and it may be the wrong default.**
+  Recorded 2026-08-05. [Full entry](research/backlog/abd.md)
+
+- **(abj) Find matches one substring; a two-word query silently finds nothing.** [Full
+  entry](research/backlog/abj.md)
+
+- **(aba) Nothing reconciles the catalog's recorded location with where a file actually is.**
+  Carries `(agr)` part 3 since 2026-08-23 - the two-identities-at-one-path drive sibling, ruled
+  no-build with its specimen preserved. [Full entry](research/backlog/aba.md)
+
+- **(aas) An undated file cannot be assigned to an event the user knows it belongs to.** Recorded
+  2026-08-02. [Full entry](research/backlog/aas.md)
+
+- **(ss) Organize preview hashes every file before showing anything - slow on a network mount.**
+  [Full entry](research/backlog/ss.md)
+
+## Real, but conditional
+
+**Verified against the code and real - and reaching them needs a specific setup**: a drive that
+vanishes mid-run, a second app instance, a locked catalog, an rclone remote, a re-run in place, a
+name collision. Honest work. Not what a first-time user meets.
+
+The same triage caveat as **Build next** applies: one check each, sorted rather than proven.
 
 - **(aik) NOTHING READS A META ARCHIVE'S SIDECAR, AND ITS MEDIA ARRIVES STRIPPED.** Filed
   2026-08-29 (P135), from source. A Facebook or Instagram archive ships media with metadata
@@ -266,55 +386,6 @@ is invisible here is retired, not free.**
   being pairwise against the first-seen twin. Narrower than `(aag)`: an exact group needs no
   threshold and no review, so it is a reporting shape rather than a feature.
   Body: [`research/backlog/aii.md`](research/backlog/aii.md).
-
-- **(ajc) `ntfs3` ACCEPTS EVERY NAME WINDOWS REFUSES, SO A DRIVE IS WRITTEN ON LINUX AND BREAKS WHEN
-  IT MOVES.** Filed 2026-08-31 (P166), measured on a real NTFS volume under the **kernel `ntfs3`
-  driver** with `acl`. All eight of `(aid)`'s illegal characters - `:` `?` `*` `|` `<` `>` `"` `\`
-  - were **created verbatim**, and `ntfs3` is **case-SENSITIVE** where Windows is not. 🔑 **`(aid)`'s
-  central claim is false**: exFAT and FAT32 are the strict filesystems (`EINVAL` on all eight) and
-  **NTFS-under-Linux is the permissive one**. ⚠ **Different hazard from `(aid)`**: a name that
-  refuses at write time loses nothing; **a name that writes fine on Linux and cannot be opened on
-  Windows breaks the drive after it travels**, with no error in between -
-  [`moving-machines.md`](moving-machines.md) is its home. ⚠ **The obvious fix is wrong**: those
-  characters are legal on ext4. Whether a **destination that may travel** should be held to the
-  strictest set is named and deliberately not ruled. Body:
-  [`research/backlog/ajc.md`](research/backlog/ajc.md).
-
-- **(ajm) A BROWSER TEST MEASURES THE MACHINE'S TEMP PATH, NOT THE PRODUCT.** Filed 2026-09-01
-  (P173). **An instrument defect, DIAGNOSED rather than merely observed** - it was reported as
-  *"undiagnosed, costs 26 minutes to learn nothing"* and one run settled it.
-  `test_narrow_top_bar.py::test_the_catalog_path_fits_rather_than_truncating_to_nothing` fails on
-  **both** browsers locally and passes in CI; reproduced at `2ba5cdb` with all work stashed, so it
-  predates P169-P172. 🔑 **The test asserts a path shows whole *"with room to spare"* and does not
-  control the path's length.** `suite_scratch.scratch_root()` decides that and says so in its own
-  docstring - *"`None` is the CI answer and is not a failure: no runner has a `/data`"* - so
-  `tmp_path` is **95 chars here against 77 on CI**. ⚠ **Eighteen characters is the entire
-  difference, and it is NOT flakiness** but a deterministic dependency on whether the machine has
-  a `/data` volume. Ranks by `(ait)`/`(aiu)`'s ruling that instrument defects outrank product
-  findings: a lane that always ends in two known-irrelevant failures is one whose next real
-  failure is indistinguishable from its noise. ⚠ **The other suspected instrument,
-  `cli._print_capped`, was investigated and is CORRECT** - the null is in `(ajk)`.
-  Body: [`research/backlog/ajm.md`](research/backlog/ajm.md).
-
-- **(ajk) A CLASSIFIER GRADES A DECISION IT CANNOT READ, AND THE ONE DISCARDED ERRNO IS IN A
-  DIFFERENT ARM.** Filed 2026-09-01 (P172) from `(aji)`'s corrected mechanism, read-only.
-  ⚠ **FIRST BLOCKER: the `REFUSED` arm does not reproduce.** Three attempts - `reach()` alone,
-  `reach()` with a busy volume, and **a real `organize --apply` unmounted mid-run** - gave
-  **257 failures, all *"is no longer the drive"*, zero *"cannot probe"***. `ENOENT` is in
-  `_ABSENT_ERRNOS`, so `exists()` returns `False` without raising. The errno that produced
-  `REFUSED` in soak twelve is **unknown**, and **no classifier change is warranted until it
-  reproduces**. 🔑 **The brief's premise is FALSE and that is the finding**: *"give
-  `DestinationError` a cause"* is impossible at `base.py:88` - `device_of` swallows the error, so
-  there is **no exception object at that point** (and raising inside a `try` sets neither
-  `__cause__` nor `__context__`, measured). Of **22** raise sites **exactly one** discards an
-  available `OSError`: `local.py:154`, because `probe()` returns the **stat, not the error**.
-  ⚠ **`persists_for_the_run` has SIX call sites**, three of them exposed - and **`migrate` already
-  carries `or isinstance(exc, VerificationFailedError)` while `organizer.py:2118` has no disjunct
-  at all**. Two further blind spots named: `MetadataBakeError` is an `OSError` with `errno is
-  None`, and `undo._why_not` never consults the classifier. **Candidate ruling recorded, not
-  ruled**: `check`'s raise should bypass the classifier, supported by `backup` already stopping on
-  the same guard - and synthesising an errno is refused as inventing evidence, `(ajg)`'s rule.
-  Body: [`research/backlog/ajk.md`](research/backlog/ajk.md).
 
 - **(ajj) THREE COMMANDS LET A CATALOG WRITE ESCAPE TO THE USER, AND ONLY ONE OF THEM CATCHES
   IT.** Filed 2026-09-01 (P171) from `(ajg)`'s own *"what is not established"*, **by reading each
@@ -369,71 +440,6 @@ is invisible here is retired, not free.**
   produced `REFUSED` in the soak is **unknown and named as unknown**.
   Body: [`research/backlog/aji.md`](research/backlog/aji.md).
 
-- **(ajh) TRUESTILL CANNOT TELL A REMOVABLE DRIVE FROM A FIXED ONE, AND ALREADY READS THE LINE
-  THAT SAYS SO.** Filed 2026-09-01, split out of `(ajf)` when its wording half shipped. **Not a
-  defect** - nothing is wrong today, because `(ajf)` put the condition in the sentence rather than
-  in a gate. Five checks, all negative: no `/sys/block/*/removable`, no udisks2, no
-  `GetDriveTypeW`, a `drives` table of six columns with no device or mount point, and every
-  `removable` hit in the tree is `cleanup.py`'s removable **folders**. 🔑 **The answer is in a line
-  this code already reads and discards**: `filesystem.parse_proc_mounts` walks `/proc/mounts` and
-  keeps `fields[2]`, dropping `fields[3]` - the mount options - and `fields[0]`, the device.
-  ⚠ **A filesystem-type proxy is REFUSED with a measurement**: it fires on an internal Windows
-  NTFS disk and is **silent on an ext4 USB stick**, which is the dangerous direction. Whatever is
-  built must fail toward saying the line, per `stores_access_control`'s *"unknown means yes"*.
-  macOS inherits `filesystem.py`'s recorded blindness. ⚠ **Not obviously worth doing** - the
-  sentence works today on every platform; this exists so the option is priced.
-  Body: [`research/backlog/ajh.md`](research/backlog/ajh.md).
-
-- **(aiy) TWO REGISTRATIONS ON ONE PHYSICAL DEVICE ARE REPORTED AS "NICELY REDUNDANT".** Filed
-  2026-08-31 (P165, soak ten), measured. Two drives registered in two folders of **one USB stick**,
-  and with the stick **unplugged** `truestill status` said *"All catalogued content has at least
-  two drive copies. Nicely redundant."* **The command whose entire purpose is 3-2-1 assurance
-  counts drive REGISTRATIONS, and nothing anywhere compares the underlying device.** Checked
-  rather than assumed: `st_dev` occurs **16 times** in product code, all of it in
-  `service/organize.py`'s same-filesystem guard for `--in-place` and in `run_health.py` -
-  **`drive.py` never asks**. ⚠ **Removable media is exactly where a user does this**: "back up to
-  my other drive" pointing at another folder on the same stick, which then dies as one. The same
-  run showed the honest half working - `drives` reported both **offline** and `verify` refused the
-  vanished path with a real remedy and exit **2**. Related: `(abd)` (one catalog or many).
-  Body: [`research/backlog/aiy.md`](research/backlog/aiy.md).
-
-- **(aiq) A RUN THAT FAILS MOST OF ITS FILES REPORTS "done", AND NAMES NONE OF THEM.**
-  ⚠ **REWRITTEN 2026-09-01 (P170) against measurement** - the headline replaces *"the app shows a
-  number for failures and never a file, and shows nothing at all on a stop"*, which was filed from
-  a code read. **Measured in soak twelve's app half**: `organize` onto a vanished drive failed
-  **1,130 of 1,324 files** and the terminal event was `{"type":"done","status":"done"}`. **A run
-  that lost 85% of its work reports success** - a missing failure STATE, not a missing filename.
-  ⚠ **Two roots, two layers, neither fix reaching the other**: the count is
-  `service/organize._completion`'s scalar (payload), the status is `jobs.py:392`
-  `"cancelled" if job.cancel.is_set() else "done"`, derived from **whether the target returned**
-  rather than from what it returned (job layer, one line). Both are `(aim)`'s family - a report
-  derived from something other than the outcome it describes. ⚠ **Gap 2's mechanism was never
-  reached**: a vanished destination is `GONE`, does not raise, and fails files one at a time - see
-  `(aji)`. ⚠ **The "app is worse" framing INVERTED on backup**: the app printed the sentence and
-  the CLI printed a traceback, which is `(ajg)`. Gaps 1 and 3 confirmed unchanged. Filed 2026-08-30
-  (P145), from the surface audit `(aim)` needed and did not have. ⚠
-  **`(aim)` recorded the app as having "already solved" this, and on the TENSE it had** -
-  `service/organize._completion` is built only from `results`. Three gaps behind that:
-  - ❌ **No per-file failure list exists.** `CompletionBase` carries a scalar
-    `"failed": sum(1 for r in results if r.status is ActionStatus.FAILED)`, and `app.js` renders
-    one banner - *"3 files could not be organized"*. No names, no reasons, no cap notice. **The
-    CLI names every one** (`cli._print_capped`), so on the DETAIL axis the app is worse than the
-    CLI - the inverse of `(aim)`'s framing, and worth stating because that framing would send the
-    next person to copy the app.
-  - ❌ **A hard stop shows no counts whatever.** `RunStoppedError` escapes `organize_run`,
-    `jobs.py` emits `{"type": "error"}` with **no summary**, and `app.js` forces `summary: {}`.
-    The user is told the reason and nothing about what landed. **This is `(aim)`'s worst CLI route
-    in a worse form**: the CLI at least printed a number, wrong tense and all - and after P145 it
-    prints the outcome. *"Not knowing is the harm."*
-  - ❌ **`metadata_ok` appears NOWHERE in `truestill-app`** (zero occurrences), so `(aie)` and
-    `(ain)`'s *"copied and safe, but the drive would not set its timestamps"* is invisible there.
-  🔑 **The guard hole is already written down and excludes this payload BY NAME**:
-  `test_job_summaries_are_read_where_they_are_delivered.py` records the identical defect on
-  backup's summary and then exempts `/api/organize/run` in its own comment. **Not built in P145
-  deliberately** - it is app work of one class, and folding it into a `cli.py` commit would make
-  a screen change ride on a core one. Related: `(aim)`, `(air)`, `(aer)`.
-  Body: [`research/backlog/aiq.md`](research/backlog/aiq.md).
-
 - **(air) A `--move` THAT COULD NOT REMOVE THE SOURCE EXITS 0.** Filed 2026-08-30 (P145), from
   `(aim)`'s route census; **filed rather than decided**. `MOVE_KEPT` means the copy is in the
   library and verified and the **source was deliberately kept** - `organizer._move_source` *"never
@@ -454,35 +460,6 @@ is invisible here is retired, not free.**
 > [`soak-eight-record.md`](soak-eight-record.md)'s own §5. The reasoning is
 > [`soak-nine-record.md`](soak-nine-record.md) §7b.
 
-- **(ait) THE MESSY-CORPUS MANIFEST OVERSTATES ITSELF, AND 20 ROWS DESCRIBE FILES THAT ARE GONE.**
-  Filed 2026-08-30 (P148, soak nine). `make_messy_corpus.py` builds every destination from the
-  **basename** of its source, and `Input/` holds two pairs of *different* photographs sharing one
-  (`IMG_0386.JPG`, `Photo0268.jpg`). Each pair collides at ten destinations, the second write
-  wins, and the manifest records both - **8,971 rows for 8,951 files, all 20 orphans carrying a
-  `sha256` that no longer matches disk.** ⚠ **The manifest is the answer key**, so a soak scores
-  the product against a total it could not have produced; **soak eight's published key carries the
-  same error.** Soak nine worked around it by hashing the corpus - an analysis workaround, not an
-  instrument fix. Body: [`research/backlog/ait.md`](research/backlog/ait.md).
-
-- **(aiu) TWO CORPUS SHAPES CANNOT REACH THE DEFECTS THEY WERE BUILT FOR.** Filed 2026-08-30
-  (P148, soak nine). `ENGINEERING_STANDARD.md` §4's silent instrument, twice. (1) The long-name
-  files P146 moved to straddle `(aid)`'s budget are **exact duplicates** - their content appears
-  22x and 18x elsewhere - and dedup skips a duplicate **before** a name is composed, so the shape
-  straddles the byte boundary and never touches the code path. (2) The corpus holds **zero
-  non-ASCII paths**, the gap `(aid)`'s own table already recorded about the suite. Both fixes had
-  to be verified by constructed inputs instead, which is evidence about the product and none about
-  the corpus. Body: [`research/backlog/aiu.md`](research/backlog/aiu.md).
-
-- **(aiv) THE FAILURE CAP COUNTS 2,519 REASONS FOR ONE FACT, WHICH IS THE DEFECT `(afd)` CLOSED.**
-  Filed 2026-08-30 (P148, soak nine), measured at scale. An `EPERM` at `copystat` for every one of
-  2,519 files - **one** condition, belonging to the mount - printed *"and 2,499 more METADATA NOT
-  SET (**2519 distinct reasons in total**)"*. `cli._reason_key` strips **quoted** fragments, and
-  both producers (`_upload_failure`, `drive_unwritable.metadata_not_preserved_note`) lead with the
-  source filename **unquoted**, so neither collapses. ⚠ **This contradicts `(afd)`'s own recorded
-  measurement** - either the wording changed under the guard (`(aep)`, `(aie)`) or the claim was
-  never true of this shape. Nothing is lost; the harm is a user concluding their drive has 2,519
-  problems when it has one. Body: [`research/backlog/aiv.md`](research/backlog/aiv.md).
-
 - **(aiw) `undo-organize` EMPTIES FOLDERS AND REPORTS NONE - `(afi)`'S THIRD PATH.** Filed
   2026-08-30 (P148, soak nine), on the reversal arc soak eight never reached. Undo restored 666
   files exactly - tree path-identical, 1,900 before and after - and left **90 empty directories**
@@ -492,34 +469,6 @@ is invisible here is retired, not free.**
   of, and undo is the third such path.** Ranks low - empty directories are inert and `clean-empty`
   works; the harm is a promise printed in one breath and broken in the next.
   Body: [`research/backlog/aiw.md`](research/backlog/aiw.md).
-
-- **(aio) RELEASING THE BAKED TEMPORARY SITS BETWEEN THE COMMITTED COPY AND ITS CATALOG ROW.**
-  Filed 2026-08-29 (P143), from the census `(ain)` asked for. **`(ain)`'s shape on the bake path,
-  and the only other live instance of it.** `_upload_with_metadata_write` calls
-  `staged.unlink(missing_ok=True)` after `upload` has committed by rename and before the caller
-  writes the catalog row, so any `OSError` other than the absorbed `FileNotFoundError` leaves an
-  orphan. ⚠ **Narrower, and the reason is worth keeping**: the temporary is on this computer, not
-  the user's mount, so the realistic trigger is **Windows** - `PermissionError` while an antivirus
-  holds the file open - which is the platform nothing here can test locally. **Not reproduced**,
-  and filed rather than fixed for exactly that reason.
-  🔑 **The rest of the census is recorded in the body so nobody re-runs it**: four other
-  commit-before-catalog sites, all already closed, by three different mechanisms - `(agk)`'s
-  intent row, the migration journal, `(agv)`'s in-flight column - and `backup`, which has nothing
-  that can raise in the window at all.
-  Body: [`research/backlog/aio.md`](research/backlog/aio.md).
-
-- **(aip) MIGRATE AND BACKUP KEEP A COPY WHOSE METADATA WAS REFUSED AND NEVER SAY SO.**
-  Filed 2026-08-29 (P143). **The residue of `(aie)`, and its own letter because it is different
-  work.** That fix reached `relocate` and `backup` for free - both go through
-  `copy_leaving_nothing` - so migrate no longer fails every file in a library and backup no longer
-  discards a verified copy. **Only `organize` reports it.** `upload` returns a warning; `relocate`
-  returns `None` and reports through `MigrationOutcome`, `backup` through `CopyVerdict`. Three
-  outcome shapes, three decisions. ⚠ **A degradation from silence, not from correctness** - and
-  bounded: nothing Truestill decides is computed from a copy's mtime. ⚠ **`relocate` may be
-  unreachable in practice** - a layout migration's source and destination share a filesystem, so a
-  mount that refuses `copystat` never gave the incumbent its metadata either. Check before
-  building; that is a real possible answer.
-  Body: [`research/backlog/aip.md`](research/backlog/aip.md).
 
 - **(aig) AN INVALID-UTF-8 POSIX FILENAME MISFILES ON READ: EXIFTOOL'S JSON WRITER ECHOES `?` FOR THE BYTE.**
   Filed 2026-08-29 (P121); **cause corrected in place same day (P122), measured** - the entry
@@ -577,82 +526,6 @@ is invisible here is retired, not free.**
   now returns identical date, source and category for 1,127 of 1,127 - so what is left against it
   is only that it is the longest operation in the product.
   [Full entry](research/backlog/ahs.md)
-
-- **(aht) THE ARCHIVE STAGING TREE IS NEVER REMOVED.** Filed 2026-08-25 (P98), found in `(ahp)`'s
-  artifact. A 1.61 GB archive leaves **535 files, 1.6 GB** under `.truestill-staging/` beside the
-  organized copy, and **nothing removes it** (`grep -iE "rmtree|unlink|clean"` against
-  `archive_ingest.py` returns nothing).
-  ⚠ **Measured, and it changes the rank**: a second ingest of the same archive **does not stage
-  again** - still 535 files, one directory - so N ingests cost **1x, not Nx**. Untidiness, not a
-  disk a user runs out of. **But the work repeats**: 534 files unpacked again. Cost is per
-  distinct archive.
-  Defensible as it stands - copy mode never deletes a source, and the staging tree *is* that run's
-  source.
-  [Full entry](research/backlog/aht.md)
-
-- **(aho) THE JOB ENVELOPE IS THE ONLY SUCCESS PAYLOAD WITH NOTHING TO NARROW ON.** Filed
-  2026-08-25 (P93/P94), split out of `(ahn)` stage 4b because the fix is a **wire change**.
-  Every arm of every response union in this app carries a `Literal`-tagged key - `ok`, `armed`,
-  `valid`, `code` - **except `JobStarted`**, which is one key, `job_id`, and no literal.
-  ⚠ **Checked, not assumed**: an AST pass over every union arm reachable from a route, reported in
-  the body. `_start_drive_job` returns **three** shapes, so all **15** job-start sites return a
-  union, and `app.js:244` tells the arms apart with `started.ok === false` - false for `JobStarted`
-  **only because `ok` is undefined**. The one place in the app where narrowing rests on a key not
-  being there.
-  **The fix** is `ok: Literal[True]`, additive and almost certainly safe - but it puts a new key on
-  the body every job start returns, which is a ruling and not a detail.
-  [Full entry](research/backlog/aho.md)
-
-- **(ahl) CONDITION 3 IS AT 34 FIELDS, NOT 2, AND ITS OWN CENSUS DISAGREES WITH ITSELF.** Filed
-  2026-08-25 (P81). `PROJECT_STATUS.md`'s condition 3 is kept by hand and names **two** live
-  instances. Derived from the AST: **117 TypedDicts, 579 key slots, 289 distinct key names, 34**
-  with no hit in `app.js` code and none in React (**11.8%**); **21** reach `cli.py` either.
-  ⚠ **Checked, not assumed**: an AST walk of both `TypedDict` forms against the three consumer
-  surfaces with `//` and `/* */` stripped, derived twice independently. **The naive grep certifies
-  five dead fields as live** on the strength of a comment naming them (29 -> 34, surfaces held
-  fixed). ⚠ **This entry said *"20 to 34 ... fourteen"* until 2026-08-25**; those two figures
-  measured different surface sets, so the delta measured neither. Corrected when the guard had to
-  assert on it.
-  ⚠ **34 is a FLOOR, not a count.** A key-name census cannot see a collided field:
-  `BakePreview.absent` is rendered at `app.js:4158` while `BakeSummary.absent` is not read by
-  `bakeCompletion` at all, so the name never enters the list. `apollo-kotlin#991`, open since 2018,
-  is the same limit in another language.
-  ⚠ **The document disagrees with itself**: `PROJECT_STATUS.md` said **3 sites** in one place and
-  **2** in another for the one instance it names, and the file has **4**, across two TypedDicts,
-  one of which is read.
-  **Its value expires when `app.js` is deleted** - see `(ahn)`.
-  [Full entry](research/backlog/ahl.md)
-
-- **(ahm) SIX OF NINE RUNS WRITE A HISTORY NOTHING READS.** Filed 2026-08-25 (P81), split out of
-  `(agm)`'s closing report. ⚠ **Checked, not assumed**: `grep -rn` for `record_path_for`,
-  `run_index_for`, `runs_dir_for`, `superseded_record_path`, `last-run` and `index.jsonl` across
-  `packages/*/src`, minus the two modules that own them, returns **three** hits - one docstring and
-  two **write** paths - and **zero** in `app.js` or `frontend/src/`.
-  The only human affordance is `truestill organize --report PATH` (`cli.py:433`), which moves the
-  file rather than reading one, and exists for `organize` alone.
-  ⚠ **Ruled OUT of `(ahl)`/condition 3 deliberately**: a record has a designed consumer and a dead
-  payload key has none; condition 3's subject is the route-to-surface contract; and condition 1
-  already owns records. **So the 34 stands.** But in absolute terms this is larger than every
-  instance in `(ahl)` together. `truestill where` is the candidate that satisfies `(afl)`'s
-  **purpose** rather than its letter, and is also the only one whose cost is not trivial.
-  [Full entry](research/backlog/ahm.md)
-
-- **(ahn) THE PAYLOAD CONTRACT STOPS AT THE PYTHON BOUNDARY, AND REACT IS BEING BUILT AGAINST
-  NOTHING.** Filed 2026-08-25 (P81). 117 TypedDicts describe every route's return **in Python**,
-  and nothing carries any of it across the wire; the React source consumes **zero** payload keys.
-  ⚠ **The live instance is already in the tree, before a screen exists**: `main.tsx:37` declares
-  `type OrganizeSummary = Record<string, unknown>` - the cast that lets generated types change
-  without complaint and the pull request go green.
-  **The mechanism is a field standard**: the backend emits an OpenAPI spec, `openapi-typescript`
-  generates the types, the frontend imports them - mechanical at **both** ends, which is the end
-  `(ahl)` cannot reach. ⚠ **This project does not get it free, by a standing decision**:
-  `pyproject.toml:17` records *"not FastAPI ... Pydantic is disallowed for our models"*, and
-  **`pydantic` appears in no `pyproject.toml` in this workspace** (checked).
-  ⚠ **And the join does not exist**: `server.py` declares **50** routes and **all 50** handlers are
-  annotated `-> JSONResponse`, never the payload they return. This entry records the gap and the
-  mechanism; it does **not** choose between hand-writing the spec, generating it from the
-  TypedDicts, or emitting it from the routes.
-  [Full entry](research/backlog/ahn.md)
 
 - **(ahk) THE NAMING ROUTE DOES A CHECK-THEN-INSERT WITH NO LOCK, AND `truestill restore` CAN
   RACE IT.** Filed 2026-08-25 (P74). **Ranked above `(ahh)`**: that entry is how the collision is
@@ -729,42 +602,6 @@ is invisible here is retired, not free.**
   to a **record writer that already existed**, and here there is none.
   [Full entry](research/backlog/ahh.md)
 
-- **(ahi) THE RECORD-STATE CENSUS COVERS 5 OF 9 MUTATING OPERATIONS.** Filed 2026-08-25 (P72).
-  ⚠ **The UNDO half shipped 2026-08-29 (P139), and the guard was fixed first because it is
-  why this survived**: its floor named `trips` (which RECORDS) while missing migrate's
-  `undo`, and `_wires_a_record` was module-granular so `migrate` answered `True` on its
-  forward path. The guard now asks per entry point. **`archive unpack` and `clean empty`
-  remain**, each its own judgement.
-  `test_the_app_records_what_a_run_did.py`'s `MUTATING_RUNS` has rows for organize, backup,
-  migrate, bake and organize_undo. Enumerated from `server.py` by AST, there are **nine**
-  `mutating=True` operations: those five plus **`trip apply`, `archive unpack`, `clean empty` and
-  migrate-`undo`** - and none of `service/trips.py`, `service/clean_empty.py` or
-  `service/migrate.py` writes a run record.
-  ⚠ **P69's own docstring predicted this exactly**: *"a new mutating service that writes no record
-  cannot be detected, because nothing in this codebase declares the set of mutating services."*
-  It was written as a stated limit and is now a measured gap - four operations outside the census
-  that exists to make absence visible. Same hand-list blind spot `cli-app-parity.md` has, in the
-  guard written against that class.
-  [Full entry](research/backlog/ahi.md)
-
-- **(ahg) `cli-app-parity.md` IS KEYED BY CLI SUBCOMMAND, SO AN APP-ONLY CAPABILITY HAS NO ROW.**
-  Filed 2026-08-25 (P68). The document that answers *"what is actually missing"* **cannot see the
-  class of gap that matters most**, structurally rather than by omission: rows are one per
-  subcommand, so a capability with no subcommand gets no row. `bake` had **zero** mentions there
-  until `(ahd)` gave it one, and `backup` and `trip apply` still have none.
-  **The proposed shape: one row per CAPABILITY, one column per SURFACE**, each cell
-  supported/partial/absent with the implementing `file:line`. An app-only feature then **must**
-  appear with an empty CLI cell - the gap becomes visible by construction - and the reverse gap
-  (`reclaim`, CLI-only) is caught by the same table instead of by a second one.
-  **Prior art, and each answers a different half.** Nextcloud's `occ` manual claims parity in
-  prose in **both** directions and there are open requests for the reverse - the failure mode of
-  writing it down without keying it. **Git** separates plumbing from porcelain and documents which
-  contract each command honours, so the capability is defined once and each surface is a stated
-  contract. **Kubernetes Gateway API** defines behaviour in a spec with feature tiers and
-  validates implementations against it rather than trusting them. **Docker CLI and kubectl** are
-  thin clients over a documented API, so the API *is* the registry and parity is auditable.
-  [Full entry](research/backlog/ahg.md)
-
 - **(ahb) THE UNDATED REPORT LINKS TO NOTHING - THE APP HALF SHIPPED, THE CLI HALF DID NOT.**
   Filed 2026-08-24 (P53); ⚠ **retitled 2026-08-29**, because the body records *"THE APP HALF
   SHIPPED 2026-08-24 (P54)"* and the title still claimed the whole of it.
@@ -811,33 +648,6 @@ is invisible here is retired, not free.**
   **Permission: an offset present and read is evidence; an offset absent must never be inferred.**
   [Full entry](research/backlog/agz.md)
 
-- **(agy) FIVE THINGS THE CATALOG WRITES AND NOTHING READS - a census, not a verdict.** Filed
-  2026-08-24 (P47), generalised from one instance found by a surviving mutation in P46.
-  `migration_runs.completed_at`, `file_copies.copied_at`, `reclaim_journal.reclaimed_at`,
-  `skipped_clusters.skipped_at`, and **`file_albums` - an entire table** with no reader in shipped
-  code. 🔑 **The census is a proof rather than a guess because this repo forbids `SELECT *`**
-  and pins that with `test_queries_name_their_columns.py`, so "named in no query" really does mean
-  "never read". The `verified: Literal[True]` family at the schema layer. ⚠ **`file_albums` is NOT
-  orphaned** - `(acg)` owns it and `decisions-on-drive-research.md:110` designs for it, so for that
-  row the answer is *deliberate, and waiting*. ⚠ **`migration_runs.completed_at` is the one with a
-  consequence**: `run_migration`'s close condition has no observable effect, so no test can guard
-  it. **Rules nothing** - the four timestamps may all be legitimate provenance; what is recorded is
-  that nobody has said so. [Full entry](research/backlog/agy.md)
-
-- **(agw) `last-run.json` IS WRITTEN OUTSIDE THE LOCK THAT GUARDS THE REST OF THE RECORD.**
-  Filed 2026-08-24. **`(afw)`'s third NOT DECIDED item coming due**: it said to design the
-  one-rolling-file question *"before any second writer is added"*, and **three writers exist
-  now** (organize, backup, undo - grepped). `record_run` locks the index append, supersede and
-  prune; `write_run_record` is the line **after** that block. Bounded by design - detail can be
-  lost, the fact cannot, because §1 already rules that a line never asserts its detail exists.
-  A design question, not a defect. [Full entry](research/backlog/agw.md)
-
-- **(agt) REFUSED READS AS ABSENT IN MESSAGES AND REPORTS - `(aey)`'s wording residue.** Filed
-  2026-08-24 after two censuses in two days, so the list stops being re-derived: nine sites
-  where a bare probe's refused-as-`False` changes a sentence or a count - never a recorded fact,
-  never an action (those seven are fixed under `(aey)`). Fix opportunistically with
-  `path_reach.reach`, one voice across the messages. [Full entry](research/backlog/agt.md)
-
 - **(agp) THE BUSY MESSAGE NAMES A SECOND WINDOW THAT DOES NOT EXIST, AT THE USER'S FIRST CLICK.**
   Recorded 2026-08-23, split out of `(adt)` when it closed, **ranked above `(agq)` by the
   maintainer - a wording-and-detection defect, not a lock defect.** `CATALOG_BUSY_MESSAGE`
@@ -861,19 +671,6 @@ is invisible here is retired, not free.**
   "preparing" case is cross-process, which an in-process registry can never see. What remains:
   the probe and S1/S2/S3 wording. [Full entry](research/backlog/agp.md)
 
-- **(agh) `LocalGuard` MAKES FORGETTING THE TOKEN IMPOSSIBLE AND UN-EXEMPTING INVISIBLE.**
-  Recorded 2026-08-23. **The token is enforced well** - ASGI middleware wrapping the whole app
-  (`server.py:1041`), so no route can forget it, with Host/Origin checks and
-  `secrets.compare_digest` (`security.py:84-94`), and the single `/static/` exemption verified
-  inert. **The gap is that nothing pins the exemption LIST.** Coverage is per-route
-  (`test_server.py:20,33,39,44`, `test_thumb_route.py:115`); a second `startswith` added to
-  `_reject` would be caught by nothing, and it is a two-line change that looks harmless.
-  🔑 **The asymmetry is the point**: the middleware makes the common mistake structurally
-  impossible and leaves the rare one unguarded - the shape that survives longest, because everyone
-  knows the token is enforced so nobody re-reads what enforces it. **The pattern exists**:
-  `test_every_job_declares_whether_it_mutates.py` walks the routes, and its `assert len(declared)
-  >= 12, "the scan is broken"` floor is the load-bearing half to copy with it. 50 routes today.
-  [Full entry](research/backlog/agh.md)
 - **(agd) A DEGRADED WATCHER SAYS NOTHING, AND THERE IS NO CHANNEL FOR IT TO SAY ANYTHING IN.**
   Recorded 2026-08-23, split out of `(aft)` **while building it**. `(aft)` made an unmeasurable
   probe fail **open** - correct, and the module's recorded posture - but it fails open
@@ -890,6 +687,7 @@ is invisible here is retired, not free.**
   carries three constraints that each cost a draft: no free-space figure, no reason word, and
   neither *"Truestill's catalog folder"* nor *"nothing was left half-written"*.
   [Full entry](research/backlog/agd.md)
+
 - **(age) `(aek)`'s SILENT DIRECTION SURVIVES INSIDE `(aek)`'s OWN FIX.** Recorded 2026-08-23,
   found while investigating `(aft)`. `preflight_destination` correctly records `free: int | None`
   (`filesystem.py:259-263`) and then **throws it away one line later**: `free_bytes=need if free
@@ -902,6 +700,310 @@ is invisible here is retired, not free.**
   exists to say what will happen before it happens - so the later failure is not its backstop, it
   is what the preview was meant to prevent. Mirror of `(aft)`: loud-and-wrong there,
   quiet-and-wrong here. [Full entry](research/backlog/age.md)
+
+- **(aff) ONE EXTRA NEAR-DUPLICATE ON 3.14, FROM THE INTERPRETER AND NOT FROM A DEPENDENCY.**
+  262 look-alikes on 3.13, **263** on 3.14, stable over two runs each - and ⚠ **both pools agree
+  exactly on both interpreters**, which is the property the step was run for. Ruled out by
+  measurement: the relock moved **no** package version, and the walk order is byte-identical. The
+  mechanism is **not isolated**. It did not block the upgrade because a near-duplicate is kept and
+  flagged, never removed - the effect is one extra row in a review list, and exact dedup was
+  identical in all four runs. Found 2026-08-22. [Full entry](research/backlog/aff.md)
+
+- **(adx) A LIBRARY THAT MOVES IS HANDLED. WHAT IS MISSING IS THE DISCLOSURE.** Recorded
+  2026-08-18. Three gaps, one user journey. [Full entry](research/backlog/adx.md)
+
+- **(adn) NOTHING STOPS TWO APPS RUNNING, AND QUITTING THE SECOND DELETES THE WAY BACK INTO
+  THE FIRST.** Recorded 2026-08-14, retitled 2026-08-22.
+  ⚠ **Narrowed 2026-08-22 by `(aaw)`, and the title is now too broad**: two mutating operations on
+  one drive can no longer overlap across processes, so *"two sets of in-flight writes"* is gone.
+  **What remains is single-instance detection** - two apps, two ports, two sidecars, and
+  `session-url.txt` naming one. ⚠ **`(vv)`'s residue was merged in the same day and `(vv)` closed**,
+  so this is now the whole of the problem in one place, including the worst of it: quitting the
+  second instance **deletes the link to the first, which is still running**.
+  [Full entry](research/backlog/adn.md)
+
+- **(aed) THE METADATA BAKER STAGES EVERY BAKED FILE THROUGH THE SYSTEM TEMP DIRECTORY.** Recorded
+  2026-08-19, split from `(adb)`. **Measure before changing anything.** [Full
+  entry](research/backlog/aed.md)
+
+- **(adg) THE VERIFY RESULT BLOCK MOVES `#bk-preview` BY +92.4px - a bigger mover than `(acw)`, and
+  it cannot be reserved.** [Full entry](research/backlog/adg.md)
+
+- **(ada) THE BACKUPS SCREEN NOW PUTS STATE BELOW THE FORMS, AND A ONE-COPY WARNING CAN FALL BELOW
+  THE FOLD.** [Full entry](research/backlog/ada.md)
+
+- **(adf) A CLI-ORGANIZED LIBRARY LEAVES `path_hint.library` UNSET, so the app has no observed
+  destination to prefill.** [Full entry](research/backlog/adf.md)
+
+- **(aby) Organize screen: copy that repeats itself or explains its own button.** [Full
+  entry](research/backlog/aby.md)
+
+- **(abz) Organize shows one population three ways and connects none of them.** [Full
+  entry](research/backlog/abz.md)
+
+- **(abt) The unhinted-residue prompt is CLI-only, because the app cannot ask mid-job.** Recorded
+  2026-08-07. [Full entry](research/backlog/abt.md)
+
+- **(abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.** [Full
+  entry](research/backlog/abr.md)
+
+- **(abe) CLI custody was fixed forward the same day; REPAIRING PRE-EXISTING ROWS IS THE OPEN
+  HALF.** ⚠ **Retitled 2026-08-22** so the built half is not read as pending:
+  `cli._register_destination` landed 2026-08-05 in `a0091cf`, gated on `--apply`. Rows written
+  **before** that still carry no copy row, so they stay outside custody and invisible to
+  `verify`, `status` and `where`. Recorded 2026-08-05. [Full entry](research/backlog/abe.md)
+
+- **(abg) The reassured state has no notion of staleness - "Schrodinger's backup".** 📌 **read the
+  entry first - a premise inside it was corrected.** **Stages 1-3 have shipped**; what remains open
+  is the `GONE` state, which is unbuilt and unruled. Recorded 2026-08-05. [Full
+  entry](research/backlog/abg.md)
+
+- **(abk) The library has no per-folder view - "where is all this actually sitting".** [Full
+  entry](research/backlog/abk.md)
+
+- **(abb) The other capture-filename conventions.** `rule_camera_filename` shipped with ONE
+  pattern, Android's `IMG_`/`VID_`; the other vendors' conventions are unbuilt. Recorded
+  2026-08-03. [Full entry](research/backlog/abb.md)
+
+- **(aac) Organize names unreadable source files; ONE RESIDUE REMAINS, and it is app-side.**
+  ⚠ **Retitled 2026-08-22 - the bare title read as a whole unbuilt feature and two thirds is
+  built.** Scan tier and residue 1: built 2026-08-02. **Residue 3 closed by `(aev)` on 2026-08-21**
+  and nobody connected them - `FileHashes.perceptual_computed` plus `uncompared_photos` are exactly
+  the *"readable but undecodable is indistinguishable from a video"* distinction it asked for.
+  **What is left is residue 2 alone**: `unreadable_files` is built in `organize_preview` only, so
+  the app's **run** completion cannot name a file the CLI names. [Full
+  entry](research/backlog/aac.md)
+
+- **(aap) Registering a folder does not mint a second identity - BUILT 2026-08-02, ONE SURFACE
+  LEFT.** ⚠ **Retitled 2026-08-22.** The row sat under *"still to build"* while the entry's own
+  first line said **BUILT 2026-08-02**; the guard that prevents the loss is shipped on the CLI.
+  What remains is deliberate and named in the entry: **the app has no register screen**, so the
+  protection has no app-side surface. [Full entry](research/backlog/aap.md)
+
+- **(nn) Prove destination timestamp parity against a live rclone remote.** [Full
+  entry](research/backlog/nn.md)
+
+- **(r) Analyze mode - the hash cache half is SHIPPED.** [Full entry](research/backlog/r.md)
+
+- **(kk) Persist GPS at ingest - THE CAPTURE HALF SHIPPED AT v17; `GPSDateStamp` did not.**
+  ⚠ **Retitled 2026-08-29.** The title read *"it is read and then thrown away"*, which its own
+  body corrected on 2026-08-09 and the title outlived: `files.gps_latitude`/`gps_longitude`
+  arrived at v17, `event_review` and `trip_review` read them for the jump-cut, and **808 files
+  in the soak-five catalog carry coordinates**. What remains open is `GPSDateStamp`, and rows
+  written before v17 keep NULLs because v17 deliberately does no backfill. [Full entry](research/backlog/kk.md)
+
+- **(ll) Sub-day event identity that survives a changing file set.** [Full
+  entry](research/backlog/ll.md)
+
+- **(aam) Sidebar reference: profile header, section labels, submenus.** [Full
+  entry](research/backlog/aam.md)
+
+- **(hh) `truestill adopt` - bring stray media in an organized drive into the catalog.** [Full
+  entry](research/backlog/hh.md)
+
+- **(aaq) `rule_software` reads a tag that is never requested, so it cannot fire.** [Full
+  entry](research/backlog/aaq.md)
+
+## Internal / tooling
+
+**Real, and invisible to anyone using Truestill.** CI pinning, the browser lane's timeouts,
+scripts no gate runs, test corpora, payload typing, documentation keying. These are worth fixing
+and they are not product defects; keeping them in one drawer stops them competing with
+**Build next** for attention.
+
+- **(ajm) A BROWSER TEST MEASURES THE MACHINE'S TEMP PATH, NOT THE PRODUCT.** Filed 2026-09-01
+  (P173). **An instrument defect, DIAGNOSED rather than merely observed** - it was reported as
+  *"undiagnosed, costs 26 minutes to learn nothing"* and one run settled it.
+  `test_narrow_top_bar.py::test_the_catalog_path_fits_rather_than_truncating_to_nothing` fails on
+  **both** browsers locally and passes in CI; reproduced at `2ba5cdb` with all work stashed, so it
+  predates P169-P172. 🔑 **The test asserts a path shows whole *"with room to spare"* and does not
+  control the path's length.** `suite_scratch.scratch_root()` decides that and says so in its own
+  docstring - *"`None` is the CI answer and is not a failure: no runner has a `/data`"* - so
+  `tmp_path` is **95 chars here against 77 on CI**. ⚠ **Eighteen characters is the entire
+  difference, and it is NOT flakiness** but a deterministic dependency on whether the machine has
+  a `/data` volume. Ranks by `(ait)`/`(aiu)`'s ruling that instrument defects outrank product
+  findings: a lane that always ends in two known-irrelevant failures is one whose next real
+  failure is indistinguishable from its noise. ⚠ **The other suspected instrument,
+  `cli._print_capped`, was investigated and is CORRECT** - the null is in `(ajk)`.
+  Body: [`research/backlog/ajm.md`](research/backlog/ajm.md).
+
+- **(ajh) TRUESTILL CANNOT TELL A REMOVABLE DRIVE FROM A FIXED ONE, AND ALREADY READS THE LINE
+  THAT SAYS SO.** Filed 2026-09-01, split out of `(ajf)` when its wording half shipped. **Not a
+  defect** - nothing is wrong today, because `(ajf)` put the condition in the sentence rather than
+  in a gate. Five checks, all negative: no `/sys/block/*/removable`, no udisks2, no
+  `GetDriveTypeW`, a `drives` table of six columns with no device or mount point, and every
+  `removable` hit in the tree is `cleanup.py`'s removable **folders**. 🔑 **The answer is in a line
+  this code already reads and discards**: `filesystem.parse_proc_mounts` walks `/proc/mounts` and
+  keeps `fields[2]`, dropping `fields[3]` - the mount options - and `fields[0]`, the device.
+  ⚠ **A filesystem-type proxy is REFUSED with a measurement**: it fires on an internal Windows
+  NTFS disk and is **silent on an ext4 USB stick**, which is the dangerous direction. Whatever is
+  built must fail toward saying the line, per `stores_access_control`'s *"unknown means yes"*.
+  macOS inherits `filesystem.py`'s recorded blindness. ⚠ **Not obviously worth doing** - the
+  sentence works today on every platform; this exists so the option is priced.
+  Body: [`research/backlog/ajh.md`](research/backlog/ajh.md).
+
+- **(ait) THE MESSY-CORPUS MANIFEST OVERSTATES ITSELF, AND 20 ROWS DESCRIBE FILES THAT ARE GONE.**
+  Filed 2026-08-30 (P148, soak nine). `make_messy_corpus.py` builds every destination from the
+  **basename** of its source, and `Input/` holds two pairs of *different* photographs sharing one
+  (`IMG_0386.JPG`, `Photo0268.jpg`). Each pair collides at ten destinations, the second write
+  wins, and the manifest records both - **8,971 rows for 8,951 files, all 20 orphans carrying a
+  `sha256` that no longer matches disk.** ⚠ **The manifest is the answer key**, so a soak scores
+  the product against a total it could not have produced; **soak eight's published key carries the
+  same error.** Soak nine worked around it by hashing the corpus - an analysis workaround, not an
+  instrument fix. Body: [`research/backlog/ait.md`](research/backlog/ait.md).
+
+- **(aiu) TWO CORPUS SHAPES CANNOT REACH THE DEFECTS THEY WERE BUILT FOR.** Filed 2026-08-30
+  (P148, soak nine). `ENGINEERING_STANDARD.md` §4's silent instrument, twice. (1) The long-name
+  files P146 moved to straddle `(aid)`'s budget are **exact duplicates** - their content appears
+  22x and 18x elsewhere - and dedup skips a duplicate **before** a name is composed, so the shape
+  straddles the byte boundary and never touches the code path. (2) The corpus holds **zero
+  non-ASCII paths**, the gap `(aid)`'s own table already recorded about the suite. Both fixes had
+  to be verified by constructed inputs instead, which is evidence about the product and none about
+  the corpus. Body: [`research/backlog/aiu.md`](research/backlog/aiu.md).
+
+- **(aio) RELEASING THE BAKED TEMPORARY SITS BETWEEN THE COMMITTED COPY AND ITS CATALOG ROW.**
+  Filed 2026-08-29 (P143), from the census `(ain)` asked for. **`(ain)`'s shape on the bake path,
+  and the only other live instance of it.** `_upload_with_metadata_write` calls
+  `staged.unlink(missing_ok=True)` after `upload` has committed by rename and before the caller
+  writes the catalog row, so any `OSError` other than the absorbed `FileNotFoundError` leaves an
+  orphan. ⚠ **Narrower, and the reason is worth keeping**: the temporary is on this computer, not
+  the user's mount, so the realistic trigger is **Windows** - `PermissionError` while an antivirus
+  holds the file open - which is the platform nothing here can test locally. **Not reproduced**,
+  and filed rather than fixed for exactly that reason.
+  🔑 **The rest of the census is recorded in the body so nobody re-runs it**: four other
+  commit-before-catalog sites, all already closed, by three different mechanisms - `(agk)`'s
+  intent row, the migration journal, `(agv)`'s in-flight column - and `backup`, which has nothing
+  that can raise in the window at all.
+  Body: [`research/backlog/aio.md`](research/backlog/aio.md).
+
+- **(aho) THE JOB ENVELOPE IS THE ONLY SUCCESS PAYLOAD WITH NOTHING TO NARROW ON.** Filed
+  2026-08-25 (P93/P94), split out of `(ahn)` stage 4b because the fix is a **wire change**.
+  Every arm of every response union in this app carries a `Literal`-tagged key - `ok`, `armed`,
+  `valid`, `code` - **except `JobStarted`**, which is one key, `job_id`, and no literal.
+  ⚠ **Checked, not assumed**: an AST pass over every union arm reachable from a route, reported in
+  the body. `_start_drive_job` returns **three** shapes, so all **15** job-start sites return a
+  union, and `app.js:244` tells the arms apart with `started.ok === false` - false for `JobStarted`
+  **only because `ok` is undefined**. The one place in the app where narrowing rests on a key not
+  being there.
+  **The fix** is `ok: Literal[True]`, additive and almost certainly safe - but it puts a new key on
+  the body every job start returns, which is a ruling and not a detail.
+  [Full entry](research/backlog/aho.md)
+
+- **(ahl) CONDITION 3 IS AT 34 FIELDS, NOT 2, AND ITS OWN CENSUS DISAGREES WITH ITSELF.** Filed
+  2026-08-25 (P81). `PROJECT_STATUS.md`'s condition 3 is kept by hand and names **two** live
+  instances. Derived from the AST: **117 TypedDicts, 579 key slots, 289 distinct key names, 34**
+  with no hit in `app.js` code and none in React (**11.8%**); **21** reach `cli.py` either.
+  ⚠ **Checked, not assumed**: an AST walk of both `TypedDict` forms against the three consumer
+  surfaces with `//` and `/* */` stripped, derived twice independently. **The naive grep certifies
+  five dead fields as live** on the strength of a comment naming them (29 -> 34, surfaces held
+  fixed). ⚠ **This entry said *"20 to 34 ... fourteen"* until 2026-08-25**; those two figures
+  measured different surface sets, so the delta measured neither. Corrected when the guard had to
+  assert on it.
+  ⚠ **34 is a FLOOR, not a count.** A key-name census cannot see a collided field:
+  `BakePreview.absent` is rendered at `app.js:4158` while `BakeSummary.absent` is not read by
+  `bakeCompletion` at all, so the name never enters the list. `apollo-kotlin#991`, open since 2018,
+  is the same limit in another language.
+  ⚠ **The document disagrees with itself**: `PROJECT_STATUS.md` said **3 sites** in one place and
+  **2** in another for the one instance it names, and the file has **4**, across two TypedDicts,
+  one of which is read.
+  **Its value expires when `app.js` is deleted** - see `(ahn)`.
+  [Full entry](research/backlog/ahl.md)
+
+- **(ahm) SIX OF NINE RUNS WRITE A HISTORY NOTHING READS.** Filed 2026-08-25 (P81), split out of
+  `(agm)`'s closing report. ⚠ **Checked, not assumed**: `grep -rn` for `record_path_for`,
+  `run_index_for`, `runs_dir_for`, `superseded_record_path`, `last-run` and `index.jsonl` across
+  `packages/*/src`, minus the two modules that own them, returns **three** hits - one docstring and
+  two **write** paths - and **zero** in `app.js` or `frontend/src/`.
+  The only human affordance is `truestill organize --report PATH` (`cli.py:433`), which moves the
+  file rather than reading one, and exists for `organize` alone.
+  ⚠ **Ruled OUT of `(ahl)`/condition 3 deliberately**: a record has a designed consumer and a dead
+  payload key has none; condition 3's subject is the route-to-surface contract; and condition 1
+  already owns records. **So the 34 stands.** But in absolute terms this is larger than every
+  instance in `(ahl)` together. `truestill where` is the candidate that satisfies `(afl)`'s
+  **purpose** rather than its letter, and is also the only one whose cost is not trivial.
+  [Full entry](research/backlog/ahm.md)
+
+- **(ahn) THE PAYLOAD CONTRACT STOPS AT THE PYTHON BOUNDARY, AND REACT IS BEING BUILT AGAINST
+  NOTHING.** Filed 2026-08-25 (P81). 117 TypedDicts describe every route's return **in Python**,
+  and nothing carries any of it across the wire; the React source consumes **zero** payload keys.
+  ⚠ **The live instance is already in the tree, before a screen exists**: `main.tsx:37` declares
+  `type OrganizeSummary = Record<string, unknown>` - the cast that lets generated types change
+  without complaint and the pull request go green.
+  **The mechanism is a field standard**: the backend emits an OpenAPI spec, `openapi-typescript`
+  generates the types, the frontend imports them - mechanical at **both** ends, which is the end
+  `(ahl)` cannot reach. ⚠ **This project does not get it free, by a standing decision**:
+  `pyproject.toml:17` records *"not FastAPI ... Pydantic is disallowed for our models"*, and
+  **`pydantic` appears in no `pyproject.toml` in this workspace** (checked).
+  ⚠ **And the join does not exist**: `server.py` declares **50** routes and **all 50** handlers are
+  annotated `-> JSONResponse`, never the payload they return. This entry records the gap and the
+  mechanism; it does **not** choose between hand-writing the spec, generating it from the
+  TypedDicts, or emitting it from the routes.
+  [Full entry](research/backlog/ahn.md)
+
+- **(ahi) THE RECORD-STATE CENSUS COVERS 5 OF 9 MUTATING OPERATIONS.** Filed 2026-08-25 (P72).
+  ⚠ **The UNDO half shipped 2026-08-29 (P139), and the guard was fixed first because it is
+  why this survived**: its floor named `trips` (which RECORDS) while missing migrate's
+  `undo`, and `_wires_a_record` was module-granular so `migrate` answered `True` on its
+  forward path. The guard now asks per entry point. **`archive unpack` and `clean empty`
+  remain**, each its own judgement.
+  `test_the_app_records_what_a_run_did.py`'s `MUTATING_RUNS` has rows for organize, backup,
+  migrate, bake and organize_undo. Enumerated from `server.py` by AST, there are **nine**
+  `mutating=True` operations: those five plus **`trip apply`, `archive unpack`, `clean empty` and
+  migrate-`undo`** - and none of `service/trips.py`, `service/clean_empty.py` or
+  `service/migrate.py` writes a run record.
+  ⚠ **P69's own docstring predicted this exactly**: *"a new mutating service that writes no record
+  cannot be detected, because nothing in this codebase declares the set of mutating services."*
+  It was written as a stated limit and is now a measured gap - four operations outside the census
+  that exists to make absence visible. Same hand-list blind spot `cli-app-parity.md` has, in the
+  guard written against that class.
+  [Full entry](research/backlog/ahi.md)
+
+- **(ahg) `cli-app-parity.md` IS KEYED BY CLI SUBCOMMAND, SO AN APP-ONLY CAPABILITY HAS NO ROW.**
+  Filed 2026-08-25 (P68). The document that answers *"what is actually missing"* **cannot see the
+  class of gap that matters most**, structurally rather than by omission: rows are one per
+  subcommand, so a capability with no subcommand gets no row. `bake` had **zero** mentions there
+  until `(ahd)` gave it one, and `backup` and `trip apply` still have none.
+  **The proposed shape: one row per CAPABILITY, one column per SURFACE**, each cell
+  supported/partial/absent with the implementing `file:line`. An app-only feature then **must**
+  appear with an empty CLI cell - the gap becomes visible by construction - and the reverse gap
+  (`reclaim`, CLI-only) is caught by the same table instead of by a second one.
+  **Prior art, and each answers a different half.** Nextcloud's `occ` manual claims parity in
+  prose in **both** directions and there are open requests for the reverse - the failure mode of
+  writing it down without keying it. **Git** separates plumbing from porcelain and documents which
+  contract each command honours, so the capability is defined once and each surface is a stated
+  contract. **Kubernetes Gateway API** defines behaviour in a spec with feature tiers and
+  validates implementations against it rather than trusting them. **Docker CLI and kubectl** are
+  thin clients over a documented API, so the API *is* the registry and parity is auditable.
+  [Full entry](research/backlog/ahg.md)
+
+- **(agw) `last-run.json` IS WRITTEN OUTSIDE THE LOCK THAT GUARDS THE REST OF THE RECORD.**
+  Filed 2026-08-24. **`(afw)`'s third NOT DECIDED item coming due**: it said to design the
+  one-rolling-file question *"before any second writer is added"*, and **three writers exist
+  now** (organize, backup, undo - grepped). `record_run` locks the index append, supersede and
+  prune; `write_run_record` is the line **after** that block. Bounded by design - detail can be
+  lost, the fact cannot, because §1 already rules that a line never asserts its detail exists.
+  A design question, not a defect. [Full entry](research/backlog/agw.md)
+
+- **(agt) REFUSED READS AS ABSENT IN MESSAGES AND REPORTS - `(aey)`'s wording residue.** Filed
+  2026-08-24 after two censuses in two days, so the list stops being re-derived: nine sites
+  where a bare probe's refused-as-`False` changes a sentence or a count - never a recorded fact,
+  never an action (those seven are fixed under `(aey)`). Fix opportunistically with
+  `path_reach.reach`, one voice across the messages. [Full entry](research/backlog/agt.md)
+
+- **(agh) `LocalGuard` MAKES FORGETTING THE TOKEN IMPOSSIBLE AND UN-EXEMPTING INVISIBLE.**
+  Recorded 2026-08-23. **The token is enforced well** - ASGI middleware wrapping the whole app
+  (`server.py:1041`), so no route can forget it, with Host/Origin checks and
+  `secrets.compare_digest` (`security.py:84-94`), and the single `/static/` exemption verified
+  inert. **The gap is that nothing pins the exemption LIST.** Coverage is per-route
+  (`test_server.py:20,33,39,44`, `test_thumb_route.py:115`); a second `startswith` added to
+  `_reject` would be caught by nothing, and it is a two-line change that looks harmless.
+  🔑 **The asymmetry is the point**: the middleware makes the common mistake structurally
+  impossible and leaves the rare one unguarded - the shape that survives longest, because everyone
+  knows the token is enforced so nobody re-reads what enforces it. **The pattern exists**:
+  `test_every_job_declares_whether_it_mutates.py` walks the routes, and its `assert len(declared)
+  >= 12, "the scan is broken"` floor is the load-bearing half to copy with it. 50 routes today.
+  [Full entry](research/backlog/agh.md)
+
 - **(afz) `mutation_matrix.py` LEAKS A TEMPORARY DIRECTORY PER MUTANT, IN A SCRIPT NO GATE
   RUNS.** Recorded 2026-08-23, found while measuring `(afy)`. `scripts/mutation_matrix.py:539` is
   a bare `tempfile.mkdtemp()` with **no cleanup on any path**, called once per mutant - **67
@@ -916,6 +1018,7 @@ is invisible here is retired, not free.**
   leftovers" implies nothing, and following it excluded the script while pointing at the suite,
   which calls `tempfile` **zero** times. Also named, not fixed: `shoot_screens.py:170` leaks on
   abnormal exit. [Full entry](research/backlog/afz.md)
+
 - **(afx) THE CEILING IS ASYMMETRIC - LOCAL 2000, CI 3600. THE 3.79 s WAS A CONTENDED READING.**
   ⚠ **RETITLED AND NARROWED 2026-08-23**; it read *"THE BROWSER LANE HAS GROWN INTO ITS OWN
   CEILING: 1996.21 s AGAINST 2000"*. That run was taken while `(afu)` was being written and
@@ -931,6 +1034,7 @@ is invisible here is retired, not free.**
   times **pytest only** - `make frontend` runs outside it, and `(aee)` measured 43% of a CI lane
   outside what it can see. `pytest-xdist` is the obvious lever and is deliberately **not**
   proposed: this suite protects a UI `(adi)` is replacing. [Full entry](research/backlog/afx.md)
+
 - **(afs) A DESTRUCTIVE MIGRATION MAY NOT RUN WITHOUT A PRE-UPGRADE COPY, AND NOTHING SAYS WHICH
   ONE IS DESTRUCTIVE.** Recorded 2026-08-22, split out of `(ady)` while building it - **a policy
   change about what a migration may do, which would have been invisible arriving inside a
@@ -940,6 +1044,7 @@ is invisible here is retired, not free.**
   demonstrated rather than proposed - an AST scan over `catalog.py` cleared all 19 forward steps
   and flagged `downgrade_v12_to_v11`, the one function that really does `DROP TABLE`.
   [Full entry](research/backlog/afs.md)
+
 - **(afr) THE LOCK DIRECTORY GROWS ONE EMPTY FILE PER DRIVE, FOREVER.** `DriveLock.release`
   truncates and never unlinks (`drive_lock.py:208,219`), so `~/.local/share/Truestill/locks/`
   gains a 0-byte file per distinct drive key and keeps it - and `path:` keys mean **every
@@ -950,134 +1055,130 @@ is invisible here is retired, not free.**
   obvious fix and probably the wrong one - it makes routine the one hole here, two processes on
   two inodes at one path. **Measure first**: nobody has counted a real user's key set. Found
   2026-08-22. [Full entry](research/backlog/afr.md)
-- **(afq) A PREVIEW OCCUPIES THE DRIVE IN THE APP, AND NOTHING SAYS WHY.** `_start_drive_job`
-  passes `operation="organize preview"` to `jobs.start`, which occupies the drive exactly as an
-  apply does, so a second tab previewing during an organize is refused - while the CLI has never
-  done this. ⚠ **Split out of `(aaw)` rather than folded in**: the lock rests on measured data
-  loss, a preview writes nothing, and letting a UX decision inherit a safety argument it has not
-  earned is what the 2026-08-03 design did without noticing. May well be right; needs its own
-  reason. Filed 2026-08-22. [Full entry](research/backlog/afq.md)
-- **(afg) THE DOWNLOAD PAGE HAS NO HOME IN THIS REPOSITORY, AND `truestill.app` EXISTS ONLY IN
-  CONVERSATION.** The
-  domain is bought; **nothing about it is in this repository** - `grep -ri truestill.app` matches
-  only the package identifiers. D9 binds a requirement to a page that does not exist: *"Windows
-  users must be told what SmartScreen will show… on the download page, above the button."*
-  ⚠ **Whether it blocks a first tag is NOT DECIDED and this entry does not assume**; the arguments
-  either way are recorded for the ruling. §4's fifty-eighth member exactly - a live planning
-  assumption invisible to every grep and every audit. Filed 2026-08-22.
-  [Full entry](research/backlog/afg.md)
-- **(aff) ONE EXTRA NEAR-DUPLICATE ON 3.14, FROM THE INTERPRETER AND NOT FROM A DEPENDENCY.**
-  262 look-alikes on 3.13, **263** on 3.14, stable over two runs each - and ⚠ **both pools agree
-  exactly on both interpreters**, which is the property the step was run for. Ruled out by
-  measurement: the relock moved **no** package version, and the walk order is byte-identical. The
-  mechanism is **not isolated**. It did not block the upgrade because a near-duplicate is kept and
-  flagged, never removed - the effect is one extra row in a review list, and exact dedup was
-  identical in all four runs. Found 2026-08-22. [Full entry](research/backlog/aff.md)
-- **(afa) `unreachable` MEANS FOUR THINGS, AND THE TOOLTIP ASSERTS ONE OF THEM.** ⚠ **Narrowed
-  and retitled 2026-08-22 after a read-only pass falsified its own thesis.** It claimed
-  `date_rescue` told the user nothing; measured, it renders *"could not check"*. What is wrong is
-  that `unreachable` is produced by four distinct causes - no catalog row, no `source_path`, the
-  sidecar refused, the parent is not a directory - and the tooltip asserts one of them for all
-  four. ⚠ **Its central guess is recorded as FALSIFIED**: the three sites shared a cause, not a
-  remedy, and one vocabulary would have fixed neither `(afn)` nor `(afo)`. That finding is worth
-  more than the fix. Found 2026-08-21, narrowed 2026-08-22.
-  [Full entry](research/backlog/afa.md)
-- **(ael) NO CLI ROUTE COPIES A LIBRARY TO A SECOND DRIVE WITHOUT A SOURCE FOLDER.** `(aei)`
-  closed most of this - `organize <source> <second-drive>` is now the CLI's second-copy route.
-  What remains is drive-to-drive when the source folder is gone or no longer matches the drive.
-  ⚠ `backup_run` is app-side and the CLI cannot import it, so this is a **move to core**, never a
-  second implementation. Recorded 2026-08-20. [Full entry](research/backlog/ael.md)
+
 - **(aeh) THE RUNNER IMAGE IS UNPINNED, SO THE apt THAT DEADLOCKS IS NOT A VERSION WE CHOSE.**
   `(aee)`'s hang is fixed in apt 3.1.3 and unbackported on noble; `ubuntu-latest` is noble today.
   ⚠ **A route with a cost, not a recommendation** - pinning fixes nothing by itself, and
   `ubuntu-latest` flipping to 24.04 in January 2025 left breakage found months later. Recorded
   2026-08-20. [Full entry](research/backlog/aeh.md)
+
 - **(aeg) CACHE PLAYWRIGHT'S SYSTEM LIBRARIES SO `--with-deps` STOPS INVOKING apt AT ALL.** The
   right long answer to `(aee)`'s hang - it removes the class rather than bounding an instance -
   and the largest consumer, at 43m33s on run 32295312064. ⚠ **Does NOT cover the `check` lanes**,
   which still need exiftool, so `ci_bounded.sh` stays either way. Recorded 2026-08-20. [Full
   entry](research/backlog/aeg.md)
+
 - **(aec) 62 FIXED WAITS IN THE BROWSER LANE, EACH ONE A COIN TOSS AGAINST A MEASURED LATENCY.**
   Recorded 2026-08-19. One was fixed; the class was not. [Full entry](research/backlog/aec.md)
+
 - **(adz) A COMPATIBILITY PATH STATES ITS REMOVAL CONDITION WHEN IT IS WRITTEN.** Recorded
   2026-08-19. ⚠ **The window for free removal closes at the first `v*` tag.** [Full
   entry](research/backlog/adz.md)
-- **(adx) A LIBRARY THAT MOVES IS HANDLED. WHAT IS MISSING IS THE DISCLOSURE.** Recorded
-  2026-08-18. Three gaps, one user journey. [Full entry](research/backlog/adx.md)
-- **(ads) THE CATALOG'S CONCURRENCY MODEL IS SQLITE'S DEFAULT, NOT A DECISION.** Recorded
-  2026-08-15. [Full entry](research/backlog/ads.md)
+
 - **(adm) `inspect_catalog` SKIPPED THE FIRST-RUN CASE - FIXED FOR THE APP, UNCHANGED FOR THE
   CLI.** Recorded 2026-08-14. [Full entry](research/backlog/adm.md)
-- **(adn) NOTHING STOPS TWO APPS RUNNING, AND QUITTING THE SECOND DELETES THE WAY BACK INTO
-  THE FIRST.** Recorded 2026-08-14, retitled 2026-08-22.
-  ⚠ **Narrowed 2026-08-22 by `(aaw)`, and the title is now too broad**: two mutating operations on
-  one drive can no longer overlap across processes, so *"two sets of in-flight writes"* is gone.
-  **What remains is single-instance detection** - two apps, two ports, two sidecars, and
-  `session-url.txt` naming one. ⚠ **`(vv)`'s residue was merged in the same day and `(vv)` closed**,
-  so this is now the whole of the problem in one place, including the worst of it: quitting the
-  second instance **deletes the link to the first, which is still running**.
-  [Full entry](research/backlog/adn.md)
+
 - **(adj) THE FREEZE IS NOT A REPRODUCIBLE TARGET: `truestill.spec` IS GITIGNORED.** [Full
   entry](research/backlog/adj.md)
+
 - **(adi) REACT + SHADCN MIGRATION - PLANNED, GROUNDWORK LANDED, NOTHING MIGRATED.** [Full
   entry](research/backlog/adi.md)
+
 - **(adh) TAURI SHELL + PYTHON SIDECAR - STAGE 1 MEASURED, THREE GAPS NAMED AND UNFIXED.** Recorded
   2026-08-13. [Full entry](research/backlog/adh.md)
-- **(aed) THE METADATA BAKER STAGES EVERY BAKED FILE THROUGH THE SYSTEM TEMP DIRECTORY.** Recorded
-  2026-08-19, split from `(adb)`. **Measure before changing anything.** [Full
-  entry](research/backlog/aed.md)
-- **(adg) THE VERIFY RESULT BLOCK MOVES `#bk-preview` BY +92.4px - a bigger mover than `(acw)`, and
-  it cannot be reserved.** [Full entry](research/backlog/adg.md)
-- **(ada) THE BACKUPS SCREEN NOW PUTS STATE BELOW THE FORMS, AND A ONE-COPY WARNING CAN FALL BELOW
-  THE FOLD.** [Full entry](research/backlog/ada.md)
+
 - **(act) AN UNNAMED ROOT IS LABELLED WITH THE LITERAL STRING `Library`, WHICH COLLIDES WITH
   ITSELF.** Recorded 2026-08-10. [Full entry](research/backlog/act.md)
-- **(acy) THE NAMING LAYER - characterised across four rounds, measured against what already ships,
-  and deliberately NOT built.** Recorded 2026-08-11. [Full entry](research/backlog/acy.md)
+
+- **(abc) `check_product_name.SUBCOMMANDS` should be derived, not transcribed.** [Full
+  entry](research/backlog/abc.md)
+
+## Blocked - do not build yet
+
+**The entry itself says do not build.** Each names what would unblock it. ⚠ **A blocker entry rots
+differently**: if what it waits on never arrives, it should be **retired**, not left here looking
+like approved work.
+
+- **(ajk) A CLASSIFIER GRADES A DECISION IT CANNOT READ, AND THE ONE DISCARDED ERRNO IS IN A
+  DIFFERENT ARM.** Filed 2026-09-01 (P172) from `(aji)`'s corrected mechanism, read-only.
+  ⚠ **FIRST BLOCKER: the `REFUSED` arm does not reproduce.** Three attempts - `reach()` alone,
+  `reach()` with a busy volume, and **a real `organize --apply` unmounted mid-run** - gave
+  **257 failures, all *"is no longer the drive"*, zero *"cannot probe"***. `ENOENT` is in
+  `_ABSENT_ERRNOS`, so `exists()` returns `False` without raising. The errno that produced
+  `REFUSED` in soak twelve is **unknown**, and **no classifier change is warranted until it
+  reproduces**. 🔑 **The brief's premise is FALSE and that is the finding**: *"give
+  `DestinationError` a cause"* is impossible at `base.py:88` - `device_of` swallows the error, so
+  there is **no exception object at that point** (and raising inside a `try` sets neither
+  `__cause__` nor `__context__`, measured). Of **22** raise sites **exactly one** discards an
+  available `OSError`: `local.py:154`, because `probe()` returns the **stat, not the error**.
+  ⚠ **`persists_for_the_run` has SIX call sites**, three of them exposed - and **`migrate` already
+  carries `or isinstance(exc, VerificationFailedError)` while `organizer.py:2118` has no disjunct
+  at all**. Two further blind spots named: `MetadataBakeError` is an `OSError` with `errno is
+  None`, and `undo._why_not` never consults the classifier. **Candidate ruling recorded, not
+  ruled**: `check`'s raise should bypass the classifier, supported by `backup` already stopping on
+  the same guard - and synthesising an errno is refused as inventing evidence, `(ajg)`'s rule.
+  Body: [`research/backlog/ajk.md`](research/backlog/ajk.md).
+
+## Rulings - decided, no work attached
+
+**A decision was made and recorded so it is not re-litigated.** There is nothing to build. They
+keep their letters because `IMPLEMENTATION_STANDARDS.md` and other documents cite letters, and a
+cited letter must resolve.
+
+- **(aib) THE PERCEPTUAL PIXEL CEILING IS 600 MP, NOT THE 300 MP THE CONSTANT NAMES.** Filed
+  2026-08-26 (P116), split out of `(ahq)`'s comment audit. **A ruling, not a fix.** Pillow's
+  `_decompression_bomb_check` is two-tier - it *warns* above `MAX_IMAGE_PIXELS` and only *raises*
+  above **2x** it - so `MAX_PERCEPTUAL_PIXELS = 300_000_000` sets the suspicion line and the skip
+  is at 600 MP. ⚠ **The test already encoded the doubling and the comment did not.** Neither
+  reading is established: either the constant means what it says and the doubling was inherited by
+  accident, or it is the suspicion line and is misnamed. ⚠ **And the stated purposes differ** -
+  `hashing.py` says OOM, Pillow says decompression bomb - which decides whether the number should
+  track memory or stay fixed. Measured: largest real photograph **39.5 MP**; the only files over
+  300 MP are **5 fuzzed TIFFs, all over 600 too**, so the band is empty in practice and the
+  falsehood has had no observed consequence. Body:
+  [`research/backlog/aib.md`](research/backlog/aib.md).
+
 - **(acv) THE PRIVATE PATHS IN GIT HISTORY ARE ACCEPTED, NOT OVERLOOKED - and the repository goes
   private at launch.** [Full entry](research/backlog/acv.md)
-- **(acu) POI LOOKUP FROM GPS - the strongest form of location naming, measured and NOT built.**
-  Recorded 2026-08-11. [Full entry](research/backlog/acu.md)
-- **(acp) GPS-DERIVED TIMEZONE - understood, costed, and deliberately NOT built.** [Full
-  entry](research/backlog/acp.md)
-- **(acn) DOES A GPS FIX TIME COUNT AS CAPTURE EVIDENCE? A RULING, NOT A BUG.** [Full
-  entry](research/backlog/acn.md)
-- **(adf) A CLI-ORGANIZED LIBRARY LEAVES `path_hint.library` UNSET, so the app has no observed
-  destination to prefill.** [Full entry](research/backlog/adf.md)
-- **(acg) ALBUM MEMBERSHIP CANNOT LEAVE THIS MACHINE - the same class as `(ack)`, waiting.**
-  Recorded 2026-08-09. [Full entry](research/backlog/acg.md)
-- **(acc) NOTHING PASSIVELY NOTICES A DECISIONS DOCUMENT ON A DRIVE.** ⚠ **Retitled again
-  2026-08-23 by the open-entry sweep, because this index carried a headline its own body calls
-  FALSE.** It read *"`write_decisions` exists with ZERO CALLERS, so no decisions document has ever
-  been written"* and added *"the write trigger is not [built]"* - and `acc.md` has recorded since
-  2026-08-22 that `write_decisions` has **two callers** (`decisions.py:1669`, `cli.py:1659`) and
-  that **`catalog_session.open_catalog` is the standing trigger**, writing on the first open after
-  upgrade and on every clean exit that dirtied the catalog. **Documents are written to drives.**
-  🔑 **An index that contradicts its own body is worse than either being wrong**, because the index
-  is what a cold start reads and the body is what it reads second, if at all.
-  **What survives is the title's claim and nothing more**: `read_decisions` is reachable only from
-  an explicit CLI command, and `drive.reach_of` reads the marker and never the contents - so
-  plugging in a drive that carries decisions tells nobody. Recorded 2026-08-09.
-  [Full entry](research/backlog/acc.md)
-- **(aca) The app and the CLI disagree about when an organize run needs confirming.** [Full
-  entry](research/backlog/aca.md)
-- **(aby) Organize screen: copy that repeats itself or explains its own button.** [Full
-  entry](research/backlog/aby.md)
-- **(abz) Organize shows one population three ways and connects none of them.** [Full
-  entry](research/backlog/abz.md)
-- **(abt) The unhinted-residue prompt is CLI-only, because the app cannot ask mid-job.** Recorded
-  2026-08-07. [Full entry](research/backlog/abt.md)
-- **(abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.** [Full
-  entry](research/backlog/abr.md)
-- **(abn) rescan, beyond the report. `truestill rescan` REPORTS; nothing acts on it yet.** Recorded
-  2026-08-07. [Full entry](research/backlog/abn.md)
-- **(abd) ONE CATALOG OR MANY - the question is unanswered, and it may be the wrong default.**
-  Recorded 2026-08-05. [Full entry](research/backlog/abd.md)
-- **(abe) CLI custody was fixed forward the same day; REPAIRING PRE-EXISTING ROWS IS THE OPEN
-  HALF.** ⚠ **Retitled 2026-08-22** so the built half is not read as pending:
-  `cli._register_destination` landed 2026-08-05 in `a0091cf`, gated on `--apply`. Rows written
-  **before** that still carry no copy row, so they stay outside custody and invisible to
-  `verify`, `status` and `where`. Recorded 2026-08-05. [Full entry](research/backlog/abe.md)
+
+- **(aat) `(aar)` is forward-only, and `migrate-layout` will not carry it backwards.** [Full
+  entry](research/backlog/aat.md)
+
+## Records - evidence, explicitly not work
+
+**Evidence, and most say so in their own first lines** - *"Record only - do not build"*. They are
+here because a lost answer key corrupts every measurement taken against it, which is `(ait)` and
+`(aiu)`'s ruling. ⚠ **Never delete one to shorten the list.**
+
+- **(ajc) `ntfs3` ACCEPTS EVERY NAME WINDOWS REFUSES, SO A DRIVE IS WRITTEN ON LINUX AND BREAKS WHEN
+  IT MOVES.** Filed 2026-08-31 (P166), measured on a real NTFS volume under the **kernel `ntfs3`
+  driver** with `acl`. All eight of `(aid)`'s illegal characters - `:` `?` `*` `|` `<` `>` `"` `\`
+  - were **created verbatim**, and `ntfs3` is **case-SENSITIVE** where Windows is not. 🔑 **`(aid)`'s
+  central claim is false**: exFAT and FAT32 are the strict filesystems (`EINVAL` on all eight) and
+  **NTFS-under-Linux is the permissive one**. ⚠ **Different hazard from `(aid)`**: a name that
+  refuses at write time loses nothing; **a name that writes fine on Linux and cannot be opened on
+  Windows breaks the drive after it travels**, with no error in between -
+  [`moving-machines.md`](moving-machines.md) is its home. ⚠ **The obvious fix is wrong**: those
+  characters are legal on ext4. Whether a **destination that may travel** should be held to the
+  strictest set is named and deliberately not ruled. Body:
+  [`research/backlog/ajc.md`](research/backlog/ajc.md).
+
+- **(agy) FIVE THINGS THE CATALOG WRITES AND NOTHING READS - a census, not a verdict.** Filed
+  2026-08-24 (P47), generalised from one instance found by a surviving mutation in P46.
+  `migration_runs.completed_at`, `file_copies.copied_at`, `reclaim_journal.reclaimed_at`,
+  `skipped_clusters.skipped_at`, and **`file_albums` - an entire table** with no reader in shipped
+  code. 🔑 **The census is a proof rather than a guess because this repo forbids `SELECT *`**
+  and pins that with `test_queries_name_their_columns.py`, so "named in no query" really does mean
+  "never read". The `verified: Literal[True]` family at the schema layer. ⚠ **`file_albums` is NOT
+  orphaned** - `(acg)` owns it and `decisions-on-drive-research.md:110` designs for it, so for that
+  row the answer is *deliberate, and waiting*. ⚠ **`migration_runs.completed_at` is the one with a
+  consequence**: `run_migration`'s close condition has no observable effect, so no test can guard
+  it. **Rules nothing** - the four timestamps may all be legitimate provenance; what is recorded is
+  that nobody has said so. [Full entry](research/backlog/agy.md)
+
+- **(ads) THE CATALOG'S CONCURRENCY MODEL IS SQLITE'S DEFAULT, NOT A DECISION.** Recorded
+  2026-08-15. [Full entry](research/backlog/ads.md)
+
 - **(abf) A fix does not retroactively clean what it prevented.** Recorded 2026-08-05.
   🔑 **User evidence, added 2026-08-23**: a Photoshop Elements user imported from an SD card
   for **four years** believing files were being moved to their hard drive, because their
@@ -1087,28 +1188,16 @@ is invisible here is retired, not free.**
   this entry from a theoretical worry to an observed failure mode.
   [`user-evidence-log.md`](user-evidence-log.md) §2. [Full
   entry](research/backlog/abf.md)
-- **(abg) The reassured state has no notion of staleness - "Schrodinger's backup".** 📌 **read the
-  entry first - a premise inside it was corrected.** **Stages 1-3 have shipped**; what remains open
-  is the `GONE` state, which is unbuilt and unruled. Recorded 2026-08-05. [Full
-  entry](research/backlog/abg.md)
-- **(abk) The library has no per-folder view - "where is all this actually sitting".** [Full
-  entry](research/backlog/abk.md)
-- **(abj) Find matches one substring; a two-word query silently finds nothing.** [Full
-  entry](research/backlog/abj.md)
-- **(abc) `check_product_name.SUBCOMMANDS` should be derived, not transcribed.** [Full
-  entry](research/backlog/abc.md)
-- **(abb) The other capture-filename conventions.** `rule_camera_filename` shipped with ONE
-  pattern, Android's `IMG_`/`VID_`; the other vendors' conventions are unbuilt. Recorded
-  2026-08-03. [Full entry](research/backlog/abb.md)
-- **(aba) Nothing reconciles the catalog's recorded location with where a file actually is.**
-  Carries `(agr)` part 3 since 2026-08-23 - the two-identities-at-one-path drive sibling, ruled
-  no-build with its specimen preserved. [Full entry](research/backlog/aba.md)
+
 - **(aaz) `ModifyDate < DateTimeOriginal` as a back-dating signal. RECORD ONLY - do not build.**
   [Full entry](research/backlog/aaz.md)
+
 - **(aay) JPEG XL (`.jxl`) is classified as unrecognized. RECORD ONLY - do not build.** [Full
   entry](research/backlog/aay.md)
+
 - **(aax) `time_known` is derived from provenance, not from the value. POST-LAUNCH.** [Full
   entry](research/backlog/aax.md)
+
 - **(aan) A "verified against code" clause must still resolve.** Recorded 2026-08-01.
   🔑 **`(ago)` built the OTHER half on 2026-08-23 and did not close this** - recorded here because
   neither entry named the other. `(ago)` checks that a **line number** in a living document points
@@ -1118,10 +1207,39 @@ is invisible here is retired, not free.**
   says the same from the other side - it cannot see a line that moved onto other real code, and
   *"catching the rest honestly would mean citing symbols"*. **One seam, two halves, one built.**
   [Full entry](research/backlog/aan.md)
-- **(aas) An undated file cannot be assigned to an event the user knows it belongs to.** Recorded
-  2026-08-02. [Full entry](research/backlog/aas.md)
+
 - **(aau) A zero-warning test lane, and why it is not one today.** Recorded 2026-08-02. [Full
   entry](research/backlog/aau.md)
+
+- **(aaf) Persisted skip record - "show me what was skipped last week".** [Full
+  entry](research/backlog/aaf.md)
+
+- **(aag) Near-duplicate grouping and burst review.** A review surface over behaviour that is
+  already correct - record only, do not build. Overlaps `(m)`. [Full entry](research/backlog/aag.md)
+
+- **(xx) Absolute-path columns and hash-cache keys are not machine-portable.** [Full
+  entry](research/backlog/xx.md)
+
+- **(aal) How often is the machine wrong about dates, and about what?** Recorded 2026-07-31. [Full
+  entry](research/backlog/aal.md)
+
+- **(aao) Asset pairing: several files that are one photo.** Names the concept `(y)`, `(p)` and
+  `(aag)` were each circling: several files that are one photo. Needs a design pass before any
+  build. Recorded 2026-08-02. [Full entry](research/backlog/aao.md)
+
+## Ideas / deferred
+
+**Parked deliberately.** Several share machinery - see **Converged programs** before picking one.
+
+- **(acy) THE NAMING LAYER - characterised across four rounds, measured against what already ships,
+  and deliberately NOT built.** Recorded 2026-08-11. [Full entry](research/backlog/acy.md)
+
+- **(acu) POI LOOKUP FROM GPS - the strongest form of location naming, measured and NOT built.**
+  Recorded 2026-08-11. [Full entry](research/backlog/acu.md)
+
+- **(acp) GPS-DERIVED TIMEZONE - understood, costed, and deliberately NOT built.** [Full
+  entry](research/backlog/acp.md)
+
 - **(aai) The plain copy path does not verify at write time. DEFERRED with the cost stated - not
   an open item awaiting work.** Recorded 2026-07-31. The entry's original framing was **wrong and
   its fix would have been a regression**; what remains is detection latency, not correctness.
@@ -1130,57 +1248,32 @@ is invisible here is retired, not free.**
   this file is *for*. Left in *Approved - still to build* deliberately: this file's own top rule is
   that **status is per entry, never per section**, and moving an entry so a heading agrees with it
   is that rule broken in the act of tidying. [Full entry](research/backlog/aai.md)
-- **(aaf) Persisted skip record - "show me what was skipped last week".** [Full
-  entry](research/backlog/aaf.md)
-- **(aag) Near-duplicate grouping and burst review.** A review surface over behaviour that is
-  already correct - record only, do not build. Overlaps `(m)`. [Full entry](research/backlog/aag.md)
-- **(aad) Desktop installers - LAUNCH-BLOCKING for the paid product.**
-  ⚠ **NO LONGER THE BLOCKER, corrected 2026-08-30 (P153) - `(afg)` owns it now.** The bare title
-  reads as *"nothing is built"* and the pipeline is proven: both installers build, **install,
-  uninstall and preserve the catalog**; the publish job ran for the first time on 2026-08-30 and
-  **sigstore signing verified by hand** (`cosign verify-blob` → `Verified OK`). A tag produces
-  four installable artifacts and a signed checksum file. This entry's own test is *"a licence
-  cannot be sold to a user who cannot install the product"* - they can; they cannot **find** it,
-  which is `(afg)`. What is left here: `gh release create` has never run **without** `--draft`,
-  and macOS is deliberately unpublished (`DECISIONS.md` D9). Evidence:
-  [`release-rehearsal-record.md`](release-rehearsal-record.md). [Full
-  entry](research/backlog/aad.md)
-- **(aac) Organize names unreadable source files; ONE RESIDUE REMAINS, and it is app-side.**
-  ⚠ **Retitled 2026-08-22 - the bare title read as a whole unbuilt feature and two thirds is
-  built.** Scan tier and residue 1: built 2026-08-02. **Residue 3 closed by `(aev)` on 2026-08-21**
-  and nobody connected them - `FileHashes.perceptual_computed` plus `uncompared_photos` are exactly
-  the *"readable but undecodable is indistinguishable from a video"* distinction it asked for.
-  **What is left is residue 2 alone**: `unreadable_files` is built in `organize_preview` only, so
-  the app's **run** completion cannot name a file the CLI names. [Full
-  entry](research/backlog/aac.md)
-- **(ss) Organize preview hashes every file before showing anything - slow on a network mount.**
-  [Full entry](research/backlog/ss.md)
-- **(xx) Absolute-path columns and hash-cache keys are not machine-portable.** [Full
-  entry](research/backlog/xx.md)
-- **(aap) Registering a folder does not mint a second identity - BUILT 2026-08-02, ONE SURFACE
-  LEFT.** ⚠ **Retitled 2026-08-22.** The row sat under *"still to build"* while the entry's own
-  first line said **BUILT 2026-08-02**; the guard that prevents the loss is shipped on the CLI.
-  What remains is deliberate and named in the entry: **the app has no register screen**, so the
-  protection has no app-side surface. [Full entry](research/backlog/aap.md)
-- **(bbb) exiftool `_original` backups.** Mostly BUILT - safety 2026-07-30, recovery 2026-07-31;
-  recovery item 4 is the PARTIAL remainder. [Full entry](research/backlog/bbb.md)
-- **(nn) Prove destination timestamp parity against a live rclone remote.** [Full
-  entry](research/backlog/nn.md)
-- **(r) Analyze mode - the hash cache half is SHIPPED.** [Full entry](research/backlog/r.md)
-- **(kk) Persist GPS at ingest - THE CAPTURE HALF SHIPPED AT v17; `GPSDateStamp` did not.**
-  ⚠ **Retitled 2026-08-29.** The title read *"it is read and then thrown away"*, which its own
-  body corrected on 2026-08-09 and the title outlived: `files.gps_latitude`/`gps_longitude`
-  arrived at v17, `event_review` and `trip_review` read them for the jump-cut, and **808 files
-  in the soak-five catalog carry coordinates**. What remains open is `GPSDateStamp`, and rows
-  written before v17 keep NULLs because v17 deliberately does no backfill. [Full entry](research/backlog/kk.md)
-- **(ll) Sub-day event identity that survives a changing file set.** [Full
-  entry](research/backlog/ll.md)
-- **(aam) Sidebar reference: profile header, section labels, submenus.** [Full
-  entry](research/backlog/aam.md)
-## Settled technical stances (recorded so they are not re-litigated)
 
-- **(aat) `(aar)` is forward-only, and `migrate-layout` will not carry it backwards.** [Full
-  entry](research/backlog/aat.md)
+- **(m) Duplicate-cleanup staging UX.** The visual side-by-side compare it describes IS `(aag)`'s
+  subject - scope the two together or the same review surface gets designed twice. [Full
+  entry](research/backlog/m.md)
+
+- **(p) "Share safely" - metadata-stripping export. PRO TIER (behind the capability seam).** [Full
+  entry](research/backlog/p.md)
+
+- **(x) XMP sidecar export for user-generated context.** Trip and event names are the only
+  user-created thing in a library, and the only thing lost on leaving truestill. Post-launch. [Full
+  entry](research/backlog/x.md)
+
+- **(y) Optional photo / video split - default TOGETHER, and pair-aware or not at all.** [Full
+  entry](research/backlog/y.md)
+
+- **(z) Optional source / device manifest - catalog-first, hash-keyed.** [Full
+  entry](research/backlog/z.md)
+
+- **(s) Source-folder names as event evidence.** A meaningful source folder name (`Olympics/`)
+  becomes a pre-named event proposal instead of scattering by capture date. [Full
+  entry](research/backlog/s.md)
+
+- **(t) Reflink / copy-on-write fast path.** `FICLONE`/`clonefile` on APFS, btrfs, XFS, ReFS.
+  Optimization, not correctness - `copy2` already takes `sendfile` fast paths today. [Full
+  entry](research/backlog/t.md)
+
 ## Product / strategy (parked decisions)
 
 > **Settled stance these sit under:** a user's **photo data never leaves their machine** and
@@ -1253,42 +1346,6 @@ picking one up must map the combined order before building.
 - **LayoutScheme axes.** `(gg)` Built (adaptive day folders); `(y)` / `(z)` are further axes on
   the same seam - do not rebuild routing.
 
-## Ideas / deferred
-
-> **Sequencing note - several of these share machinery, and picking them one at a time is the
-> expensive order.** See **Converged programs** first. `(n)` and `(ii)` (and `(bbb)` recovery /
-> `(kk)` GPSDateStamp) are one date-provenance program; `(hh)` (`adopt`) shares the
-> **walk-and-classify** machinery with shipped `clean-empty`. When the first of a cluster is
-> chosen, map a combined order before building - the schema step and the UI surface are each
-> worth paying for once.
-
-- **(aal) How often is the machine wrong about dates, and about what?** Recorded 2026-07-31. [Full
-  entry](research/backlog/aal.md)
-- **(m) Duplicate-cleanup staging UX.** The visual side-by-side compare it describes IS `(aag)`'s
-  subject - scope the two together or the same review surface gets designed twice. [Full
-  entry](research/backlog/m.md)
-- **(p) "Share safely" - metadata-stripping export. PRO TIER (behind the capability seam).** [Full
-  entry](research/backlog/p.md)
-- **(x) XMP sidecar export for user-generated context.** Trip and event names are the only
-  user-created thing in a library, and the only thing lost on leaving truestill. Post-launch. [Full
-  entry](research/backlog/x.md)
-- **(hh) `truestill adopt` - bring stray media in an organized drive into the catalog.** [Full
-  entry](research/backlog/hh.md)
-- **(aao) Asset pairing: several files that are one photo.** Names the concept `(y)`, `(p)` and
-  `(aag)` were each circling: several files that are one photo. Needs a design pass before any
-  build. Recorded 2026-08-02. [Full entry](research/backlog/aao.md)
-- **(aaq) `rule_software` reads a tag that is never requested, so it cannot fire.** [Full
-  entry](research/backlog/aaq.md)
-- **(y) Optional photo / video split - default TOGETHER, and pair-aware or not at all.** [Full
-  entry](research/backlog/y.md)
-- **(z) Optional source / device manifest - catalog-first, hash-keyed.** [Full
-  entry](research/backlog/z.md)
-- **(s) Source-folder names as event evidence.** A meaningful source folder name (`Olympics/`)
-  becomes a pre-named event proposal instead of scattering by capture date. [Full
-  entry](research/backlog/s.md)
-- **(t) Reflink / copy-on-write fast path.** `FICLONE`/`clonefile` on APFS, btrfs, XFS, ReFS.
-  Optimization, not correctness - `copy2` already takes `sendfile` fast paths today. [Full
-  entry](research/backlog/t.md)
 ## App-surface deferrals
 
 Copy / Move / Reorganize-in-place and `undo-organize` are **in the app** - see **`(eee)`**.
@@ -1338,6 +1395,8 @@ rather than assumed.
   the next time the token list is reviewed.
 
 ## Consciously out of scope (recorded with reasons)
+
+**Recorded with the reason, so the same idea is not re-proposed.**
 
 - **(ail) A ROUTE TO `find --duplicates` - RETIRED 2026-08-29, unbuilt.** Proposed as *"`find
   --duplicates` already returns exact groups; nothing points at it"*. **Every clause is false**,
