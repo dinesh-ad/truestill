@@ -11,7 +11,10 @@ history still exist.
 entirely local.
 **Instrument**: `damaged_doc.py`, its own docstring heading it *"Soak 12a"*.
 **Evidence**: `/data/TruestillLibrary/soak-twelve-2026-08-31/` - the script and **the tree exactly
-as the run left it**, moved off `/data/tmp` on 2026-09-01 because scratch is not evidence.
+as the run left it**, moved off `/data/tmp` on 2026-09-01 because scratch is not evidence. 12b's
+transcripts - every command's stdout and stderr, and the harness - are beside it under
+`12b-app-half-2026-09-01/`, so **every verbatim quote below can be checked against the file it came
+from.**
 
 ## WHAT SOAK TWELVE WAS FOR
 
