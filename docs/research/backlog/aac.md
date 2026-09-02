@@ -68,8 +68,10 @@
   - ⚠ **RESIDUE 2 IS ENABLED BY `(afu)`, NOT CLOSED BY IT - ruled 2026-08-22 rather than
     assumed.** `(afu)` shipped, and an app run now writes a record naming every file with its
     status **and its `unreadable` reason**, which `(afl)`'s payload had omitted. **What it does
-    not do is put a name on screen**: `_completion` is unchanged and still aggregate-only, so the
-    app still says four files failed and still cannot say which four to a person reading it. §9 is
+    not do is put a name on screen**: `_completion` now ships `failed_files` (`service/organize.py:_failed_report`,
+    `24986b0`), so an attempted failure is named on screen (this said *still cannot say which four*
+    until 2026-09-02, P186). What residue 2 still lacks is the unreadable file that was never
+    attempted: a cached exact duplicate is `DUPLICATE`, not `FAILED`, and reaches neither list. §9 is
     about the rendered string, and the CLI's counterpart here is a printed block rather than its
     record. **The fact has stopped being destroyed; the sentence does not exist yet.** Residue 2 is
     now a payload-and-renderer change with the data already durable.

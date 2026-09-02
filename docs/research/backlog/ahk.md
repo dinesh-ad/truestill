@@ -12,7 +12,7 @@
   `create_trip` (`:378`). **Two transactions.** `BEGIN IMMEDIATE` serialises each of them and does
   nothing about the gap between them.
 
-  The route around it holds nothing. `events_apply` (`server.py:create_app.events_propose`) is a plain handler: no
+  The route around it holds nothing. `events_apply` (`server.py:create_app.events_apply`) is a plain handler: no
   `_start_drive_job`, no `jobs.claim`, no `lock_for`. ⚠ **Established by reading the handler, not
   by grepping three symbol names** - the handler's whole body is `sessions.get`, a
   `run_in_threadpool` call and a `JSONResponse`.
@@ -50,7 +50,7 @@
   ## `(agu)`'s GUARD SEES THIS ROUTE AND ALLOWS IT
 
   `test_every_job_declares_whether_it_mutates.py` enumerates every route handler and classifies
-  every bare service call. `apply_event_review_names` is entry **:256** -
+  every bare service call. `apply_event_review_names` is an entry in `test_every_job_declares_whether_it_mutates.py`'s table -
   *"catalog rows; its own docstring: 'No files move'"*. So the guard is **not blind**; it permits
   this by rule, and its own comment names the class as a recorded gap:
 

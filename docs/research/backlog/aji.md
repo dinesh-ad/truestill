@@ -95,7 +95,7 @@ Measured: `persists_for_the_run` on a `DestinationError` chained to `ENOENT` als
 | command | where `DestinationDevice.check` sits | is it "at the top of every loop"? |
 |---|---|---|
 | `backup` | `_copy_missing` calls `run.device.check(run.target)` explicitly, per iteration, before the copy | ✅ **yes** - and `backup` does stop |
-| `organize` | inside `LocalDestination._make_parent`, reached only from `upload`/`adopt`/`relocate` | ❌ **no** - `exists()` raises first, so `check` is never reached |
+| `organize` | inside `LocalDestination._make_parent`, reached only from `upload`/`adopt`/`relocate` | ✅ **yes, and it fires first** - then `persists_for_the_run` downgrades it to one failure per file; see the correction above |
 
 **The guard is not broken. The reasoning that made `GONE` non-persistent for every caller was
 derived from one caller's wiring** and filed in a module both use. That is the defect, and it is a

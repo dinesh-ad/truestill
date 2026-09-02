@@ -32,7 +32,7 @@
   **The session link makes a second instance worse than merely redundant** - `(vv)`'s own
   measurement, kept verbatim in shape:
 
-  - `bind_listening_socket` tries `for candidate in (preferred, 0)` (`__main__.py:_attempt_browser`), so a
+  - `bind_listening_socket` tries `for candidate in (preferred, 0)` (`__main__.py:bind_listening_socket`), so a
     second `truestill-app` whose preferred port is taken binds an **ephemeral** one and starts
     **successfully**, with its own `JobManager`. Double-clicking the icon twice is enough.
   - `session_link.write` is **replaced, never appended**, so the second instance overwrites the

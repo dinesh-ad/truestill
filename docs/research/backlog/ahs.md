@@ -48,7 +48,7 @@
   |---|---|
   | trips | **restored** - `_apply_trips` (`decisions.py:_shared_decisions`) creates them from the days the document carries |
   | events | **lost** - restore renames by signature and cannot create; that is `(ahv)` |
-  | albums | **never** - `decisions.py:RESTORE_WORDING`, ruled at [`acg.md`](acg.md) |
+  | albums | **applied since `(acg)`** (`decisions.py:_apply_albums`); this row said *never* until 2026-09-02 |
 
   **So what genuinely does not come back is the FILE INVENTORY**, which is what this entry is
   about. Of its four options below, *"widen the drive document"* is partly moot for names - trips

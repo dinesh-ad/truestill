@@ -113,7 +113,7 @@
   - **Why it stays stuck.** `drive_reach` (`drive.py:_SLOW_PATHS`) reads the marker **at the remembered
     path and nowhere else** - by design, since searching for a drive is not something a custody
     tool should do speculatively. So the state persists until someone happens to run
-    `truestill verify <new path>`, **and nothing anywhere names that command.** A user is told
+    `truestill verify <new path>`, **and the app never names that command** - `truestill status` does, through `cli.py:_recheck_route` (this said *nothing anywhere* until 2026-09-02, P186). A user is told
     their drive is offline while it is plugged in and one command from being recognised.
   - ⚠ **The label compounds it.** `drives.label` is captured at registration and never follows the
     path, so after `A -> B` every surface still says drive `'A'`. Correct - a label is a name, not
@@ -128,7 +128,7 @@
     `None` (`take_live_path_hint`, `drive_support.py:take_live_path_hint`), while `library_root` kept the dead
     path and `needs_library_root` stayed `False`.
   - The browser prefills the organize destination with `library_path || library_root`
-    (`app.js:renderRestingPanel`), so the field offers **the path that no longer exists**.
+    (`app.js:loadCustody`), so the field offers **the path that no longer exists**.
   - ⚠ **The non-clearing is correct and must not be "fixed" by clearing it.** `drives.py:LIBRARY_PATH_HINT`
     records why: `library.root` is *declared*, not observed, and auto-clearing it would make first
     run re-arm every time an external drive was unplugged. **The bug is in what is offered, not in

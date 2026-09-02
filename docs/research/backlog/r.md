@@ -17,7 +17,9 @@
     A metadata cache is the natural follow-on and is deliberately a **separate item** - metadata
     feeds *dating*, so a stale row could change where a photo lands, a class of risk the hash
     cache structurally cannot have.
-  - **Still to build:** Analyze mode itself, minus tier 0 (below).
+  - **Still to build (corrected 2026-09-02, P186):** tier 2b - look-alikes, `perceptual=False` in
+    `cli.py:_cmd_analyze` - and commit 4, the app screen; `server.py` and `app.js` have no `analyze`.
+    Tiers 1 and 2a and the streaming of 3b ship.
   - **Tier 0 SHIPPED on the CLI, 2026-08-03** - `truestill analyze <folder>`. The census only:
     file count, total bytes, photo/video/audio split, per-extension formats, the skipped and
     unrecognized census, and folders that could not be listed. **Measured 0.31 s wall for
@@ -166,7 +168,7 @@
     | 1 | `truestill analyze`, tier 0 over the shipped `inventory_source` | **shipped** `e8c2692`, polished `58f40fe` |
     | 2 | the facts that existed but were unreachable, moved to `insights.py` | **shipped** `dc9a7d7` |
     | 3a | tiers 1 and 2a reachable from `analyze`, no destination | **shipped 2026-08-03** |
-    | 3b | tier streaming and partial-truth reporting | unbuilt |
+    | 3b | tier streaming and partial-truth reporting | shipped 2026-08-04 (`cli.py:_print_not_yet_analysed`) |
     | 4 | the app screen, plus export | unbuilt |
 
     - **Five, not four (corrected 2026-08-03).** Commit 3 split once building it began: 3a is

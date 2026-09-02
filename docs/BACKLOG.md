@@ -435,8 +435,9 @@ misnamed today is measured. Fourteen left for other sections that day.
   is dead for it. Measured. The cause is discarded in `probe`, whose signature returns the **stat,
   not the error**. (2) With an ENOENT cause it still returns `False`, because `GONE` deliberately
   does. 🔑 **The comment justifying that says `DestinationDevice.check` fails closed *"at the top
-  of every loop"* - TRUE of `backup`, which calls it per iteration and does stop, and FALSE of
-  `organize`, where it sits inside `_make_parent` behind an `exists()` that raises first.** A rule
+  of every loop"* - TRUE of `backup`, which calls it per iteration and does stop; on `organize` it sits inside
+  `local.py:LocalDestination._make_parent` and IS reached - it fires first and is then downgraded to a
+  per-file failure by `drive_unwritable.py:persists_for_the_run` (corrected below).** A rule
   filed in a shared module and justified by one caller's wiring. ⚠ **Whether `GONE` should persist
   is NOT ruled**; what would settle it is named, including the measurement that `RunHealth`'s 15 s
   floor **cannot engage on a 6 s run at all**. Nothing was lost - every failure was recorded and
@@ -470,9 +471,9 @@ misnamed today is measured. Fourteen left for other sections that day.
   reports success. `1` is already this CLI's *"finished, but something is wrong with the library"*
   and `organize && next_step` would chain past it. ⚠ **The counter-argument is real and is why
   this is a question**: nothing was lost, the library is correct, and a non-zero exit for a
-  successful copy would be its own cry-wolf. ⚠ **The app is worse and that half belongs to
-  `(aiq)`**: `MOVE_KEPT` is in neither `_ORGANIZED_STATUSES` nor `failed`, so it falls out of both
-  tallies and its label reaches no pixel. **Do not fold this into a summary-wording change** - it
+  successful copy would be its own cry-wolf. ⚠ **The app half is narrower since `(aiq)`'s
+  `eadc643`**: `service/organize.py` counts `MOVE_KEPT` in `finished_clean`, so the run is no longer
+  reported *done*; what is still missing is the label - `app.js` renders no `move_kept` row. **Do not fold this into a summary-wording change** - it
   alters an exit code, which is a contract a script reads. Related: `(aim)`, `(aiq)`.
   Body: [`research/backlog/air.md`](research/backlog/air.md).
 
@@ -518,7 +519,7 @@ misnamed today is measured. Fourteen left for other sections that day.
   *reported*, this is the collision.
   `commit_trips` reads `catalog.trip_for_day` for every day (`trip_review.py:commit_trips`) and then
   inserts (`:378`) - **two transactions**, so `BEGIN IMMEDIATE` does not close the window. The
-  route around it holds **nothing**: `events_apply` (`server.py:create_app.events_propose`) has no
+  route around it holds **nothing**: `events_apply` (`server.py:create_app.events_apply`) has no
   `_start_drive_job`, no `jobs.claim` and no `lock_for`. Meanwhile `truestill restore` reaches
   `create_trip` through `decisions.py:reconcile_documents` in another process.
   ⚠ **The window is reproduced, and the reproduction's limit is stated**: with a second real
@@ -536,7 +537,7 @@ misnamed today is measured. Fourteen left for other sections that day.
   window than `commit_trips`, which at least re-reads per day.
   ⚠ **`(agu)`'s guard SEES this route and ALLOWS it**, which is the part worth knowing.
   `test_every_job_declares_whether_it_mutates.py` enumerates every handler and classifies every
-  bare service call; `apply_event_review_names` is entry **:256**, *"catalog rows; its own
+  bare service call; `apply_event_review_names` is an entry in `test_every_job_declares_whether_it_mutates.py`'s table, *"catalog rows; its own
   docstring: 'No files move'"*. The classifier's own comment calls the class a recorded gap -
   *"catalog-ROW writers ... deliberately outside drive locks - the gap `(aaw)` recorded and
   `(adt)`'s close split into residue letters"*. So the guard is not blind; it reds a **deleting**
@@ -620,7 +621,7 @@ misnamed today is measured. Fourteen left for other sections that day.
   **Permission: an offset present and read is evidence; an offset absent must never be inferred.**
   [Full entry](research/backlog/agz.md)
 
-- **(agp) THE BUSY MESSAGE NAMES A SECOND WINDOW THAT DOES NOT EXIST, AT THE USER'S FIRST CLICK.**
+- **(agp) THE BUSY MESSAGE ON THE JOB AND CLI PATHS NAMES A SECOND WINDOW THAT DOES NOT EXIST.** ⚠ **Retitled 2026-09-02 (P186)**: *"at the user's first click"* is dead - a click is a request, requests answer with `catalog_busy.py:CATALOG_BUSY_REQUEST_MESSAGE` (`fd0ffe9`), and the schema builds at boot (`service/drives.py:prepare_catalog`). `catalog_busy.py:CATALOG_BUSY_MESSAGE` survives on the job event in `jobs.py` and on the CLI, and even the request sentence hedges *"another Truestill window may be holding"*.
   Recorded 2026-08-23, split out of `(adt)` when it closed, **ranked above `(agq)` by the
   maintainer - a wording-and-detection defect, not a lock defect.** `CATALOG_BUSY_MESSAGE`
   (`catalog_busy.py:CATALOG_BUSY_MESSAGE`) says *"close the other Truestill window, or stop the other command in
@@ -705,7 +706,7 @@ misnamed today is measured. Fourteen left for other sections that day.
 - **(abt) The unhinted-residue prompt is CLI-only, because the app cannot ask mid-job.** Recorded
   2026-08-07. [Full entry](research/backlog/abt.md)
 
-- **(abg) The reassured state has no notion of staleness - "Schrodinger's backup".** 📌 **read the
+- **(abg) A reassured backup ages into SOFTENING and STALE now; what it lacks is a GONE state - "Schrodinger's backup".** ⚠ **Retitled 2026-09-02 (P186)**: staleness shipped in three stages - `drive.py:CustodyTier` at `CUSTODY_SOFTENS_AFTER_DAYS` 30 and `CUSTODY_STALE_AFTER_DAYS` 90, rendered by `cli.py:_cmd_status` and `service/drives.py` alike. The old title named a defect that no longer exists. 📌 **read the
   entry first - a premise inside it was corrected.** **Stages 1-3 have shipped**; what remains open
   is the `GONE` state, which is unbuilt and unruled. Recorded 2026-08-05. [Full
   entry](research/backlog/abg.md)
@@ -722,13 +723,14 @@ misnamed today is measured. Fourteen left for other sections that day.
   built.** Scan tier and residue 1: built 2026-08-02. **Residue 3 closed by `(aev)` on 2026-08-21**
   and nobody connected them - `FileHashes.perceptual_computed` plus `uncompared_photos` are exactly
   the *"readable but undecodable is indistinguishable from a video"* distinction it asked for.
-  **What is left is residue 2 alone**: `unreadable_files` is built in `organize_preview` only, so
-  the app's **run** completion cannot name a file the CLI names. [Full
+  **What is left is residue 2 alone**: `unreadable_files` is built in `organize_preview` only; the
+  run's `failed_files` (`service/organize.py:_failed_report`) names attempted failures, so what is
+  left is an unreadable file never attempted - a cached exact duplicate is `DUPLICATE`, not `FAILED`. [Full
   entry](research/backlog/aac.md)
 
 - **(r) Analyze mode - the hash cache half is SHIPPED.** [Full entry](research/backlog/r.md)
 
-- **(kk) Persist GPS at ingest - THE CAPTURE HALF SHIPPED AT v17; `GPSDateStamp` did not.**
+- **(kk) Persist `GPSDateStamp` at ingest - the coordinates half shipped at v17.** ⚠ **Retitled 2026-09-02 (P186)** so the title leads with what is unbuilt: `catalog.py` has `gps_latitude`/`gps_longitude` and no date column; `GPSDateStamp` is read in `video_utc.py` and never written.
   ⚠ **Retitled 2026-08-29.** The title read *"it is read and then thrown away"*, which its own
   body corrected on 2026-08-09 and the title outlived: `files.gps_latitude`/`gps_longitude`
   arrived at v17, `event_review` and `trip_review` read them for the jump-cut, and **808 files

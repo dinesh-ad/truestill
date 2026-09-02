@@ -1,4 +1,4 @@
-# (agp) THE BUSY MESSAGE NAMES A SECOND WINDOW THAT DOES NOT EXIST, AT THE USER'S FIRST CLICK.
+# (agp) THE BUSY MESSAGE ON THE JOB AND CLI PATHS NAMES A SECOND WINDOW THAT DOES NOT EXIST.
 
 *Body of entry `(agp)`. **OPEN.** The index is [`BACKLOG.md`](../../BACKLOG.md); the provenance index is [`SHIPPED.md`](../../SHIPPED.md). Split out of `(adt)` when it closed, 2026-08-23, and **ranked above `(agq)` by the maintainer.***
 
@@ -97,7 +97,7 @@ already owns these sentences' shape - pick them up together:
    payloads since `(agr)` part 2 (`drive_support.py`, the ghost branch).
 2. `second_location_note` (`drive.py:custody_freshness`) - *"truestill drives --init ... --force-new-identity"*
    - carried whole into the verify summary (`verify.py:verify_run.target`) and rendered in the app's
-   "answers in two places" banner (`app.js:loadDrives`).
+   "answers in two places" banner (the verify-run handler in `app.js`, not `loadDrives`).
 3. `_zero_byte_detail` (`catalog_startup.py:_zero_byte_detail`) - *"pass --db PATH"* - reaches the app's
    catalog notice via `catalog_detail` (`drives.py:LibraryStatus`). The app already knows this is CLI
    instruction - `index.html:126` says so in a comment - but fixed only the banner's placement,

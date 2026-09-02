@@ -3,7 +3,14 @@
 *Body of backlog entry `(aam)`, under **Blocked - do not build yet**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aam) Sidebar reference: profile header, section labels, submenus.** Ruled by the
-  maintainer, 2026-08-01. **Record only - not built, and one question below blocks building.**
+  maintainer, 2026-08-01.
+  ⚠ **CORRECTED 2026-09-02 (P186) - four of the six items are built and the blocking question is
+  answered.** Section labels, the pill active state, the collapsed rail with hover and focus
+  tooltips, and the wordmark ship in `index.html` and `app.css`; `index.html`'s own comment reads
+  *"`(aam)` closed as NO nested submenus"*, which retires the flyout and its keyboard cost below.
+  **What remains is the profile/licence header alone, and it waits on `DECISIONS.md` D5's
+  activation** - the account slot in `index.html` is reserved and empty. The rest is kept beneath as
+  the design record.
   - **Why the profile header applies at all, corrected.** It was first set aside on the
     assumption that truestill has no accounts. `DECISIONS.md` **D5** supersedes D1: truestill
     **requires a user account**, created at activation against a self-hosted licensing server.
@@ -25,7 +32,7 @@
     sign-out available *inside* it. Recorded with the reasoning because the failure mode is
     specific and severe: **a casual logout button can strand a user from software they have paid
     for**, on a machine that may be offline, for a product whose whole proposition is custody.
-  - **BLOCKING QUESTION, deliberately not answered here: do any screens get NESTED SUBMENUS?**
+  - **BLOCKING QUESTION (answered: NO nested submenus - `index.html`, see the correction above): do any screens get NESTED SUBMENUS?**
     truestill's screens are flat today. Adopting the reference's hierarchy means deciding which
     screens have children and which do not, and that is **information architecture, not
     styling** - it changes what the product says its parts are. Needs a ruling before any of

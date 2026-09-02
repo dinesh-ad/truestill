@@ -30,7 +30,7 @@
 
   `DestinationPreflight` (`filesystem.py:DestinationPreflight`) has **no field carrying "this was not
   measured"**. So an unmeasurable destination becomes *exactly enough*, `may_proceed` is `True`,
-  and `cli._print_preflight` (`cli.py:_print_report`) prints **nothing**.
+  and `cli._print_preflight` (`cli.py:_print_preflight`) prints **nothing**.
 
   🔑 **The conflation was removed where it was MEASURED and reappeared where it is REPORTED.** The
   `int | None` lands, does its job for one expression, and is collapsed back into a number before
@@ -53,17 +53,12 @@
   **loud and wrong** (a stop). Here it is **quiet and wrong** (a reassurance). `(aft)`'s entry
   already names that asymmetry; this is the other end of it.
 
-  ## ⚠ AND IT REACHES THE ARCHIVE PATH TOO (added 2026-08-23, `(agg)`)
+  ## ⚠ THE ARCHIVE PATH DOES NOT SHARE IT (corrected 2026-09-02, P186)
 
-  `precheck_archives` calls `space_for` (`archive_ingest.py:precheck_archives`), which is the **same**
-  `shutil.disk_usage` question `preflight_destination` asks - and `archive_ingest.py:_nearest` is
-  explicit that it must be asked *there*, because *"extraction writes a staging tree to this drive
-  before organize sees anything, so organize's own preflight never gets a turn."*
-
-  So the conflation this entry records is not confined to the organize preview: **an unmeasurable
-  destination reads as "enough room" for an archive unpack as well**, and the unpack is the path
-  that then writes gigabytes. `(agg)` gave that path the drive lock; it did not give it a space
-  check that can say *"I could not measure."*
+  This said the opposite from 2026-08-23. `archive_set.py:space_for` calls `shutil.disk_usage`
+  with **no** `except OSError`, so an unmeasurable destination raises out of
+  `archive_ingest.py:precheck_archives` rather than reading as *"enough room"*. Loud, not quiet.
+  The organize-preview half above is exactly as stated; `(agg)`'s drive lock is unaffected.
 
   ## NOT DECIDED
 

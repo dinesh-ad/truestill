@@ -17,14 +17,14 @@
   the run did not finish**.
 
   It is not hypothetical: `create_trip`'s own docstring advertises the `sqlite3.IntegrityError`
-  that would do it (`catalog.py:Catalog.event_by_signature`). `commit_catalog` (`event_review.py:propose_from_catalog`) has the same
+  that would do it (`catalog.py:Catalog.create_trip`). `commit_catalog` (`event_review.py:propose_from_catalog`) has the same
   shape for events.
 
   ## WHY IT CANNOT BE CLEANED UP AFTERWARDS
 
   ⚠ **Checked rather than assumed**: there is no `delete_trip` and no `unname` in the tree. The
   only `DELETE FROM trips|events|trip_days` anywhere is inside `update_trip_days`
-  (`catalog.py:Catalog.source_hints_for_drive`), which deletes a trip's own day rows only to reinsert them. Nothing writes
+  (`catalog.py:Catalog.update_trip_days`), which deletes a trip's own day rows only to reinsert them. Nothing writes
   `migration_journal` on this path either.
 
   So a half-applied naming is **neither undoable nor detectable**.

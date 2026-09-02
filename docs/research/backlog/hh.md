@@ -4,8 +4,10 @@
 
 - **(hh) `truestill adopt` - bring stray media in an organized drive into the catalog.** Ruled
   by the maintainer. A drive can hold media truestill does not know about: files copied in by hand, a
-  restore from elsewhere, or anything added after the last run. Today they are invisible to
-  `verify`, to the custody count, and to `clean-empty`'s classification.
+  restore from elsewhere, or anything added after the last run. `truestill rescan`
+  names them (`cli.py:_print_rescan_section`, `372fb22`) and writes nothing, so they stay outside
+  the custody count and `clean-empty`'s classification; the adopt half is what remains (this said
+  *invisible* until 2026-09-02, P186).
   - **Scan an organized drive for media files not in the catalog, report them named**, and on
     confirm run them **through the full normal organize pipeline** - EXIF, category rules, dating,
     dedup all decide placement.

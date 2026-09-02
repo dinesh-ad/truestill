@@ -48,9 +48,9 @@ a stated rule: *"one per failure family that a caller would act on differently."
 `MOVE_KEPT` from `0` to `1` is not a new family - it is a reclassification into an existing one -
 so it needs its own commit, its own test, and a line in the CLI's exit-code documentation.
 
-⚠ **The app half is worse and belongs to `(aiq)`**: `MOVE_KEPT` is in neither
-`_ORGANIZED_STATUSES` nor `failed`, so it falls out of both tallies and its label reaches no
-pixel. **Fixing the exit code without that leaves a file that is invisible on one surface and
+⚠ **The app half is narrower since `(aiq)`'s `eadc643`** (this said *falls out of both tallies*
+until 2026-09-02): `service/organize.py` counts `MOVE_KEPT` in `finished_clean`, so the run is no
+longer reported *done*; the label is still unrendered - `app.js` has no `move_kept` row. **Fixing the exit code without that leaves a file that is invisible on one surface and
 newly loud on the other.**
 
 ## RELATED
