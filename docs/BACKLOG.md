@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajr). Next free: (ajs).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajs). Next free: (ajt).**
 **Retired 2026-09-02 (P186), and named here because a retired letter is not a free one:** `(ss)`
 (organize preview *"hashes every file"*). False as titled - `scan.py:_needs_sha` pre-filters by
 byte size and the body itself said both proposed fixes were already built - and its acceptance
@@ -634,6 +634,15 @@ conditional, and ten rows were absent rather than conditional.
 scripts no gate runs, test corpora, payload typing, documentation keying. These are worth fixing
 and they are not product defects; keeping them in one drawer stops them competing with
 **Build next** for attention.
+
+- **(ajs) AT NO LAYER OF THIS TOOLING DOES "THE CHECK DID NOT RUN" LOOK DIFFERENT FROM "THE CHECK PASSED".**
+  Filed 2026-09-02 (P189) from P188's census. A shell pipeline reports its last command; a
+  substitution reports its output; PowerShell exits on the last native code; pre-commit prints
+  `Passed` over whatever a passing hook said; pytest exits 0 for a file that collected nothing;
+  both junit uploads warned on absence. **36 of 42 scope guards carried a floor and 6 did not** -
+  a convention written one instance at a time, not a mechanism. The body is the layer table,
+  what P188 and P189 fixed with a proof each, what is left, and one decision for the maintainer:
+  the depth-1 checkout. Body: [`research/backlog/ajs.md`](research/backlog/ajs.md).
 
 - **(ajr) A LETTER CITED IN CODE CAN RESOLVE TO NO ENTRY, AND NOTHING CHECKS THAT DIRECTION.**
   Filed 2026-09-02 (P186) from `(ajl)`. Every guard on letters reads `BACKLOG.md` and `SHIPPED.md`;
