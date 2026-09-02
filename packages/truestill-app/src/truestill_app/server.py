@@ -240,7 +240,11 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             mutating=mutating,
         )
         if isinstance(result, dict):
-            return JSONResponse(result)
+            # Bound to an annotated local so the narrowing is CONSUMED, as `dates_bake_run` does
+            # with its refusal: `result` is declared `str | DriveBusyPayload`, and only this arm
+            # reaches the wire. `(ahn)` stage A - the resolver reads the name, not the branch.
+            busy: DriveBusyPayload = result
+            return JSONResponse(busy)
         if on_started is not None:
             on_started()
         started_body: JobStarted = {"job_id": result}
@@ -547,7 +551,10 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         # the guard can see the call is pooled).
         claimed = await run_in_threadpool(_claim_clean_empty, path)
         if isinstance(claimed, dict):
-            return JSONResponse(claimed)
+            # `claimed` is `DriveBusyPayload | ExclusiveClaim`, a payload and a dataclass; naming
+            # the arm that goes out keeps the dataclass out of the contract. `(ahn)` stage A.
+            busy: DriveBusyPayload = claimed
+            return JSONResponse(busy)
         try:
             return JSONResponse(
                 await run_in_threadpool(service.clean_empty_apply, path, emptied, _db())

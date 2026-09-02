@@ -302,6 +302,7 @@ class _Scope:
         handler: ast.FunctionDef | ast.AsyncFunctionDef,
         helpers: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
         typed: dict[str, set[str]],
+        bound: dict[str, str] | None = None,
     ) -> None:
         self.helpers, self.typed = helpers, typed
         self.declared: dict[str, str] = {
@@ -309,6 +310,8 @@ class _Scope:
             for a in handler.args.args + handler.args.kwonlyargs
             if a.annotation is not None
         }
+        # A helper's parameter means what the CALLER passed, not its own annotation: stage A.
+        self.declared.update(bound or {})
         self.raw: dict[str, ast.expr] = {}
         self.resolving: set[str] = set()
         self.body = _own_statements(handler)
@@ -323,6 +326,10 @@ class _Scope:
                 self.raw[node.targets[0].id] = node.value
 
     def of_callable(self, f: ast.expr) -> str:
+        # `partial(service.X, ...)` is the callable `service.X` with arguments filled in; the
+        # pool runs it and the response is still what `service.X` declares. Stage A.
+        if isinstance(f, ast.Call) and getattr(f.func, "id", None) == "partial" and f.args:
+            return self.of_callable(f.args[0])
         if _is_service(f):
             assert isinstance(f, ast.Attribute)
             return " | ".join(sorted(self.typed.get(f.attr, {f"?service.{f.attr}"})))
@@ -353,6 +360,23 @@ class _Scope:
             return f"HELPER:{name}"
         return f"?{ast.unparse(call)[:40]}"
 
+    def binding(self, text: str, args: list[ast.expr]) -> dict[str, str]:
+        """What a followed helper's first positional parameter is, from this call's argument.
+
+        `_start_drive_job(started, ...)` receives the factory's return, and its own annotation
+        (`JobTarget[object] | Mapping[str, object]`) is deliberately wide. The caller's argument
+        is the precise type, minus every `JobTarget[...]` member - a job target is run, never
+        sent, which was stage 2's whole lesson. An empty remainder means the refusal arm is
+        unreachable from this caller and is recorded as :data:`_NEVER`.
+        """
+        if not text.startswith("HELPER:") or not args:
+            return {}
+        params = self.helpers[text.removeprefix("HELPER:")].args.args
+        if not params:
+            return {}
+        kept = [m for m in _union_members(self.of(args[0])) if not m.startswith("JobTarget[")]
+        return {params[0].arg: " | ".join(kept) or _NEVER}
+
     def of(self, expr: ast.expr) -> str:
         if isinstance(expr, ast.Await):
             return self.of(expr.value)
@@ -363,6 +387,25 @@ class _Scope:
         if isinstance(expr, ast.Call):
             return self.of_call(expr)
         return f"?{ast.unparse(expr)[:40]}"
+
+
+#: A response arm proved unreachable from its caller: `dict(target)` when every member the
+#: caller passes is a `JobTarget[...]`. Dropped from a route's set, never written into a row.
+_NEVER = "never"
+
+
+def _union_members(text: str) -> list[str]:
+    """`A | B[C | D] | E` -> `["A", "B[C | D]", "E"]` - a split that respects brackets, because
+    `JobTarget[CompletionBase | OrganizeDoneSummary]` is one member, not two."""
+    members, depth, start = [], 0, 0
+    for i, ch in enumerate(text):
+        depth += ch == "["
+        depth -= ch == "]"
+        if depth == 0 and text.startswith(" | ", i):
+            members.append(text[start:i])
+            start = i + 3
+    members.append(text[start:])
+    return [m for m in members if m]
 
 
 def _own_statements(node: ast.AST) -> list[ast.AST]:
@@ -377,22 +420,24 @@ def _own_statements(node: ast.AST) -> list[ast.AST]:
     return out
 
 
-def _returned(node: ast.Return, scope: _Scope) -> str:
-    """What one `return` sends: the argument of `JSONResponse(...)`, a helper to follow, a
-    non-JSON response class, or an unresolved expression kept under `?`."""
+def _returned(node: ast.Return, scope: _Scope) -> tuple[str, dict[str, str]]:
+    """What one `return` sends: the argument of `JSONResponse(...)`, a helper to follow (with
+    what its first parameter is bound to), a non-JSON response class, or an unresolved
+    expression kept under `?`."""
     assert node.value is not None
     value = node.value.value if isinstance(node.value, ast.Await) else node.value
     if isinstance(value, ast.Call):
         name = getattr(value.func, "id", None)
         if name == "JSONResponse" and value.args:
-            return scope.of(value.args[0])
+            return scope.of(value.args[0]), {}
         if name in _NOT_JSON:
-            return f"not JSON:{name}"
+            return f"not JSON:{name}", {}
         if name == _POOL and value.args:
-            return scope.of_callable(value.args[0])
+            text = scope.of_callable(value.args[0])
+            return text, scope.binding(text, value.args[1:])
         if name in scope.helpers:
-            return f"HELPER:{name}"
-    return f"?{ast.unparse(node.value)[:40]}"
+            return f"HELPER:{name}", scope.binding(f"HELPER:{name}", value.args)
+    return f"?{ast.unparse(node.value)[:40]}", {}
 
 
 def _response_types(
@@ -400,6 +445,7 @@ def _response_types(
     helpers: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
     typed: dict[str, set[str]],
     seen: frozenset[str] = frozenset(),
+    bound: dict[str, str] | None = None,
 ) -> set[str]:
     """The types of every expression that reaches ``JSONResponse(...)`` from this handler.
 
@@ -410,17 +456,19 @@ def _response_types(
     handler *refers to*, so a job route resolved to `JobTarget[BackupRunSummary]`, the factory's
     callable type, which no route ever sends.
 
-    ⚠ **No branch narrowing**: `result: str | DriveBusyPayload` reads as the union it is declared
-    as, although only the `DriveBusyPayload` arm reaches `JSONResponse`, and `dict(target)` reads
-    as `target`'s whole parameter annotation. Every unresolved expression is kept under `?`,
-    never dropped - an unresolved response must show up in the derivation, not vanish from it.
+    **Stage A (P193) closed the two gaps P191 left open, without branch analysis.** A narrowed
+    value is bound to an annotated local in `server.py` (`busy: DriveBusyPayload = result`), so
+    the name IS the arm; and a followed helper's first parameter reads as the caller's argument
+    minus its `JobTarget[...]` members, so `dict(target)` names the refusal payloads this route
+    can actually send. Every unresolved expression is kept under `?`, never dropped - an
+    unresolved response must show up in the derivation, not vanish from it.
     """
-    scope = _Scope(handler, helpers, typed)
+    scope = _Scope(handler, helpers, typed, bound)
     types: set[str] = set()
     for node in scope.body:
         if not isinstance(node, ast.Return) or node.value is None:
             continue
-        text = _returned(node, scope)
+        text, binding = _returned(node, scope)
         if not text.startswith("HELPER:"):
             types.add(text)
             continue
@@ -428,8 +476,8 @@ def _response_types(
         if name in seen or name == handler.name:
             types.add(f"?recursive:{name}")
         else:
-            types |= _response_types(helpers[name], helpers, typed, seen | {name})
-    return types
+            types |= _response_types(helpers[name], helpers, typed, seen | {name}, binding)
+    return types - {_NEVER}
 
 
 def _response_resolution() -> dict[str, set[str]]:
@@ -444,12 +492,13 @@ def _response_resolution() -> dict[str, set[str]]:
     }
 
 
-#: Re-derived 2026-09-02 (P191) with the narrowed resolver: 52 routes, **29** resolve to more than
-#: one type - 17 job-start routes sharing one envelope (`JobStarted` / `DriveBusyPayload` / the
-#: refusal Mapping), 6 `GET`+`POST` pairs on one `Route`, 6 genuine unions. Stage 2's resolver
-#: says 12 for the same tree. Floors, never ceilings; the count is read from
-#: `test_the_response_derivation_is_real`, and NO declaration row is written from it - the
-#: maintainer rules on the emission shape first (`(ahn)`).
+#: Re-derived 2026-09-02 (P193, stage A): 52 routes, MEASURED_MULTI_TYPE_RESPONSES resolve to more
+#: than one type-string (40 when a `X | Y` string is counted by member), and the job envelope is
+#: now named PER ROUTE - `JobStarted`, `DriveBusyPayload`,
+#: and each refusal payload the route's own factory can return - instead of a shared
+#: `Mapping[str, object]`. Zero unresolved. Floors, never ceilings; the count is read from
+#: `test_the_response_derivation_is_real`. No declaration row is written from it yet: stage D
+#: emits from it (`(ahn)`).
 MEASURED_RESPONSE_ROUTES = 52
 MEASURED_MULTI_TYPE_RESPONSES = 29
 
@@ -469,7 +518,15 @@ def test_the_response_derivation_is_real() -> None:
     for path in job_start:
         joined = " ".join(resolution[path])
         assert "DriveBusyPayload" in joined, f"{path} lacks the busy arm"
-        assert "Mapping[str, object]" in joined, f"{path} lacks the refusal arm"
+        # Stage A: the two shapes P191 said a row must never encode.
+        assert "Mapping[str, object]" not in joined, f"{path} still carries the wide parameter"
+        assert "str | DriveBusyPayload" not in joined, f"{path} still carries the unnarrowed local"
+        assert "JobTarget[" not in joined, f"{path} names a job target as a response"
+    # The refusal arm is the caller's, per route: none for backup, two for the bake.
+    assert resolution["/api/backup/run"] == {"JobStarted", "DriveBusyPayload"}
+    bake = " ".join(resolution["/api/dates/bake/run"])
+    assert "BakeRefusal" in bake, bake
+    assert "DriveUnavailablePayload" in bake, bake
     assert resolution["/api/library/stats"] == {"LibraryStats"}
     multi = sum(1 for t in resolution.values() if len(t) > 1)
     assert multi >= MEASURED_MULTI_TYPE_RESPONSES - 5, f"multi-type routes fell to {multi}"
@@ -478,4 +535,4 @@ def test_the_response_derivation_is_real() -> None:
         for p, t in resolution.items()
         if any(x.startswith("?") for x in t)
     }
-    assert len(unresolved) <= 2, f"unresolved responses grew: {unresolved}"
+    assert not unresolved, f"unresolved responses: {unresolved}"
