@@ -36,9 +36,11 @@ def _recipe() -> str:
     )
     # `-n` still EXECUTES a recipe line that mentions `$(MAKE)`, so the script is followed by
     # its own output; the recipe ends at the outermost `fi`.
+    # macOS's make prints each recipe line with its leading tab; GNU make on Linux strips it.
     lines = done.stdout.split("\n")
-    assert "fi" in lines, "make -n did not print the gate recipe; the subject is missing"
-    recipe = "\n".join(lines[: lines.index("fi") + 1])
+    ends = [index for index, line in enumerate(lines) if line.strip() == "fi"]
+    assert ends, "make -n did not print the gate recipe; the subject is missing"
+    recipe = "\n".join(lines[: ends[0] + 1])
     assert "git diff" in recipe
     return recipe
 
