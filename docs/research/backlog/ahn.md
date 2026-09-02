@@ -7,6 +7,12 @@
 
   ## THE GAP
 
+  ⚠ **NO TYPEDDICT COUNT IS CARRIED HERE (2026-09-02, P193).** The figures below were true when
+  filed and stale three ways by P193: 128 class-form in the tree, 133 by import, 140 components
+  once nesting is followed - and the AST census misses the three that inherit another TypedDict,
+  `OrganizeDoneSummary` among them, the largest completion payload. **The count is derived at
+  emission**, by stage C, and nowhere else. The original sentence follows as the record of P81.
+
   **117 TypedDicts, 579 key slots, 289 distinct key names** describe what every route returns, in
   Python, and **nothing carries any of it across the wire**. `(ahl)` measured the consequence from
   the other side: **34** key names reach no consumer, and the React source consumes **zero** payload
@@ -119,7 +125,7 @@
 
      **Nothing was declared this turn.** The gate was *"re-derive before writing any row; if the
      count is wrong, stop and report"*, and it is reported here rather than worked around.
-  3. **A Python-type to JSON-Schema mapping** for 117 TypedDicts, including the **29** that are
+  3. **A Python-type to JSON-Schema mapping** for every TypedDict (derived at emission), including the **29** that are
      nested-only and the `X | Y` unions.
   4. ✅ **RULED 2026-08-25 (P91), and it is no longer a blocker.** It was filed as *"OpenAPI has
      no place for an event stream, so the job summaries have no home"*. **That framing was too
@@ -181,9 +187,9 @@
   1. **The emission shape.** The table above lists three and chooses none. The tree suggests a
      fourth it does not list, and it is the proposal: **components from the TypedDicts, the
      route-to-payload join from the narrowed resolver.** The extraction half exists
-     (`test_no_thirty_fifth_dead_payload_key.py:_declared`, 117 TypedDicts in under a second); the
+     (`test_no_thirty_fifth_dead_payload_key.py:_declared`, every TypedDict in under a second); the
      join half now exists (`_response_types`); what is missing between them is the Python-type to
-     JSON-Schema mapping (4c: 117 TypedDicts, 29 nested-only, `X | Y` unions, `Literal` tags,
+     JSON-Schema mapping (4c: every TypedDict, derived at emission, 29 nested-only, `X | Y` unions, `Literal` tags,
      `NotRequired` read from the AST per 4e) and one script that writes `openapi.json` from the
      two. **Cost**: 4c is mechanical and sizeable, about the size of `_declared` again; the script
      is one function; a contract test that regenerates and diffs is one file. Hand-writing 579
@@ -197,6 +203,53 @@
 
   Stage 5 then is one generated file imported at `main.tsx`'s cast, and `main.tsx:37`'s
   `Record<string, unknown>` is deleted - the whole point.
+
+  ## RULED 2026-09-02 (P193): THE SHAPE, THE DEPENDENCIES, AND WHAT MSGSPEC PROVED
+
+  **Ruling 1**: components from the TypedDicts, the route join from the narrowed resolver; the
+  spec is **committed** and CI is red on drift. **Ruling 2**: `openapi-typescript` is a frontend
+  dev dependency. **Prior art**: `airbytehq/airbyte-python-cdk#751` - a CI check that the
+  committed OpenAPI spec is current whenever the API models change. ⚠ **A cited example the
+  advisor supplied could not be found** (a write-up attributed to *mcalthrop*, April 2026;
+  searched by name and by phrase, nothing carrying it) and was replaced rather than kept. Same
+  class as the four entries wrong about their own subject, and it came from the maintainer.
+
+  **msgspec, tried on every TypedDict in a throwaway environment, 2026-09-02**:
+
+  | | evidence |
+  |---|---|
+  | as shipped | `TypeError Literal may only contain None/integers/strings - typing.Literal[False] is not supported` on **35 of 133** - every `ok: Literal[True]`/`Literal[False]` tag; and `Type unions may not contain more than one TypedDict type`, which is every multi-type route |
+  | `NotRequired` at runtime | on 3.14 under `from __future__ import annotations`, `IngestPreviewEmpty.__optional_keys__ == []` while `get_type_hints` reads `NotRequired[str]` - msgspec would emit all **25** optional fields as required, silently |
+  | with a rebuild pass (TypedDicts rebuilt from `get_type_hints`, boolean `Literal` → `const`) | `ok 133 failed 0 in 30 ms`; 140 components; **0** of 25 `NotRequired` fields wrongly required; `openapi-typescript` 7.13.0 consumed the result in 135 ms with `ok: false` preserved |
+  | the inventory is not the wire | seven components are **dataclasses** (`ReviewCard`, `TripProposal`, ...) reached through `EventProposalSuccessPayload` and `MergeReviewCardsResult`, which are internal session objects; the wire shape is `ReviewCardsPayload` and the resolver already names it |
+
+  **So msgspec replaces the type-to-schema half of 4c** with a library call plus that pass, and
+  the pass is where prerequisite 5 lives. It is a **dev** dependency: 0.21.1, BSD-3, zero
+  dependencies, 48 wheels including cp314 and cp314t, ~220 KB, never imported at runtime. The
+  Pydantic ruling (`packages/truestill-app/pyproject.toml`, *"disallowed for our models"*) is
+  about a model layer; this defines no model and touches no request path.
+
+  ⚠ **THE RULE STAGE C'S SCRIPT MUST CARRY IN ITS OWN TEXT: emit the closure of what the
+  resolver names per route, never the TypedDict inventory.** Emitting from the inventory puts
+  the seven dataclasses and two session objects into the spec describing nothing the server
+  sends. Whoever reads `emit_openapi.py` meets that there or repeats it.
+
+  ## THE STAGES, SMALLEST FIRST, EACH MAKING THE NEXT SAFE
+
+  | stage | proves | status |
+  |---|---|---|
+  | **A · close 4b** - the busy arm and the clean-empty arm bound to annotated locals (the `dates_bake_run` convention); the resolver binds a helper's first parameter to the caller's argument and drops `JobTarget[...]` members, so the refusal arm is named per route | the join is exact; every later row reads it | |
+  | **B · type the SSE frames** - `progress`/`done`/`error` are dict literals on `queue.Queue[dict[str, Any]]`, plus a hand-written `event: error` for an unknown job; `done.summary` is the union of the 13 factories' `T` | the stream has a schema to reference; 4a for the stream | open |
+  | **C · the rebuild pass + msgspec**, guard first: every AST `NotRequired` absent from `required`, every `ok:` tag a `const`, no component the resolver does not reach | 4e proved before 4c is trusted | open |
+  | **D · the join + emission** - `oneOf` of `$ref`s per route, `GET`+`POST` as two operations, the events route as `text/event-stream`; `openapi.json` committed; a Python-only regenerate-and-diff test in `make check` | the spec is the artefact and drift is red, in the lane with no Node | open |
+  | **E · stage 5** - `openapi-typescript`; `api.d.ts` generated and committed with the spec's sha256 in its header; `make frontend` regenerates and diffs; a Python test checks the header hash; `main.tsx`'s cast deleted | a read is a type reference | open |
+
+  **The contract test**: (1) `openapi.json` equals what the tree emits - Python, `make check`;
+  (2) `api.d.ts` was generated from this spec - header hash in `make check`, full diff in
+  `make frontend`; (3) every response property is referenced from `frontend/src` by the
+  TypeScript compiler's reference search - the Node lane, and **what replaces `(ahl)`'s
+  `DEAD` table**, still not liveness and said so. **Neither census goes at stage 5**: the
+  job-summary guard retires row by row per island; the dead-key census goes when `app.js` does.
 
   ## RELATED
 

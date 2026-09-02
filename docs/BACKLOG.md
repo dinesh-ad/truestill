@@ -726,7 +726,7 @@ and they are not product defects; keeping them in one drawer stops them competin
   [Full entry](research/backlog/ahm.md)
 
 - **(ahn) THE PAYLOAD CONTRACT STOPS AT THE PYTHON BOUNDARY, AND REACT IS BEING BUILT AGAINST
-  NOTHING.** Filed 2026-08-25 (P81). 117 TypedDicts describe every route's return **in Python**,
+  NOTHING.** Filed 2026-08-25 (P81). The TypedDicts (**derived at emission, no count carried** - P193) describe every route's return **in Python**,
   and nothing carries any of it across the wire; the React source consumes **zero** payload keys.
   ⚠ **The live instance is already in the tree, before a screen exists**: `main.tsx:37` declares
   `type OrganizeSummary = Record<string, unknown>` - the cast that lets generated types change
@@ -753,6 +753,9 @@ and they are not product defects; keeping them in one drawer stops them competin
   job-start routes sharing one envelope, 6 `GET`+`POST` pairs, 6 genuine unions), one expression
   unresolved and named. No declaration row is written. **Two rulings are the maintainer's** and
   are in the body: the emission shape and the `openapi-typescript` dependency.
+  ✅ **BOTH RULED 2026-09-02 (P193)**: components from the TypedDicts via **msgspec** (tried on all of
+  them; works after a rebuild pass the body records), the route join from the resolver, the spec
+  committed and red on drift; `openapi-typescript` approved. Five stages A-E in the body, A first.
   [Full entry](research/backlog/ahn.md)
 
 - **(ahg) `cli-app-parity.md` IS KEYED BY CLI SUBCOMMAND, SO AN APP-ONLY CAPABILITY HAS NO ROW.**
