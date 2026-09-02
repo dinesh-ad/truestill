@@ -1,6 +1,6 @@
 # (hh) `truestill adopt` - bring stray media in an organized drive into the catalog.
 
-*Body of backlog entry `(hh)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(hh)`, under **Conditional, and counted**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(hh) `truestill adopt` - bring stray media in an organized drive into the catalog.** Ruled
   by the maintainer. A drive can hold media truestill does not know about: files copied in by hand, a

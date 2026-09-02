@@ -230,6 +230,14 @@ That is enough to say *still plausible*; it is not enough to say *confirmed*. **
 on the strength of it**, and an entry that turns out already built should be closed with its commit
 rather than treated as a triage failure.
 
+- **(r) Analyze mode - the hash cache half is SHIPPED.** ⚠ **Build next, 2026-09-02 (P187)**: no condition - tier 2b and the app screen are absent for everyone; scoped work, not a conditional defect. [Full entry](research/backlog/r.md)
+
+- **(abz) Organize shows one population three ways and connects none of them.** ⚠ **Build next, 2026-09-02 (P187)**: no condition - the three framings render on every preview. [Full
+  entry](research/backlog/abz.md)
+
+- **(aby) Organize screen: copy that repeats itself or explains its own button.** ⚠ **Build next, 2026-09-02 (P187)**: no condition - both duplicated sentences render on every Organize open, for everyone. [Full
+  entry](research/backlog/aby.md)
+
 - **(abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.** ⚠ **Build next, 2026-09-02 (P186)**: the body called this *probably unreachable*. It is reachable: `/api/ingest/archives/run` goes through `server.py:create_app._start_drive_job` with `mutating=True`, which answers a busy drive with `ok: false`, and 16 of the 17 `runJob` call sites in `app.js` pass an `onRefuse`. One line. [Full
   entry](research/backlog/abr.md)
 
@@ -366,25 +374,6 @@ Four cannot be counted on one machine and say why. Four had no condition at all 
 *Build next* or *Ideas / deferred*. P186 had found 8 of 43 with any measurement; the label said
 conditional, and ten rows were absent rather than conditional.
 
-- **(aik) NOTHING READS A META ARCHIVE'S SIDECAR, AND ITS MEDIA ARRIVES STRIPPED.** Filed
-  2026-08-29 (P135), from source. A Facebook or Instagram archive ships media with metadata
-  **stripped** and the dates **separately in JSON** (`timestamp_ms`), so the photograph carries no
-  date and the date carries no photograph. **Nothing reads that pairing**: every `json.load*` in
-  `packages/*/src` was enumerated and `takeout.py` is the only media-sidecar reader, Google-specific
-  at both ends (`photoTakenTime`/`creationTime`, and `_SUPP_RE` matching *supplemental-metadata*).
-  The prior art is inside the product - `SidecarIndex` - and the shape is **pre-ruled** by
-  `takeout.py`'s own docstring: *"if a second service ever ships a sidecar format, it gets its own
-  module beside this one"*. ⚠ Genuinely unexamined rather than refused:
-  `messenger-dates-research.md` ruled on messenger **filename conventions**, never on an archive.
-  **A gap, not a design** - the body names three things to establish before any code (format
-  stability, whether the date attaches to a *message* rather than a file, and that a Meta date under
-  `DateSource.TAKEOUT` would name the wrong producer - `(afl)`'s class, a contract consequence).
-  **Field notes first**, the way `takeout-format.md` preceded the Takeout work.
-  ⚠ The body also records the **false premise this letter was twice given** - a folder-date tier
-  that does not exist - with the four checks that establish the null, and the **midnight note**
-  (a filename date lands at 00:00:00; that is an absent time, **not** PhotoPrism #1102's invented
-  one). Body: [`research/backlog/aik.md`](research/backlog/aik.md).
-
 - **(aih) A PHOTOGRAPH WHOSE EXIF WAS STRIPPED IS FILED A YEAR FROM ITS OWN TWIN, AND THE PRODUCT ALREADY KNOWS THEY ARE THE SAME.** 📏 **Counted 2026-09-02 (P187): real library 4 mixed groups, 3 split across folders** (0.03% of hashed files); manufactured corpus **435 of 435** split. Hamming 0 only, so a floor.
   Filed 2026-08-29 (P131, soak eight), **measured on 500 pairs**: 500 of 500 EXIF-stripped copies
   landed in a different folder from their dated original - `WhatsApp/Undated/` against
@@ -460,20 +449,6 @@ conditional, and ten rows were absent rather than conditional.
   `False` without raising - measured twice, with and without an active writer. The errno that
   produced `REFUSED` in the soak is **unknown and named as unknown**.
   Body: [`research/backlog/aji.md`](research/backlog/aji.md).
-
-- **(air) A `--move` THAT COULD NOT REMOVE THE SOURCE EXITS 0.** Filed 2026-08-30 (P145), from
-  `(aim)`'s route census; **filed rather than decided**. `MOVE_KEPT` means the copy is in the
-  library and verified and the **source was deliberately kept** - `organizer._move_source` *"never
-  deletes on doubt"*, which is right. But `cli._print_execution` selects failures as
-  `r.status is ActionStatus.FAILED` alone, so the run exits **0**: a `--move` that did not move
-  reports success. `1` is already this CLI's *"finished, but something is wrong with the library"*
-  and `organize && next_step` would chain past it. ⚠ **The counter-argument is real and is why
-  this is a question**: nothing was lost, the library is correct, and a non-zero exit for a
-  successful copy would be its own cry-wolf. ⚠ **The app half is narrower since `(aiq)`'s
-  `eadc643`**: `service/organize.py` counts `MOVE_KEPT` in `finished_clean`, so the run is no longer
-  reported *done*; what is still missing is the label - `app.js` renders no `move_kept` row. **Do not fold this into a summary-wording change** - it
-  alters an exit code, which is a contract a script reads. Related: `(aim)`, `(aiq)`.
-  Body: [`research/backlog/air.md`](research/backlog/air.md).
 
 > ⚠ **`(ait)` AND `(aiu)` LEAD THIS GROUP DELIBERATELY.** They are **instrument** defects, not
 > product ones, and they rank above the two product findings below them because a wrong answer key
@@ -619,59 +594,6 @@ conditional, and ten rows were absent rather than conditional.
   **Permission: an offset present and read is evidence; an offset absent must never be inferred.**
   [Full entry](research/backlog/agz.md)
 
-- **(agp) THE BUSY MESSAGE ON THE JOB AND CLI PATHS NAMES A SECOND WINDOW THAT DOES NOT EXIST.** ⚠ **Retitled 2026-09-02 (P186)**: *"at the user's first click"* is dead - a click is a request, requests answer with `catalog_busy.py:CATALOG_BUSY_REQUEST_MESSAGE` (`fd0ffe9`), and the schema builds at boot (`service/drives.py:prepare_catalog`). `catalog_busy.py:CATALOG_BUSY_MESSAGE` survives on the job event in `jobs.py` and on the CLI, and even the request sentence hedges *"another Truestill window may be holding"*.
-  Recorded 2026-08-23, split out of `(adt)` when it closed, **ranked above `(agq)` by the
-  maintainer - a wording-and-detection defect, not a lock defect.** `CATALOG_BUSY_MESSAGE`
-  (`catalog_busy.py:CATALOG_BUSY_MESSAGE`) says *"close the other Truestill window, or stop the other command in
-  your terminal"* - and the likeliest way to meet it is a **first-run schema build**: one window,
-  one user, their first ever click, **both clauses naming things that do not exist**. That is the
-  product telling a user something false at the exact moment it is failing them.
-  🔑 **Prior art recorded so it is not re-derived**: Zotero says plainly another instance has the
-  database open and **earns** it - `locking_mode=EXCLUSIVE` makes it true. This product cannot
-  claim it: `(adn)` says two apps really can run, and the common cause has no second window at
-  all. **The ruled shape**: say what is actually known - the catalog is busy, this is usually the
-  first run preparing the library, it should clear on retry - and name a second window **only if
-  one was actually detected**. The commonest instance was already disarmed by `b0a5d7e`
-  (boot-time build, 2026-08-14 - see `(agq)`'s closure); this is what the message says whenever
-  it still fires.
-  ✅ **Part 1 (S4) shipped 2026-08-23**: the census found seven unhandled direct-write routes -
-  a class - so busy is now recognised once, app-level, exactly as the CLI does at its top; 503 +
-  the no-window sentence, faults keep their 500, settings writes retry twice. **The ladder is
-  two tiers since 2026-08-23 - flock probe + wording**: tier 1's in-process registry is ruled
-  DEAD, because the app has built at boot since `b0a5d7e` (2026-08-14) and the only reachable
-  "preparing" case is cross-process, which an in-process registry can never see. What remains:
-  the probe and S1/S2/S3 wording. [Full entry](research/backlog/agp.md)
-
-- **(agd) A DEGRADED WATCHER SAYS NOTHING, AND THERE IS NO CHANNEL FOR IT TO SAY ANYTHING IN.**
-  Recorded 2026-08-23, split out of `(aft)` **while building it**. `(aft)` made an unmeasurable
-  probe fail **open** - correct, and the module's recorded posture - but it fails open
-  **silently**: a run completes with the disk-space guard switched off and nothing counts or names
-  it. ⚠ **Both sides are filed because either may win.** For: §9's never-silent clause
-  (`IMPLEMENTATION_STANDARDS.md:1354`) makes a *degraded* outcome something that must be counted
-  and named, and it is binding contract. Against: `_stop_if_ground_moved`'s own docstring
-  (`truestill_core/backup.py:CopyVerdict`) argues that *"a second mechanism for the same class of event would be a
-  second thing to keep in step"* - made about the stop path, and it applies to a notice path.
-  🔑 **It is one entry, not organize's third of one**: `HealthVerdict` is binary and the three
-  watchers consume it three ways - an `ActionResult`, a `MigrationOutcome` field, and a `raise`
-  with **no non-fatal path at all** - so building the channel for one leaves two, which is §4's
-  fifty-sixth member **scheduled rather than inherited**. **The wording is already ruled** and
-  carries three constraints that each cost a draft: no free-space figure, no reason word, and
-  neither *"Truestill's catalog folder"* nor *"nothing was left half-written"*.
-  [Full entry](research/backlog/agd.md)
-
-- **(age) `(aek)`'s SILENT DIRECTION SURVIVES INSIDE `(aek)`'s OWN FIX.** Recorded 2026-08-23,
-  found while investigating `(aft)`. `preflight_destination` correctly records `free: int | None`
-  (`filesystem.py:preflight_destination`) and then **throws it away one line later**: `free_bytes=need if free
-  is None else free` (`:271`), with `DestinationPreflight` carrying **no field** for *"this was not
-  measured"*. So unmeasurable becomes *exactly enough*, `may_proceed` is `True`, and
-  `cli._print_preflight` prints nothing. 🔑 **The conflation was removed where it was MEASURED and
-  reappeared where it is REPORTED** - a fix that stops one line short of the surface, which is why
-  it is its own letter rather than a note on `(aek)`. ⚠ **The backstop argument does not cover
-  it**: *"it fails later, and louder, with the real reason"* is about a **run**, and a **preview**
-  exists to say what will happen before it happens - so the later failure is not its backstop, it
-  is what the preview was meant to prevent. Mirror of `(aft)`: loud-and-wrong there,
-  quiet-and-wrong here. [Full entry](research/backlog/age.md)
-
 - **(adx) A LIBRARY THAT MOVES IS HANDLED. WHAT IS MISSING IS THE DISCLOSURE.** 📏 **Counted 2026-09-02 (P187): 5 of 19** recorded locations stale (soak ten's exFAT, soak eleven's NTFS); `library.root` absent from all nine catalogs because every one was CLI-driven. Recorded
   2026-08-18. Three gaps, one user journey. [Full entry](research/backlog/adx.md)
 
@@ -685,48 +607,16 @@ conditional, and ten rows were absent rather than conditional.
   second instance **deletes the link to the first, which is still running**.
   [Full entry](research/backlog/adn.md)
 
-- **(aed) THE METADATA BAKER STAGES EVERY BAKED FILE THROUGH THE SYSTEM TEMP DIRECTORY.** Recorded
-  2026-08-19, split from `(adb)`. **Measure before changing anything.** [Full
-  entry](research/backlog/aed.md)
-
 - **(adg) THE VERIFY RESULT BLOCK MOVES `#bk-preview` BY +92.4px - a bigger mover than `(acw)`, and
   it cannot be reserved.** 📏 **Uncountable here, 2026-09-02 (P187)**: a user reaching for *Preview copy* while a verify card lands; 4 browser-lane sites reach `#verify-result`, which says the surface is addressed, not how often the gesture happens. [Full entry](research/backlog/adg.md)
 
 - **(ada) THE BACKUPS SCREEN NOW PUTS STATE BELOW THE FORMS, AND A ONE-COPY WARNING CAN FALL BELOW
   THE FOLD.** 📏 **Counted 2026-09-02 (P187): 4 of 9** catalogs are one-drive; 2 browser-lane sites reach the at-risk banner; the pixel figure is this entry's own. [Full entry](research/backlog/ada.md)
 
-- **(aby) Organize screen: copy that repeats itself or explains its own button.** [Full
-  entry](research/backlog/aby.md)
-
-- **(abz) Organize shows one population three ways and connects none of them.** [Full
-  entry](research/backlog/abz.md)
-
-- **(abt) The unhinted-residue prompt is CLI-only, because the app cannot ask mid-job.** Recorded
-  2026-08-07. [Full entry](research/backlog/abt.md)
-
 - **(abg) A reassured backup ages into SOFTENING and STALE now; what it lacks is a GONE state - "Schrodinger's backup".** 📏 **Counted 2026-09-02 (P187): 5 of 39,342** copies carry `missing_at` (soak2 drive B: 2,264 on disk against 2,269 rows); 4 of 16 drive hints no longer resolve. ⚠ **Retitled 2026-09-02 (P186)**: staleness shipped in three stages - `drive.py:CustodyTier` at `CUSTODY_SOFTENS_AFTER_DAYS` 30 and `CUSTODY_STALE_AFTER_DAYS` 90, rendered by `cli.py:_cmd_status` and `service/drives.py` alike. The old title named a defect that no longer exists. 📌 **read the
   entry first - a premise inside it was corrected.** **Stages 1-3 have shipped**; what remains open
   is the `GONE` state, which is unbuilt and unruled. Recorded 2026-08-05. [Full
   entry](research/backlog/abg.md)
-
-- **(abk) The library has no per-folder view - "where is all this actually sitting".** [Full
-  entry](research/backlog/abk.md)
-
-- **(abb) The other capture-filename conventions.** `rule_camera_filename` shipped with ONE
-  pattern, Android's `IMG_`/`VID_`; the other vendors' conventions are unbuilt. Recorded
-  2026-08-03. [Full entry](research/backlog/abb.md)
-
-- **(aac) Organize names unreadable source files; ONE RESIDUE REMAINS, and it is app-side.**
-  ⚠ **Retitled 2026-08-22 - the bare title read as a whole unbuilt feature and two thirds is
-  built.** Scan tier and residue 1: built 2026-08-02. **Residue 3 closed by `(aev)` on 2026-08-21**
-  and nobody connected them - `FileHashes.perceptual_computed` plus `uncompared_photos` are exactly
-  the *"readable but undecodable is indistinguishable from a video"* distinction it asked for.
-  **What is left is residue 2 alone**: `unreadable_files` is built in `organize_preview` only; the
-  run's `failed_files` (`service/organize.py:_failed_report`) names attempted failures, so what is
-  left is an unreadable file never attempted - a cached exact duplicate is `DUPLICATE`, not `FAILED`. [Full
-  entry](research/backlog/aac.md)
-
-- **(r) Analyze mode - the hash cache half is SHIPPED.** [Full entry](research/backlog/r.md)
 
 - **(kk) Persist `GPSDateStamp` at ingest - the coordinates half shipped at v17.** 📏 **Counted 2026-09-02 (P187): 808 of 10,710** files carry coordinates; `GPSDateStamp` in 15 of 115 and 26 of 10,703 corpus files; the `(acn)` shape (GPS date, no capture tag) **2** usable. ⚠ **Retitled 2026-09-02 (P186)** so the title leads with what is unbuilt: `catalog.py` has `gps_latitude`/`gps_longitude` and no date column; `GPSDateStamp` is read in `video_utc.py` and never written.
   ⚠ **Retitled 2026-08-29.** The title read *"it is read and then thrown away"*, which its own
@@ -734,9 +624,6 @@ conditional, and ten rows were absent rather than conditional.
   arrived at v17, `event_review` and `trip_review` read them for the jump-cut, and **808 files
   in the soak-five catalog carry coordinates**. What remains open is `GPSDateStamp`, and rows
   written before v17 keep NULLs because v17 deliberately does no backfill. [Full entry](research/backlog/kk.md)
-
-- **(ll) Sub-day event identity that survives a changing file set.** [Full
-  entry](research/backlog/ll.md)
 
 - **(hh) `truestill adopt` - bring stray media in an organized drive into the catalog.** 📏 **Counted 2026-09-02 (P187): 1** stray on soak2 drive E (2,270 on disk, 2,269 rows; the file is known to A, B and D by content), **0** on soak-2026-08-25's two drives of 10,547 media each. [Full
   entry](research/backlog/hh.md)
@@ -1115,6 +1002,116 @@ cited letter must resolve.
 here because a lost answer key corrupts every measurement taken against it, which is `(ait)` and
 `(aiu)`'s ruling. ⚠ **Never delete one to shorten the list.**
 
+- **(aik) NOTHING READS A META ARCHIVE'S SIDECAR, AND ITS MEDIA ARRIVES STRIPPED.** 📏 **Measured zero 2026-09-02 (P187) - Records**: 0 sidecar JSON of any shape on this machine; the one archive held is a Google Photos album download (531 jpg, 3 mp4, 0 json). No Takeout sidecar exists here either, so the shipped `takeout.py` has the same local evidence as the missing Meta reader. **Where it would come from**: one user act - *Download your information* on facebook.com or instagram.com; not a device, not interchange. Filed
+  2026-08-29 (P135), from source. A Facebook or Instagram archive ships media with metadata
+  **stripped** and the dates **separately in JSON** (`timestamp_ms`), so the photograph carries no
+  date and the date carries no photograph. **Nothing reads that pairing**: every `json.load*` in
+  `packages/*/src` was enumerated and `takeout.py` is the only media-sidecar reader, Google-specific
+  at both ends (`photoTakenTime`/`creationTime`, and `_SUPP_RE` matching *supplemental-metadata*).
+  The prior art is inside the product - `SidecarIndex` - and the shape is **pre-ruled** by
+  `takeout.py`'s own docstring: *"if a second service ever ships a sidecar format, it gets its own
+  module beside this one"*. ⚠ Genuinely unexamined rather than refused:
+  `messenger-dates-research.md` ruled on messenger **filename conventions**, never on an archive.
+  **A gap, not a design** - the body names three things to establish before any code (format
+  stability, whether the date attaches to a *message* rather than a file, and that a Meta date under
+  `DateSource.TAKEOUT` would name the wrong producer - `(afl)`'s class, a contract consequence).
+  **Field notes first**, the way `takeout-format.md` preceded the Takeout work.
+  ⚠ The body also records the **false premise this letter was twice given** - a folder-date tier
+  that does not exist - with the four checks that establish the null, and the **midnight note**
+  (a filename date lands at 00:00:00; that is an absent time, **not** PhotoPrism #1102's invented
+  one). Body: [`research/backlog/aik.md`](research/backlog/aik.md).
+
+- **(abb) The other capture-filename conventions.** 📏 **Measured zero 2026-09-02 (P187) - Records**: one PANO_/MVIMG_/TRIM_ file in 20,237, and it carries `Make: LGE, Model: Nexus 5`, so the device rule claims it; 0 the filename rule would decide. **Where it would come from**: a Pixel or recent Samsung Motion Photo or in-camera trim re-encoded by a messaging app - a newer device class plus one interchange. `rule_camera_filename` shipped with ONE
+  pattern, Android's `IMG_`/`VID_`; the other vendors' conventions are unbuilt. Recorded
+  2026-08-03. [Full entry](research/backlog/abb.md)
+
+- **(age) `(aek)`'s SILENT DIRECTION SURVIVES INSIDE `(aek)`'s OWN FIX.** 📏 **Measured zero 2026-09-02 (P187) - Records**: 0 in every record and transcript. **Where it would come from**: a FUSE mount (pCloud, Icedrive, rclone) dropping between the path being typed and the preview probing it. Recorded 2026-08-23,
+  found while investigating `(aft)`. `preflight_destination` correctly records `free: int | None`
+  (`filesystem.py:preflight_destination`) and then **throws it away one line later**: `free_bytes=need if free
+  is None else free` (`:271`), with `DestinationPreflight` carrying **no field** for *"this was not
+  measured"*. So unmeasurable becomes *exactly enough*, `may_proceed` is `True`, and
+  `cli._print_preflight` prints nothing. 🔑 **The conflation was removed where it was MEASURED and
+  reappeared where it is REPORTED** - a fix that stops one line short of the surface, which is why
+  it is its own letter rather than a note on `(aek)`. ⚠ **The backstop argument does not cover
+  it**: *"it fails later, and louder, with the real reason"* is about a **run**, and a **preview**
+  exists to say what will happen before it happens - so the later failure is not its backstop, it
+  is what the preview was meant to prevent. Mirror of `(aft)`: loud-and-wrong there,
+  quiet-and-wrong here. [Full entry](research/backlog/age.md)
+
+- **(agd) A DEGRADED WATCHER SAYS NOTHING, AND THERE IS NO CHANNEL FOR IT TO SAY ANYTHING IN.** 📏 **Measured zero 2026-09-02 (P187) - Records**: 0; every *free space* hit in the records is the FAT32 4 GB ceiling, and soak three staged the write side only. **Where it would come from**: `--db` on removable media, or the catalog's parent made unreadable mid-run.
+  Recorded 2026-08-23, split out of `(aft)` **while building it**. `(aft)` made an unmeasurable
+  probe fail **open** - correct, and the module's recorded posture - but it fails open
+  **silently**: a run completes with the disk-space guard switched off and nothing counts or names
+  it. ⚠ **Both sides are filed because either may win.** For: §9's never-silent clause
+  (`IMPLEMENTATION_STANDARDS.md:1354`) makes a *degraded* outcome something that must be counted
+  and named, and it is binding contract. Against: `_stop_if_ground_moved`'s own docstring
+  (`truestill_core/backup.py:CopyVerdict`) argues that *"a second mechanism for the same class of event would be a
+  second thing to keep in step"* - made about the stop path, and it applies to a notice path.
+  🔑 **It is one entry, not organize's third of one**: `HealthVerdict` is binary and the three
+  watchers consume it three ways - an `ActionResult`, a `MigrationOutcome` field, and a `raise`
+  with **no non-fatal path at all** - so building the channel for one leaves two, which is §4's
+  fifty-sixth member **scheduled rather than inherited**. **The wording is already ruled** and
+  carries three constraints that each cost a draft: no free-space figure, no reason word, and
+  neither *"Truestill's catalog folder"* nor *"nothing was left half-written"*.
+  [Full entry](research/backlog/agd.md)
+
+- **(agp) THE BUSY MESSAGE ON THE JOB AND CLI PATHS NAMES A SECOND WINDOW THAT DOES NOT EXIST.** 📏 **Measured zero 2026-09-02 (P187) - Records**: 0 in every record, transcript and the user-evidence log; the only `database is locked` figure held is the CI lane's 104 (`PERFORMANCE.md`). **Where it would come from**: two app instances (`(adn)`), or a CLI command beside an open window. ⚠ **Retitled 2026-09-02 (P186)**: *"at the user's first click"* is dead - a click is a request, requests answer with `catalog_busy.py:CATALOG_BUSY_REQUEST_MESSAGE` (`fd0ffe9`), and the schema builds at boot (`service/drives.py:prepare_catalog`). `catalog_busy.py:CATALOG_BUSY_MESSAGE` survives on the job event in `jobs.py` and on the CLI, and even the request sentence hedges *"another Truestill window may be holding"*.
+  Recorded 2026-08-23, split out of `(adt)` when it closed, **ranked above `(agq)` by the
+  maintainer - a wording-and-detection defect, not a lock defect.** `CATALOG_BUSY_MESSAGE`
+  (`catalog_busy.py:CATALOG_BUSY_MESSAGE`) says *"close the other Truestill window, or stop the other command in
+  your terminal"* - and the likeliest way to meet it is a **first-run schema build**: one window,
+  one user, their first ever click, **both clauses naming things that do not exist**. That is the
+  product telling a user something false at the exact moment it is failing them.
+  🔑 **Prior art recorded so it is not re-derived**: Zotero says plainly another instance has the
+  database open and **earns** it - `locking_mode=EXCLUSIVE` makes it true. This product cannot
+  claim it: `(adn)` says two apps really can run, and the common cause has no second window at
+  all. **The ruled shape**: say what is actually known - the catalog is busy, this is usually the
+  first run preparing the library, it should clear on retry - and name a second window **only if
+  one was actually detected**. The commonest instance was already disarmed by `b0a5d7e`
+  (boot-time build, 2026-08-14 - see `(agq)`'s closure); this is what the message says whenever
+  it still fires.
+  ✅ **Part 1 (S4) shipped 2026-08-23**: the census found seven unhandled direct-write routes -
+  a class - so busy is now recognised once, app-level, exactly as the CLI does at its top; 503 +
+  the no-window sentence, faults keep their 500, settings writes retry twice. **The ladder is
+  two tiers since 2026-08-23 - flock probe + wording**: tier 1's in-process registry is ruled
+  DEAD, because the app has built at boot since `b0a5d7e` (2026-08-14) and the only reachable
+  "preparing" case is cross-process, which an in-process registry can never see. What remains:
+  the probe and S1/S2/S3 wording. [Full entry](research/backlog/agp.md)
+
+- **(aac) Organize names unreadable source files; ONE RESIDUE REMAINS, and it is app-side.** 📏 **Measured zero 2026-09-02 (P187) - Records**: 64 unreadable entries in the run records (all `undecodable`, the same 8 files re-run), 0 of them also a duplicate - an undecodable file is `is_unique: true` by construction. **Where it would come from**: the same unreadable bytes twice in one source tree with a warm cache, or a duplicate whose read permission was revoked after hashing.
+  ⚠ **Retitled 2026-08-22 - the bare title read as a whole unbuilt feature and two thirds is
+  built.** Scan tier and residue 1: built 2026-08-02. **Residue 3 closed by `(aev)` on 2026-08-21**
+  and nobody connected them - `FileHashes.perceptual_computed` plus `uncompared_photos` are exactly
+  the *"readable but undecodable is indistinguishable from a video"* distinction it asked for.
+  **What is left is residue 2 alone**: `unreadable_files` is built in `organize_preview` only; the
+  run's `failed_files` (`service/organize.py:_failed_report`) names attempted failures, so what is
+  left is an unreadable file never attempted - a cached exact duplicate is `DUPLICATE`, not `FAILED`. [Full
+  entry](research/backlog/aac.md)
+
+- **(air) A `--move` THAT COULD NOT REMOVE THE SOURCE EXITS 0.** 📏 **Measured zero 2026-09-02 (P187) - Records**: 0 `move_kept` in 131,832 run-record entries, and `moved` is also 0 - no run in evidence passed `--move`. **Where it would come from**: `organize --move` off a read-only source mount, a Windows file held open, or a FUSE source refusing `unlink`; soak two's `--move` was a local rename. Filed 2026-08-30 (P145), from
+  `(aim)`'s route census; **filed rather than decided**. `MOVE_KEPT` means the copy is in the
+  library and verified and the **source was deliberately kept** - `organizer._move_source` *"never
+  deletes on doubt"*, which is right. But `cli._print_execution` selects failures as
+  `r.status is ActionStatus.FAILED` alone, so the run exits **0**: a `--move` that did not move
+  reports success. `1` is already this CLI's *"finished, but something is wrong with the library"*
+  and `organize && next_step` would chain past it. ⚠ **The counter-argument is real and is why
+  this is a question**: nothing was lost, the library is correct, and a non-zero exit for a
+  successful copy would be its own cry-wolf. ⚠ **The app half is narrower since `(aiq)`'s
+  `eadc643`**: `service/organize.py` counts `MOVE_KEPT` in `finished_clean`, so the run is no longer
+  reported *done*; what is still missing is the label - `app.js` renders no `move_kept` row. **Do not fold this into a summary-wording change** - it
+  alters an exit code, which is a contract a script reads. Related: `(aim)`, `(aiq)`.
+  Body: [`research/backlog/air.md`](research/backlog/air.md).
+
+- **(ll) Sub-day event identity that survives a changing file set.** 📏 **Measured zero 2026-09-02 (P187) - Records**: 0 event rows in all nine catalogs. **Where it would come from**: a user accepting a day-event proposal, then ingesting from a second device; the 2014-08-16 clusters live in `trip-grouping-research.md`, not in any catalog. [Full
+  entry](research/backlog/ll.md)
+
+- **(aed) THE METADATA BAKER STAGES EVERY BAKED FILE THROUGH THE SYSTEM TEMP DIRECTORY.** 📏 **Measured zero 2026-09-02 (P187) - Records**: 0 of 39,342 copies carry `date_baked_at`; 0 `date_confirmations` rows anywhere. **Where it would come from**: a user confirming a rescued date, or a Takeout ingest - the only two writers of a confirmation - and no soak ever confirmed one. Recorded
+  2026-08-19, split from `(adb)`. **Measure before changing anything.** [Full
+  entry](research/backlog/aed.md)
+
+- **(abt) The unhinted-residue prompt is CLI-only, because the app cannot ask mid-job.** 📏 **Measured zero 2026-09-02 (P187) - Records**: 0 of 16 drives across nine catalogs lack a `path_hint.drive.<uuid>`. **Where it would come from**: a catalog whose drives predate the hint, or a drive row minted by a path that never called `remember_drive_path`; none of the nine predates it. Recorded
+  2026-08-07. [Full entry](research/backlog/abt.md)
+
 - **(nn) Prove destination timestamp parity against a live rclone remote.** ⚠ **Records, 2026-09-02 (P186)**: a verification chore with no code to write - `rclone.py:RcloneDestination` pins `touch --no-create --timestamp` in a unit test and no live remote has run it. [Full
   entry](research/backlog/nn.md)
 
@@ -1136,6 +1133,11 @@ here because a lost answer key corrupts every measurement taken against it, whic
   across 105,125 library files and both corpora including the 1,461 fuzzed - both entries have
   zero observed instances, but `(aib)` needs only a ruling while this needs code built against
   undocumented behaviour for a population of zero.
+  📏 **Where it would come from (P187): interchange, not a camera** - a removable volume mounted
+  with a legacy `iocharset`, or `unzip`/`tar` run under a non-UTF-8 locale. The product's own zip
+  path (`archive_extract.py:_iter_entries`, no `metadata_encoding`) decodes a legacy name to
+  garbled-but-valid Unicode, never to invalid bytes, and the one archive held flags all 534 names
+  UTF-8. Re-measured 2026-09-02: 0 across 31,111 files and both soak-stick evidence trees.
   Body: [`research/backlog/aig.md`](research/backlog/aig.md).
 
 - **(aff) ONE EXTRA NEAR-DUPLICATE ON 3.14, FROM THE INTERPRETER AND NOT FROM A DEPENDENCY.** ⚠ **Records, 2026-09-02 (P186)**: the only action needs a 3.13 interpreter and every package declares `requires-python >=3.14`; the effect is one extra row in a review list.
@@ -1240,6 +1242,9 @@ here because a lost answer key corrupts every measurement taken against it, whic
 ## Ideas / deferred
 
 **Parked deliberately.** Several share machinery - see **Converged programs** before picking one.
+
+- **(abk) The library has no per-folder view - "where is all this actually sitting".** ⚠ **Ideas / deferred, 2026-09-02 (P187)**: no condition - the view is absent for everyone, and the open question is design (which depth), not reachability. [Full
+  entry](research/backlog/abk.md)
 
 - **(ajq) PORTABLE EXPORT: NOTHING TRUESTILL RECORDS SURVIVES LEAVING TRUESTILL.** Filed
   2026-09-01 (P185) as the **scoped remainder of a refusal**, so the research is not re-derived.

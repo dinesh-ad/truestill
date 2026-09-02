@@ -1,6 +1,6 @@
 # (abb) The other capture-filename conventions.
 
-*Body of backlog entry `(abb)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(abb)`, under **Records - evidence, explicitly not work**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(abb) The other capture-filename conventions.** Recorded 2026-08-03, when
   `rule_camera_filename` shipped with **one** pattern: Android's `IMG_`/`VID_` plus a full date

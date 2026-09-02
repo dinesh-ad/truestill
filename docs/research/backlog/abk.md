@@ -1,6 +1,6 @@
 # (abk) The library has no per-folder view - "where is all this actually sitting".
 
-*Body of backlog entry `(abk)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(abk)`, under **Ideas / deferred**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(abk) The library has no per-folder view - "where is all this actually sitting".** Recorded
   2026-08-05, dropped from the resting panel because the data does not exist rather than because

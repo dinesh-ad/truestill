@@ -1,6 +1,6 @@
 # (abg) A reassured backup ages into SOFTENING and STALE now; what it lacks is a GONE state - "Schrodinger's backup".
 
-*Body of backlog entry `(abg)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(abg)`, under **Conditional, and counted**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(abg) A reassured backup ages into SOFTENING and STALE now; what it lacks is a GONE state - "Schrodinger's backup".**
   - 📌 **READ THIS FIRST: THE EXPOSURE RANKING IN THIS ENTRY IS INVERTED, measured 2026-08-10 on

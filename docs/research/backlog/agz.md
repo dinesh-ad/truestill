@@ -1,6 +1,6 @@
 # (agz) A STILL CAN DECLARE ITS OWN UTC OFFSET AND WE THROW IT AWAY.
 
-*Body of entry `(agz)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(agz)`, under **Conditional, and counted**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(agz) A STILL CAN DECLARE ITS OWN UTC OFFSET AND WE THROW IT AWAY.** Filed 2026-08-24 (P50),
   out of `(aco)`'s retirement census - **the live evidence found while withdrawing a false one.**

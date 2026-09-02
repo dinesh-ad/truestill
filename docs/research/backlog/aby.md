@@ -1,6 +1,6 @@
 # (aby) Organize screen: copy that repeats itself or explains its own button.
 
-*Body of backlog entry `(aby)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aby)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aby) Organize screen: copy that repeats itself or explains its own button.** Recorded
   2026-08-08. **Editorial, no behaviour, deliberately kept out of the behavioural fix** - bundling

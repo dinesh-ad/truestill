@@ -1,6 +1,6 @@
 # (aji) A VANISHED DRIVE FAILS 1,130 FILES ONE AT A TIME, AND THE RULE THAT ALLOWS IT IS JUSTIFIED BY ANOTHER COMMAND'S WIRING
 
-*Body of backlog entry `(aji)`, under **Real, but conditional**. The index is
+*Body of backlog entry `(aji)`, under **Conditional, and counted**. The index is
 [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with
 [`SHIPPED.md`](../../SHIPPED.md).*
 

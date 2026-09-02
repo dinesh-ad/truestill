@@ -1,6 +1,6 @@
 # (abz) Organize shows one population three ways and connects none of them.
 
-*Body of backlog entry `(abz)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(abz)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(abz) Organize shows one population three ways and connects none of them.** Recorded
   2026-08-08, editorial. On one flow: *"2109 photos and videos here"* (`app.js:validatePath`, from

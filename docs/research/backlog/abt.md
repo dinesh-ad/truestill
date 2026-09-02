@@ -1,6 +1,6 @@
 # (abt) The unhinted-residue prompt is CLI-only, because the app cannot ask mid-job.
 
-*Body of backlog entry `(abt)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(abt)`, under **Records - evidence, explicitly not work**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(abt) The unhinted-residue prompt is CLI-only, because the app cannot ask mid-job.**
   Recorded 2026-08-07 with the fix.

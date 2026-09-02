@@ -1,6 +1,6 @@
 # (ajj) THREE COMMANDS LET A CATALOG WRITE ESCAPE TO THE USER, AND ONLY ONE OF THEM CATCHES IT
 
-*Body of backlog entry `(ajj)`, under **Real, but conditional**. The index is
+*Body of backlog entry `(ajj)`, under **Conditional, and counted**. The index is
 [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with
 [`SHIPPED.md`](../../SHIPPED.md).*
 
