@@ -26,9 +26,11 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _recipe() -> str:
+def _recipe(make_shim: Path) -> str:
+    """The recipe with `$(MAKE)` pointed at the shim: on macOS `$(MAKE)` expands to make's full
+    path, so a shim on PATH would never see the call - the variable is overridden instead."""
     done = subprocess.run(
-        ["make", "-n", "-o", "check", "gate", "BASE=HEAD"],
+        ["make", "-n", "-o", "check", "gate", "BASE=HEAD", f"MAKE={make_shim}"],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -60,7 +62,7 @@ def _repo(tmp_path: Path) -> Path:
     return repo
 
 
-def _env(tmp_path: Path, *, git_diff_fails: bool) -> dict[str, str]:
+def _env(tmp_path: Path, *, git_diff_fails: bool) -> tuple[dict[str, str], Path]:
     """`make` records its call and exits 7, so the lane's status is visible; `git diff` can be
     made to fail while every other git call reaches the real binary."""
     real_git = shutil.which("git")
@@ -80,7 +82,7 @@ def _env(tmp_path: Path, *, git_diff_fails: bool) -> dict[str, str]:
         )
     for shim in shims.iterdir():
         shim.chmod(0o755)
-    return {**os.environ, "PATH": f"{shims}{os.pathsep}{os.environ['PATH']}"}
+    return {**os.environ, "PATH": f"{shims}{os.pathsep}{os.environ['PATH']}"}, shims / "make"
 
 
 def _run(recipe: str, repo: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
@@ -90,7 +92,8 @@ def _run(recipe: str, repo: Path, env: dict[str, str]) -> subprocess.CompletedPr
 
 
 def test_an_unreadable_diff_runs_the_lane_and_carries_its_status(tmp_path: Path) -> None:
-    done = _run(_recipe(), _repo(tmp_path), _env(tmp_path, git_diff_fails=True))
+    env, make_shim = _env(tmp_path, git_diff_fails=True)
+    done = _run(_recipe(make_shim), _repo(tmp_path), env)
     assert "cannot be read" in done.stdout, done.stdout + done.stderr
     assert "shim make: --no-print-directory e2e" in done.stdout, "the lane was not run"
     assert "SKIPPED" not in done.stdout
@@ -99,7 +102,8 @@ def test_an_unreadable_diff_runs_the_lane_and_carries_its_status(tmp_path: Path)
 
 def test_a_readable_empty_diff_still_skips(tmp_path: Path) -> None:
     """The control: with git answering and nothing touched, the lane is skipped and says so."""
-    done = _run(_recipe(), _repo(tmp_path), _env(tmp_path, git_diff_fails=False))
+    env, make_shim = _env(tmp_path, git_diff_fails=False)
+    done = _run(_recipe(make_shim), _repo(tmp_path), env)
     assert done.returncode == 0, done.stdout + done.stderr
     assert "e2e SKIPPED" in done.stdout
     assert "shim make" not in done.stdout
