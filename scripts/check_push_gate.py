@@ -33,10 +33,15 @@ no reference to stdin at all.
 `--no-verify` the first afternoon, which is worse than an honest refusal - the same reasoning
 `IMPLEMENTATION_STANDARDS.md` §6.1 records for not making `make gate` a blocking hook.
 
-⚠ **CANNOT-ASK AND ASKED-AND-NOTHING ARE DIFFERENT, and only the first fails open.** Without `gh`,
-without auth, or with the API unreachable, the gate cannot see its subject and says so - because a
-gate that blocks every push on a plane or a fresh clone gets uninstalled, taking its real coverage
-with it. But a tip with **no run** is not that: `ci.yml` has no `paths` filter on
+⚠ **CANNOT-ASK AND ASKED-AND-NOTHING ARE DIFFERENT, and only the first fails open - at the
+PREFLIGHT.** Without `gh`, without auth, or with the API unreachable, the gate cannot see its
+subject and says so - because a gate that blocks every push on a plane or a fresh clone gets
+uninstalled, taking its real coverage with it. ⚠ **AFTER a preflight that answered, cannot-ask
+FAILS CLOSED (P189, 2026-09-02).** Until then a transient failure on the very next call returned
+``None`` and ``None`` meant *no refusal*, so a red tip passed with no message the moment the
+network blinked once. Now every call is retried (`GH_ATTEMPTS`, `GH_RETRY_PAUSE_SECONDS`), a
+blip survives the retry, and a persistent outage refuses with the override named - a decision
+the person makes, not a pass the gate hands out. But a tip with **no run** is not that: `ci.yml` has no `paths` filter on
 ``push: branches: [main]``, so every push to main creates one. Absent is therefore unknown, and
 unknown is not green - the shape `(afl)` keeps finding.
 
@@ -115,6 +120,10 @@ GOOD: Final = "success"
 LIVE: Final = ("in_progress", "queued", "requested", "waiting")
 
 _FIELDS = "databaseId,headSha,status,conclusion,url"
+#: How many times one `gh` question is asked before "cannot answer" counts (P189). Three over ~4 s
+#: outlives a blip; it does not outlive an outage, which is the case that must refuse.
+GH_ATTEMPTS: Final = 3
+GH_RETRY_PAUSE_SECONDS: Final = 2.0
 
 
 def _advice() -> str:
@@ -125,12 +134,32 @@ def _advice() -> str:
 
 
 def _gh(*args: str) -> list[dict[str, object]] | None:
-    """Ask `gh` for runs, or ``None`` when it cannot answer **at all**.
+    """Ask `gh` for runs, retrying a failure, or ``None`` when it cannot answer after the bound.
 
     ⚠ The distinction this return value carries is the whole of the fail-open rule: ``None`` means
     *the question could not be asked*, and an empty list means *it was asked and the answer is
     nothing*. Collapsing them is how a gate starts treating absence as success.
     """
+    for attempt in range(1, GH_ATTEMPTS + 1):
+        rows = _gh_once(*args)
+        if rows is not None:
+            return rows
+        if attempt < GH_ATTEMPTS:
+            time.sleep(GH_RETRY_PAUSE_SECONDS)
+    return None
+
+
+def _unknown(what: str, waiver: str) -> str:
+    """The refusal for a question `gh` could not answer after it had answered the preflight."""
+    return (
+        f"\npush gate: `gh` answered at preflight and then could not answer {what} "
+        f"({GH_ATTEMPTS} attempts, ~{GH_ATTEMPTS * GH_RETRY_PAUSE_SECONDS:.0f}s). That is UNKNOWN, "
+        f"and unknown is not green. Push again; if `gh` is genuinely down and you have read the "
+        f"run yourself:  {waiver}=1 git push"
+    )
+
+
+def _gh_once(*args: str) -> list[dict[str, object]] | None:
     try:
         done = subprocess.run(
             ["gh", *args], capture_output=True, text=True, check=False, timeout=20
@@ -191,8 +220,9 @@ def pushed_refs(raw: str) -> list[tuple[str, str, str]]:
     return refs
 
 
-def _live_push_run(branch: str) -> dict[str, object] | None:
-    """The in-flight push run on ``branch``, or ``None`` (also on cannot-ask).
+def _live_push_run(branch: str) -> tuple[bool, dict[str, object] | None]:
+    """``(asked, run)``: the in-flight push run on ``branch``, and whether the question was
+    answered at all. ``(False, None)`` is cannot-ask; ``(True, None)`` is asked-and-nothing.
 
     **Branch-keyed, and recency is the right lens here** - unlike the outcome half. `ci.yml`'s
     concurrency group is ``ci-${{ github.ref }}-${{ github.event_name }}`` with
@@ -206,9 +236,11 @@ def _live_push_run(branch: str) -> dict[str, object] | None:
             "run", "list", "--branch", branch, "--event", "push",
             "--status", status, "--limit", "5", "--json", _FIELDS,
         )  # fmt: skip
+        if runs is None:
+            return False, None
         if runs:
-            return runs[0]
-    return None
+            return True, runs[0]
+    return True, None
 
 
 def contention(branch: str) -> str | None:
@@ -218,7 +250,9 @@ def contention(branch: str) -> str | None:
     ordinary case is a run minutes from concluding, and with the agent as the operator a refusal
     costs a round trip the wait does not. At the bound it refuses - never cancels.
     """
-    run = _live_push_run(branch)
+    asked, run = _live_push_run(branch)
+    if not asked:
+        return _unknown(f"whether a run is in flight on {branch}", CANCEL_OVERRIDE)
     if run is None:
         return None
     deadline = time.monotonic() + CONTENTION_WAIT_SECONDS
@@ -230,7 +264,9 @@ def contention(branch: str) -> str | None:
     )
     while time.monotonic() < deadline:
         time.sleep(CONTENTION_POLL_SECONDS)
-        run = _live_push_run(branch)
+        asked, run = _live_push_run(branch)
+        if not asked:
+            return _unknown(f"whether the run on {branch} is still in flight", CANCEL_OVERRIDE)
         if run is None:
             return None
     return (
@@ -257,7 +293,7 @@ def outcome(sha: str) -> str | None:
         "run", "list", "--commit", sha, "--event", "push", "--limit", "10", "--json", _FIELDS
     )
     if runs is None:
-        return None  # cannot ask; the caller has already said so
+        return _unknown(f"about the tip {sha[:7]}", OVERRIDE)
     if not runs:
         return (
             f"\npush gate: NO CI run exists for {sha[:7]}, the commit the remote already has, so "
@@ -308,7 +344,7 @@ def refusals(refs: list[tuple[str, str, str]]) -> list[str]:
     problems: list[str] = []
     for branch, remote_sha in judgeable(refs):
         if cancel_run:
-            live = _live_push_run(branch)
+            _asked, live = _live_push_run(branch)
             if live is not None:
                 print(
                     f"push gate: {CANCEL_OVERRIDE} set - the live run "

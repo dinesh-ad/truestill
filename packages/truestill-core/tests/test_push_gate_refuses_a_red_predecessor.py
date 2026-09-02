@@ -490,3 +490,62 @@ def test_pre_commit_env_is_a_subject(
     err = capsys.readouterr().err
     assert _SHA[:7] in err, "the refusal does not name the remote tip the env carried"
     assert "FAILURE" in err
+
+
+# ---------------------------------------------- cannot-ask AFTER the preflight answered (P189)
+
+
+def test_a_gh_that_stops_answering_after_preflight_refuses(
+    gate: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The preflight proves `gh` reachable at that instant only. A `None` on the next question used
+    to mean *no refusal*, so a red tip passed with no message on one blip. Both checks now refuse
+    as UNKNOWN, each naming the override that waives it - P38's split, kept."""
+    calls: list[tuple[str, ...]] = []
+
+    def flaky(*args: str) -> list[dict[str, object]] | None:
+        calls.append(args)
+        return [{"databaseId": 1}] if len(calls) == 1 else None
+
+    monkeypatch.setattr(gate, "_gh", flaky)
+    assert gate.main() == 1
+    err = capsys.readouterr().err
+    assert "UNKNOWN" in err
+    assert "unknown is not green" in err
+    assert f"{gate.OVERRIDE}=1" in err, "the outcome refusal must name its own waiver"
+    assert f"{gate.CANCEL_OVERRIDE}=1" in err, "the contention refusal must name its own waiver"
+    assert _SHA[:7] in err, "the refusal names its subject"
+
+
+def test_a_transient_gh_failure_is_retried_before_it_counts(
+    gate: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    attempts: list[list[str]] = []
+
+    # Two failures then an answer - a fixed shape, deliberately not derived from GH_ATTEMPTS, so
+    # a bound lowered to one attempt fails this rather than passing it by definition.
+    def run(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
+        attempts.append(cmd)
+        if len(attempts) < 3:
+            raise subprocess.TimeoutExpired(cmd, 20)
+        return subprocess.CompletedProcess(cmd, 0, stdout="[]", stderr="")
+
+    monkeypatch.setattr(gate.subprocess, "run", run)
+    monkeypatch.setattr(gate.time, "sleep", lambda _s: None)
+    assert gate._gh("run", "list") == [], "an answer on the third attempt is an answer"
+    assert len(attempts) == 3
+
+
+def test_a_gh_that_never_answers_is_unknown_after_the_bound(
+    gate: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    attempts: list[list[str]] = []
+
+    def run(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
+        attempts.append(cmd)
+        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="HTTP 502")
+
+    monkeypatch.setattr(gate.subprocess, "run", run)
+    monkeypatch.setattr(gate.time, "sleep", lambda _s: None)
+    assert gate._gh("run", "list") is None
+    assert len(attempts) == gate.GH_ATTEMPTS, "the bound is the bound"
