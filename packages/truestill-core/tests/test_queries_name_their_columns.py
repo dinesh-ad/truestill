@@ -52,7 +52,14 @@ def _sql_literals(source: Path) -> list[tuple[int, str]]:
 
 
 def test_no_catalog_query_selects_star() -> None:
-    offences = [f"catalog.py:{line}" for line, text in _sql_literals(CATALOG) if STAR.search(text)]
+    literals = _sql_literals(CATALOG)
+    # The extraction is an AST walk; the cry-wolf test below proves the REGEX and not the walk. A
+    # walk that returns nothing finds no offences. 341 literals on 2026-09-02; the floor is a
+    # fraction of that.
+    assert len(literals) > 150, (
+        f"only {len(literals)} string literals read from catalog.py; the AST walk is aimed at nothing"
+    )
+    offences = [f"catalog.py:{line}" for line, text in literals if STAR.search(text)]
 
     assert not offences, (
         f"a query selects every column, so a column added later reaches its caller without "

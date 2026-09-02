@@ -37,9 +37,13 @@ def _relative_import_sites(path: Path) -> list[str]:
 
 def test_packages_use_absolute_imports_only() -> None:
     offenders: list[str] = []
-    for path in sorted(PACKAGES.rglob("*.py")):
-        if "__pycache__" in path.parts:
-            continue
+    paths = [p for p in sorted(PACKAGES.rglob("*.py")) if "__pycache__" not in p.parts]
+    # A walk that matches nothing finds no offenders and reads exactly like a clean tree. 509
+    # files on 2026-09-02; the floor is a fraction of that, not the count.
+    assert len(paths) > 300, (
+        f"only {len(paths)} .py files under packages/; the walk is aimed at nothing"
+    )
+    for path in paths:
         offenders.extend(_relative_import_sites(path))
     assert not offenders, "relative import(s) under packages/:\n" + "\n".join(offenders)
 

@@ -99,11 +99,37 @@ def _log() -> str:
     return done.stdout if done.returncode == 0 else ""
 
 
+def _is_shallow() -> bool:
+    done = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return done.returncode == 0 and done.stdout.strip() == "true"
+
+
 def _declared_closed() -> set[str]:
     log = _log()
     if not log:
         pytest.skip("no git history available to read")
-    return set(_hook.CLOSES.findall(log))
+    if _is_shallow():
+        # CI checks out at depth 1, so this read one commit's body and passed over an empty set
+        # for as long as it has run there (found 2026-09-02, P188). A stated skip is honest; a
+        # vacuous pass is not. Widening the checkout is a cost decision for the maintainer.
+        pytest.skip(
+            "shallow checkout - one commit of history holds no closure trailers, so the corpus half cannot judge anything here"
+        )
+    closed = set(_hook.CLOSES.findall(log))
+    # A pattern that stops matching passes both corpus tests over an empty set, and the fixture
+    # tests below would not notice - they feed the regex a string that still matches. 125
+    # trailers on 2026-09-02; the floor is a fraction of that.
+    assert len(closed) >= 40, (
+        f"only {len(closed)} `Closes` trailers matched in {len(log)} bytes of history; the pattern "
+        "has stopped matching and every assertion over it is vacuous"
+    )
+    return closed
 
 
 # --------------------------------------------------------------- the corpus half, over history
