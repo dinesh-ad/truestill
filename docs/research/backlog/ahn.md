@@ -238,7 +238,7 @@
 
   | stage | proves | status |
   |---|---|---|
-  | **A · close 4b** - the busy arm and the clean-empty arm bound to annotated locals (the `dates_bake_run` convention); the resolver binds a helper's first parameter to the caller's argument and drops `JobTarget[...]` members, so the refusal arm is named per route | the join is exact; every later row reads it | |
+  | **A · close 4b** - the busy arm and the clean-empty arm bound to annotated locals (the `dates_bake_run` convention); the resolver binds a helper's first parameter to the caller's argument and drops `JobTarget[...]` members, so the refusal arm is named per route | the join is exact; every later row reads it | ✅ **`bc484fc`, 2026-09-02**: 52 routes, 17 job-start, **0 unresolved**; 29 multi-type by type-string, **40 by member**. Backup's envelope is `JobStarted \| DriveBusyPayload` with no refusal arm; the bake's carries `BakeRefusal` and `DriveUnavailablePayload`. Four mutants, four caught |
   | **B · type the SSE frames** - `progress`/`done`/`error` are dict literals on `queue.Queue[dict[str, Any]]`, plus a hand-written `event: error` for an unknown job; `done.summary` is the union of the 13 factories' `T` | the stream has a schema to reference; 4a for the stream | open |
   | **C · the rebuild pass + msgspec**, guard first: every AST `NotRequired` absent from `required`, every `ok:` tag a `const`, no component the resolver does not reach | 4e proved before 4c is trusted | open |
   | **D · the join + emission** - `oneOf` of `$ref`s per route, `GET`+`POST` as two operations, the events route as `text/event-stream`; `openapi.json` committed; a Python-only regenerate-and-diff test in `make check` | the spec is the artefact and drift is red, in the lane with no Node | open |
