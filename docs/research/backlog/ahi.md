@@ -1,8 +1,24 @@
-# (ahi) THE RECORD-STATE CENSUS COVERS 5 OF 9 MUTATING OPERATIONS.
+# (ahi) TWO OF TEN MUTATING OPERATIONS WRITE NO RUN RECORD, AND THE CENSUS IS KEYED BY MODULE, NOT BY THE OPERATION A ROUTE DECLARES.
 
 *Body of backlog entry `(ahi)`, under **Internal / tooling**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(ahi) THE RECORD-STATE CENSUS COVERS 5 OF 9 MUTATING OPERATIONS.** Filed 2026-08-25 (P72).
+- **(ahi) TWO OF TEN MUTATING OPERATIONS WRITE NO RUN RECORD, AND THE CENSUS IS KEYED BY MODULE, NOT BY THE OPERATION A ROUTE DECLARES.** Filed 2026-08-25 (P72).
+
+  ## ⚠ CORRECTED 2026-09-02 (P191) - READ THIS BEFORE THE MEASUREMENT BELOW
+
+  Ten mutating operations, not nine (`rename`, `(aix)`); the census holds **six** module rows and
+  **four** entry-point rows; **two** remain, `archive unpack` (`service/takeout.py:archive_ingest_run`)
+  and `clean empty` (`service/clean_empty.py:clean_empty_apply`) - each confirmed `False` by the
+  guard's own `_reaches_a_record`. `service/migrate.py` writes no record itself and records on both
+  paths through core, so the sentence below about it is true of the module and misleading about
+  the operation. Three operation strings have no row keyed as their route declares them:
+  `undo organize`, `set dates`, `trip apply`. **The shipped undo record has no behavioural test**
+  - `git grep '"migrate undo"' -- packages` hits `migrate.py` only. Neither remaining operation
+  has a durable per-file store (the staging journal in `archive_extract.py:_write_journal` holds a
+  root and part names; `cleanup.py` never touches a catalog), so each record is the only account.
+  **Ruled 2026-09-02 by the maintainer: clean-empty's record NAMES THE FOLDERS**, and
+  `plan.removable` minus failures over-claims - an already-gone folder is neither removed nor
+  failed - so `cleanup.py:CleanupOutcome` must carry the names. The original measurement follows.
 
   ## MEASURED
 

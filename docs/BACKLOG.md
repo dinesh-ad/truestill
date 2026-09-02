@@ -736,13 +736,19 @@ and they are not product defects; keeping them in one drawer stops them competin
   `(ahl)` cannot reach. ⚠ **This project does not get it free, by a standing decision**:
   `pyproject.toml:17` records *"not FastAPI ... Pydantic is disallowed for our models"*, and
   **`pydantic` appears in no `pyproject.toml` in this workspace** (checked).
-  ⚠ **And the join does not exist**: `server.py` declares **50** routes and **all 50** handlers are
-  annotated `-> JSONResponse`, never the payload they return. This entry records the gap and the
-  mechanism; it does **not** choose between hand-writing the spec, generating it from the
-  TypedDicts, or emitting it from the routes.
+  ⚠ **And the join does not exist**: `server.py` declares **52** routes (2026-09-02; it read 50),
+  48 handlers annotated `-> JSONResponse` and four that are not JSON, never the payload they
+  return. This entry records the gap and the mechanism; it does **not** choose between
+  hand-writing the spec, generating it from the TypedDicts, or emitting it from the routes.
+  ⚠ **CORRECTED 2026-09-02 (P191): the stage-4b resolver narrowing this entry reported as done IS
+  NOT IN THE TREE.** `test_every_route_names_its_payload_type.py` still resolves a route to every
+  `service.X` *referenced* in its handler, yields **12** multi-type routes, and names
+  `JobTarget[BackupRunSummary]` - a factory's callable type - for `/api/backup/run`. The re-derived
+  25 exists in `c6845d1`'s message and in prose only. An entry claiming work that does not exist is
+  the worst kind of stale; this line is the correction, not a tidy.
   [Full entry](research/backlog/ahn.md)
 
-- **(ahi) THE RECORD-STATE CENSUS COVERS 5 OF 9 MUTATING OPERATIONS.** Filed 2026-08-25 (P72).
+- **(ahi) TWO OF TEN MUTATING OPERATIONS WRITE NO RUN RECORD, AND THE CENSUS IS KEYED BY MODULE, NOT BY THE OPERATION A ROUTE DECLARES.** ⚠ **Retitled 2026-09-02 (P191); both numbers in the old title were stale.** `server.py` declares **ten** `mutating=True` operations (`rename` is the tenth, `(aix)`); `test_the_app_records_what_a_run_did.py` holds six module rows and four entry-point rows; **`archive unpack` and `clean empty`** are the two whose entry point reaches no writer. `service/migrate.py` records on both paths through core (`migrate.py:_record_migration`, `migrate.py:_record_undo_migration`). Three operation strings - `undo organize`, `set dates`, `trip apply` - have no row keyed as the route declares them, because `_wires_a_record` still asks about a module. ⚠ **And the undo record P139 shipped is pinned by a static row and no test**: nothing under `packages/*/tests` names `"migrate undo"`. Filed 2026-08-25 (P72).
   ⚠ **The UNDO half shipped 2026-08-29 (P139), and the guard was fixed first because it is
   why this survived**: its floor named `trips` (which RECORDS) while missing migrate's
   `undo`, and `_wires_a_record` was module-granular so `migrate` answered `True` on its

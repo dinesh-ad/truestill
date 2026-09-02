@@ -59,8 +59,10 @@
 
   ## WHY THE TIMING MATTERS
 
-  `react-migration-plan.md` already carries the argument: *"Rewriting the UI against a contract
-  nobody has declared reproduces every one of these in a new language."* `app.js` is the only thing
+  ⚠ *(Corrected 2026-09-02, P191: that sentence is this entry's own - `react-migration-plan.md` names
+  no payload contract and does not cite `(ahn)`; its only "contract" is the e2e selector set.)*
+  *"Rewriting the UI against a contract nobody has declared reproduces every one of these in a new
+  language."* `app.js` is the only thing
   that currently knows which fields are real, and it is scheduled for deletion.
   `test_surface_parity.py`'s own docstring says it does not cover this - it *"protects the REPAIR,
   not the contract."*
@@ -70,7 +72,8 @@
 
   ## STAGES 1-3 SHIPPED. WHAT STAGE 4 NEEDS, AS A LIST
 
-  Stage 1 (`JobTarget[T]`, 11 factories) and stage 2 (the route resolver, 47 of 50) made the
+  Stage 1 (`JobTarget[T]`, 11 factories then, **13** on 2026-09-02) and stage 2 (the route resolver,
+  47 of 50 then, **49 of 52** on 2026-09-02) made the
   **declared** end exact. Stage 3 asked whether that turns `(ahl)`'s 34 into a count. **It does
   not** - it turns three specific hidden fields into named ones and proves the method's limit.
 
@@ -80,7 +83,14 @@
   1. **The seven literal payloads must be typed.** A dict literal has no schema, so each is a hole
      *in* the spec rather than a note beside it. `_start_drive_job`'s `{"job_id"}` first: one key,
      **15 call sites**, and the envelope every job route returns.
-  2. ⚠ **THIS SAID "TWELVE ROUTES RESOLVE TO 2-3 TYPES, 35 OF 47 TO EXACTLY ONE", AND BOTH
+  2. ⚠ **CORRECTED 2026-09-02 (P191): THE NARROWING DESCRIBED BELOW WAS NEVER COMMITTED.** The
+     resolver in the tree is the reference-based one (`test_every_route_names_its_payload_type.py`,
+     *"looks for the reference to `service.X` anywhere in the handler"*); run today it yields **12**
+     multi-type routes and `JobTarget[BackupRunSummary]` for `/api/backup/run`. The 25 lives in
+     `c6845d1`'s message and here. `_start_drive_job` has **17** call sites (4 direct, 13 pooled),
+     not 15; and prerequisite 1 above is already discharged by 4a (`jobs.py:JobStarted`). The
+     paragraph below is what P94 measured in a working tree and did not keep.
+     ⚠ **THIS SAID "TWELVE ROUTES RESOLVE TO 2-3 TYPES, 35 OF 47 TO EXACTLY ONE", AND BOTH
      FIGURES WERE BUILT ON A RESOLVER ANSWERING A DIFFERENT QUESTION.** Corrected 2026-08-25 (P94)
      by narrowing it to **what reaches a `JSONResponse`** - returns, not references - and
      re-deriving before any row was written. **The count did not fall to three. It rose to 25.**
@@ -115,8 +125,9 @@
      no place for an event stream, so the job summaries have no home"*. **That framing was too
      pessimistic and the derivation says why**: the summaries were never the problem - they are
      component schemas either way - and the stream's own contract is **three fixed shapes**:
-     `progress` (`jobs.py:JobManager.claim`, 6 keys), `done` (`jobs.py:JobManager._abandon`, `type`/`status`/`summary`) and
-     `error` (`jobs.py:JobManager.start`, `type`/`message`/`code`), plus `: ping` comment frames that carry no
+     `progress` (6 keys), `done` (`type`/`status`/`summary`) and `error` (`type`/`message`/`code`) -
+     all three built inside `jobs.py:JobManager.start` (corrected 2026-09-02; this cited `claim` and
+     `_abandon`, which build no frame), plus `: ping` comment frames that carry no
      payload. All the variability lives in `done.summary`.
      **The ruling**: the event payloads are OpenAPI **component schemas**, and
      `/api/jobs/{job_id}/events` **references** them as `text/event-stream` with a `oneOf` over the
