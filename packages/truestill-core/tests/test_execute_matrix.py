@@ -61,7 +61,7 @@ GOLDEN_NEAR_RESULTS = (
     (
         "uploaded",
         "Camera/2023/01/near.jpg",
-        f"near-duplicate of {FIXTURE_ORIG} [run, distance=2]",
+        f"near-duplicate of {str(FIXTURE_ORIG)!r} [run, distance=2]",
         "near.jpg",
     ),
 )

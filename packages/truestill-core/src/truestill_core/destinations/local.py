@@ -90,9 +90,12 @@ def _upload_failure(local: Path, target: Path, relative_path: str, outcome: Copy
         # Unreachable from `upload`, which asserts an error before calling - kept because the
         # honest answer to "no reason was recorded" is to say so rather than invent one. The same
         # choice `run_record.stop_block` makes about a run that stopped without saying why.
-        return f"could not copy {local.name} to {relative_path!r}, and no reason was recorded{left}"
+        return (
+            f"could not copy {local.name!r} to {relative_path!r}, and no reason was recorded{left}"
+        )
+    # `{local.name!r}`, quoted, so `cli._reason_key` collapses one condition to one reason (`(aiv)`).
     return (
-        f"could not copy {local.name} to {relative_path!r}: {explain_unwritable_drive(exc)}{left}"
+        f"could not copy {local.name!r} to {relative_path!r}: {explain_unwritable_drive(exc)}{left}"
     )
 
 

@@ -271,16 +271,6 @@ rather than treated as a triage failure.
   entry does not claim it. The cascade alternative is a schema migration on a published product.
   Body: [`research/backlog/ajp.md`](research/backlog/ajp.md).
 
-- **(aiv) THE FAILURE CAP COUNTS 2,519 REASONS FOR ONE FACT, WHICH IS THE DEFECT `(afd)` CLOSED.**
-  Filed 2026-08-30 (P148, soak nine), measured at scale. An `EPERM` at `copystat` for every one of
-  2,519 files - **one** condition, belonging to the mount - printed *"and 2,499 more METADATA NOT
-  SET (**2519 distinct reasons in total**)"*. `cli._reason_key` strips **quoted** fragments, and
-  both producers (`_upload_failure`, `drive_unwritable.metadata_not_preserved_note`) lead with the
-  source filename **unquoted**, so neither collapses. ⚠ **This contradicts `(afd)`'s own recorded
-  measurement** - either the wording changed under the guard (`(aep)`, `(aie)`) or the claim was
-  never true of this shape. Nothing is lost; the harm is a user concluding their drive has 2,519
-  problems when it has one. Body: [`research/backlog/aiv.md`](research/backlog/aiv.md).
-
 - **(aip) MIGRATE AND BACKUP KEEP A COPY WHOSE METADATA WAS REFUSED AND NEVER SAY SO.**
   Filed 2026-08-29 (P143). **The residue of `(aie)`, and its own letter because it is different
   work.** That fix reached `relocate` and `backup` for free - both go through

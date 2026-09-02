@@ -1,4 +1,5 @@
 # (aiv) THE FAILURE CAP COUNTS 2,519 REASONS FOR ONE FACT, WHICH IS THE DEFECT `(afd)` CLOSED.
+> ✅ **CLOSED 2026-09-02 (P190), option 1** - both producers quote the leading name; see [`SHIPPED.md`](../../SHIPPED.md).
 
 *Body of backlog entry `(aiv)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is
 shared with [`SHIPPED.md`](../../SHIPPED.md).*

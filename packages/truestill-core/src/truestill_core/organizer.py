@@ -1679,7 +1679,9 @@ def _journal_or_delete_source(
     if resolution.near_duplicate is not None:
         near = resolution.near_duplicate
         distance = f", distance={near.distance}" if near.distance is not None else ""
-        notes.append(f"near-duplicate of {near.matched_path} [{near.origin}{distance}]")
+        # `{near.matched_path!r}`, quoted: this rides on the same `detail` the failure cap keys on,
+        # and an unquoted path split one condition into one reason per file (`(aiv)`).
+        notes.append(f"near-duplicate of {near.matched_path!r} [{near.origin}{distance}]")
     if moved_in_place and relocation is not None:
         # ⚠ **THE JOURNAL ROW IS NOT WRITTEN HERE, AND THAT IS `(agk)`.** It used to be, "after
         # the rename, before anything else" -- which left the rename itself covered by nothing.

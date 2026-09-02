@@ -22,6 +22,15 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aiv) THE FAILURE CAP COUNTS 2,519 REASONS FOR ONE FACT, WHICH IS THE DEFECT `(afd)` CLOSED.**
+  ✅ **CLOSED 2026-09-02 (P190), option 1.** `cli.py:_reason_key` strips quoted fragments, and both
+  producers led with an unquoted source name: `drive_unwritable.py:metadata_not_preserved_note` and
+  `local.py:_upload_failure` now quote it, so one condition is one reason. Measured before: 2,519
+  and 1,847 distinct keys for one refused-timestamps condition in two real run records. The
+  docstring that said the key *"collapses them correctly"* is corrected, and a test pins both real
+  templates. This unblocks the app's grouped failure payload; `(aep)`'s structured `detail` is still
+  the exact key. Body: [`research/backlog/aiv.md`](research/backlog/aiv.md).
+
 - **(ajo) THREE CORE HELPERS ANSWER "IS THIS FILE IN TWO PLACES?" THREE WAYS, AND THE STATS SCREEN IS THE ODD ONE.**
   ✅ **CLOSED 2026-09-02 (P190).** Four helpers, two answers: `single_copy_shas`, `single_copy_count`
   and `custody_floor` test `missing_at IS NULL`; `catalog.py:Catalog.stats_summary`'s rollup did not,

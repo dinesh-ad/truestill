@@ -19,6 +19,8 @@ from pathlib import Path
 import pytest
 from truestill_cli.cli import _STATUS_PREVIEW, _print_execution, _reason_key
 from truestill_core.categorize import CategoryMatch, Confidence
+from truestill_core.destinations.local import _upload_failure
+from truestill_core.drive_unwritable import metadata_not_preserved_note
 from truestill_core.models import (
     ActionResult,
     ActionStatus,
@@ -27,6 +29,7 @@ from truestill_core.models import (
     FileHashes,
     Resolution,
 )
+from truestill_core.safe_copy import CopyOutcome
 
 
 def _reported(results: list[ActionResult]) -> int:
@@ -157,3 +160,42 @@ def test_one_cause_with_many_paths_counts_as_one_reason() -> None:
     assert _reason_key("[Errno 13] Permission denied: 'x'") != _reason_key(
         "[Errno 28] No space left on device: 'x'"
     )
+
+
+def test_both_real_producers_collapse_to_one_reason() -> None:
+    """`(aiv)`: the key strips QUOTED parts, and both producers led with an unquoted source name,
+    so 2,519 files failing for one condition counted as 2,519 reasons. Pinned against the real
+    templates, not a stand-in - a template that stops quoting the name fails here."""
+
+    error = PermissionError(1, "Operation not permitted")
+    notes = {
+        _reason_key(metadata_not_preserved_note(f"{i}.jpg", f"x/{i}.jpg", error)) for i in range(3)
+    }
+    assert len(notes) == 1, notes
+
+    full = OSError(28, "No space left on device")
+    uploads = {
+        _reason_key(
+            _upload_failure(
+                Path(f"/src/{i}.jpg"),
+                Path(f"/dest/x/{i}.jpg"),
+                f"x/{i}.jpg",
+                CopyOutcome(ok=False, error=full),
+            )
+        )
+        for i in range(3)
+    }
+    assert len(uploads) == 1, uploads
+
+
+def test_the_near_duplicate_annotation_does_not_split_a_reason_by_path() -> None:
+    """The third producer, found on a real run: three near-duplicates among 45 refused-timestamps
+    files carried *"; near-duplicate of <path> [...]"* with the path unquoted, so one condition read
+    as four reasons. The path is quoted now; the distance is a fact and may still differ."""
+    tails = {
+        _reason_key(
+            f"'{i}.jpg' was copied to 'x/{i}.jpg' and is safe, but refused; near-duplicate of '/src/{i}.jpg' [run, distance=2]"
+        )
+        for i in range(3)
+    }
+    assert len(tails) == 1, tails

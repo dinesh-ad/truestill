@@ -2657,9 +2657,11 @@ def _reason_key(detail: str) -> str:
     ⚠ **An approximation over a string, and it is one because `detail` is a string.** Measured
     2026-08-22: 2,096 failures from one refused destination carry 2,096 *distinct* details,
     because each names its own source and target - so counting them verbatim would report 2,096
-    reasons for one fact. Stripping quoted fragments collapses them correctly and keeps genuinely
-    different causes apart, because the part that differs between `[Errno 13]` and `[Errno 28]`
-    is not quoted.
+    reasons for one fact. Stripping quoted fragments collapses them **only when the per-file parts
+    are quoted**: until 2026-09-02 both producers led with an unquoted source name, so 2,519 files
+    failing for one condition counted as *2519 distinct reasons* (`(aiv)`). The producers quote the
+    name now, and the test pins both templates. Genuinely different causes stay apart because the
+    part that differs between `[Errno 13]` and `[Errno 28]` is not quoted.
 
     **The exact key belongs to `(aep)`**, which asks whether `detail` should be structured rather
     than free text. Until it is, this is text normalisation and is labelled as such rather than

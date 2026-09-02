@@ -235,7 +235,9 @@ def metadata_not_preserved_note(name: str, relative_path: str, error: BaseExcept
     """
     found = underlying_oserror(error)
     reason = explain_metadata_not_preserved(found) if found is not None else str(error)
-    return f"{name} was copied to {relative_path!r} and is safe, but {reason}"
+    # `{name!r}`, quoted, so `cli._reason_key` can strip it: 2,519 files failing for one condition
+    # counted as 2,519 reasons while the name led unquoted (`(aiv)`, 2026-09-02).
+    return f"{name!r} was copied to {relative_path!r} and is safe, but {reason}"
 
 
 def explain_unwritable_folder(error: OSError) -> str:
