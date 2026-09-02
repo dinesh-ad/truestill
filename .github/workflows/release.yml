@@ -224,6 +224,9 @@ jobs:
       # tree that disagree.
       - name: Verify the package carries the mark
         if: runner.os == 'Linux'
+        # `shell: bash` is `bash -eo pipefail`; the default `run:` shell is `bash -e` WITHOUT
+        # pipefail, so `ls | head` read head's status and a missing package became `--deb ""`.
+        shell: bash
         run: uv run python packaging/verify_icon.py --deb "$(ls out/truestill_*.deb | head -1)"
 
       # THE SAME DETECTOR AS WINDOWS, in the shape apt gives us. Install, ask the INSTALLED copy
@@ -290,6 +293,10 @@ jobs:
           & $app --self-check findings/selfcheck-installed.json
           if ($LASTEXITCODE -ne 0) { throw "the INSTALLED copy failed its own self-check" }
           uv run python packaging/compare_selfcheck.py findings/selfcheck-installed.json
+          # ⚠ pwsh does not stop on a native command's exit code, and the runner exits on the LAST
+          # $LASTEXITCODE only - so without this line a mismatch here was overwritten by the next
+          # native call and could not fail the release (P188, 2026-09-02).
+          if ($LASTEXITCODE -ne 0) { throw "the INSTALLED copy does not match the repository's self-check" }
 
           # The mark survived compression and install, asserted on the copy the user runs.
           uv run python packaging/verify_icon.py --exe $app

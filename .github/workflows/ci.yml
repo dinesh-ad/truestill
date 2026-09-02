@@ -506,6 +506,9 @@ jobs:
         id: pw
         # Guarded: a silently-empty version would still make a valid cache key, and that key
         # would never invalidate -- leaving a stale browser installed after an upgrade.
+        # `shell: bash` turns pipefail on; the default `run:` shell does not, so the pipe below
+        # read awk's status and only the `test -n` line caught a failed `playwright --version`.
+        shell: bash
         run: |
           version="$(uv run playwright --version | awk '{print $NF}')"
           test -n "$version" || { echo "could not resolve the playwright version"; exit 1; }
