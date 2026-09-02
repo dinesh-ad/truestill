@@ -1025,7 +1025,7 @@ here because a lost answer key corrupts every measurement taken against it, whic
   pattern, Android's `IMG_`/`VID_`; the other vendors' conventions are unbuilt. Recorded
   2026-08-03. [Full entry](research/backlog/abb.md)
 
-- **(age) `(aek)`'s SILENT DIRECTION SURVIVES INSIDE `(aek)`'s OWN FIX.** 📏 **Measured zero 2026-09-02 (P187) - Records**: 0 in every record and transcript. **Where it would come from**: a FUSE mount (pCloud, Icedrive, rclone) dropping between the path being typed and the preview probing it. Recorded 2026-08-23,
+- **(age) `(aek)`'s SILENT DIRECTION SURVIVES INSIDE `(aek)`'s OWN FIX.** 📏 **Measured zero 2026-09-02 (P187) - Records**: 0 in every record and transcript. **Where it would come from**: a FUSE mount (a cloud sync client, or rclone) dropping between the path being typed and the preview probing it. Recorded 2026-08-23,
   found while investigating `(aft)`. `preflight_destination` correctly records `free: int | None`
   (`filesystem.py:preflight_destination`) and then **throws it away one line later**: `free_bytes=need if free
   is None else free` (`:271`), with `DestinationPreflight` carrying **no field** for *"this was not
