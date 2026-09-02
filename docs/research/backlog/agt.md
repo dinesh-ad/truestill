@@ -1,6 +1,6 @@
 # (agt) REFUSED READS AS ABSENT IN MESSAGES AND REPORTS - `(aey)`'s wording residue.
 
-*Body of entry `(agt)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(agt)`, under **Internal / tooling**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(agt) REFUSED READS AS ABSENT IN MESSAGES AND REPORTS - `(aey)`'s wording residue.** Filed
   2026-08-24 after the class was censused twice in two days (`(aey)`'s seventh-site close

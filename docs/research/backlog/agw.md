@@ -1,6 +1,6 @@
 # (agw) `last-run.json` IS WRITTEN OUTSIDE THE LOCK THAT GUARDS THE REST OF THE RECORD.
 
-*Body of entry `(agw)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(agw)`, under **Internal / tooling**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(agw) `last-run.json` IS WRITTEN OUTSIDE THE LOCK THAT GUARDS THE REST OF THE RECORD.**
   Filed 2026-08-24. **This is `(afw)`'s third NOT DECIDED item coming due**, quoted from its own

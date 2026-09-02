@@ -1,6 +1,6 @@
 # (ahb) THE UNDATED REPORT LINKS TO NOTHING - THE APP HALF SHIPPED, THE CLI HALF DID NOT.
 
-*Body of entry `(ahb)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(ahb)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(ahb) THE UNDATED REPORT LINKS TO NOTHING - THE APP HALF SHIPPED, THE CLI HALF DID NOT.** Filed 2026-08-24 (P53).
   **Ranked ABOVE `(aha)`**: that one records a defect, this one is a **route**, and the route is

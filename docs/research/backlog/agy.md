@@ -1,6 +1,6 @@
 # (agy) FIVE THINGS THE CATALOG WRITES AND NOTHING READS - a census, not a verdict.
 
-*Body of entry `(agy)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(agy)`, under **Records - evidence, explicitly not work**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(agy) FIVE THINGS THE CATALOG WRITES AND NOTHING READS - a census, not a verdict.** Filed
   2026-08-24 (P47). ⚠ **NOT A DEFECT ON ITS FACE, and this entry deliberately rules nothing.**

@@ -1,6 +1,6 @@
 # (aha) AN EXTERNAL EXIF EDIT PRODUCES A DUPLICATE, OR ADVICE THAT DESTROYS IT.
 
-*Body of entry `(aha)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(aha)`, under **Records - evidence, explicitly not work**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aha) AN EXTERNAL EXIF EDIT PRODUCES A DUPLICATE, OR ADVICE THAT DESTROYS IT.** Filed
   2026-08-24 (P53) from a traced read, not a reproduction. ⚠ **RECORDS BEHAVIOUR AND PROPOSES
