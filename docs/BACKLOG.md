@@ -33,7 +33,15 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajq). Next free: (ajr).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajr). Next free: (ajs).**
+**Retired 2026-09-02 (P186), and named here because a retired letter is not a free one:** `(ss)`
+(organize preview *"hashes every file"*). False as titled - `scan.py:_needs_sha` pre-filters by
+byte size and the body itself said both proposed fixes were already built - and its acceptance
+test needs a cloud/FUSE corpus the fence forbids. The body is kept as a **record** at
+[`research/backlog/ss.md`](research/backlog/ss.md).
+⚠ **`(ajl)` was cited by code before any entry existed** - seven citations in four files from
+`24986b0`, a `feat(aiq)` commit, and no row anywhere until 2026-09-02. It is `(aiq)` gap 1 and is
+recorded in [`SHIPPED.md`](SHIPPED.md) as a cross-reference; `(ajr)` carries the census.
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -353,9 +361,6 @@ rather than treated as a triage failure.
 
 - **(aas) An undated file cannot be assigned to an event the user knows it belongs to.** Recorded
   2026-08-02. [Full entry](research/backlog/aas.md)
-
-- **(ss) Organize preview hashes every file before showing anything - slow on a network mount.**
-  [Full entry](research/backlog/ss.md)
 
 ## Real, but conditional
 
@@ -807,6 +812,14 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
 scripts no gate runs, test corpora, payload typing, documentation keying. These are worth fixing
 and they are not product defects; keeping them in one drawer stops them competing with
 **Build next** for attention.
+
+- **(ajr) A LETTER CITED IN CODE CAN RESOLVE TO NO ENTRY, AND NOTHING CHECKS THAT DIRECTION.**
+  Filed 2026-09-02 (P186) from `(ajl)`. Every guard on letters reads `BACKLOG.md` and `SHIPPED.md`;
+  `test_live_documents_cite_code_that_exists.py` reads docs → code. Nothing reads code → docs.
+  **Measured 2026-09-02: 151 distinct letters cited in `packages/*/src` and `app.js`, 285 defined,
+  1 unresolved** - `(ajl)`.
+  **An entry, deliberately no guard yet**: one instance found by a state check is a count, not a rate, and `(ago)`'s bar is red on the past over a class no guard covers. The body carries
+  the census command; re-run it before deciding. Body: [`research/backlog/ajr.md`](research/backlog/ajr.md).
 
 - **(ajm) A BROWSER TEST MEASURES THE MACHINE'S TEMP PATH, NOT THE PRODUCT.** Filed 2026-09-01
   (P173). **An instrument defect, DIAGNOSED rather than merely observed** - it was reported as

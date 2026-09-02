@@ -1,6 +1,10 @@
 # (ss) Organize preview hashes every file before showing anything - slow on a network mount.
 
-*Body of backlog entry `(ss)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+> ❌ **RETIRED 2026-09-02 (P186). False as titled**: `scan.py:_needs_sha` hashes only size-colliding
+> files, and the body below says both proposed fixes were already built. Its acceptance test needs a
+> cloud/FUSE corpus the fence forbids. Kept as a record for the phase profile it holds.
+
+*Body of retired backlog entry `(ss)`, a record. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(ss) Organize preview hashes every file before showing anything - slow on a network mount.**
   Ruled by the maintainer from a soak finding, 2026-07-29: measured **9.9 files/sec on a 2,064-file

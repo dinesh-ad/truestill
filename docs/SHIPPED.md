@@ -113,6 +113,12 @@ recording shipped work as unstarted, which is the more expensive direction of th
   timestamps. **Closing this whole would have dropped it silently.** Body:
   [`research/backlog/aiq.md`](research/backlog/aiq.md).
 
+- **(ajl) THE APP NAMES THE FILES IT COULD NOT ORGANIZE, AT THE CLI'S CAP.** ✅ **RECORDED
+  2026-09-02 (P186) - a cross-reference, not a second closure.** This is `(aiq)` gap 1, shipped in
+  `24986b0`: `service/organize.py:_failed_report` ships `{total, shown}` at
+  `models.py:FAILURE_PREVIEW_LIMIT`. The code cites `(ajl)` in seven places and no entry was ever
+  filed - see `(ajr)`. No body; the record is `(aiq)`'s.
+
 - **(ael) NO CLI ROUTE COPIES A LIBRARY TO A SECOND DRIVE WITHOUT A SOURCE FOLDER.** ✅ **CLOSED
   2026-09-01 (P175), built under another letter.** Its own *"WHAT REMAINS"* was **drive-to-drive with
   no source folder in hand**, and its *"WHAT IS NOT DECIDED"* proposed the spelling:
