@@ -1,14 +1,14 @@
-# (aht) THE ARCHIVE STAGING TREE IS NEVER REMOVED.
+# (aht) THE ARCHIVE STAGING TREE IS REMOVED BY NOTHING THAT RUNS - `clear_staging` EXISTS AND HAS NO CALLER.
 
 *Body of backlog entry `(aht)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(aht) THE ARCHIVE STAGING TREE IS NEVER REMOVED.** Filed 2026-08-25 (P98, soak six), found
+- **(aht) THE ARCHIVE STAGING TREE IS REMOVED BY NOTHING THAT RUNS - `clear_staging` EXISTS AND HAS NO CALLER.** Filed 2026-08-25 (P98, soak six), found
   while reading `(ahp)`'s artifact rather than by reasoning about it.
 
   ## MEASURED, AND THE MEASUREMENT CHANGES THE RANK
 
   Ingesting the real **1.61 GB / 534-entry** archive leaves `.truestill-staging/` under the
-  destination holding **535 files, 1.6 GB** - beside the 1.6 GB organized copy. **Nothing removes
+  destination holding **535 files, 1.6 GB** - beside the 1.6 GB organized copy. **Nothing that runs removes
   it**: `grep -iE "rmtree|unlink|clean"` against `archive_ingest.py` returns nothing.
 
   ⚠ **A second ingest of the same archive does NOT stage again.** Measured: still **535 files,

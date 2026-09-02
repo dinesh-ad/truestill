@@ -1,8 +1,8 @@
-# (abj) Find matches one substring; a two-word query silently finds nothing.
+# (abj) Find matches one substring; a two-word query finds nothing, and only the CLI is silent about it.
 
 *Body of backlog entry `(abj)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(abj) Find matches one substring; a two-word query silently finds nothing.** Recorded
+- **(abj) Find matches one substring; a two-word query finds nothing, and only the CLI is silent about it.** Recorded
   2026-08-05. `find_copies_query` builds `%term%` and ORs it across `original_name`, `relative`
   and `source_path` - no whitespace split, no AND. So `beach 2019` matches only that literal
   string, and a photo at `2019/2019-07/2019-07-04 - Beach/` never has it. **The placeholder that

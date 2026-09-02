@@ -34,6 +34,13 @@ names no `(u)` anywhere - which is exactly the drift this paragraph warns about,
 own text. Replaced with citations verified present on 2026-08-01.)*
 
 **Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajs). Next free: (ajt).**
+**Retired 2026-09-02 (P190), and named here because a retired letter is not a free one:** `(abz)`
+(*"Organize shows one population three ways and connects none of them"*). False before it was
+filed: `app.js:rearrangeNote` (`93635af`, 2026-08-06) prints *"N of M files here are already in
+your library"*, which is the connection, and the entry was recorded on 2026-08-08. What survives -
+an identical headline in `renderInventoryResult` and `renderOrganizeResult` - is a different
+observation and gets its own letter if anyone wants it. Body kept as a record at
+[`research/backlog/abz.md`](research/backlog/abz.md).
 **Retired 2026-09-02 (P186), and named here because a retired letter is not a free one:** `(ss)`
 (organize preview *"hashes every file"*). False as titled - `scan.py:_needs_sha` pre-filters by
 byte size and the body itself said both proposed fixes were already built - and its acceptance
@@ -232,9 +239,6 @@ rather than treated as a triage failure.
 
 - **(r) Analyze mode - the hash cache half is SHIPPED.** ⚠ **Build next, 2026-09-02 (P187)**: no condition - tier 2b and the app screen are absent for everyone; scoped work, not a conditional defect. [Full entry](research/backlog/r.md)
 
-- **(abz) Organize shows one population three ways and connects none of them.** ⚠ **Build next, 2026-09-02 (P187)**: no condition - the three framings render on every preview. [Full
-  entry](research/backlog/abz.md)
-
 - **(aby) Organize screen: copy that repeats itself or explains its own button.** ⚠ **Build next, 2026-09-02 (P187)**: no condition - both duplicated sentences render on every Organize open, for everyone. [Full
   entry](research/backlog/aby.md)
 
@@ -311,7 +315,7 @@ rather than treated as a triage failure.
   building; that is a real possible answer.
   Body: [`research/backlog/aip.md`](research/backlog/aip.md).
 
-- **(aht) THE ARCHIVE STAGING TREE IS NEVER REMOVED.** Filed 2026-08-25 (P98), found in `(ahp)`'s
+- **(aht) THE ARCHIVE STAGING TREE IS REMOVED BY NOTHING THAT RUNS - `clear_staging` EXISTS AND HAS NO CALLER.** ⚠ **Retitled 2026-09-02 (P190)**: `archive_extract.py:clear_staging` removes a tree and `archive_extract.py:pending_staging` finds one; both are tested and neither is called from `cli.py` or `service/takeout.py`. The missing piece is the policy (delete after a verified organize, keep as a cache, or keep and say so), which is a ruling. Population: 2 trees on this machine, 537 files, 1.6 GB. Filed 2026-08-25 (P98), found in `(ahp)`'s
   artifact. A 1.61 GB archive leaves **535 files, 1.6 GB** under `.truestill-staging/` beside the
   organized copy, and **nothing removes it** (`grep -iE "rmtree|unlink|clean"` against
   `archive_ingest.py` returns nothing).
@@ -352,10 +356,10 @@ rather than treated as a triage failure.
 - **(abd) ONE CATALOG OR MANY - the question is unanswered, and it may be the wrong default.**
   Recorded 2026-08-05. [Full entry](research/backlog/abd.md)
 
-- **(abj) Find matches one substring; a two-word query silently finds nothing.** [Full
+- **(abj) Find matches one substring; a two-word query finds nothing, and only the CLI is silent about it.** ⚠ **Retitled 2026-09-02 (P190)**: the app warns first (`index.html`'s *"One word works best"*, `d95ba7e`); the CLI answers *"No catalogued copies match"* with no hint. Measured on the real library: 9,260 of 10,710 paths contain a space, and `find('2019 IMG')` returns 0 where `find('2019')` returns 1,746. Both `find_copies_query` and `count_copies` must change together or paging breaks. [Full
   entry](research/backlog/abj.md)
 
-- **(aba) Nothing reconciles the catalog's recorded location with where a file actually is.**
+- **(aba) An in-place organize against a fresh catalog quietly undoes a hand-move.** ⚠ **Retitled 2026-09-02 (P190)**: the old title has been false since `372fb22` - `rescan.py:reconcile` reconciles and `(abn)` is that nothing acts on it. Symptom 1 shipped in `f92c232`; symptom 3 died in `4fb1a05` - `migrate.py:apply_moves` refuses the stale path by name and continues. What remains is symptom 2: `organizer.py:_execute_one_write` moves a hand-tidied file back when the catalog is fresh. Population in evidence: 0 hand-moves across 68,000 recorded copies.
   Carries `(agr)` part 3 since 2026-08-23 - the two-identities-at-one-path drive sibling, ruled
   no-build with its specimen preserved. [Full entry](research/backlog/aba.md)
 

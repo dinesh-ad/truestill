@@ -9,7 +9,12 @@
   ## WHAT IS ACTUALLY KNOWN
 
   1. **The domain `truestill.app` is bought.** Stated by the maintainer, 2026-08-22.
-  2. **Nothing about it is in this repository.** `grep -ri truestill.app` matches only
+  2. ⚠ **CORRECTED 2026-09-02 (P190): it IS in this repository, four times, two of them before this was
+     filed** - `DECISIONS.md` (analytics on `truestill.app`, *"domain not yet registered"*), `brand.md`
+     (*"The landing page (`truestill.app`) - all of it"*), `brand/README.md`, and `(aad)`. And
+     `DECISIONS.md`'s *"not yet registered"* contradicts claim 1 today; which is current is the
+     maintainer's to say. The original claim follows.
+     **Nothing about it is in this repository.** `grep -ri truestill.app` matches only
      `packages/truestill-app/`, `truestill_app/` and the `truestill-app` package name - the
      *identifiers*, never the domain. No entry, no decision, no note, no link.
   3. **D9 requires a download page, and its requirement is binding**, quoted rather than
@@ -19,7 +24,9 @@
      irreplaceable photos, and *"a user who meets an unexplained 'unrecognized app' warning on
      that product draws exactly the wrong conclusion, and they draw it at the moment they were
      about to install."*
-  4. **`(aad)` carries it as item 5** of what remains, marked *"Still mandatory"* - re-confirmed
+  4. ⚠ **CORRECTED 2026-09-02 (P190): `(aad)` closed on 2026-09-01 and its table delegates the page to
+     `(afg)`**, so this pointer is circular; nothing outside this entry carries the page now.
+     **`(aad)` carries it as item 5** of what remains, marked *"Still mandatory"* - re-confirmed
      2026-08-21 against winget, where an unsigned installer still shows the warning, so there is
      no second path that avoids the page.
 
@@ -47,7 +54,9 @@
     user arrives at it from a link rather than from a place that framed the product.
   - **Against blocking.** A first tag could be a **GitHub release only**, unannounced, with no
     page and no audience - which is what a first tag is *for* when the publish job has never run
-    (`PROJECT_STATUS.md` §2b). D9's requirement would then attach to the first *announced*
+    (`PROJECT_STATUS.md` §2b). ⚠ **That premise expired 2026-08-30**: the publish job ran on a
+    throwaway tag (`release-rehearsal-record.md`), so the argument now rests on *unannounced*, not on
+    *never run*. D9's requirement would then attach to the first *announced*
     release rather than the first tag. ⚠ But note `(adz)` **expires at the first tag** regardless,
     so "just a quiet tag" is not free.
   - **The middle.** The requirement is about what a *Windows user downloading an installer* is

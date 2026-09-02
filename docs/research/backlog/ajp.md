@@ -44,7 +44,8 @@ one path that deletes `files` rows in normal use.
 
 Deleting the membership beside the file is the obvious answer and is probably right. The
 alternative - a foreign key with `ON DELETE CASCADE` - is a **schema migration on a published
-product** and would need `PRAGMA foreign_keys` to be on, which was not checked.
+product**. ✅ It is on: `catalog.py:Catalog.__init__`'s `PRAGMA foreign_keys = ON` runs on every connection
+(checked 2026-09-02, P190), so a cascade would fire; the cheaper fix is two lines in `forget_organized`.
 
 ⚠ **`(acg)` deliberately shipped without touching this**, because its fix needed no schema change
 and this one may.

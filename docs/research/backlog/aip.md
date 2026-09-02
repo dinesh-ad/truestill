@@ -4,7 +4,10 @@
 
 - **(aip) MIGRATE AND BACKUP KEEP A COPY WHOSE METADATA WAS REFUSED AND NEVER SAY SO.**
   Filed 2026-08-29 (P143). **The residue of `(aie)`, named rather than folded into it.** That fix
-  reached `relocate` and `backup` for free, because both go through `copy_leaving_nothing` - so a
+  reached `relocate` and `backup` for free - `relocate` through `copy_leaving_nothing`, `backup` through
+  `safe_copy.py:StagedCopy.commit` directly (corrected 2026-09-02, P190; this said both went through
+  `copy_leaving_nothing`), and either way the fact is on the outcome and discarded at
+  `backup.py:_copy_verified`'s `return CopyVerdict(written)` - so a
   layout migration onto a mount refusing `copystat` no longer fails every file in the library, and
   a backup no longer discards a verified copy. **Only `organize` reports it.**
 

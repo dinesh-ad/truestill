@@ -9,6 +9,8 @@
     the mode radio in `index.html` as the radio subtitle, and `app.js:modeLine` (`modeLine("copy")`) into
     `#org-mode-hint`.
   - The **Look inside** button is explained by a sentence next to it that says the same word:
-    `#org-why` in `index.html` and `app.js:startOrganizeRun`, *"Look inside first to see what is in the folder."*
+    `#org-why` in `index.html` and the `org-mode` change listener in `app.js` (not `startOrganizeRun` - P186's
+    correction was wrong, P190), *"Look inside first to see what is in the folder."* Both write the same
+    element, so this is one literal in two files rather than two copies on screen.
   - The confirm banner prints the typed-word instruction twice, four lines apart -
     `app.js:renderOrganizeRunConfirm` in the banner and again in the input label.

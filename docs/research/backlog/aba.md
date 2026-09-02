@@ -1,8 +1,8 @@
-# (aba) Nothing reconciles the catalog's recorded location with where a file actually is.
+# (aba) An in-place organize against a fresh catalog quietly undoes a hand-move.
 
 *Body of backlog entry `(aba)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(aba) Nothing reconciles the catalog's recorded location with where a file actually is.**
+- **(aba) An in-place organize against a fresh catalog quietly undoes a hand-move.**
   Found 2026-08-03 by tracing what happens when a user tidies by hand - the maintainer moved a
   file out of `Saved/` into its trip folder after an organize. **Three symptoms, one root
   cause**, filed together because they share it and would otherwise be fixed three times; each
@@ -46,6 +46,9 @@
     lost catalog or a re-clone, dedup is empty, the check compares the file's current path
     against the **rule-derived** target, finds they differ, and moves it back. Journalled, so
     `undo-organize` reverses it - but silent at the time.
+  - ✅ **SYMPTOM 3 DEAD, `4fb1a05` (2026-08-24)**: `migrate.py:apply_moves` appends the stale path to `refused`
+    and continues; the cause (`local.py:LocalDestination.relocate` raising *cannot relocate missing copy*)
+    still names a path rather than the reason, which is wording. The paragraph below is the original.
   - **SYMPTOM 3 - a changed-layout migration halts on a path that no longer exists.**
     `plan_migration` plans from the catalog, so it computes `old -> new` from the recorded
     `relative`. With the layout unchanged the file falls into `plan.unchanged` and nothing
