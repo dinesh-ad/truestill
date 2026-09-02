@@ -22,6 +22,16 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ajo) THREE CORE HELPERS ANSWER "IS THIS FILE IN TWO PLACES?" THREE WAYS, AND THE STATS SCREEN IS THE ODD ONE.**
+  ✅ **CLOSED 2026-09-02 (P190).** Four helpers, two answers: `single_copy_shas`, `single_copy_count`
+  and `custody_floor` test `missing_at IS NULL`; `catalog.py:Catalog.stats_summary`'s rollup did not,
+  so the Stats screen counted a copy `verify` had proved absent as a place. One clause. **Measured on
+  the real soak catalog `soak-2026-08-20/s4-data`**: 7 files the screen called *"on one drive only"*
+  are on none, and it now says so; on 45 library photographs organized, backed up, one copy deleted
+  and verified, Stats, the app payload and `status` agree at 44 and 1. Its headline counted the
+  wrong bucket - the real occurrences land in *zero drives*, not *two or more*. The label wording for
+  a named absence is unchanged. Body: [`research/backlog/ajo.md`](research/backlog/ajo.md).
+
 - **(ahz) RECOVERING A LOST CATALOG DESTROYS THE NAMES IT IS RECOVERING, AND THE GUARD AGAINST IT IS BLIND.**
   ✅ **CLOSED 2026-09-02 (P186), built under another letter.** Steps 1-3 shipped 2026-08-26. The
   one residual, *"`rename_trip` is unbuilt"*, checked a symbol name, not a capability:

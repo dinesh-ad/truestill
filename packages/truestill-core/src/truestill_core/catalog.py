@@ -2168,6 +2168,12 @@ class Catalog:
         photo as a side-bin file** - the most visible of `(ahw)`'s four sites, and the one nobody
         had filed. The two halves share one predicate so they cannot drift into overlapping or
         leaving a gap.
+
+        ⚠ **A copy `verify` proved absent is not a place** (`(ajo)`, 2026-09-02). This rollup counted
+        every `file_copies` row while `single_copy_shas`, `single_copy_count` and `custody_floor`
+        all test `missing_at IS NULL`, so the Stats screen said *"on one drive"* for files that were
+        on none - seven of them in a real catalog - at the moment `verify` had proved the copy gone.
+        `list_drives` keeps counting history on purpose; this counts custody now.
         """
         _timeline, _labels = timeline_label_sql("f.category")
         row: sqlite3.Row | None = self._conn.execute(
@@ -2178,6 +2184,7 @@ class Catalog:
                     COUNT(*) AS copies,
                     MAX(CASE WHEN last_verified IS NOT NULL THEN 1 ELSE 0 END) AS any_verified
                 FROM file_copies
+                WHERE missing_at IS NULL
                 GROUP BY sha256
             )
             SELECT

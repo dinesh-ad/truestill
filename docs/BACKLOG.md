@@ -271,27 +271,6 @@ rather than treated as a triage failure.
   entry does not claim it. The cascade alternative is a schema migration on a published product.
   Body: [`research/backlog/ajp.md`](research/backlog/ajp.md).
 
-- **(ajo) THREE CORE HELPERS ANSWER "IS THIS FILE IN TWO PLACES?" THREE WAYS, AND THE
-  STATS SCREEN IS THE ODD ONE.**
-  Filed 2026-09-01 (P180), split out of `(aiy)` as **that entry's own §6 required** - *"wrong
-  today independent of any device question - its own entry, not folded in here."*
-  🔑 **Run, not argued.** One catalog, one file, two drives, `verify` having found the second copy
-  absent: `single_copy_shas` → 1 at-risk row, `custody_floor` → `one_copy: 1`, and
-  `stats_summary` → `files_on_two_plus_drives = 1`. **`status` and the custody strip say one
-  place; the Stats screen says two or more.** Same catalog, same instant.
-  The cause is one missing clause - `stats_summary`'s rollup (`catalog.py:Catalog.stats_summary`) reads
-  `FROM file_copies` with no `missing_at` test, while the other three exclude absent copies **and
-  each says why**: *"A copy looked for and not found is not a place"* (`catalog.py:Catalog.single_copy_shas`).
-  ⚠ **NOT "add the clause everywhere".** `list_drives` deliberately does the opposite and must stay
-  - a drive list reports **history**, and the codebase already draws that line in
-  `single_copy_shas`'s own docstring. **A promise about now filters; a record of the past does
-  not**, and `stats_summary` is a promise about now on the wrong side of it.
-  ⚠ **Ranked honestly BELOW `(aiy)`: nothing here gates a delete** - `reclaim` reads
-  `reclaim_candidates.copy_count`. The cost is a screen contradicting two others about custody, in
-  the reassuring direction, at the moment `verify` has just proved a copy gone.
-  `holder_sets` and `drive.library_independence` are already on the filtering side and are not
-  touched. Body: [`research/backlog/ajo.md`](research/backlog/ajo.md).
-
 - **(aiv) THE FAILURE CAP COUNTS 2,519 REASONS FOR ONE FACT, WHICH IS THE DEFECT `(afd)` CLOSED.**
   Filed 2026-08-30 (P148, soak nine), measured at scale. An `EPERM` at `copystat` for every one of
   2,519 files - **one** condition, belonging to the mount - printed *"and 2,499 more METADATA NOT

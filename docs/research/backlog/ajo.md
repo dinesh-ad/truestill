@@ -1,6 +1,9 @@
 # (ajo) THREE CORE HELPERS ANSWER "IS THIS FILE IN TWO PLACES?" THREE WAYS, AND THE STATS SCREEN IS THE ODD ONE
+> ✅ **CLOSED 2026-09-02 (P190)** - one `WHERE missing_at IS NULL` in `catalog.py:Catalog.stats_summary`'s rollup; see
+> [`SHIPPED.md`](../../SHIPPED.md). The headline's arithmetic was wrong two ways: four helpers, two answers, and the
+> measured occurrences land in the zero-drives bucket. The body is kept as the measurement.
 
-*Body of backlog entry `(ajo)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md);
+*Body of backlog entry `(ajo)`, closed, see [`SHIPPED.md`](../../SHIPPED.md). The index is [`BACKLOG.md`](../../BACKLOG.md);
 the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 Filed 2026-09-01 (P180), split out of `(aiy)` as that entry's own §6 required: **"wrong today
