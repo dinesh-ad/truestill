@@ -68,6 +68,11 @@ jobs:
     env:
       UV_PYTHON: ${{ matrix.python }}
     steps:
+      # ⚠ DEPTH 1, THE ACTION'S DEFAULT, AND A DECISION RATHER THAN AN OVERSIGHT (P189, 2026-09-02).
+      # `test_closed_entries_leave_the_backlog.py` reads closure trailers out of `git log`; at depth
+      # 1 it read one commit and passed over an empty set, and it now SKIPS here with that reason.
+      # A full checkout (`fetch-depth: 0`) would make it real in CI at ~170 MB per lane per push
+      # (the pack is 169 MiB). Whether that is worth it is the maintainer's call; `(ajs)` carries it.
       - uses: actions/checkout@v7
 
       # ⚠ THE BOUND LIVES IN apt's CONFIG, NOT ON OUR apt COMMANDS, AND THAT IS THE FIX.
@@ -310,6 +315,14 @@ jobs:
           echo "TS_PYTEST_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
           exit $status
 
+      # The junit file is the proof the suite RAN. A green step proves the code exited 0; pytest
+      # exits 0 for a file that collected nothing. 3,498 tests on 2026-09-02; the floor is a
+      # fraction, so a lane that silently collected half the suite fails too (P189, Q1213).
+      - name: The suite actually ran
+        if: always()
+        shell: bash
+        run: uv run python scripts/check_junit_floor.py --at-least 1000 test-results.xml
+
       # The same suite in a DIFFERENT collection order, because green in one order is not
       # green. `uv run pytest` uses testpaths (core, cli, app); passing the directory collects
       # alphabetically (app, cli, core). That difference alone was the whole reason a
@@ -350,7 +363,9 @@ jobs:
         with:
           name: test-results-${{ matrix.os }}
           path: test-results.xml
-          if-no-files-found: warn
+          # `error`, not `warn`: a missing proof is a failure, and a warning in a log nobody opens
+          # is the same silence with extra steps (ENGINEERING_STANDARD.md §4, forty-third member).
+          if-no-files-found: error
           retention-days: 30
 
       - name: Timing summary
@@ -556,6 +571,12 @@ jobs:
       - name: E2E
         run: make e2e E2E_EXTRA="--junitxml=test-results.xml" E2E_SECONDS_MAX=3600
 
+      # 510 browser tests on 2026-09-02; the floor is a fraction (P189, Q1213).
+      - name: The lane actually ran
+        if: always()
+        shell: bash
+        run: uv run python scripts/check_junit_floor.py --at-least 100 test-results.xml
+
       # WHICH tests failed, per run, so nobody has to count green runs by hand in a backlog
       # entry. `always()` because a green run's file is the baseline that makes a red one
       # readable, and it is a few KB. Read with `scripts/flake_report.py`, on demand - there is
@@ -566,7 +587,7 @@ jobs:
         with:
           name: test-results-e2e
           path: test-results.xml
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30
 
       # A red run should arrive with a replay, not a guess.
