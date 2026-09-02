@@ -29,12 +29,18 @@ pytestmark = pytest.mark.skipif(
 def _recipe(make_shim: Path) -> str:
     """The recipe with `$(MAKE)` pointed at the shim: on macOS `$(MAKE)` expands to make's full
     path, so a shim on PATH would never see the call - the variable is overridden instead."""
+    # `-n` still EXECUTES the `$(MAKE)` line, and in a working tree with a browser change the
+    # real recipe decides the lane applies - so during extraction the shim exits 0 (SHIM_EXIT
+    # unset) and only the run below asks it to exit 7. MAKEFLAGS is dropped because this test
+    # itself runs under `make check`, and an inherited jobserver is not this recipe's business.
+    env = {k: v for k, v in os.environ.items() if k not in ("MAKEFLAGS", "MFLAGS", "MAKELEVEL")}
     done = subprocess.run(
         ["make", "-n", "-o", "check", "gate", "BASE=HEAD", f"MAKE={make_shim}"],
         cwd=ROOT,
         capture_output=True,
         text=True,
         check=True,
+        env=env,
     )
     # `-n` still EXECUTES a recipe line that mentions `$(MAKE)`, so the script is followed by
     # its own output; the recipe ends at the outermost `fi`.
@@ -69,7 +75,9 @@ def _env(tmp_path: Path, *, git_diff_fails: bool) -> tuple[dict[str, str], Path]
     assert real_git
     shims = tmp_path / "bin"
     shims.mkdir()
-    (shims / "make").write_text('#!/bin/sh\necho "shim make: $*"; exit 7\n', encoding="utf-8")
+    (shims / "make").write_text(
+        '#!/bin/sh\necho "shim make: $*"; exit "${SHIM_EXIT:-0}"\n', encoding="utf-8"
+    )
     if git_diff_fails:
         (shims / "git").write_text(
             # Only the FIRST diff fails; the `--cached` one answers. That is the defect's shape:
@@ -87,7 +95,12 @@ def _env(tmp_path: Path, *, git_diff_fails: bool) -> tuple[dict[str, str], Path]
 
 def _run(recipe: str, repo: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ["sh", "-c", recipe], cwd=repo, env=env, capture_output=True, text=True, check=False
+        ["sh", "-c", recipe],
+        cwd=repo,
+        env={**env, "SHIM_EXIT": "7"},
+        capture_output=True,
+        text=True,
+        check=False,
     )
 
 
