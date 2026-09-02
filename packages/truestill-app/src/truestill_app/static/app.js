@@ -2269,6 +2269,13 @@ function organizeUndoSkipped(skipped) {
 // does not depend on how many there were. Core's `CleanupOutcome` makes the same split.
 //
 // Complexity: O(1). Two integers and a boolean already in the payload; nothing is re-read.
+// `(ahi)`. The run WORKED and its record did not - one wording, every surface that records.
+function recordErrorBanner(d) {
+  if (!d || !d.record_error) return "";
+  return `<div class="banner warn" data-testid="record-error"><div>This run happened and could not be
+    written into the run history: ${esc(d.record_error)}</div></div>`;
+}
+
 function cleanupDisposition(applied) {
   // Never "Removed 0 folders": a run that removed nothing is not a removal, and the failures
   // banner below it carries the reason for each one.
@@ -2356,7 +2363,7 @@ async function startCleanupPreview(button) {
           `<div class="headline">${cleanupDisposition(applied)}</div>
            ${applied.failures && applied.failures.length
             ? `<div class="banner warn"><div>${applied.failures.map((f) => esc(f)).join("<br>")}</div></div>`
-            : ""}`
+            : ""}${recordErrorBanner(applied)}`
         );
       },
     });
@@ -3427,7 +3434,10 @@ async function rcRunArchives(source, destination) {
          <div class="k">Nothing was imported. What was unpacked so far is kept where it is, and
          starting again picks up from there or clears it.</div>`);
     },
-    onSuccess: (d) => { rcRenderSummary(d); },
+    onSuccess: (d) => {
+      rcRenderSummary(d);
+      if (d.record_error) $("rc-result").insertAdjacentHTML("beforeend", recordErrorBanner(d));
+    },
   });
 }
 

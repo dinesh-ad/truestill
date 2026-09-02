@@ -135,6 +135,25 @@ MUTATING_RUNS: dict[str, tuple[bool, str]] = {
         # the cheapest of the four remaining surfaces, not the hardest.
         "returns a per-file plan AND typed per-file outcomes; writes one since `(afw)`",
     ),
+    "takeout": (
+        True,
+        (
+            "records under `kind: archive unpack` through `archive_extract.record_extraction`, "
+            "`(ahi)` 2026-09-02. The only durable account of an unpack: the staging journal holds "
+            "a root and part names, is overwritten by the next unpack of the same set, and is read "
+            "by nothing. Entries are the archive parts; the counts ride on the line"
+        ),
+    ),
+    "clean_empty": (
+        True,
+        (
+            "records under `kind: clean empty` through `cleanup.record_cleanup`, `(ahi)` "
+            "2026-09-02, ruled by the maintainer: the entries NAME the folders removed, from "
+            "`CleanupOutcome.removed_folders` and never from `plan.removable` minus failures - a "
+            "folder already gone before its turn is neither removed nor failed, so that derivation "
+            "over-claims. `cleanup.py` never touches a catalog, so this is the only account"
+        ),
+    ),
 }
 
 
@@ -413,8 +432,24 @@ def test_every_mutating_app_run_is_accounted_for() -> None:
 #: `_wires_a_record` is module-granular: `service/migrate.py` reaches `record_organize` through
 #: `truestill_core.migrate._record_migration` on the FORWARD path, so `migrate` answered `True`
 #: however `undo_migration` behaved. A guard that cannot see a function cannot see a gap inside one.
-ENTRY_POINTS: dict[str, tuple[str, str, bool, str]] = {
+#: `(ahi)`, re-keyed 2026-09-02 (P191): **one row per `operation=` string a route declares**, the
+#: way `server.py` names it, mapped to the service entry point that runs it. A module-keyed table
+#: could not see `undo organize`, `set dates` or `trip apply`, and a per-entry-point table that only
+#: listed four rows could not see them either; `test_every_declared_mutating_operation_has_a_row`
+#: derives the key set from `server.py` so a new mutating route cannot arrive unlisted.
+OPERATIONS: dict[str, tuple[str, str, bool, str]] = {
+    "organize": ("organize", "organize_run", True, "`(afu)`; per-file `ActionResult` list"),
+    "undo organize": ("organize_undo", "organize_undo", True, "`(afw)`; per-file outcomes"),
+    "backup": ("backup", "backup_run", True, "`(afw)` stage 3, under `kind: backup` via core"),
+    "set dates": ("bake", "bake_run", True, "`(agm)`: an index line and no detail, via core"),
+    "rename": ("rename", "rename_run", True, "`(aix)`; `_record_migration` with `kind: rename`"),
     "migrate": ("migrate", "migration_apply", True, "the forward path, via `_record_migration`"),
+    "trip apply": (
+        "migrate",
+        "migration_apply",
+        True,
+        "the same entry point as `migrate`; the placement is a migration and records as one",
+    ),
     "undo": (
         "migrate",
         "migration_undo",
@@ -431,16 +466,58 @@ ENTRY_POINTS: dict[str, tuple[str, str, bool, str]] = {
     "archive unpack": (
         "takeout",
         "archive_ingest_run",
-        False,
-        "`(ahi)`'s remaining set. Unbuilt, and its shape is its own judgement - see the note",
+        True,
+        "`(ahi)` 2026-09-02: `record_extraction`, the only account; parts named, counts on the line",
     ),
     "clean empty": (
         "clean_empty",
         "clean_empty_apply",
-        False,
-        "`(ahi)`'s remaining set. Unbuilt, and its shape is its own judgement - see the note",
+        True,
+        "`(ahi)` 2026-09-02: `record_cleanup`; folders NAMED, by the maintainer's ruling",
     ),
 }
+
+#: Entry points that genuinely write nothing, so the detector's negative stays exercised now that
+#: every operation records. A table that legitimately becomes uniform must not cost a guard its
+#: teeth (the floor's own rule, below).
+NON_RECORDING: tuple[tuple[str, str], ...] = (
+    ("clean_empty", "clean_empty_preview"),
+    ("takeout", "ingest_preview_run"),
+)
+
+
+def _declared_mutating_operations() -> set[str]:
+    """The `operation=` strings `server.py` declares with `mutating=True`, read from its AST -
+    the same derivation `test_every_job_declares_whether_it_mutates.py` uses, so the key set of
+    `OPERATIONS` is a fact about the routes rather than a list somebody maintains."""
+    server = Path(__file__).resolve().parents[1] / "src" / "truestill_app" / "server.py"
+    found: set[str] = set()
+    for node in ast.walk(ast.parse(server.read_text(encoding="utf-8"))):
+        if not isinstance(node, ast.Call):
+            continue
+        keywords = {k.arg: k.value for k in node.keywords if k.arg}
+        operation, mutating = keywords.get("operation"), keywords.get("mutating")
+        if (
+            isinstance(operation, ast.Constant)
+            and isinstance(operation.value, str)
+            and isinstance(mutating, ast.Constant)
+            and mutating.value is True
+        ):
+            found.add(operation.value)
+    return found
+
+
+def test_every_declared_mutating_operation_has_a_row() -> None:
+    """The direction P69's docstring called underivable, closed: `server.py` DOES declare the set
+    of mutating operations - `mutating=True` beside an `operation=` string - and every one of
+    them must have a row here. Ten on 2026-09-02; the floor is what keeps a broken AST walk from
+    passing over nothing."""
+    declared = _declared_mutating_operations()
+    assert len(declared) >= 8, f"only {len(declared)} mutating operations read from server.py"
+    assert declared == set(OPERATIONS), (
+        f"declared by routes but not here: {sorted(declared - set(OPERATIONS))}; "
+        f"here but no route declares it: {sorted(set(OPERATIONS) - declared)}"
+    )
 
 
 def _reaches_a_record(service: Path, module: str, function: str, *, depth: int = 3) -> bool:
@@ -511,12 +588,13 @@ def test_the_table_has_rows_to_check_and_both_answers_in_it() -> None:
     assertion was a proxy for the real worry, which it stated plainly: *"the grep could be
     returning `True` unconditionally and nothing would notice."*
 
-    **The proxy is replaced by the thing itself.** `_wires_a_record` is pointed at three real
-    services that genuinely write no record - `(ahi)`'s remaining set - and must answer `False`
-    for them. That is a stronger floor than a non-uniform table: it exercises the DETECTOR against
-    real negatives instead of requiring the world to keep supplying one, which is the shape
-    `test_live_documents_cite_code_that_exists.py` reached for the same reason. A table that
-    legitimately becomes uniform must not cost a guard its teeth.
+    **The proxy is replaced by the thing itself.** `_reaches_a_record` is pointed at real entry
+    points that genuinely write no record - `NON_RECORDING`, the previews - and must answer
+    `False` for them. That is a stronger floor than a non-uniform table: it exercises the DETECTOR
+    against real negatives instead of requiring the world to keep supplying one, which is the
+    shape `test_live_documents_cite_code_that_exists.py` reached for the same reason. A table that
+    legitimately becomes uniform must not cost a guard its teeth - and on 2026-09-02 (P191) it did
+    become uniform: every one of the ten operations records.
     """
     assert len(MUTATING_RUNS) >= 5, f"only {len(MUTATING_RUNS)} mutating runs listed"
     for name, (_writes, reason) in MUTATING_RUNS.items():
@@ -530,13 +608,18 @@ def test_the_table_has_rows_to_check_and_both_answers_in_it() -> None:
     # asserted the opposite. Meanwhile the operation that genuinely wrote nothing, migrate's
     # `undo`, was invisible: the check was module-granular and its module records on the forward
     # path. Both halves are fixed by asking per ENTRY POINT.
-    for operation, (module, function, writes, reason) in ENTRY_POINTS.items():
+    for operation, (module, function, writes, reason) in OPERATIONS.items():
         assert (service / f"{module}.py").is_file(), f"service/{module}.py moved; floor is blind"
         assert len(reason) > 20, f"{operation}'s row has no reason, which is the point"
         assert _reaches_a_record(service, module, function) is writes, (
             f"operation {operation!r} ({module}.{function}) "
             f"{'no longer' if writes else 'now'} reaches a run record. If that is real it is "
             "`(ahi)`'s work landing or regressing, and this row is what must change with it"
+        )
+    for module, function in NON_RECORDING:
+        assert _reaches_a_record(service, module, function) is False, (
+            f"{module}.{function} is a preview and now reaches a record - either it mutates, or "
+            "the detector answers True unconditionally"
         )
 
 
@@ -548,16 +631,24 @@ def test_no_service_writes_a_record_without_a_row_here() -> None:
     `check_product_name.CHECKED` carries. That half is closable, because "writes a record" is
     readable from the source, and it is closed here.
 
-    ⚠ **The other half is NOT closable and is stated rather than implied**: a new mutating service
-    that writes **no** record cannot be detected, because nothing in this codebase declares the
-    set of mutating services. `server.py`'s `mutating=True` marks routes, not modules, and the
-    operation strings do not map onto file names.
+    ⚠ **The other half read as NOT closable until 2026-09-02 (P191)** - *"nothing in this codebase
+    declares the set of mutating services"*. `server.py` declares the set of mutating OPERATIONS,
+    and `test_every_declared_mutating_operation_has_a_row` derives the key set from it; the
+    module-to-operation join is `OPERATIONS`, which is why the table is keyed that way now.
     """
     service = Path(__file__).resolve().parents[1] / "src" / "truestill_app" / "service"
+    # Per FUNCTION, not per module (P191): `leftover_cleanup.py` imports `truestill_core.cleanup`
+    # for its detection helpers and calls no writer, and a module-granular question said it
+    # records the moment `cleanup.record_cleanup` existed. The question is whether any entry
+    # point in the module reaches a writer.
     writers = {
         module.stem
         for module in sorted(service.glob("*.py"))
-        if _wires_a_record(service, module.stem)
+        if any(
+            _reaches_a_record(service, module.stem, node.name)
+            for node in ast.parse(module.read_text(encoding="utf-8")).body
+            if isinstance(node, ast.FunctionDef)
+        )
     }
     listed = {name for name, (writes, _reason) in MUTATING_RUNS.items() if writes}
 

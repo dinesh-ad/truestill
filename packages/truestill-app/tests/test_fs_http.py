@@ -258,7 +258,17 @@ def test_clean_empty_preview_and_apply_key_sets(client: TestClient, tmp_path: Pa
     # `send2trash` has no emptiness precondition and would take a folder that gained a file
     # between the preview and the confirm. `(afj)`. Renaming a payload key is a breaking change
     # for any reader; `(adz)` says none exist yet, and that window closes at the first tag.
-    assert set(applied) == {"ok", "path", "removed", "discarded", "held_junk", "failures"}
+    # `record_error` since `(ahi)` (2026-09-02): the run's own record, and the key organize and
+    # undo already carry for the same fact.
+    assert set(applied) == {
+        "ok",
+        "path",
+        "removed",
+        "discarded",
+        "held_junk",
+        "failures",
+        "record_error",
+    }
     assert applied["ok"] is True
     # Removal may remove, discard, or fail (gio trash often refuses under /tmp); key set is the pin.
     assert isinstance(applied["removed"], int)

@@ -304,6 +304,13 @@ class CleanupOutcome:
 
     #: Folders removed. Always by ``rmdir``, on every path.
     removed: int = 0
+    #: The folders removed, by relative path, in the order they went. `(ahi)`, ruled 2026-09-02:
+    #: this run's record is the only durable account of a cleanup - `cleanup` never touches a
+    #: catalog - and a count cannot answer *"which folder did it remove"* a week later. ⚠ NOT
+    #: derivable from ``plan.removable`` minus ``failures``: a folder already gone before its turn
+    #: is neither removed nor failed (the ``FileNotFoundError`` branch below), so that derivation
+    #: over-claims. The names are appended at the one place ``rmdir`` succeeds.
+    removed_folders: tuple[str, ...] = ()
     #: Junk **files** unlinked outright, which happens only under ``--permanent`` after the trash
     #: refused them. Nothing recoverable, which is why this one is a number.
     discarded: int = 0
@@ -430,6 +437,7 @@ def run_cleanup(
 
     removed = discarded = 0
     failures: list[str] = []
+    removed_names: list[str] = []
     for candidate in plan.removable:
         folder = root / candidate.relative
         # ⚠ **No `is_dir()` pre-check, and its removal is part of the fix.** It was check-then-act
@@ -467,4 +475,50 @@ def run_cleanup(
             )
             continue
         removed += 1
-    return CleanupOutcome(removed=removed, discarded=discarded, failures=failures)
+        removed_names.append(candidate.relative)
+    return CleanupOutcome(
+        removed=removed,
+        discarded=discarded,
+        failures=failures,
+        removed_folders=tuple(removed_names),
+    )
+
+
+def record_cleanup(db: Path, root: Path, plan: CleanupPlan, outcome: CleanupOutcome) -> str | None:
+    """Write the run record for one cleanup. **Returns an error to report, never raises.** `(ahi)`
+
+    The only durable account of the run: nothing in this module writes a catalog row, and the
+    folders are gone. So the entries name every folder removed (`outcome.removed_folders`, never
+    a derivation) and every one that failed with its reason; ``intended_total`` is what the plan
+    offered and ``attempted`` is what the loop reached. One `kind`, ``clean empty``, on both
+    surfaces - the CLI and the app share this function, which is what lets the census
+    (`test_the_app_records_what_a_run_did.py`) answer for the app's entry point.
+    """
+    from truestill_core.drive import read_marker  # noqa: PLC0415
+    from truestill_core.run_record import (  # noqa: PLC0415
+        RunHeader,
+        build_run_record,
+        record_organize,
+    )
+
+    marker = read_marker(root)
+    files: list[dict[str, object]] = [
+        {"relative": relative, "status": "removed"} for relative in outcome.removed_folders
+    ]
+    for failure in outcome.failures:
+        relative, _, reason = failure.partition(": ")
+        files.append({"relative": relative, "status": "failed", "detail": reason})
+    payload = build_run_record(
+        RunHeader(
+            kind="clean empty",
+            source=str(root),
+            destination=str(root),
+            destination_uuid=marker.uuid if marker is not None else None,
+            destination_label=marker.label if marker is not None else None,
+        ),
+        files=files,
+        intended_total=len(plan.removable),
+        attempted=len(outcome.removed_folders) + len(outcome.failures),
+        stopped=None,
+    )
+    return record_organize(db, payload)

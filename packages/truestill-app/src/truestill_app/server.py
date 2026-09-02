@@ -549,7 +549,9 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         if isinstance(claimed, dict):
             return JSONResponse(claimed)
         try:
-            return JSONResponse(await run_in_threadpool(service.clean_empty_apply, path, emptied))
+            return JSONResponse(
+                await run_in_threadpool(service.clean_empty_apply, path, emptied, _db())
+            )
         finally:
             claimed.release()
 

@@ -26,10 +26,12 @@ path nothing else exercises is half a test.
 from __future__ import annotations
 
 import errno
+import json
 import threading
 from pathlib import Path, PurePosixPath
 
 import pytest
+from truestill_core.app_paths import record_path_for
 from truestill_core.catalog import Catalog
 from truestill_core.destinations.base import DestinationError
 from truestill_core.destinations.local import LocalDestination
@@ -316,3 +318,15 @@ def test_paths_compare_posix_across_platforms(tmp_path: Path, relative: str) -> 
 
     assert (root / relative).exists()
     assert PurePosixPath(relative).as_posix() == relative
+
+
+def test_a_reversal_writes_its_own_record(tmp_path: Path) -> None:
+    """`(ahi)`'s undo half shipped 2026-08-29 and was pinned by a static census row and nothing
+    else (P191). This is the behavioural half: the record exists, says what it is, and names the
+    run it reversed."""
+    _root, db, destination = _migrated(tmp_path)
+    with Catalog(db) as catalog:
+        undo_migration(catalog, destination, "D1", apply=True)
+    run = json.loads(record_path_for(db).read_text(encoding="utf-8"))["run"]
+    assert run["kind"] == "migrate undo"
+    assert run["undid_run_id"], "the record must name the run it reversed"

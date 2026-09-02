@@ -255,6 +255,51 @@ def pending_staging(destination: Path) -> list[StagingRecord]:
     return records
 
 
+def record_extraction(
+    db: Path,
+    *,
+    source: Path,
+    destination: Path,
+    archive_set: ArchiveSet,
+    extraction: ExtractionResult,
+) -> str | None:
+    """Write the run record for one unpack. **Returns an error to report, never raises.** `(ahi)`
+
+    The only durable account of the run: the staging journal (`_write_journal`) holds a root and
+    the part names, is overwritten by the next unpack of the same set, and is read by nothing in
+    the product; the organize that follows records where files *landed*, never what was unpacked.
+    So this names the parts, carries the counts, and says whether the user stopped it. Shared by
+    the CLI and the app's job, one `kind`: ``archive unpack``.
+    """
+    from truestill_core.drive import read_marker  # noqa: PLC0415 - keeps this module import-light
+    from truestill_core.run_record import (  # noqa: PLC0415
+        RunHeader,
+        build_run_record,
+        record_organize,
+    )
+
+    marker = read_marker(destination)
+    parts = list(archive_set.parts)
+    payload = build_run_record(
+        RunHeader(
+            kind="archive unpack",
+            source=str(source),
+            destination=str(extraction.staging_root),
+            destination_uuid=marker.uuid if marker is not None else None,
+            destination_label=marker.label if marker is not None else None,
+        ),
+        files=[{"relative": part.path.name, "status": "unpacked"} for part in parts],
+        intended_total=len(parts),
+        attempted=len(parts),
+        stopped={"reason": "you stopped it"} if extraction.cancelled else None,
+    )
+    run = payload["run"]
+    assert isinstance(run, dict)
+    run["files_written"] = extraction.files_written
+    run["bytes_written"] = extraction.bytes_written
+    return record_organize(db, payload)
+
+
 def clear_staging(record: StagingRecord) -> None:
     """Remove a staging tree and its journal. The tree goes first.
 

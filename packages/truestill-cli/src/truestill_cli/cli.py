@@ -30,7 +30,7 @@ from truestill_core.app_paths import (
     record_path_for,
     resolve_catalog_choice,
 )
-from truestill_core.archive_extract import extract_archive_set
+from truestill_core.archive_extract import extract_archive_set, record_extraction
 from truestill_core.archive_ingest import archives_at, precheck_archives
 from truestill_core.backup import (
     EJECT_BEFORE_UNPLUGGING,
@@ -76,6 +76,7 @@ from truestill_core.cleanup import (
     Tier,
     emptied_directories,
     plan_cleanup,
+    record_cleanup,
     run_cleanup,
     trash_backend,
 )
@@ -1842,7 +1843,7 @@ def _cmd_catalog(args: argparse.Namespace) -> int:
     return 0
 
 
-def _source_root_or_none(given: Path, destination: Path | None) -> Path | None:
+def _source_root_or_none(given: Path, destination: Path | None, db: Path) -> Path | None:
     """A directory the scanner can read, unpacking archives first when that is what was given.
 
     **Any archive from any source**, not only Google Takeout: every major photo service hands a
@@ -1889,6 +1890,15 @@ def _source_root_or_none(given: Path, destination: Path | None) -> Path | None:
     print(f"Unpacking {len(report.archive_set.parts)} archive(s) ...")
     extraction = extract_archive_set(report.archive_set, destination)
     print(f"Unpacked {extraction.files_written:,} files.")
+    record_error = record_extraction(
+        db,
+        source=given,
+        destination=destination,
+        archive_set=report.archive_set,
+        extraction=extraction,
+    )
+    if record_error is not None:
+        print(f"  Could not write the run record: {record_error}", file=sys.stderr)
     return extraction.staging_root
 
 
@@ -3947,7 +3957,9 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     # ⚠ `destination` is declared WITHOUT `type=Path` on purpose - it is a local path *or* an
     # rclone spec (`cli.py:373`) - so the conversion belongs here, where which one it is is known.
     # Passing the raw `str` was `(ahp)`: every archive ingest died in `facts_for`.
-    source_root = _source_root_or_none(args.source, None if args.rclone else Path(args.destination))
+    source_root = _source_root_or_none(
+        args.source, None if args.rclone else Path(args.destination), args.db
+    )
     if source_root is None:
         return 2
     print(f"Scanning {source_root} ...")
@@ -4533,7 +4545,12 @@ def _cmd_clean_empty(args: argparse.Namespace) -> int:
         return 0
 
     outcome = run_cleanup(args.path, plan, apply=True, permanent=args.permanent)
+    record_error = record_cleanup(args.db, args.path, plan, outcome)
     print(f"\nRemoved {outcome.removed} folder(s).")
+    for relative in outcome.removed_folders:
+        print(f"  - {relative}")
+    if record_error is not None:
+        print(f"  Could not write the run record: {record_error}", file=sys.stderr)
     # Prose, not a counter: "look in the trash" does not depend on how many there were, while a
     # discard cannot be undone and is therefore worth a number. `(afj)`
     if outcome.discarded:

@@ -11,7 +11,7 @@ from collections import Counter
 from pathlib import Path
 from typing import NotRequired, TypedDict
 
-from truestill_core.archive_extract import extract_archive_set
+from truestill_core.archive_extract import extract_archive_set, record_extraction
 from truestill_core.archive_ingest import archives_at, precheck_archives
 from truestill_core.catalog_session import open_catalog
 from truestill_core.categorize import build_rules
@@ -46,6 +46,8 @@ class InferredLocalShiftPayload(TypedDict):
 class IngestPreviewEmpty(TypedDict):
     files: int
     missing_sidecar: int
+    #: The unpack WORKED and its record did not. `(ahi)`; the same key organize and undo carry.
+    record_error: NotRequired[str]
 
 
 class IngestPreviewSummary(TypedDict):
@@ -58,6 +60,8 @@ class IngestPreviewSummary(TypedDict):
     unreadable: int
     reclaimed_mb: float
     dates_photo_taken: int
+    #: The unpack WORKED and its record did not. `(ahi)`.
+    record_error: NotRequired[str]
     dates_upload_approx: int
     dates_exif: int
     undated: int
@@ -203,11 +207,23 @@ def archive_ingest_run(
         extraction = extract_archive_set(
             report.archive_set, destination, progress=progress, cancel=cancel
         )
+        # `(ahi)`: the unpack's own record, written whether or not it was stopped - the staging
+        # tree is the run's product either way, and nothing else durable says it happened.
+        record_error = record_extraction(
+            db,
+            source=source,
+            destination=destination,
+            archive_set=report.archive_set,
+            extraction=extraction,
+        )
         if extraction.cancelled:
             return archive_precheck(source, destination)
-        return ingest_preview(
+        preview = ingest_preview(
             extraction.staging_root, destination, db, progress=progress, cancel=cancel
         )
+        if record_error is not None:
+            preview["record_error"] = record_error
+        return preview
 
     return target
 
