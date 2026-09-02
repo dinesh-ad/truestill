@@ -22,6 +22,13 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ahz) RECOVERING A LOST CATALOG DESTROYS THE NAMES IT IS RECOVERING, AND THE GUARD AGAINST IT IS BLIND.**
+  ✅ **CLOSED 2026-09-02 (P186), built under another letter.** Steps 1-3 shipped 2026-08-26. The
+  one residual, *"`rename_trip` is unbuilt"*, checked a symbol name, not a capability:
+  `catalog.py:Catalog.rename_row` and `migrate.py:apply_rename` ship a trip rename on both surfaces
+  (`(aix)`, `b95d1ca`, `e8e1294`, 2026-08-31), and `decisions.py:_apply_trips` treats a re-apply
+  under the restored name as a no-op. Body: [`research/backlog/ahz.md`](research/backlog/ahz.md).
+
 - **(aiy) A SECOND COPY ON THE SAME DEVICE COUNTED AS REDUNDANCY, AND IT GATED A DELETE.**
   ✅ **CLOSED 2026-09-01 (P178-P180), THREE COMMITS, SIX SURFACES.** Filed 2026-08-31 (P165) from
   soak ten, **rewritten 2026-09-01 (P177) after a census** that re-ranked it: it was filed as a

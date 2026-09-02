@@ -1,6 +1,12 @@
 # (ahz) RECOVERING A LOST CATALOG DESTROYS THE NAMES IT IS RECOVERING, AND THE GUARD AGAINST IT IS BLIND.
 
-*Body of backlog entry `(ahz)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+> ✅ **CLOSED 2026-09-02 (P186), built under another letter - see [`SHIPPED.md`](../../SHIPPED.md).**
+> *"There is no `rename_trip`"* below was true of the symbol and false of the capability:
+> `catalog.py:Catalog.rename_row` and `migrate.py:apply_rename` shipped under `(aix)`. The body is
+> kept beneath because it holds the measurement.
+
+
+*Body of backlog entry `(ahz)`, closed and recorded in [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(ahz) RECOVERING A LOST CATALOG DESTROYS THE NAMES IT IS RECOVERING, AND THE GUARD AGAINST IT IS BLIND.** Filed
   2026-08-26 (P106a), measured. **Unrecoverable, and `--discard` makes it permanent.**

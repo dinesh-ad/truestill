@@ -503,28 +503,6 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
   undocumented behaviour for a population of zero.
   Body: [`research/backlog/aig.md`](research/backlog/aig.md).
 
-- **(ahz) RECOVERING A LOST CATALOG DESTROYS THE NAMES IT IS RECOVERING, AND THE GUARD AGAINST IT IS BLIND.** Filed
-  2026-08-26 (P106a), measured. A rebuild registers the recovery folder as a drive and publishes a decisions
-  document to it; re-naming during recovery auto-publishes there, **newer** than the original, and
-  `restore` then reports the user's real names as *"older and were not used"*. Measured: `dest`
-  written **14:07:32** with the real names, `rebuilt` **14:08:27** with placeholders, **event
-  signatures byte-identical**. ⚠ **`would_lose` existed to prevent exactly this and was blind**,
-  because `_LOSS_KEYS` keyed events on **signature** not name - the first defect class under the
-  one place it was ruled to hold (`(aci)`). ⚠ **`--discard` makes it permanent**: it is catalog ->
-  drive, so it overwrites the last surviving copy and stamps it newest.
-  **STEPS 1-3 SHIPPED 2026-08-26**: `_LOSS_KEYS` is identity-to-value (`decisions.py:write_decisions`), so a
-  changed name counts as a loss; the drive you name is authoritative per key; and `Superseded`
-  names the swaps it withheld. ⚠ **ONE residual keeps this entry open, and it is the trip half:
-  `rename_trip` is unbuilt**, so a trip whose days a rebuilt catalog already claimed under
-  another name is a loud dead end rather than a rename. ⚠ **This read *"two residuals"* until
-  2026-08-29**: the other was *"restore still cannot create an event"*, which `(ahv)` closed
-  that day - the five steps re-run on the same corpus restore all three event names at step 3. ⚠ **Three claims this entry
-  made are withdrawn**: *"trips never rename at all"* (closed by `(ahx)`), the `_discard_to_drive`
-  polarity bug (there is none - three gates stand between `would_lose` and a write), and *"five
-  fix shapes, none chosen"* (E was widened and per-key authority shipped). **The ranking is
-  correct**; recency is a proxy for authority and a recovery copy breaks it.
-  Body: [`research/backlog/ahz.md`](research/backlog/ahz.md).
-
 - **(ahy) AN IN-PLACE ORGANIZE AGAINST AN EMPTY CATALOG REBUILDS NOTHING, AND REPORTS SUCCESS.** Filed 2026-08-26
   (P103). An organized 353-file drive, fresh catalog, `organize <drive> <drive> --in-place
   --apply`: **`353 already in place`, exit 0, and 0 files / 0 copies recorded** - plus no
