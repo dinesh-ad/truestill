@@ -210,6 +210,7 @@ jobs:
           if (-not (Test-Path $iscc)) { throw "ISCC.exe not found at $iscc" }
           Copy-Item packaging/installer.iss -Destination installer.iss
           & $iscc /DMyAppVersion=${{ steps.version.outputs.value }} installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC exited $LASTEXITCODE; there is no installer to ship" }
           New-Item -ItemType Directory -Force -Path out | Out-Null
           Copy-Item inno-out/*.exe -Destination out/
 
@@ -279,7 +280,10 @@ jobs:
         timeout-minutes: 10
         run: |
           $setup = Get-ChildItem out -Filter 'TruestillSetup-*.exe' | Select-Object -First 1
-          & $setup.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART | Out-Null
+          # `> $null`, not `| Out-Null`: a native command piped to a cmdlet can leave $LASTEXITCODE
+          # unset (PowerShell/PowerShell#19848), and that code is the only status the installer has.
+          & $setup.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART > $null
+          if ($LASTEXITCODE -ne 0) { throw "the installer exited $LASTEXITCODE" }
           Start-Sleep -Seconds 5
 
           $app = Join-Path $env:LOCALAPPDATA 'Programs\Truestill\truestill.exe'
@@ -311,7 +315,8 @@ jobs:
 
           $uninstall = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs\Truestill') -Filter 'unins*.exe' |
             Select-Object -First 1
-          & $uninstall.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART | Out-Null
+          & $uninstall.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART > $null
+          if ($LASTEXITCODE -ne 0) { throw "the uninstaller exited $LASTEXITCODE" }
           Start-Sleep -Seconds 5
 
           if (Test-Path $app) { throw 'the uninstaller left the program behind' }

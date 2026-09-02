@@ -9,8 +9,10 @@ line and is not followed by a check cannot fail the step.
 Found 2026-09-02 (P188): `release.yml` piped `ls | head` under the default shell, `ci.yml` piped
 `playwright --version | awk` under it, and the Windows installer step ran `compare_selfcheck.py`
 in pwsh with nothing reading its exit. Each was one word or one line from correct. This pins the
-words. It does not cover `& $native ...` calls in pwsh; those are named in the P188 record and
-are compensated by `Test-Path` probes, which is a different check and stays a human read.
+words. Widened 2026-09-02 (P189) to `& $native ...` calls, which the first version missed while
+naming the class - and to a native call inside a pipeline, because a native command piped to a
+cmdlet can leave `$LASTEXITCODE` unset (PowerShell/PowerShell#19848), so `| Out-Null` after an
+installer discards the only status it has. Redirect to `$null` instead.
 """
 
 from __future__ import annotations
@@ -25,8 +27,10 @@ _WORKFLOWS = sorted((Path(__file__).resolve().parents[3] / ".github" / "workflow
 
 #: A real pipe: `|` that is not half of `||`.
 _PIPE = re.compile(r"(?<!\|)\|(?!\|)")
-#: A pwsh line that invokes a native program through uv; its exit code is what the step exists for.
-_NATIVE = re.compile(r"^\s*uv run ")
+#: A pwsh line that invokes a native program - through uv, or with the call operator `&` on an
+#: executable path; its exit code is what the step exists for. (`&` on a cmdlet is not native,
+#: and none of the workflows does that.)
+_NATIVE = re.compile(r"^\s*(uv run |& )")
 
 
 def _run_steps() -> list[tuple[str, str, dict[str, Any]]]:
@@ -91,8 +95,14 @@ def test_a_pwsh_step_reads_the_exit_of_every_native_call_it_makes() -> None:
         if step["shell"] != "pwsh":
             continue
         lines = _lines(step)
-        for index, line in enumerate(lines[:-1]):  # the last line's code is the step's own
-            if _NATIVE.match(line) and "$LASTEXITCODE" not in lines[index + 1]:
+        for index, line in enumerate(lines):
+            if not _NATIVE.match(line):
+                continue
+            if _PIPE.search(line):
+                offenders.append(
+                    f"{workflow} {name}: {line.strip()}  (piped: $LASTEXITCODE may be unset)"
+                )
+            elif index < len(lines) - 1 and "$LASTEXITCODE" not in lines[index + 1]:
                 offenders.append(f"{workflow} {name}: {line.strip()}")
     assert not offenders, (
         "a pwsh step invokes a native program and the next line does not read $LASTEXITCODE; "
