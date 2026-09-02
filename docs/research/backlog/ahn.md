@@ -152,6 +152,52 @@
      under `from __future__ import annotations` - every key reads as required. A generator using it
      would be wrong about every optional field, and `elapsed_seconds` is on nearly all of them.
 
+  ## STAGE 4b, RE-DERIVED 2026-09-02 (P191) - AND WHERE IT STOPS
+
+  `test_every_route_names_its_payload_type.py:_response_types` is the narrowed resolver. The rule,
+  written down: **the response is the first positional argument of every `JSONResponse(...)`
+  reachable from the handler**; a helper the handler returns through - `_start_drive_job`, directly
+  or via `run_in_threadpool` - contributes every one of its responses; a local reads as its declared
+  annotation or the type of what was assigned to it, in source order. Run over the tree:
+
+  | | count |
+  |---|---|
+  | routes | 52 |
+  | resolve to more than one type | **29** (stage 2's resolver says 12 for the same tree) |
+  | of which: job-start routes sharing one envelope - `JobStarted` / `DriveBusyPayload` / the refusal Mapping | 17 |
+  | of which: `GET`+`POST` on one `Route`, two operations not a union | 6 |
+  | of which: genuine unions of payloads (events propose, apply, merge, split; clean-empty apply; bake run) | 6 |
+  | unresolved expressions, kept under `?` | 1 - `clean_empty_apply`'s `jobs.claim(...)` refusal |
+
+  ⚠ **Not precise yet, and the imprecision is measured rather than hidden**: no branch narrowing,
+  so `result: str | DriveBusyPayload` reads as its declared union and `dict(target)` reads as
+  `target`'s whole parameter annotation, `JobTarget[object] | Mapping[str, object]`. A row written
+  from this resolver would encode both. **No row is written.** P94's 25 was measured in a working
+  tree that was never committed; 29 is what the tree holds now, and the difference is the routes
+  added since (`(aix)`'s rename pair, `clean-empty/apply`).
+
+  ## TWO RULINGS FOR THE MAINTAINER, WITH THE PROPOSAL AND ITS COST
+
+  1. **The emission shape.** The table above lists three and chooses none. The tree suggests a
+     fourth it does not list, and it is the proposal: **components from the TypedDicts, the
+     route-to-payload join from the narrowed resolver.** The extraction half exists
+     (`test_no_thirty_fifth_dead_payload_key.py:_declared`, 117 TypedDicts in under a second); the
+     join half now exists (`_response_types`); what is missing between them is the Python-type to
+     JSON-Schema mapping (4c: 117 TypedDicts, 29 nested-only, `X | Y` unions, `Literal` tags,
+     `NotRequired` read from the AST per 4e) and one script that writes `openapi.json` from the
+     two. **Cost**: 4c is mechanical and sizeable, about the size of `_declared` again; the script
+     is one function; a contract test that regenerates and diffs is one file. Hand-writing 579
+     slots is refused for the reason the table gives; emitting from routes alone cannot name a
+     component. Branch narrowing (the imprecision above) is a second, smaller ruling inside this
+     one: either accept the union as declared, or hand-write the two narrowings as `TypeGuard`s the
+     way `server.py:_is_not_confirmed` already does for `BakeRefusal`.
+  2. **The node dependency.** `openapi-typescript` is not in `frontend/package.json`. Types only,
+     no runtime, MIT, milliseconds; the alternatives generate clients and hooks the project does not
+     need or are unmaintained. Adding it is `(agc)`'s kind of decision and is not taken here.
+
+  Stage 5 then is one generated file imported at `main.tsx`'s cast, and `main.tsx:37`'s
+  `Record<string, unknown>` is deleted - the whole point.
+
   ## RELATED
 
   `(ahl)` (the census this makes obsolete, deliberately), `(adi)` (the React migration, by island),

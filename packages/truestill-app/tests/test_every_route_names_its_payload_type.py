@@ -77,8 +77,8 @@ UNTYPED_LITERAL: dict[str, str] = {}
 #: Measured 2026-08-25. Floors sit just under the derived figures - `(agu)`'s floor read `>= 12`
 #: against a real 16 and could never fire - and the declarations get **ceilings** instead, because
 #: a declaration of known debt must never be somewhere new debt can be added quietly.
-MEASURED_ROUTES = 50
-MEASURED_RESOLVED = 47
+MEASURED_ROUTES = 52  # 50 on 2026-08-25; re-measured 2026-09-02 (P191)
+MEASURED_RESOLVED = 49  # 47 on 2026-08-25
 
 
 def _module(path: Path) -> ast.Module:
@@ -277,3 +277,205 @@ def test_the_resolver_ignores_how_the_service_function_is_called() -> None:
     assert _service_names(helpers["h4"], helpers) == {"viaHelper"}, (
         "a local helper was not followed"
     )
+
+
+# ------------------------------------------------------- `(ahn)` stage 4b: what REACHES a JSONResponse
+
+#: The pool helper: `run_in_threadpool(F, ...)` answers with whatever `F` answers with.
+_POOL = "run_in_threadpool"
+#: Response classes that carry no JSON payload; a route returning one is not a payload route.
+_NOT_JSON = ("HTMLResponse", "StreamingResponse", "PlainTextResponse", "Response")
+
+
+def _is_service(f: ast.expr) -> bool:
+    return (
+        isinstance(f, ast.Attribute) and isinstance(f.value, ast.Name) and f.value.id == "service"
+    )
+
+
+class _Scope:
+    """What a name means inside one handler: its declared annotation, or the type of what was
+    assigned to it, resolved lazily and in source order."""
+
+    def __init__(
+        self,
+        handler: ast.FunctionDef | ast.AsyncFunctionDef,
+        helpers: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
+        typed: dict[str, set[str]],
+    ) -> None:
+        self.helpers, self.typed = helpers, typed
+        self.declared: dict[str, str] = {
+            a.arg: ast.unparse(a.annotation)
+            for a in handler.args.args + handler.args.kwonlyargs
+            if a.annotation is not None
+        }
+        self.raw: dict[str, ast.expr] = {}
+        self.resolving: set[str] = set()
+        self.body = _own_statements(handler)
+        for node in self.body:
+            if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                self.declared[node.target.id] = ast.unparse(node.annotation)
+            elif (
+                isinstance(node, ast.Assign)
+                and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+            ):
+                self.raw[node.targets[0].id] = node.value
+
+    def of_callable(self, f: ast.expr) -> str:
+        if _is_service(f):
+            assert isinstance(f, ast.Attribute)
+            return " | ".join(sorted(self.typed.get(f.attr, {f"?service.{f.attr}"})))
+        name = getattr(f, "id", None)
+        return f"HELPER:{name}" if name in self.helpers else f"?callable:{ast.unparse(f)[:40]}"
+
+    def of_name(self, name: str) -> str:
+        if name in self.declared:
+            return self.declared[name]
+        if name in self.raw and name not in self.resolving:
+            self.resolving.add(name)
+            try:
+                return self.of(self.raw[name])
+            finally:
+                self.resolving.discard(name)
+        return f"?local:{name}"
+
+    def of_call(self, call: ast.Call) -> str:
+        f = call.func
+        name = getattr(f, "id", None)
+        if name == _POOL and call.args:
+            return self.of_callable(call.args[0])
+        if _is_service(f):
+            return self.of_callable(f)
+        if name == "dict" and call.args:
+            return self.of(call.args[0])
+        if name in self.helpers:
+            return f"HELPER:{name}"
+        return f"?{ast.unparse(call)[:40]}"
+
+    def of(self, expr: ast.expr) -> str:
+        if isinstance(expr, ast.Await):
+            return self.of(expr.value)
+        if isinstance(expr, ast.Name):
+            return self.of_name(expr.id)
+        if isinstance(expr, ast.Dict):
+            return "dict literal"
+        if isinstance(expr, ast.Call):
+            return self.of_call(expr)
+        return f"?{ast.unparse(expr)[:40]}"
+
+
+def _own_statements(node: ast.AST) -> list[ast.AST]:
+    """Every node inside `node` except those inside a nested function - a nested function is its
+    own scope, and its returns are not this handler's."""
+    out: list[ast.AST] = []
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda):
+            continue
+        out.append(child)
+        out.extend(_own_statements(child))
+    return out
+
+
+def _returned(node: ast.Return, scope: _Scope) -> str:
+    """What one `return` sends: the argument of `JSONResponse(...)`, a helper to follow, a
+    non-JSON response class, or an unresolved expression kept under `?`."""
+    assert node.value is not None
+    value = node.value.value if isinstance(node.value, ast.Await) else node.value
+    if isinstance(value, ast.Call):
+        name = getattr(value.func, "id", None)
+        if name == "JSONResponse" and value.args:
+            return scope.of(value.args[0])
+        if name in _NOT_JSON:
+            return f"not JSON:{name}"
+        if name == _POOL and value.args:
+            return scope.of_callable(value.args[0])
+        if name in scope.helpers:
+            return f"HELPER:{name}"
+    return f"?{ast.unparse(node.value)[:40]}"
+
+
+def _response_types(
+    handler: ast.FunctionDef | ast.AsyncFunctionDef,
+    helpers: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
+    typed: dict[str, set[str]],
+    seen: frozenset[str] = frozenset(),
+) -> set[str]:
+    """The types of every expression that reaches ``JSONResponse(...)`` from this handler.
+
+    **The rule, written down (P191):** the response is the first positional argument of every
+    `JSONResponse(...)` reachable from the handler, and a helper the handler returns through -
+    `_start_drive_job`, directly or via `run_in_threadpool` - contributes every one of ITS
+    responses. That is what stage 2's resolver does not do: it names every `service.X` the
+    handler *refers to*, so a job route resolved to `JobTarget[BackupRunSummary]`, the factory's
+    callable type, which no route ever sends.
+
+    ⚠ **No branch narrowing**: `result: str | DriveBusyPayload` reads as the union it is declared
+    as, although only the `DriveBusyPayload` arm reaches `JSONResponse`, and `dict(target)` reads
+    as `target`'s whole parameter annotation. Every unresolved expression is kept under `?`,
+    never dropped - an unresolved response must show up in the derivation, not vanish from it.
+    """
+    scope = _Scope(handler, helpers, typed)
+    types: set[str] = set()
+    for node in scope.body:
+        if not isinstance(node, ast.Return) or node.value is None:
+            continue
+        text = _returned(node, scope)
+        if not text.startswith("HELPER:"):
+            types.add(text)
+            continue
+        name = text.removeprefix("HELPER:")
+        if name in seen or name == handler.name:
+            types.add(f"?recursive:{name}")
+        else:
+            types |= _response_types(helpers[name], helpers, typed, seen | {name})
+    return types
+
+
+def _response_resolution() -> dict[str, set[str]]:
+    """``route -> the types that reach its JSONResponse``, the stage-4b derivation."""
+    tree = _module(SERVER)
+    helpers = _functions(tree)
+    typed = _declared_return_types()
+    return {
+        path: _response_types(helpers[handler], helpers, typed)
+        for path, handler in _routes(tree)
+        if handler in helpers
+    }
+
+
+#: Re-derived 2026-09-02 (P191) with the narrowed resolver: 52 routes, **29** resolve to more than
+#: one type - 17 job-start routes sharing one envelope (`JobStarted` / `DriveBusyPayload` / the
+#: refusal Mapping), 6 `GET`+`POST` pairs on one `Route`, 6 genuine unions. Stage 2's resolver
+#: says 12 for the same tree. Floors, never ceilings; the count is read from
+#: `test_the_response_derivation_is_real`, and NO declaration row is written from it - the
+#: maintainer rules on the emission shape first (`(ahn)`).
+MEASURED_RESPONSE_ROUTES = 52
+MEASURED_MULTI_TYPE_RESPONSES = 29
+
+
+def test_the_response_derivation_is_real() -> None:
+    """Anti-vacuity for the stage-4b resolver, and the place its numbers are read from.
+
+    The job envelope must show its arms on every job-start route (`JobStarted`,
+    `DriveBusyPayload`, the refusal Mapping), a plain route must resolve to its service's
+    declared return, and the unresolved set must stay small and named - a resolver that answered
+    `?` for everything would still "resolve" 52 routes.
+    """
+    resolution = _response_resolution()
+    assert len(resolution) >= MEASURED_RESPONSE_ROUTES - 5, f"only {len(resolution)} routes"
+    job_start = [p for p, t in resolution.items() if any("JobStarted" in x for x in t)]
+    assert len(job_start) >= 15, f"only {len(job_start)} job-start routes show the envelope"
+    for path in job_start:
+        joined = " ".join(resolution[path])
+        assert "DriveBusyPayload" in joined, f"{path} lacks the busy arm"
+        assert "Mapping[str, object]" in joined, f"{path} lacks the refusal arm"
+    assert resolution["/api/library/stats"] == {"LibraryStats"}
+    multi = sum(1 for t in resolution.values() if len(t) > 1)
+    assert multi >= MEASURED_MULTI_TYPE_RESPONSES - 5, f"multi-type routes fell to {multi}"
+    unresolved = {
+        p: sorted(x for x in t if x.startswith("?"))
+        for p, t in resolution.items()
+        if any(x.startswith("?") for x in t)
+    }
+    assert len(unresolved) <= 2, f"unresolved responses grew: {unresolved}"
