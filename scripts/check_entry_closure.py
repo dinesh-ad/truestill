@@ -29,8 +29,9 @@ before the commit, so it can only report on a commit already made. Commit ``4051
 measured instance: this hook passed it and all three CI lanes went red.
 
 **What it cannot see, stated rather than implied:** ``git commit --amend`` re-stages nothing, so
-an amend that only edits the message sees an empty diff and passes. Fails open with no git, or
-when neither document is staged.
+an amend that only edits the message sees an empty diff and passes. Fails open when neither
+document is staged - an empty diff IS a clean answer - and fails CLOSED when git cannot answer
+(P189, 2026-09-02; before that a git failure read as an empty diff).
 """
 
 from __future__ import annotations
@@ -85,8 +86,13 @@ ENTRY = re.compile(r"^- \*\*\(([a-z]{1,3})\)", re.MULTILINE)
 #: this hook's fail-open posture. It is byte-identical to strict on valid UTF-8.
 
 
-def staged_diff() -> str:
-    """The two documents' staged changes. Empty string when git cannot answer."""
+def staged_diff() -> str | None:
+    """The two documents' staged changes, or ``None`` when git could not answer.
+
+    ⚠ ``None``, not ``""``: an empty diff means *nothing staged* and is a clean pass, so a git
+    failure returning it read as clean. Found 2026-09-02 (P189) as the substitution shape - a
+    reader that reports its output makes "could not read" and "nothing there" the same string.
+    """
     try:
         done = subprocess.run(
             ["git", "diff", "--cached", "-U0", "--", BACKLOG, SHIPPED],
@@ -96,17 +102,17 @@ def staged_diff() -> str:
             check=False,
             timeout=30,
         )
-    except (OSError, subprocess.SubprocessError):  # pragma: no cover - no git in the environment
-        return ""
-    return done.stdout if done.returncode == 0 else ""
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return done.stdout if done.returncode == 0 else None
 
 
-def staged_text(path: str) -> str:
+def staged_text(path: str) -> str | None:
     """``path`` as THIS COMMIT will contain it, not as the working tree happens to look.
 
     The two differ whenever something is edited but not staged, and the commit is what the rule is
-    about. Falls back to the working tree where git cannot answer, which keeps the fail-open
-    posture the rest of this hook has.
+    about. ``None`` when git could not show it: the working tree is a different document from the
+    one being committed, and judging it in the commit's place was the same substitution shape.
     """
     try:
         done = subprocess.run(
@@ -117,11 +123,9 @@ def staged_text(path: str) -> str:
             check=False,
             timeout=30,
         )
-    except (OSError, subprocess.SubprocessError):  # pragma: no cover - no git in the environment
-        return ""
-    if done.returncode == 0:
-        return done.stdout
-    return Path(path).read_text(encoding="utf-8") if Path(path).exists() else ""
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return done.stdout if done.returncode == 0 else None
 
 
 def entry_moves(diff: str) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
@@ -147,14 +151,25 @@ def entry_moves(diff: str) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
     return removed, added
 
 
-def refusals(message: str, diff: str) -> list[str]:
+CANNOT_READ = (
+    "git could not report the staged {what}, so this commit cannot be judged - and unknown is "
+    "not green. Run `git status` and `git diff --cached` by hand; if git itself is broken, fix "
+    "that first."
+)
+
+
+def refusals(message: str, diff: str | None) -> list[str]:
     """What is wrong with this commit, one actionable sentence each. Empty means nothing is."""
+    if diff is None:
+        return [CANNOT_READ.format(what="diff")]
     removed, added = entry_moves(diff)
     # A retitled entry is removed AND re-added in the same file: that is an edit, not a departure.
     left = removed[BACKLOG] - added[BACKLOG]
     declared = set(CLOSES.findall(message))
     retired = set(RETIRES.findall(message))
     backlog_text = staged_text(BACKLOG)
+    if backlog_text is None:
+        return [CANNOT_READ.format(what=f"copy of {BACKLOG}")]
     out = []
     # ⚠ **THE OTHER DIRECTION, ADDED 2026-08-23 AFTER IT COST A RED CI.** This loop iterated only
     # over what LEFT the backlog, so a commit could declare a closure it had not performed and be

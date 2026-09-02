@@ -120,10 +120,14 @@ def main() -> int:
     args = parser.parse_args()
 
     changed: list[tuple[Path, int]] = []
+    unreadable: list[Path] = []
     for path in tracked_files():
         try:
             original = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
+            # Not `continue`: a file this sweep could not read is a file it did not check, and
+            # "clean" over an unchecked file is the substitution shape (P189, 2026-09-02).
+            unreadable.append(path)
             continue
         updated = normalize(original, repair=path.suffix == ".md")
         if updated == original:
@@ -138,6 +142,14 @@ def main() -> int:
         if args.apply:
             path.write_text(updated, encoding="utf-8")
 
+    if unreadable:
+        for path in unreadable:
+            print(f"  could not read {path} (not UTF-8, or unreadable)")
+        print(
+            f"dash style: {len(unreadable)} tracked file(s) could not be read, so the sweep is "
+            "incomplete - unknown is not clean"
+        )
+        return 2
     if not changed:
         print("dash style: clean")
         return 0

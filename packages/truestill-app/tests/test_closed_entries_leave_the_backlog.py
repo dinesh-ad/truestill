@@ -49,6 +49,7 @@ letters* section says a ruling is not a closure until a commit records it.
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -441,3 +442,21 @@ def test_the_hook_reads_git_as_utf8_whatever_the_machine_locale_says() -> None:
         assert _hook.refusals("Closes (zz).", "") == []
     finally:
         _hook.subprocess.run = real
+
+
+def test_a_git_that_cannot_answer_is_a_refusal_not_a_pass(tmp_path: Path) -> None:
+    """A git failure read as an empty diff, and an empty diff is a clean pass (P189)."""
+    repo = _repo(tmp_path, _OPEN, _BUILT)
+    msg = repo / "COMMIT_EDITMSG"
+    msg.write_text("docs: an ordinary message\n", "utf-8")
+    broken = {**os.environ, "GIT_DIR": str(tmp_path / "not-a-repository")}
+    done = subprocess.run(
+        [sys.executable, str(SCRIPT), str(msg)],
+        cwd=repo,
+        env=broken,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode != 0, "git could not answer and the hook passed the commit"
+    assert "could not report the staged diff" in done.stderr

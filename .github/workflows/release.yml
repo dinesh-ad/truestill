@@ -228,7 +228,12 @@ jobs:
         # `shell: bash` is `bash -eo pipefail`; the default `run:` shell is `bash -e` WITHOUT
         # pipefail, so `ls | head` read head's status and a missing package became `--deb ""`.
         shell: bash
-        run: uv run python packaging/verify_icon.py --deb "$(ls out/truestill_*.deb | head -1)"
+        run: |
+          # A glob, not `ls | head`: a substitution reports its OUTPUT, so a missing package was
+          # `--deb ""` and the verdict belonged to whatever verify_icon does with an empty path.
+          set -- out/truestill_*.deb
+          test $# -eq 1 && test -f "$1" || { echo "::error::expected exactly one .deb in out/, found: $*"; exit 1; }
+          uv run python packaging/verify_icon.py --deb "$1"
 
       # THE SAME DETECTOR AS WINDOWS, in the shape apt gives us. Install, ask the INSTALLED copy
       # what it contains, then remove it and check the catalog survived. `dpkg -i` is unattended

@@ -242,8 +242,12 @@ gate: check
 	  echo "  An unreadable base must not be reported as 'nothing changed'."; echo ""; \
 	  $(MAKE) --no-print-directory e2e; \
 	else \
-	  touched=$$(git diff --name-only $(BASE) -- $(BROWSER_PATHS); \
-	             git diff --cached --name-only -- $(BROWSER_PATHS)); \
+	  touched=$$(git diff --name-only $(BASE) -- $(BROWSER_PATHS) && \
+	             git diff --cached --name-only -- $(BROWSER_PATHS)) || { \
+	    echo ""; echo "e2e RUNNING: git diff against $(BASE) failed, so the diff cannot be read."; \
+	    echo "  A substitution reports its OUTPUT, and 'could not read' is the same empty string"; \
+	    echo "  as 'nothing changed' - so an unreadable diff runs the lane rather than skipping it."; \
+	    echo ""; $(MAKE) --no-print-directory e2e; exit $$?; }; \
 	  if [ -n "$$touched" ]; then \
 	    echo ""; echo "The diff reaches the browser, so the e2e lane applies:"; \
 	    echo "$$touched" | sort -u | sed 's/^/    /'; echo ""; \
