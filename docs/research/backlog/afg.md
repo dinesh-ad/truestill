@@ -72,6 +72,10 @@
     line (`(aad)` records that the README carries verification instructions today), and what a
     macOS visitor is told, given that **nothing builds a macOS artefact anywhere in this
     repository**.
+  - **Which component library the page uses is open, and D12 does not close it.** D12's scope was
+    stated 2026-09-02 (P192): it refuses Aceternity for `truestill-app`, and a landing page is the
+    category a Motion-based library is built for. The 21st.dev catalog (`agent-tooling.md`) carries
+    such components; whatever is chosen is recorded here.
   - **Whether the brand assets are cleared for a public page.** `brand/PROVENANCE.md` records the
     artwork's licence; the trademark residual is a live pre-monetization obligation
     (`PROJECT_STATUS.md` §1) and a public page is closer to that line than a repository is.

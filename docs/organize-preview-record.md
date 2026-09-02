@@ -45,6 +45,10 @@ ruled on with evidence. **Take the five findings; leave the four dependencies.**
 
 ## Where it is
 
+⚠ **Corrected 2026-09-02 (P192): four unused files, not two** - `src/AppShell.tsx` and
+`src/OrganizePreview.tsx` are also dead iterations nothing imports. Verified against the folder on
+disk, which is still 144 MB, still gitignored, and still imported by nothing. The original follows.
+
 `.scratch/organize-preview/` - `src/TruestillApp.tsx` is the unified layout; `src/Sidebar.tsx` and
 `src/OrganizePage.tsx` are earlier, unused iterations. It runs standalone on `127.0.0.1:8766` and
 is not wired into `truestill-app` in any way.

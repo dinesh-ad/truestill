@@ -696,6 +696,10 @@ is animation, in a product with none.
 
 **Status:** Settled. Revisit only if the product acquires a genuine motion requirement - and then
 the question is Motion itself, not Aceternity, since Aceternity is a set of components built on it.
+**Scope, stated 2026-09-02 (P192):** the refusal is for `truestill-app`, whose seven screens are
+forms, tables and result cards. A landing page is the category such a library exists for
+(`brand.md` §6 assigns the public artwork to `truestill.app`; `(afg)` records that the page has no
+home here), and this decision says nothing about one.
 
 ---
 

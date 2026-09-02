@@ -120,3 +120,14 @@ Screens in ascending order of risk, each landing green before the next: **Settin
 job), then **Stats** (read-only), then **Find**, then **Backups**, then **Trips & events**, then
 **Import**, and **Organize last** - it owns the job stream, the typed confirm, the undo, and the
 result grid.
+
+⚠ **THIS ORDER IS BLOCKED ON `(ahn)` STAGE 5, AND UNTIL 2026-09-02 THIS PLAN DID NOT SAY SO.**
+`PROJECT_STATUS.md` §1b orders engine, then contract, then UI, and the contract is `(ahn)`: an
+OpenAPI spec emitted from the TypedDicts, `openapi-typescript` generating the types, the frontend
+importing them. This plan named no payload contract at all - its only contract was the selector
+set above - and its first screen, Settings, reads a payload on load (`loadLayout`). A screen
+written before stage 5 hand-types that shape, which is the drift `main.tsx`'s
+`Record<string, unknown>` already commits. **What can start now**: stage 5's own prerequisites
+(the type-to-schema mapping, `NotRequired`, the emission script, the contract test - and only once
+the maintainer has ruled on the emission shape and the dependency) and the shell rail, which reads
+no payload. **What cannot**: any screen that reads a payload, which is every one of the seven.
