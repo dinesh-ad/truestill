@@ -528,6 +528,23 @@ SUITES = {"thumbnails": _thumbnails, "grid": _grid, "parent-watch": _parent_watc
 # one second leaves the mutant running.
 ENV_NOTE = "PYTHONDONTWRITEBYTECODE=1"
 
+#: `mutate_once.py`'s ruling, applied here: pytest exits 2, 3, 4 and 5 for an interrupt, an
+#: internal error, a usage error and an empty collection. None of those is a test failing, and a
+#: mutant that produces one has broken the RUN, not survived it. Until 2026-09-02 this tool threw
+#: the code away and filed such a mutant under "killed nothing", which reads as a missing guard.
+_NOT_A_RESULT = frozenset({2, 3, 4, 5})
+
+
+def _outcome(failed: set[str], code: int) -> str:
+    """``killed``, ``inert`` or ``broke the run`` - three states, because the third is not the second.
+
+    A junit report can hold failures from a run that then died on a usage error, so a non-empty
+    ``failed`` under a not-a-result code is still not a kill: the run did not finish.
+    """
+    if code in _NOT_A_RESULT:
+        return "broke the run"
+    return "killed" if failed else "inert"
+
 
 def _pytest(tests: tuple[str, ...]) -> tuple[set[str], int]:
     """Failing node ids, read from JUnit XML.
@@ -635,6 +652,28 @@ def _guard(paths: set[Path]) -> Callable[..., None]:
     return restore
 
 
+def _apply(mutant: Mutant) -> None:
+    """Write every edit of one mutant, refusing a target that is absent or ambiguous."""
+    for path, old, new in mutant.edits:
+        source = path.read_text()
+        hits = source.count(old)
+        if hits == 0:
+            sys.exit(f"STALE MUTANT - target gone from {path.name}: {mutant.label}")
+        # AMBIGUOUS IS AS BAD AS ABSENT, and it was worse in practice because it looks like a
+        # result. A single declaration like `gap: var(--space-3);` appears many times over in
+        # one stylesheet - **the exact count is not the point, more than one is**; the number
+        # written here was eight, and had drifted by the next commit. Two mutants aimed at the
+        # result grid landed on unrelated rules five hundred lines earlier and reported
+        # "kills 0", which reads as a missing guard rather than as a misfire.
+        if hits > 1:
+            sys.exit(
+                f"AMBIGUOUS MUTANT - {hits} matches in {path.name}: {mutant.label}\n"
+                "Add surrounding context so the target is unique; a mutation that edits an "
+                "arbitrary one of several matches measures nothing."
+            )
+        path.write_text(source.replace(old, new, 1))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--suite", choices=sorted(SUITES), required=True)
@@ -645,37 +684,28 @@ def main() -> int:
 
     restore = _guard({path for m in suite.mutants for path, _, _ in m.edits})
     baseline, code = _pytest(suite.tests)
+    if code in _NOT_A_RESULT:
+        sys.exit(f"BASELINE DID NOT RUN (pytest exit {code}), so nothing below would mean anything")
     if code != 0:
         sys.exit(f"BASELINE IS RED, so nothing below would mean anything: {sorted(baseline)}")
 
     killed_by: dict[str, set[str]] = defaultdict(set)
     inert: list[str] = []
+    broke: list[str] = []
     for mutant in suite.mutants:
-        for path, old, new in mutant.edits:
-            source = path.read_text()
-            hits = source.count(old)
-            if hits == 0:
-                sys.exit(f"STALE MUTANT - target gone from {path.name}: {mutant.label}")
-            # AMBIGUOUS IS AS BAD AS ABSENT, and it was worse in practice because it looks like a
-            # result. A single declaration like `gap: var(--space-3);` appears many times over in
-            # one stylesheet - **the exact count is not the point, more than one is**; the number
-            # written here was eight, and had drifted by the next commit. Two mutants aimed at the
-            # result grid landed on unrelated rules five hundred lines earlier and reported
-            # "kills 0", which reads as a missing guard rather than as a misfire.
-            if hits > 1:
-                sys.exit(
-                    f"AMBIGUOUS MUTANT - {hits} matches in {path.name}: {mutant.label}\n"
-                    "Add surrounding context so the target is unique; a mutation that edits an "
-                    "arbitrary one of several matches measures nothing."
-                )
-            path.write_text(source.replace(old, new, 1))
+        _apply(mutant)
         try:
-            failed, _ = _pytest(suite.tests)
+            failed, code = _pytest(suite.tests)
         finally:
             restore()
             for cached in ROOT.rglob("__pycache__"):
                 shutil.rmtree(cached, ignore_errors=True)
-        if not failed:
+        outcome = _outcome(failed, code)
+        if outcome == "broke the run":
+            broke.append(f"{mutant.label} (pytest exit {code})")
+            print(f"{'NOT A RESULT':>12}  {mutant.label} - pytest exit {code}, not a survivor")
+            continue
+        if outcome == "inert":
             inert.append(mutant.label)
         for test in failed:
             killed_by[test].add(mutant.label)
@@ -693,7 +723,10 @@ def main() -> int:
     print(f"\nMUTATIONS THAT KILLED NOTHING ({len(inert)}) - missing guard, or dead code:")
     for label in inert:
         print("  -", label)
-    return 1 if (unproven or inert) else 0
+    print(f"\nMUTATIONS THAT BROKE THE RUN ({len(broke)}) - pytest refused to run, not a result:")
+    for label in broke:
+        print("  -", label)
+    return 1 if (unproven or inert or broke) else 0
 
 
 if __name__ == "__main__":
