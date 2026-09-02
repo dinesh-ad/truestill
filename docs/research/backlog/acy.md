@@ -1,6 +1,6 @@
 # (acy) THE NAMING LAYER - characterised across four rounds, measured against what already ships, and deliberately NOT built.
 
-*Body of backlog entry `(acy)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(acy)`, under **Ideas / deferred**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(acy) THE NAMING LAYER - characterised across four rounds, measured against what already
   ships, and deliberately NOT built.** Recorded 2026-08-11. The shipped folder rule produces a

@@ -1,6 +1,6 @@
 # (aba) Nothing reconciles the catalog's recorded location with where a file actually is.
 
-*Body of backlog entry `(aba)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aba)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aba) Nothing reconciles the catalog's recorded location with where a file actually is.**
   Found 2026-08-03 by tracing what happens when a user tidies by hand - the maintainer moved a

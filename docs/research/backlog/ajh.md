@@ -1,6 +1,6 @@
 # (ajh) TRUESTILL CANNOT TELL A REMOVABLE DRIVE FROM A FIXED ONE, AND ALREADY READS THE LINE THAT SAYS SO
 
-*Body of backlog entry `(ajh)`, under **Approved - still to build**. The index is
+*Body of backlog entry `(ajh)`, under **Internal / tooling**. The index is
 [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with
 [`SHIPPED.md`](../../SHIPPED.md).*
 

@@ -1,6 +1,6 @@
 # (abe) CLI custody was fixed forward the same day; REPAIRING PRE-EXISTING ROWS IS THE OPEN HALF.
 
-*Body of backlog entry `(abe)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(abe)`, under **Records - evidence, explicitly not work**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 > ⚠ **TITLE ALIGNED TO THE INDEX 2026-08-25, which had carried the corrected claim since the
 > open-entry sweep. The original title was *"CLI-organized files were invisible to custody, and

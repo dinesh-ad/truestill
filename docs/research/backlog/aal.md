@@ -1,6 +1,6 @@
 # (aal) How often is the machine wrong about dates, and about what?
 
-*Body of backlog entry `(aal)`, under **Ideas / deferred**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aal)`, under **Records - evidence, explicitly not work**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aal) How often is the machine wrong about dates, and about what?** Recorded 2026-07-31,
   separated from `(aaj)` deliberately. **Idea - do not build schema for it now.**

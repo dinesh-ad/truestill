@@ -1,6 +1,6 @@
 # (age) `(aek)`'s SILENT DIRECTION SURVIVES INSIDE `(aek)`'s OWN FIX.
 
-*Body of backlog entry `(age)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(age)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(age)** Recorded 2026-08-23, found while investigating `(aft)`. **Filed, not built** - it is a
   preview, and `(aft)` was a watcher.

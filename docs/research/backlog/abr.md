@@ -1,6 +1,6 @@
 # (abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.
 
-*Body of backlog entry `(abr)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(abr)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.** Recorded
   2026-08-07. One of **15** `runJob` call sites; the other fourteen all pass one.

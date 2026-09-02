@@ -1,6 +1,6 @@
 # (aam) Sidebar reference: profile header, section labels, submenus.
 
-*Body of backlog entry `(aam)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aam)`, under **Blocked - do not build yet**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aam) Sidebar reference: profile header, section labels, submenus.** Ruled by the
   maintainer, 2026-08-01. **Record only - not built, and one question below blocks building.**

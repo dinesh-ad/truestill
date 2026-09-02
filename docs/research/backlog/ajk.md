@@ -1,6 +1,6 @@
 # (ajk) A CLASSIFIER GRADES A DECISION IT CANNOT READ, AND THE ONE DISCARDED ERRNO IS IN A DIFFERENT ARM
 
-*Body of backlog entry `(ajk)`, under **Approved - still to build**. The index is
+*Body of backlog entry `(ajk)`, under **Blocked - do not build yet**. The index is
 [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with
 [`SHIPPED.md`](../../SHIPPED.md).*
 

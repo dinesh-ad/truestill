@@ -1,6 +1,6 @@
 # (aeh) THE RUNNER IMAGE IS UNPINNED, SO THE apt THAT DEADLOCKS IS NOT A VERSION WE CHOSE.
 
-*Body of backlog entry `(aeh)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aeh)`, under **Internal / tooling**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aeh) THE RUNNER IMAGE IS UNPINNED, SO THE apt THAT DEADLOCKS IS NOT A VERSION WE CHOSE.**
   Recorded 2026-08-20 alongside `(aee)`'s fix. **A route with a cost, not a recommendation.**

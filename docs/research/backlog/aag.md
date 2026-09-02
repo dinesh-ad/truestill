@@ -1,6 +1,6 @@
 # (aag) Near-duplicate grouping and burst review.
 
-*Body of backlog entry `(aag)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aag)`, under **Records - evidence, explicitly not work**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aag) Near-duplicate grouping and burst review.** Ruled by the maintainer, 2026-07-31, from
   the same gap check. **Record only - do not build.** ⚠ **Overlaps `(m)`**, whose "visual

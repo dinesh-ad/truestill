@@ -1,6 +1,6 @@
 # (acu) POI LOOKUP FROM GPS - the strongest form of location naming, measured and NOT built.
 
-*Body of backlog entry `(acu)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(acu)`, under **Ideas / deferred**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(acu) POI LOOKUP FROM GPS - the strongest form of location naming, measured and NOT built.**
   Recorded 2026-08-11. Take a photo's coordinates, ask what named buildings are nearby, and a

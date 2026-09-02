@@ -1,6 +1,6 @@
 # (agh) `LocalGuard` MAKES FORGETTING THE TOKEN IMPOSSIBLE AND UN-EXEMPTING INVISIBLE.
 
-*Body of backlog entry `(agh)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(agh)`, under **Internal / tooling**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(agh)** Recorded 2026-08-23, found while answering *"is the session token enforced on every
   route, or only carried in the launch URL?"*. **The answer was: enforced, and well.** This is the

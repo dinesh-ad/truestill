@@ -1,6 +1,6 @@
 # (abd) ONE CATALOG OR MANY - the question is unanswered, and it may be the wrong default.
 
-*Body of backlog entry `(abd)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(abd)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(abd) ONE CATALOG OR MANY - the question is unanswered, and it may be the wrong default.**
   Recorded 2026-08-05. **Ranked above the three entries below it.** The question, not a ruling:

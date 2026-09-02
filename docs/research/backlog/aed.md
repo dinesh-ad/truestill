@@ -1,6 +1,6 @@
 # (aed) THE METADATA BAKER STAGES EVERY BAKED FILE THROUGH THE SYSTEM TEMP DIRECTORY.
 
-*Body of backlog entry `(aed)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aed)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aed) THE METADATA BAKER STAGES EVERY BAKED FILE THROUGH THE SYSTEM TEMP DIRECTORY.** Recorded
   2026-08-19, **split out of `(adb)` at the moment `(adb)` was refused** - and the split is that

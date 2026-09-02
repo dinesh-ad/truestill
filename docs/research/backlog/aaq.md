@@ -1,6 +1,6 @@
 # (aaq) `rule_software` reads a tag that is never requested, so it cannot fire.
 
-*Body of backlog entry `(aaq)`, under **Ideas / deferred**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aaq)`, under **Rulings - decided, no work attached**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aaq) `rule_software` reads a tag that is never requested, so it cannot fire.** Recorded
   2026-08-02. **REDUCED 2026-08-12** (`SHIPPED.md`): the `SamsungModel` half is closed - deleted,

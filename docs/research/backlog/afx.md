@@ -1,6 +1,6 @@
 # (afx) THE CEILING IS ASYMMETRIC - LOCAL 2000, CI 3600. THE 3.79 s WAS A CONTENDED READING.
 
-*Body of backlog entry `(afx)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(afx)`, under **Internal / tooling**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 > ⚠ **RETITLED AND NARROWED 2026-08-23. The original title was *"THE BROWSER LANE HAS GROWN INTO
 > ITS OWN CEILING: 1996.21 s AGAINST 2000"* and its headline number does not survive.** The

@@ -1,6 +1,6 @@
 # (aay) JPEG XL (`.jxl`) is classified as unrecognized. RECORD ONLY - do not build.
 
-*Body of backlog entry `(aay)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aay)`, under **Records - evidence, explicitly not work**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aay) JPEG XL (`.jxl`) is classified as unrecognized. RECORD ONLY - do not build.**
   Found 2026-08-03 by running `truestill analyze` over a deliberately format-diverse corpus,

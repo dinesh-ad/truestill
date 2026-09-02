@@ -1,6 +1,6 @@
 # (afz) `mutation_matrix.py` LEAKS A TEMPORARY DIRECTORY PER MUTANT, IN A SCRIPT NO GATE RUNS.
 
-*Body of backlog entry `(afz)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(afz)`, under **Internal / tooling**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(afz)** Recorded 2026-08-23, found while measuring `(afy)`.
 

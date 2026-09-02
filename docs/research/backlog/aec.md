@@ -1,6 +1,6 @@
 # (aec) 62 FIXED WAITS IN THE BROWSER LANE, EACH ONE A COIN TOSS AGAINST A MEASURED LATENCY.
 
-*Body of backlog entry `(aec)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aec)`, under **Internal / tooling**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aec) 62 FIXED WAITS IN THE BROWSER LANE, EACH ONE A COIN TOSS AGAINST A MEASURED LATENCY.**
   Recorded 2026-08-19, out of the CI failure that closed `(ado)`'s third repeat. **One was fixed;

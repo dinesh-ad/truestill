@@ -1,6 +1,6 @@
 # (abg) The reassured state has no notion of staleness - "Schrodinger's backup".
 
-*Body of backlog entry `(abg)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(abg)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(abg) The reassured state has no notion of staleness - "Schrodinger's backup".**
   - 📌 **READ THIS FIRST: THE EXPOSURE RANKING IN THIS ENTRY IS INVERTED, measured 2026-08-10 on

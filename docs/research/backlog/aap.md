@@ -1,6 +1,6 @@
 # (aap) Registering a folder does not mint a second identity - BUILT 2026-08-02, ONE SURFACE LEFT.
 
-*Body of backlog entry `(aap)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aap)`, under **App-surface deferrals**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 > ⚠ **TITLE ALIGNED TO THE INDEX 2026-08-25, which had carried the corrected claim since the
 > open-entry sweep. The original title was *"Registering a folder must not mint a second

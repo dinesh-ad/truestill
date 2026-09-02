@@ -1,6 +1,6 @@
 # (ajm) A BROWSER TEST MEASURES THE MACHINE'S TEMP PATH, NOT THE PRODUCT
 
-*Body of backlog entry `(ajm)`, under **Approved - still to build**. The index is
+*Body of backlog entry `(ajm)`, under **Internal / tooling**. The index is
 [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with
 [`SHIPPED.md`](../../SHIPPED.md).*
 

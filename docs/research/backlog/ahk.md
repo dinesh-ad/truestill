@@ -1,6 +1,6 @@
 # (ahk) THE NAMING ROUTE DOES A CHECK-THEN-INSERT WITH NO LOCK, AND `truestill restore` CAN RACE IT.
 
-*Body of backlog entry `(ahk)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(ahk)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(ahk) THE NAMING ROUTE DOES A CHECK-THEN-INSERT WITH NO LOCK, AND `truestill restore` CAN RACE
   IT.** Filed 2026-08-25 (P74), while verifying `(ahh)` by reproduction. **Ranked above `(ahh)`**:

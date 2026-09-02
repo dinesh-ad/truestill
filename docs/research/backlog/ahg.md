@@ -1,6 +1,6 @@
 # (ahg) `cli-app-parity.md` IS KEYED BY CLI SUBCOMMAND, SO AN APP-ONLY CAPABILITY HAS NO ROW.
 
-*Body of backlog entry `(ahg)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(ahg)`, under **Internal / tooling**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(ahg) `cli-app-parity.md` IS KEYED BY CLI SUBCOMMAND, SO AN APP-ONLY CAPABILITY HAS NO ROW.**
   Filed 2026-08-25 (P68), from `(ahd)`'s Q376 finding.

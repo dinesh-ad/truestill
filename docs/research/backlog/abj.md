@@ -1,6 +1,6 @@
 # (abj) Find matches one substring; a two-word query silently finds nothing.
 
-*Body of backlog entry `(abj)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(abj)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(abj) Find matches one substring; a two-word query silently finds nothing.** Recorded
   2026-08-05. `find_copies_query` builds `%term%` and ORs it across `original_name`, `relative`

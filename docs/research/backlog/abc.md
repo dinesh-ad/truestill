@@ -1,6 +1,6 @@
 # (abc) `check_product_name.SUBCOMMANDS` should be derived, not transcribed.
 
-*Body of backlog entry `(abc)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(abc)`, under **Internal / tooling**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(abc) `check_product_name.SUBCOMMANDS` should be derived, not transcribed.** Recorded
   2026-08-04, when Analyze 3b tripped over it: the list had never gained `analyze` or

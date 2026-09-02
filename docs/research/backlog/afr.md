@@ -1,6 +1,6 @@
 # (afr) THE LOCK DIRECTORY GROWS ONE EMPTY FILE PER DRIVE, FOREVER.
 
-*Body of backlog entry `(afr)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(afr)`, under **Internal / tooling**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(afr)** `DriveLock.release` TRUNCATES AND NEVER UNLINKS. Found 2026-08-22 during a state check
   after `(aaw)` shipped, in the maintainer's own data directory.

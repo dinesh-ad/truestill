@@ -1,6 +1,6 @@
 # (r) Analyze mode - the hash cache half is SHIPPED.
 
-*Body of backlog entry `(r)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(r)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(r) Analyze mode - the hash cache half is SHIPPED.** The placement clause fired: a soak run
   previewed an unchanged 2,275-file source twice and re-hashed it both times, so the cache was

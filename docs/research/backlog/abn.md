@@ -1,6 +1,6 @@
 # (abn) rescan, beyond the report. `truestill rescan` REPORTS; nothing acts on it yet.
 
-*Body of backlog entry `(abn)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(abn)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(abn) rescan, beyond the report. `truestill rescan` REPORTS; nothing acts on it yet.**
   Recorded 2026-08-07 with the report-only slice. The design note this carries was ruled by the

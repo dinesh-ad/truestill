@@ -1,6 +1,6 @@
 # (ahi) THE RECORD-STATE CENSUS COVERS 5 OF 9 MUTATING OPERATIONS.
 
-*Body of backlog entry `(ahi)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(ahi)`, under **Internal / tooling**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(ahi) THE RECORD-STATE CENSUS COVERS 5 OF 9 MUTATING OPERATIONS.** Filed 2026-08-25 (P72).
 

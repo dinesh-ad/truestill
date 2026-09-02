@@ -2,7 +2,7 @@
 
 *⚠ Retitled 2026-08-29. The old title, "it is read and then thrown away", was corrected inside this body on 2026-08-09 and outlived the correction by twenty days.*
 
-*Body of backlog entry `(kk)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(kk)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(kk) Persist GPS at ingest - THE CAPTURE HALF SHIPPED AT v17; `GPSDateStamp` did not.** Found while designing trip
   grouping (`trip-grouping-research.md` §5), and the scope is much wider than trips.

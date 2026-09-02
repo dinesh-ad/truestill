@@ -1,6 +1,6 @@
 # (aff) ONE EXTRA NEAR-DUPLICATE ON 3.14, FROM THE INTERPRETER AND NOT FROM A DEPENDENCY.
 
-*Body of backlog entry `(aff)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aff)`, under **Records - evidence, explicitly not work**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aff)** Found 2026-08-22 by the Python 3.14 upgrade's **step 3**, which existed to check
   `--pool process` under forkserver. That check passed; this is what it found beside it.

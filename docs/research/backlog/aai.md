@@ -1,6 +1,6 @@
 # (aai) The plain copy path does not verify at write time. DEFERRED with the cost stated - not an open item awaiting work.
 
-*Body of backlog entry `(aai)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aai)`, under **Ideas / deferred**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aai) The plain copy path does not verify at write time. DEFERRED with the cost stated - not
   an open item awaiting work.** Recorded 2026-07-31, and **re-scoped 2026-07-31 after the

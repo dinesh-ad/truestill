@@ -1,6 +1,6 @@
 # (ahh) A FAILED "SAVE NAMES" REPORTS TOTAL FAILURE OVER A PARTIAL SUCCESS.
 
-*Body of backlog entry `(ahh)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(ahh)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(ahh) A FAILED "SAVE NAMES" REPORTS TOTAL FAILURE OVER A PARTIAL SUCCESS.** Filed
   2026-08-25 (P72); ⚠ **re-scoped and re-ranked 2026-08-25 (P74) after reproducing it.** The

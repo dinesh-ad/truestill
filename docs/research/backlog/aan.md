@@ -1,6 +1,6 @@
 # (aan) A "verified against code" clause must still resolve.
 
-*Body of backlog entry `(aan)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aan)`, under **Records - evidence, explicitly not work**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aan) A "verified against code" clause must still resolve.** Recorded 2026-08-01 while
   moving `(aae)` and `(jj)` into the built section. **Record only - needs its own

@@ -1,6 +1,6 @@
 # (aax) `time_known` is derived from provenance, not from the value. POST-LAUNCH.
 
-*Body of backlog entry `(aax)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aax)`, under **Records - evidence, explicitly not work**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aax) `time_known` is derived from provenance, not from the value. POST-LAUNCH.** Filed
   2026-08-03 while fixing the stacked date prefix, which this shape is what made possible.

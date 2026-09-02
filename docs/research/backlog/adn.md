@@ -1,6 +1,6 @@
 # (adn) NOTHING STOPS TWO APPS RUNNING, AND QUITTING THE SECOND DELETES THE WAY BACK INTO THE FIRST.
 
-*Body of backlog entry `(adn)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(adn)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(adn)** NOTHING STOPS TWO APPS RUNNING AGAINST ONE CATALOG. Recorded 2026-08-14, and it is
   the reason the schema fix had to be cross-process rather than an in-process lock. `(adh)`

@@ -1,6 +1,6 @@
 # (aat) `(aar)` is forward-only, and `migrate-layout` will not carry it backwards.
 
-*Body of backlog entry `(aat)`, under **Settled technical stances (recorded so they are not re-litigated)**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aat)`, under **Rulings - decided, no work attached**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aat) `(aar)` is forward-only, and `migrate-layout` will not carry it backwards.** Recorded
   2026-08-02, found while writing `(aar)`'s CHANGELOG entry and checked against the code rather

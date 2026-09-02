@@ -1,6 +1,6 @@
 # (acp) GPS-DERIVED TIMEZONE - understood, costed, and deliberately NOT built.
 
-*Body of backlog entry `(acp)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(acp)`, under **Ideas / deferred**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(acp) GPS-DERIVED TIMEZONE - understood, costed, and deliberately NOT built.** Recorded
   2026-08-10 from the P41 date/timezone measurement. **This entry exists so the idea is not

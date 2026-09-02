@@ -1,6 +1,6 @@
 # (afs) A DESTRUCTIVE MIGRATION MAY NOT RUN WITHOUT A PRE-UPGRADE COPY, AND NOTHING SAYS WHICH ONE IS DESTRUCTIVE.
 
-*Body of backlog entry `(afs)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(afs)`, under **Internal / tooling**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(afs)** Recorded 2026-08-22, split out of `(ady)` while building it. **Split rather than
   folded in, and the reason is what it is**: `(ady)` is a copy-before-upgrade fix, and this is a

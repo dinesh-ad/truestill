@@ -1,6 +1,6 @@
 # (xx) Absolute-path columns and hash-cache keys are not machine-portable.
 
-*Body of backlog entry `(xx)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(xx)`, under **Records - evidence, explicitly not work**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(xx) Absolute-path columns and hash-cache keys are not machine-portable.** Ruled by
   the maintainer from the 2026-07-30 move audit. **Record only - do not fix in the loud-failure

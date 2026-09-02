@@ -1,6 +1,6 @@
 # (aeg) CACHE PLAYWRIGHT'S SYSTEM LIBRARIES SO `--with-deps` STOPS INVOKING apt AT ALL.
 
-*Body of backlog entry `(aeg)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aeg)`, under **Internal / tooling**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aeg) CACHE PLAYWRIGHT'S SYSTEM LIBRARIES SO `--with-deps` STOPS INVOKING apt AT ALL.**
   Recorded 2026-08-20, split out of `(aee)` at the moment `(aee)`'s fix landed. **This is the right

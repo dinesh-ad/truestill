@@ -1,6 +1,6 @@
 # (abf) A fix does not retroactively clean what it prevented.
 
-*Body of backlog entry `(abf)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(abf)`, under **Records - evidence, explicitly not work**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(abf) A fix does not retroactively clean what it prevented.** Recorded 2026-08-05.
   - Row **id=1** in the maintainer's catalog has a `source_path` under a pytest temp directory -

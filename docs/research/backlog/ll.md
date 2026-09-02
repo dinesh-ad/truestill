@@ -1,6 +1,6 @@
 # (ll) Sub-day event identity that survives a changing file set.
 
-*Body of backlog entry `(ll)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(ll)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(ll) Sub-day event identity that survives a changing file set.** The day-event half of the
   identity defect recorded in `trip-grouping-research.md` §6.

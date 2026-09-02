@@ -6,7 +6,7 @@
 > untrue. What remains is `date_rescue` alone. See **"THE CENTRAL GUESS, FALSIFIED"** at the end -
 > that section is worth more than the fix.
 
-*Body of backlog entry `(afa)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(afa)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(afa)** "WE DETECTED IT AND SAID NOTHING" IS A DIFFERENT STATE FROM "WE COULD NOT TELL".
   Filed 2026-08-21 while closing `(aey)`, from the sites that were in front of us.

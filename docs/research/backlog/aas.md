@@ -1,6 +1,6 @@
 # (aas) An undated file cannot be assigned to an event the user knows it belongs to.
 
-*Body of backlog entry `(aas)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aas)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aas) An undated file cannot be assigned to an event the user knows it belongs to.**
   Recorded 2026-08-02 while ruling on `(aar)`. **Post-launch. A missing convenience rather than a

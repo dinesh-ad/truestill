@@ -1,6 +1,6 @@
 # (aac) Organize names unreadable source files; ONE RESIDUE REMAINS, and it is app-side.
 
-*Body of backlog entry `(aac)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aac)`, under **Real, but conditional**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 > ⚠ **TITLE ALIGNED TO THE INDEX 2026-08-25, which had carried the corrected claim since the
 > open-entry sweep. The original title was *"Organize must name and count unreadable source

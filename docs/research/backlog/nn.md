@@ -1,6 +1,6 @@
 # (nn) Prove destination timestamp parity against a live rclone remote.
 
-*Body of backlog entry `(nn)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(nn)`, under **Records - evidence, explicitly not work**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(nn) Prove destination timestamp parity against a live rclone remote.** The destination
   timestamp seam is implemented for rclone as `touch --no-create --timestamp`. The installed

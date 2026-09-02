@@ -1,6 +1,6 @@
 # (aao) Asset pairing: several files that are one photo.
 
-*Body of backlog entry `(aao)`, under **Ideas / deferred**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aao)`, under **Records - evidence, explicitly not work**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aao) Asset pairing: several files that are one photo.** Recorded 2026-08-02. **Post-launch,
   record only - needs a design pass before any build.** Names the concept that `(y)`, `(p)` and

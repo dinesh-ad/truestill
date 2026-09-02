@@ -230,6 +230,9 @@ That is enough to say *still plausible*; it is not enough to say *confirmed*. **
 on the strength of it**, and an entry that turns out already built should be closed with its commit
 rather than treated as a triage failure.
 
+- **(abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.** ⚠ **Build next, 2026-09-02 (P186)**: the body called this *probably unreachable*. It is reachable: `/api/ingest/archives/run` goes through `server.py:create_app._start_drive_job` with `mutating=True`, which answers a busy drive with `ok: false`, and 16 of the 17 `runJob` call sites in `app.js` pass an `onRefuse`. One line. [Full
+  entry](research/backlog/abr.md)
+
 - **(ajn) THE APP CANNOT SAY A COPY ARRIVED WITHOUT ITS TIMESTAMPS.** Filed 2026-09-01 (P175),
   **split out of `(aiq)` when its other two thirds shipped** - this is its gap 3 and the only part
   that survived, carried on its own letter rather than dropped inside a closed entry. Core produces
@@ -312,14 +315,6 @@ rather than treated as a triage failure.
   source.
   [Full entry](research/backlog/aht.md)
 
-- **(afq) A PREVIEW OCCUPIES THE DRIVE IN THE APP, AND NOTHING SAYS WHY.** `_start_drive_job`
-  passes `operation="organize preview"` to `jobs.start`, which occupies the drive exactly as an
-  apply does, so a second tab previewing during an organize is refused - while the CLI has never
-  done this. ⚠ **Split out of `(aaw)` rather than folded in**: the lock rests on measured data
-  loss, a preview writes nothing, and letting a UX decision inherit a safety argument it has not
-  earned is what the 2026-08-03 design did without noticing. May well be right; needs its own
-  reason. Filed 2026-08-22. [Full entry](research/backlog/afq.md)
-
 - **(afg) THE DOWNLOAD PAGE HAS NO HOME IN THIS REPOSITORY, AND `truestill.app` EXISTS ONLY IN
   CONVERSATION.** The
   domain is bought; **nothing about it is in this repository** - `grep -ri truestill.app` matches
@@ -339,9 +334,6 @@ rather than treated as a triage failure.
   remedy, and one vocabulary would have fixed neither `(afn)` nor `(afo)`. That finding is worth
   more than the fix. Found 2026-08-21, narrowed 2026-08-22.
   [Full entry](research/backlog/afa.md)
-
-- **(acn) DOES A GPS FIX TIME COUNT AS CAPTURE EVIDENCE? A RULING, NOT A BUG.** [Full
-  entry](research/backlog/acn.md)
 
 - **(aca) The app and the CLI disagree about when an organize run needs confirming.** [Full
   entry](research/backlog/aca.md)
@@ -369,6 +361,12 @@ vanishes mid-run, a second app instance, a locked catalog, an rclone remote, a r
 name collision. Honest work. Not what a first-time user meets.
 
 The same triage caveat as **Build next** applies: one check each, sorted rather than proven.
+
+⚠ **Verified against code 2026-09-02 (P186), all 43 then here.** Eight had a measured condition
+and one of those measured zero; thirty-five carry no population at all. Twelve were wrong about
+their own subject. **The label says conditional; the evidence says unverified** - the entries'
+own failure, one level up. Whether to rename the section is the maintainer's call; that it is
+misnamed today is measured. Fourteen left for other sections that day.
 
 - **(aik) NOTHING READS A META ARCHIVE'S SIDECAR, AND ITS MEDIA ARRIVES STRIPPED.** Filed
   2026-08-29 (P135), from source. A Facebook or Instagram archive ships media with metadata
@@ -494,20 +492,6 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
   works; the harm is a promise printed in one breath and broken in the next.
   Body: [`research/backlog/aiw.md`](research/backlog/aiw.md).
 
-- **(aig) AN INVALID-UTF-8 POSIX FILENAME MISFILES ON READ: EXIFTOOL'S JSON WRITER ECHOES `?` FOR THE BYTE.**
-  Filed 2026-08-29 (P121); **cause corrected in place same day (P122), measured** - the entry
-  originally blamed `-charset filename=utf8`, and removing the charset **changes nothing**:
-  exiftool finds and reads the byte-named file correctly and its JSON writer sanitizes the
-  echo unconditionally, so the `?`-spelled `SourceFile` misses `by_name` and the file goes to
-  `Undated/` silently. **Read-only** - the bake on such a file is measured correct and honest.
-  The body records the one viable direction (a computed `?`-sanitized alias key, refused on
-  collision) and the caveat that parks it: the `?` behaviour is **observed, not documented**.
-  🔒 **PARKED at the bottom of the ranked list, beside `(aib)`**: reachability measured **zero**
-  across 105,125 library files and both corpora including the 1,461 fuzzed - both entries have
-  zero observed instances, but `(aib)` needs only a ruling while this needs code built against
-  undocumented behaviour for a population of zero.
-  Body: [`research/backlog/aig.md`](research/backlog/aig.md).
-
 - **(ahy) AN IN-PLACE ORGANIZE AGAINST AN EMPTY CATALOG REBUILDS NOTHING, AND REPORTS SUCCESS.** Filed 2026-08-26
   (P103). An organized 353-file drive, fresh catalog, `organize <drive> <drive> --in-place
   --apply`: **`353 already in place`, exit 0, and 0 files / 0 copies recorded** - plus no
@@ -621,20 +605,6 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
   the rescue is app-only by recorded deferral, so a CLI sentence must point at the app, which is a
   ruling rather than wording. [Full entry](research/backlog/ahb.md)
 
-- **(aha) AN EXTERNAL EXIF EDIT PRODUCES A DUPLICATE, OR ADVICE THAT DESTROYS IT.** Filed
-  2026-08-24 (P53) from a traced read. ⚠ **Records behaviour, proposes nothing.** Editing the EXIF
-  and re-running **is the field's model** (`porte`, `exif-assistant`), so users arrive expecting
-  it. Edit the **source** → new `files.sha256`, the dedup identity → **copied again**, leaving a
-  **duplicate** beside the undated original. Edit the **library copy** → `copy_sha256` is stale →
-  `verify` reports MISMATCH and advises *"re-copy the source to restore a bad file"*, which
-  **discards the edit**. 🔑 **`(agv)`'s COUSIN, not its sibling**: there the photo was intact and
-  `verify` lied; here the content genuinely differs so **`verify` is right** - what is wrong is the
-  **remedy**, which assumes corruption is the only way a file changes. `(ii)`'s catalog-event
-  ruling extends from hand-moves to hand-edits unchanged, and the field's tools can afford that
-  hatch only because they keep no catalog. The hash cache is **not** the mechanism (it invalidates
-  correctly) and `rescan` cannot see it (`PLACED` is never read).
-  [Full entry](research/backlog/aha.md)
-
 - **(agz) A STILL CAN DECLARE ITS OWN UTC OFFSET AND WE THROW IT AWAY.** Filed 2026-08-24 (P50)
   out of `(aco)`'s retirement census - the live evidence found while withdrawing a false entry.
   ⚠ **CHANGES NO FOLDER TODAY**, and the entry leads with that: `OffsetTimeOriginal` is the offset
@@ -703,14 +673,6 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
   is what the preview was meant to prevent. Mirror of `(aft)`: loud-and-wrong there,
   quiet-and-wrong here. [Full entry](research/backlog/age.md)
 
-- **(aff) ONE EXTRA NEAR-DUPLICATE ON 3.14, FROM THE INTERPRETER AND NOT FROM A DEPENDENCY.**
-  262 look-alikes on 3.13, **263** on 3.14, stable over two runs each - and ⚠ **both pools agree
-  exactly on both interpreters**, which is the property the step was run for. Ruled out by
-  measurement: the relock moved **no** package version, and the walk order is byte-identical. The
-  mechanism is **not isolated**. It did not block the upgrade because a near-duplicate is kept and
-  flagged, never removed - the effect is one extra row in a review list, and exact dedup was
-  identical in all four runs. Found 2026-08-22. [Full entry](research/backlog/aff.md)
-
 - **(adx) A LIBRARY THAT MOVES IS HANDLED. WHAT IS MISSING IS THE DISCLOSURE.** Recorded
   2026-08-18. Three gaps, one user journey. [Full entry](research/backlog/adx.md)
 
@@ -734,9 +696,6 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
 - **(ada) THE BACKUPS SCREEN NOW PUTS STATE BELOW THE FORMS, AND A ONE-COPY WARNING CAN FALL BELOW
   THE FOLD.** [Full entry](research/backlog/ada.md)
 
-- **(adf) A CLI-ORGANIZED LIBRARY LEAVES `path_hint.library` UNSET, so the app has no observed
-  destination to prefill.** [Full entry](research/backlog/adf.md)
-
 - **(aby) Organize screen: copy that repeats itself or explains its own button.** [Full
   entry](research/backlog/aby.md)
 
@@ -745,15 +704,6 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
 
 - **(abt) The unhinted-residue prompt is CLI-only, because the app cannot ask mid-job.** Recorded
   2026-08-07. [Full entry](research/backlog/abt.md)
-
-- **(abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.** [Full
-  entry](research/backlog/abr.md)
-
-- **(abe) CLI custody was fixed forward the same day; REPAIRING PRE-EXISTING ROWS IS THE OPEN
-  HALF.** ⚠ **Retitled 2026-08-22** so the built half is not read as pending:
-  `cli._register_destination` landed 2026-08-05 in `a0091cf`, gated on `--apply`. Rows written
-  **before** that still carry no copy row, so they stay outside custody and invisible to
-  `verify`, `status` and `where`. Recorded 2026-08-05. [Full entry](research/backlog/abe.md)
 
 - **(abg) The reassured state has no notion of staleness - "Schrodinger's backup".** 📌 **read the
   entry first - a premise inside it was corrected.** **Stages 1-3 have shipped**; what remains open
@@ -776,15 +726,6 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
   the app's **run** completion cannot name a file the CLI names. [Full
   entry](research/backlog/aac.md)
 
-- **(aap) Registering a folder does not mint a second identity - BUILT 2026-08-02, ONE SURFACE
-  LEFT.** ⚠ **Retitled 2026-08-22.** The row sat under *"still to build"* while the entry's own
-  first line said **BUILT 2026-08-02**; the guard that prevents the loss is shipped on the CLI.
-  What remains is deliberate and named in the entry: **the app has no register screen**, so the
-  protection has no app-side surface. [Full entry](research/backlog/aap.md)
-
-- **(nn) Prove destination timestamp parity against a live rclone remote.** [Full
-  entry](research/backlog/nn.md)
-
 - **(r) Analyze mode - the hash cache half is SHIPPED.** [Full entry](research/backlog/r.md)
 
 - **(kk) Persist GPS at ingest - THE CAPTURE HALF SHIPPED AT v17; `GPSDateStamp` did not.**
@@ -797,14 +738,8 @@ The same triage caveat as **Build next** applies: one check each, sorted rather 
 - **(ll) Sub-day event identity that survives a changing file set.** [Full
   entry](research/backlog/ll.md)
 
-- **(aam) Sidebar reference: profile header, section labels, submenus.** [Full
-  entry](research/backlog/aam.md)
-
 - **(hh) `truestill adopt` - bring stray media in an organized drive into the catalog.** [Full
   entry](research/backlog/hh.md)
-
-- **(aaq) `rule_software` reads a tag that is never requested, so it cannot fire.** [Full
-  entry](research/backlog/aaq.md)
 
 ## Internal / tooling
 
@@ -1109,6 +1044,9 @@ and they are not product defects; keeping them in one drawer stops them competin
 differently**: if what it waits on never arrives, it should be **retired**, not left here looking
 like approved work.
 
+- **(aam) Sidebar reference: profile header, section labels, submenus.** ⚠ **Blocked, 2026-09-02 (P186)**: section labels, the pill state, the collapsed rail with tooltips and the wordmark all ship (`index.html`, `app.css`), and the submenu question is answered in the markup - *no nested submenus*. Only the profile/licence header remains, and it waits on `DECISIONS.md` D5's activation. [Full
+  entry](research/backlog/aam.md)
+
 - **(ajk) A CLASSIFIER GRADES A DECISION IT CANNOT READ, AND THE ONE DISCARDED ERRNO IS IN A
   DIFFERENT ARM.** Filed 2026-09-01 (P172) from `(aji)`'s corrected mechanism, read-only.
   ⚠ **FIRST BLOCKER: the `REFUSED` arm does not reproduce.** Three attempts - `reach()` alone,
@@ -1135,6 +1073,23 @@ like approved work.
 keep their letters because `IMPLEMENTATION_STANDARDS.md` and other documents cite letters, and a
 cited letter must resolve.
 
+- **(afq) A PREVIEW OCCUPIES THE DRIVE IN THE APP, AND NOTHING SAYS WHY.** ⚠ **Rulings, 2026-09-02 (P186)**: no code gap - the refusal is deliberate and needs its own justification, which is a decision. `_start_drive_job`
+  passes `operation="organize preview"` to `jobs.start`, which occupies the drive exactly as an
+  apply does, so a second tab previewing during an organize is refused - while the CLI has never
+  done this. ⚠ **Split out of `(aaw)` rather than folded in**: the lock rests on measured data
+  loss, a preview writes nothing, and letting a UX decision inherit a safety argument it has not
+  earned is what the 2026-08-03 design did without noticing. May well be right; needs its own
+  reason. Filed 2026-08-22. [Full entry](research/backlog/afq.md)
+
+- **(acn) DOES A GPS FIX TIME COUNT AS CAPTURE EVIDENCE? A RULING, NOT A BUG.** ⚠ **Rulings, 2026-09-02 (P186)**: its own headline. Both tags are already read (`exif.py:REQUESTED_TAGS`); nothing is built until the maintainer rules. [Full
+  entry](research/backlog/acn.md)
+
+- **(aaq) `rule_software` reads a tag that is never requested, so it cannot fire.** ⚠ **Rulings, 2026-09-02 (P186)**: the rule fires for nobody (`Software` is in neither tag tuple of `exif.py:REQUESTED_TAGS`), the population is measured and a detector pins the state; what is left is the maintainer's choice between request-and-reorder and delete. [Full
+  entry](research/backlog/aaq.md)
+
+- **(adf) A CLI-ORGANIZED LIBRARY LEAVES `path_hint.library` UNSET, so the app has no observed
+  destination to prefill.** ⚠ **Rulings, 2026-09-02 (P186)**: nothing is broken - `app.js:loadCustody` prefills from `library_root` when `library_path` is unset - and the entry's own remedy is *one `set_setting` call or one sentence saying why not*. A decision, not a build. [Full entry](research/backlog/adf.md)
+
 - **(aib) THE PERCEPTUAL PIXEL CEILING IS 600 MP, NOT THE 300 MP THE CONSTANT NAMES.** Filed
   2026-08-26 (P116), split out of `(ahq)`'s comment audit. **A ruling, not a fix.** Pillow's
   `_decompression_bomb_check` is two-tier - it *warns* above `MAX_IMAGE_PIXELS` and only *raises*
@@ -1159,6 +1114,51 @@ cited letter must resolve.
 **Evidence, and most say so in their own first lines** - *"Record only - do not build"*. They are
 here because a lost answer key corrupts every measurement taken against it, which is `(ait)` and
 `(aiu)`'s ruling. ⚠ **Never delete one to shorten the list.**
+
+- **(nn) Prove destination timestamp parity against a live rclone remote.** ⚠ **Records, 2026-09-02 (P186)**: a verification chore with no code to write - `rclone.py:RcloneDestination` pins `touch --no-create --timestamp` in a unit test and no live remote has run it. [Full
+  entry](research/backlog/nn.md)
+
+- **(abe) CLI custody was fixed forward the same day; REPAIRING PRE-EXISTING ROWS IS THE OPEN
+  HALF.** ⚠ **Records, 2026-09-02 (P186)**: 31 rows on one machine, the leak closed by `a0091cf`, and its own conclusion is *do nothing here beyond making sure `(hh)` knows*. ⚠ **Retitled 2026-08-22** so the built half is not read as pending:
+  `cli._register_destination` landed 2026-08-05 in `a0091cf`, gated on `--apply`. Rows written
+  **before** that still carry no copy row, so they stay outside custody and invisible to
+  `verify`, `status` and `where`. Recorded 2026-08-05. [Full entry](research/backlog/abe.md)
+
+- **(aig) AN INVALID-UTF-8 POSIX FILENAME MISFILES ON READ: EXIFTOOL'S JSON WRITER ECHOES `?` FOR THE BYTE.** ⚠ **Records, 2026-09-02 (P186)**: population measured zero; code unchanged (`exif.py:_read_chunk` still keys `by_name` on the spelled path).
+  Filed 2026-08-29 (P121); **cause corrected in place same day (P122), measured** - the entry
+  originally blamed `-charset filename=utf8`, and removing the charset **changes nothing**:
+  exiftool finds and reads the byte-named file correctly and its JSON writer sanitizes the
+  echo unconditionally, so the `?`-spelled `SourceFile` misses `by_name` and the file goes to
+  `Undated/` silently. **Read-only** - the bake on such a file is measured correct and honest.
+  The body records the one viable direction (a computed `?`-sanitized alias key, refused on
+  collision) and the caveat that parks it: the `?` behaviour is **observed, not documented**.
+  🔒 **PARKED at the bottom of the ranked list, beside `(aib)`**: reachability measured **zero**
+  across 105,125 library files and both corpora including the 1,461 fuzzed - both entries have
+  zero observed instances, but `(aib)` needs only a ruling while this needs code built against
+  undocumented behaviour for a population of zero.
+  Body: [`research/backlog/aig.md`](research/backlog/aig.md).
+
+- **(aff) ONE EXTRA NEAR-DUPLICATE ON 3.14, FROM THE INTERPRETER AND NOT FROM A DEPENDENCY.** ⚠ **Records, 2026-09-02 (P186)**: the only action needs a 3.13 interpreter and every package declares `requires-python >=3.14`; the effect is one extra row in a review list.
+  262 look-alikes on 3.13, **263** on 3.14, stable over two runs each - and ⚠ **both pools agree
+  exactly on both interpreters**, which is the property the step was run for. Ruled out by
+  measurement: the relock moved **no** package version, and the walk order is byte-identical. The
+  mechanism is **not isolated**. It did not block the upgrade because a near-duplicate is kept and
+  flagged, never removed - the effect is one extra row in a review list, and exact dedup was
+  identical in all four runs. Found 2026-08-22. [Full entry](research/backlog/aff.md)
+
+- **(aha) AN EXTERNAL EXIF EDIT PRODUCES A DUPLICATE, OR ADVICE THAT DESTROYS IT.** ⚠ **Records, 2026-09-02 (P186)**: its own text - proposes nothing; no population measured. Filed
+  2026-08-24 (P53) from a traced read. ⚠ **Records behaviour, proposes nothing.** Editing the EXIF
+  and re-running **is the field's model** (`porte`, `exif-assistant`), so users arrive expecting
+  it. Edit the **source** → new `files.sha256`, the dedup identity → **copied again**, leaving a
+  **duplicate** beside the undated original. Edit the **library copy** → `copy_sha256` is stale →
+  `verify` reports MISMATCH and advises *"re-copy the source to restore a bad file"*, which
+  **discards the edit**. 🔑 **`(agv)`'s COUSIN, not its sibling**: there the photo was intact and
+  `verify` lied; here the content genuinely differs so **`verify` is right** - what is wrong is the
+  **remedy**, which assumes corruption is the only way a file changes. `(ii)`'s catalog-event
+  ruling extends from hand-moves to hand-edits unchanged, and the field's tools can afford that
+  hatch only because they keep no catalog. The hash cache is **not** the mechanism (it invalidates
+  correctly) and `rescan` cannot see it (`PLACED` is never read).
+  [Full entry](research/backlog/aha.md)
 
 - **(ajc) `ntfs3` ACCEPTS EVERY NAME WINDOWS REFUSES, SO A DRIVE IS WRITTEN ON LINUX AND BREAKS WHEN
   IT MOVES.** Filed 2026-08-31 (P166), measured on a real NTFS volume under the **kernel `ntfs3`
@@ -1380,6 +1380,12 @@ Copy / Move / Reorganize-in-place and `undo-organize` are **in the app** - see *
 What remains CLI-only shares one reason: each is a **space-safe or irreversible** operation
 whose failure mode is permanent, and GUI demand is still judged from soak / launch feedback
 rather than assumed.
+
+- **(aap) Registering a folder does not mint a second identity - BUILT 2026-08-02, ONE SURFACE
+  LEFT.** ⚠ **App-surface deferrals, 2026-09-02 (P186)**: the loss is prevented on both surfaces - `service/organize.py:_approve_registration` raises `DriveGhostError` as `cli.py:_approve_registration` does; only the adopt offer (`--adopt-existing`) is CLI-only, and it needs a register screen that does not exist. ⚠ **Retitled 2026-08-22.** The row sat under *"still to build"* while the entry's own
+  first line said **BUILT 2026-08-02**; the guard that prevents the loss refuses on both surfaces.
+  What remains is deliberate and named in the entry: **the app has no register screen**, so the
+  protection has no app-side surface. [Full entry](research/backlog/aap.md)
 
 - **The date rescue (`confirm_file_date`) is APP-ONLY**, recorded 2026-07-31 when step 5 made it
   reachable. A rescue is review-shaped - look at a photo, judge it, correct it, with the evidence

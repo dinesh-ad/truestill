@@ -1,6 +1,6 @@
 # (afq) A PREVIEW OCCUPIES THE DRIVE IN THE APP, AND NOTHING SAYS WHY.
 
-*Body of backlog entry `(afq)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(afq)`, under **Rulings - decided, no work attached**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(afq)** THE APP REFUSES A PREVIEW WHILE AN APPLY RUNS; THE CLI DOES NOT. Split out of `(aaw)`
   on 2026-08-22 rather than folded into it, and the split is the point.

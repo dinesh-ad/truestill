@@ -1,6 +1,6 @@
 # (aaz) `ModifyDate < DateTimeOriginal` as a back-dating signal. RECORD ONLY - do not build.
 
-*Body of backlog entry `(aaz)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aaz)`, under **Records - evidence, explicitly not work**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aaz) `ModifyDate < DateTimeOriginal` as a back-dating signal. RECORD ONLY - do not build.**
   Filed 2026-08-03 alongside the future-date refusal, which found its case on the real library.

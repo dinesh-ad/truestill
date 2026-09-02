@@ -1,6 +1,6 @@
 # (afg) THE DOWNLOAD PAGE HAS NO HOME IN THIS REPOSITORY, AND `truestill.app` EXISTS ONLY IN CONVERSATION.
 
-*Body of backlog entry `(afg)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(afg)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(afg)** Filed 2026-08-22 by the release-readiness stock-take
   ([`PROJECT_STATUS.md`](../../PROJECT_STATUS.md) §2b), which went looking for the download page

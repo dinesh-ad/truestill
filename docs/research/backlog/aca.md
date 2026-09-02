@@ -1,6 +1,6 @@
 # (aca) The app and the CLI disagree about when an organize run needs confirming.
 
-*Body of backlog entry `(aca)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aca)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aca) The app and the CLI disagree about when an organize run needs confirming.** Recorded
   2026-08-08 while making the app's confirm word mode-aware.
