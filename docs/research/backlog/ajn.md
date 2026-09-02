@@ -1,6 +1,7 @@
 # (ajn) THE APP CANNOT SAY A COPY ARRIVED WITHOUT ITS TIMESTAMPS
+> ✅ **CLOSED 2026-09-02 (P190)** - `service/organize.py:_metadata_report` and the app's completion card; see [`SHIPPED.md`](../../SHIPPED.md).
 
-*Body of backlog entry `(ajn)`, under **Build next**. The index is
+*Body of backlog entry `(ajn)`, closed, see [`SHIPPED.md`](../../SHIPPED.md). The index is
 [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with
 [`SHIPPED.md`](../../SHIPPED.md).*
 

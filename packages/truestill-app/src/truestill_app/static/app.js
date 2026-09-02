@@ -1090,6 +1090,23 @@ function organizeCompletion(r) {
     notes.push(`<div class="banner warn"><div>${plural(r.failed, "file")} could not be
       ${verb}.${named}</div></div>`);
   }
+  // `(ajn)`. Copied and safe, but the drive refused timestamps or permissions - the CLI has said
+  // this under METADATA NOT SET since `(aie)`, and the app said nothing: 2,519 files in one real run
+  // landed with today's date behind "organized". Same collapsed list as the failures above.
+  const m = r.metadata_files;
+  if (m && m.total) {
+    const which = m.shown && m.shown.length
+      ? `<details class="more"><summary>Show which ▾</summary><div class="mono">`
+        + m.shown.map((x) => `${esc(x.name)} - ${esc(x.detail)}`).join("<br>")
+        + `</div>${m.total > m.shown.length
+            ? `<div class="k">Showing ${nfmt(m.shown.length)} of ${plural(m.total, "file")}.</div>`
+            : ""}</details>`
+      : "";
+    notes.push(`<div class="banner warn" data-testid="org-metadata-not-set"><div>${plural(m.total, "file")}
+      ${m.total === 1 ? "was" : "were"} copied and ${m.total === 1 ? "is" : "are"} safe, but this drive did
+      not let Truestill set ${m.total === 1 ? "its" : "their"} timestamps or permissions - a file manager
+      will show today's date on ${m.total === 1 ? "it" : "them"}.${which}</div></div>`);
+  }
   // ⚠ The run WORKED and its record did not. Said because the record is automatic, so a user
   // never asked for it and would never know it was missing - which is what makes its absence the
   // news rather than the file. The CLI prints the same fact; one wording, two surfaces. `(afu)`

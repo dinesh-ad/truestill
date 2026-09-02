@@ -245,18 +245,6 @@ rather than treated as a triage failure.
 - **(abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.** ⚠ **Build next, 2026-09-02 (P186)**: the body called this *probably unreachable*. It is reachable: `/api/ingest/archives/run` goes through `server.py:create_app._start_drive_job` with `mutating=True`, which answers a busy drive with `ok: false`, and 16 of the 17 `runJob` call sites in `app.js` pass an `onRefuse`. One line. [Full
   entry](research/backlog/abr.md)
 
-- **(ajn) THE APP CANNOT SAY A COPY ARRIVED WITHOUT ITS TIMESTAMPS.** Filed 2026-09-01 (P175),
-  **split out of `(aiq)` when its other two thirds shipped** - this is its gap 3 and the only part
-  that survived, carried on its own letter rather than dropped inside a closed entry. Core produces
-  the fact (`models.py:ActionResult` `metadata_ok`, set at `organizer.py:_journal_or_delete_source`) and owns the sentence
-  (`drive_unwritable.py:metadata_not_preserved_note` `metadata_not_preserved_note`); the CLI prints it
-  (`cli.py:_print_execution`, label `METADATA NOT SET`). ⚠ **`metadata_ok` has ZERO occurrences under
-  `packages/truestill-app/src`** - `grep -rc metadata_ok packages/truestill-app/src` returns
-  nothing. So `(aie)`/`(ain)`'s honest outcome - *"copied and is safe, but this drive does not let
-  Truestill set timestamps"* - reaches a terminal user and **never reaches a screen at all**. Not a
-  worse wording; an absent one, which is `(aek)`'s and `(aep)`'s shape.
-  Body: [`research/backlog/ajn.md`](research/backlog/ajn.md).
-
 - **(ajp) A DELETED FILE LEAVES ITS ALBUM MEMBERSHIP BEHIND, AND SQLITE REUSES THE ROWID.**
   Filed 2026-09-01 (P185) while checking `(acg)`'s migration cost; **split off rather than folded
   in**, on `(aiy)`/`(ajo)`'s test - wrong today independent of portability.

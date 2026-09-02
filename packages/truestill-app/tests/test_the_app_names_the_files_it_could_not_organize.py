@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from truestill_app.service.organize import _failed_report
+from truestill_app.service.organize import _failed_report, _metadata_report
 from truestill_cli.cli import _STATUS_PREVIEW
 from truestill_core.models import (
     FAILURE_PREVIEW_LIMIT,
@@ -104,3 +104,43 @@ def test_the_screen_renders_the_names_and_states_the_truncation() -> None:
     assert "Showing ${nfmt(f.shown.length)} of" in js, (
         "truncation is implied rather than stated - the rule the grid and duplicate lists obey"
     )
+
+
+# ------------------------------------------------ `(ajn)`: copied, safe, and without its timestamps
+
+
+def _refused_metadata(name: str) -> ActionResult:
+    return ActionResult(
+        resolution=_Resolution(name),  # type: ignore[arg-type]
+        status=ActionStatus.UPLOADED,
+        final_relative=None,
+        detail=f"{name!r} was copied to 'x/{name}' and is safe, but this drive does not let "
+        "Truestill set timestamps or permissions",
+        metadata_ok=False,
+    )
+
+
+def test_a_copy_that_lost_its_metadata_is_named_and_is_not_a_failure() -> None:
+    results = [_refused_metadata("a.jpg"), _failure("b.jpg", "the drive is not there any more")]
+    report = _metadata_report(results)
+    assert report["total"] == 1
+    assert report["shown"][0]["name"] == "a.jpg"
+    assert "timestamps" in report["shown"][0]["detail"]
+    assert _failed_report(results)["shown"][0]["name"] == "b.jpg", (
+        "a caveated success is not a failure"
+    )
+    assert _failed_report(results)["total"] == 1
+
+
+def test_the_metadata_list_shares_the_cap() -> None:
+    results = [_refused_metadata(f"{i}.jpg") for i in range(FAILURE_PREVIEW_LIMIT + 5)]
+    report = _metadata_report(results)
+    assert report["total"] == FAILURE_PREVIEW_LIMIT + 5
+    assert len(report["shown"]) == FAILURE_PREVIEW_LIMIT
+
+
+def test_the_renderer_reads_the_field() -> None:
+    """The payload key is only a fact if a pixel reads it; the string is the join."""
+    source = APP_JS.read_text(encoding="utf-8")
+    assert "r.metadata_files" in source
+    assert 'data-testid="org-metadata-not-set"' in source

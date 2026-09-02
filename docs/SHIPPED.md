@@ -22,6 +22,16 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ajn) THE APP CANNOT SAY A COPY ARRIVED WITHOUT ITS TIMESTAMPS.** ✅ **CLOSED 2026-09-02 (P190).**
+  Core produced the fact (`ActionResult.metadata_ok`) and the sentence
+  (`drive_unwritable.py:metadata_not_preserved_note`), the CLI printed both under *METADATA NOT SET*,
+  and `packages/truestill-app/src` read neither: 4,369 files in three real run records landed with
+  wrong dates behind a screen that said *organized*. `service/organize.py:_metadata_report` now ships
+  `metadata_files` as `{total, shown}` beside `failed_files` - a success with a caveat, deliberately
+  not folded into `failed` - and `app.js`'s completion renders it as its own card with the same
+  collapsed list. Same cap as the CLI. Measured on a real run of 45 library photographs with
+  `copystat` refused: 45 of 45 carry the note. Body: [`research/backlog/ajn.md`](research/backlog/ajn.md).
+
 - **(aiv) THE FAILURE CAP COUNTS 2,519 REASONS FOR ONE FACT, WHICH IS THE DEFECT `(afd)` CLOSED.**
   ✅ **CLOSED 2026-09-02 (P190), option 1.** `cli.py:_reason_key` strips quoted fragments, and both
   producers led with an unquoted source name: `drive_unwritable.py:metadata_not_preserved_note` and

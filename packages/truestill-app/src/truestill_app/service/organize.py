@@ -550,6 +550,25 @@ def _failed_report(results: list[ActionResult]) -> FailedReport:
     }
 
 
+def _metadata_report(results: list[ActionResult]) -> FailedReport:
+    """The copies that landed without their timestamps or permissions, named up to core's cap.
+
+    `(ajn)`. Core produces the fact (`ActionResult.metadata_ok`) and the sentence
+    (`drive_unwritable.metadata_not_preserved_note`), the CLI prints both under *METADATA NOT SET*,
+    and the app read neither: 2,519 files in one real run landed with wrong dates behind a screen
+    that said *organized*. **A success with a caveat, and deliberately not folded into `failed`** -
+    the file is safe and recorded; what the user needs is to know which drive did this.
+    """
+    refused = [r for r in results if not r.metadata_ok]
+    return {
+        "total": len(refused),
+        "shown": [
+            {"name": r.resolution.decision.source.name, "detail": r.detail}
+            for r in refused[:FAILURE_PREVIEW_LIMIT]
+        ],
+    }
+
+
 def _unreadable_files(resolutions: list[Resolution]) -> UnreadableReport:
     """Source files that could not be read, named with the reason for each.
 
@@ -1401,6 +1420,9 @@ class CompletionBase(TypedDict):
     failed: int
     #: The failures, named up to core's cap, with the total they came from. `(ajl)`
     failed_files: FailedReport
+    #: Copies that arrived without their timestamps or permissions - safe, recorded, and named,
+    #: because a file manager will show today's date on them. `(ajn)`
+    metadata_files: FailedReport
     #: Whether the run left the library clean. Read by `jobs.py` to pick the terminal
     #: status; `(aiq)`. Counts `MOVE_KEPT` as unclean, which `failed` does not.
     finished_clean: bool
@@ -1618,6 +1640,8 @@ def _completion(
         # `(ajl)`. The scalar above stays - it is what the headline counts - and this is the
         # detail the CLI has always printed and the app never had.
         "failed_files": _failed_report(results),
+        # `(ajn)`. A success with a caveat, which is why it is beside `failed_files` and not in it.
+        "metadata_files": _metadata_report(results),
         # `(aiq)`. ⚠ **`MOVE_KEPT` is counted here and NOT in `failed`, on purpose.** It is in
         # neither `_ORGANIZED_STATUSES` nor `failed`, so before this it fell out of both
         # tallies and reached no pixel - a `--move` that could not remove the source read as
