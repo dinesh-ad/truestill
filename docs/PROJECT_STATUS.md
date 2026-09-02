@@ -487,7 +487,7 @@ reading, quoted here as if it were current. A count in prose rots; the command d
 
 ```
 grep -cE '^- \*\*\([a-z]{1,3}\)' docs/BACKLOG.md          # every open entry, any section
-sed -n '/^## Build next/,/^## Real, but conditional/p' docs/BACKLOG.md \
+sed -n '/^## Build next/,/^## Conditional, and counted/p' docs/BACKLOG.md \
   | grep -cE '^- \*\*\([a-z]{1,3}\)'                      # the list to read
 ```
 

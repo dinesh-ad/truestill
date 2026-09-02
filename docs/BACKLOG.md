@@ -354,19 +354,17 @@ rather than treated as a triage failure.
 - **(aas) An undated file cannot be assigned to an event the user knows it belongs to.** Recorded
   2026-08-02. [Full entry](research/backlog/aas.md)
 
-## Real, but conditional
+## Conditional, and counted
 
-**Verified against the code and real - and reaching them needs a specific setup**: a drive that
-vanishes mid-run, a second app instance, a locked catalog, an rclone remote, a re-run in place, a
-name collision. Honest work. Not what a first-time user meets.
+**Reaching one of these needs a specific setup, and each row carries its count** - how many
+times the condition occurs in evidence held on this machine - **or the stated reason no count
+can exist here**. That is the rule for sitting in this section; a row with neither leaves.
 
-The same triage caveat as **Build next** applies: one check each, sorted rather than proven.
-
-⚠ **Verified against code 2026-09-02 (P186), all 43 then here.** Eight had a measured condition
-and one of those measured zero; thirty-five carry no population at all. Twelve were wrong about
-their own subject. **The label says conditional; the evidence says unverified** - the entries'
-own failure, one level up. Whether to rename the section is the maintainer's call; that it is
-misnamed today is measured. Fourteen left for other sections that day.
+📏 **Counted 2026-09-02 (P187), all 32 then here.** Fourteen measured above zero. Ten measured
+zero and moved to *Records* with the measurement and the source the condition would come from.
+Four cannot be counted on one machine and say why. Four had no condition at all and moved to
+*Build next* or *Ideas / deferred*. P186 had found 8 of 43 with any measurement; the label said
+conditional, and ten rows were absent rather than conditional.
 
 - **(aik) NOTHING READS A META ARCHIVE'S SIDECAR, AND ITS MEDIA ARRIVES STRIPPED.** Filed
   2026-08-29 (P135), from source. A Facebook or Instagram archive ships media with metadata
@@ -387,7 +385,7 @@ misnamed today is measured. Fourteen left for other sections that day.
   (a filename date lands at 00:00:00; that is an absent time, **not** PhotoPrism #1102's invented
   one). Body: [`research/backlog/aik.md`](research/backlog/aik.md).
 
-- **(aih) A PHOTOGRAPH WHOSE EXIF WAS STRIPPED IS FILED A YEAR FROM ITS OWN TWIN, AND THE PRODUCT ALREADY KNOWS THEY ARE THE SAME.**
+- **(aih) A PHOTOGRAPH WHOSE EXIF WAS STRIPPED IS FILED A YEAR FROM ITS OWN TWIN, AND THE PRODUCT ALREADY KNOWS THEY ARE THE SAME.** 📏 **Counted 2026-09-02 (P187): real library 4 mixed groups, 3 split across folders** (0.03% of hashed files); manufactured corpus **435 of 435** split. Hamming 0 only, so a floor.
   Filed 2026-08-29 (P131, soak eight), **measured on 500 pairs**: 500 of 500 EXIF-stripped copies
   landed in a different folder from their dated original - `WhatsApp/Undated/` against
   `2019/2019-09/...` - **zero landed together**. 🔑 **And the pairing already exists**: the same run
@@ -399,7 +397,7 @@ misnamed today is measured. Fourteen left for other sections that day.
   is a resemblance and `DEFAULT_PHASH_THRESHOLD` *"rests on nothing"*.
   Body: [`research/backlog/aih.md`](research/backlog/aih.md).
 
-- **(aii) ONE PHOTOGRAPH FIFTY-TWO TIMES IS FIFTY-ONE SENTENCES, SCATTERED THROUGH A 24,000-LINE LIST.**
+- **(aii) ONE PHOTOGRAPH FIFTY-TWO TIMES IS FIFTY-ONE SENTENCES, SCATTERED THROUGH A 24,000-LINE LIST.** 📏 **Counted 2026-09-02 (P187): largest group 50 skips, 331 of 670 groups of ten or more** in the messy run's record (manifest ground truth 52 and 333); the real library's largest group is **2**. ⚠ The group key is already stored: `exact_duplicate.matched_path` in every run record.
   Filed 2026-08-29 (P131, soak eight), measured. On a duplicate-heavy library the preview ran to
   **45,653 lines**, the exact-duplicate section alone **24,628 lines for 6,156 duplicates**. The
   largest identical group was **52 files of one photograph**, reported as 51 separate blocks all
@@ -410,7 +408,7 @@ misnamed today is measured. Fourteen left for other sections that day.
   Body: [`research/backlog/aii.md`](research/backlog/aii.md).
 
 - **(ajj) THREE COMMANDS LET A CATALOG WRITE ESCAPE TO THE USER, AND ONLY ONE OF THEM CATCHES
-  IT.** Filed 2026-09-01 (P171) from `(ajg)`'s own *"what is not established"*, **by reading each
+  IT.** 📏 **Counted 2026-09-02 (P187): 1** captured - `soak-three-record.md`: *`sqlite3.OperationalError: attempt to write a readonly database`*; 0 in preserved transcripts. Filed 2026-09-01 (P171) from `(ajg)`'s own *"what is not established"*, **by reading each
   loop's handler rather than by collecting defects**. 🔑 **The asked question answers NO and it is
   structural**: `backup` had `(ajg)`'s shape because `_copy_missing` **re-raises**; `migrate` and
   `undo` catch `DestinationError` / `OSError` **per item** and return the abort as **data**
@@ -427,7 +425,7 @@ misnamed today is measured. Fourteen left for other sections that day.
   Body: [`research/backlog/ajj.md`](research/backlog/ajj.md).
 
 - **(aji) A VANISHED DRIVE FAILS 1,130 FILES ONE AT A TIME, AND THE RULE THAT ALLOWS IT IS
-  JUSTIFIED BY ANOTHER COMMAND'S WIRING.** Filed 2026-09-01 (P170) from soak twelve 12b and
+  JUSTIFIED BY ANOTHER COMMAND'S WIRING.** 📏 **Counted 2026-09-02 (P187): 3 physical mid-write pulls** (soak eleven's three kernel logs each hold one `usb 1-2: USB disconnect`), 4 software unmounts with product output (soak twelve 12b, `cli_van2.err` line 4: *is no longer the drive this run started on*), 2 probe runs. Filed 2026-09-01 (P170) from soak twelve 12b and
   **ruled from the code, not from the soak**. Two independent reasons the run does not stop, and
   **fixing either alone changes nothing**: (1) `exists()` raises a **causeless**
   `DestinationError` (`local.py:LocalDestination.exists`, no `from`), so `underlying_oserror` returns `None` and
@@ -483,7 +481,7 @@ misnamed today is measured. Fourteen left for other sections that day.
 > [`soak-eight-record.md`](soak-eight-record.md)'s own §5. The reasoning is
 > [`soak-nine-record.md`](soak-nine-record.md) §7b.
 
-- **(aiw) `undo-organize` EMPTIES FOLDERS AND REPORTS NONE - `(afi)`'S THIRD PATH.** Filed
+- **(aiw) `undo-organize` EMPTIES FOLDERS AND REPORTS NONE - `(afi)`'S THIRD PATH.** 📏 **Counted 2026-09-02 (P187): 90 empty directories on a 666-file reversal**, `soak-nine-record.md`; three reversals held, one measured. Filed
   2026-08-30 (P148, soak nine), on the reversal arc soak eight never reached. Undo restored 666
   files exactly - tree path-identical, 1,900 before and after - and left **90 empty directories**
   unmentioned, while the same run's organize printed *"Empty folders left behind are reported,
@@ -493,7 +491,7 @@ misnamed today is measured. Fourteen left for other sections that day.
   works; the harm is a promise printed in one breath and broken in the next.
   Body: [`research/backlog/aiw.md`](research/backlog/aiw.md).
 
-- **(ahy) AN IN-PLACE ORGANIZE AGAINST AN EMPTY CATALOG REBUILDS NOTHING, AND REPORTS SUCCESS.** Filed 2026-08-26
+- **(ahy) AN IN-PLACE ORGANIZE AGAINST AN EMPTY CATALOG REBUILDS NOTHING, AND REPORTS SUCCESS.** 📏 **Counted 2026-09-02 (P187): 1**, this entry's own 353-file bench; no soak has run this arm. Filed 2026-08-26
   (P103). An organized 353-file drive, fresh catalog, `organize <drive> <drive> --in-place
   --apply`: **`353 already in place`, exit 0, and 0 files / 0 copies recorded** - plus no
   `path_hint`, so the decisions document can never reach that drive either. Copy mode rebuilt all
@@ -501,7 +499,7 @@ misnamed today is measured. Fourteen left for other sections that day.
   already-correct library would naturally reach for when `(ahs)` says re-organize is the recovery.
   Body: [`research/backlog/ahy.md`](research/backlog/ahy.md).
 
-- **(ahs) NO READ-ONLY PATH REBUILDS THE INVENTORY AFTER A LOST CATALOG.** Filed 2026-08-25 (P98).
+- **(ahs) NO READ-ONLY PATH REBUILDS THE INVENTORY AFTER A LOST CATALOG.** 📏 **Counted 2026-09-02 (P187): 1 drill + 1 real user** - soak six (`linked=0, unmatched=10710`) and `user-evidence-log.md`'s *delete every catalog and start over*. Filed 2026-08-25 (P98).
   A **product ruling, filed not ruled**. Catalog deleted, library rebuilt from files: `restore`
   returns **drive identity only** (0 files, 0 copies); `rescan` reports all **10,710 as "ON THE
   DRIVE, NOT IN THE CATALOG"**; `attach_drive` returns **`linked=0`, `unmatched=10710`** because it
@@ -515,7 +513,7 @@ misnamed today is measured. Fourteen left for other sections that day.
   [Full entry](research/backlog/ahs.md)
 
 - **(ahk) THE NAMING ROUTE DOES A CHECK-THEN-INSERT WITH NO LOCK, AND `truestill restore` CAN
-  RACE IT.** Filed 2026-08-25 (P74). **Ranked above `(ahh)`**: that entry is how the collision is
+  RACE IT.** 📏 **Uncountable here, 2026-09-02 (P187)**: two OS processes on one catalog and the scheduler placing one INSERT between another's SELECT and INSERT; the one artefact, `test_event_review.py`, picks its own ordering and yields no rate. 0 in every record. Filed 2026-08-25 (P74). **Ranked above `(ahh)`**: that entry is how the collision is
   *reported*, this is the collision.
   `commit_trips` reads `catalog.trip_for_day` for every day (`trip_review.py:commit_trips`) and then
   inserts (`:378`) - **two transactions**, so `BEGIN IMMEDIATE` does not close the window. The
@@ -555,7 +553,7 @@ misnamed today is measured. Fourteen left for other sections that day.
   covers an application-level check-then-insert, which no journal mode fixes.
   [Full entry](research/backlog/ahk.md)
 
-- **(ahh) A FAILED "SAVE NAMES" REPORTS TOTAL FAILURE OVER A PARTIAL SUCCESS.** Filed 2026-08-25
+- **(ahh) A FAILED "SAVE NAMES" REPORTS TOTAL FAILURE OVER A PARTIAL SUCCESS.** 📏 **Uncountable here, 2026-09-02 (P187)**: reachable only through `(ahk)`. Filed 2026-08-25
   (P72), **re-scoped and re-ranked 2026-08-25 (P74) after reproducing it** - the entry as filed
   described a defect one class more serious than the one that exists.
   ✅ **The behaviour is real and reproduced.** Ten decisions with a forced failure on #7: trips
@@ -589,7 +587,7 @@ misnamed today is measured. Fourteen left for other sections that day.
   to a **record writer that already existed**, and here there is none.
   [Full entry](research/backlog/ahh.md)
 
-- **(ahb) THE UNDATED REPORT LINKS TO NOTHING - THE APP HALF SHIPPED, THE CLI HALF DID NOT.**
+- **(ahb) THE UNDATED REPORT LINKS TO NOTHING - THE APP HALF SHIPPED, THE CLI HALF DID NOT.** 📏 **Counted 2026-09-02 (P187): 1,262 of 7,790** in the golden snapshot, **1,261 of 10,710** in the whole-library catalog - a fixed pile, not one that scales.
   Filed 2026-08-24 (P53); ⚠ **retitled 2026-08-29**, because the body records *"THE APP HALF
   SHIPPED 2026-08-24 (P54)"* and the title still claimed the whole of it.
   **Ranked ABOVE `(aha)`** - a route is worth more than a defect note, because it is what keeps a
@@ -606,7 +604,7 @@ misnamed today is measured. Fourteen left for other sections that day.
   the rescue is app-only by recorded deferral, so a CLI sentence must point at the app, which is a
   ruling rather than wording. [Full entry](research/backlog/ahb.md)
 
-- **(agz) A STILL CAN DECLARE ITS OWN UTC OFFSET AND WE THROW IT AWAY.** Filed 2026-08-24 (P50)
+- **(agz) A STILL CAN DECLARE ITS OWN UTC OFFSET AND WE THROW IT AWAY.** 📏 **Counted 2026-09-02 (P187): 22 of 9,810 Input stills** (0.22%, 21 post-2016), corpora 5 of 115 and 18 of 10,703. ⚠ P186's *38%* does not reproduce; the rate follows device generation (EXIF 2.31, 2016), not corpus size. Filed 2026-08-24 (P50)
   out of `(aco)`'s retirement census - the live evidence found while withdrawing a false entry.
   ⚠ **CHANGES NO FOLDER TODAY**, and the entry leads with that: `OffsetTimeOriginal` is the offset
   *of* a local `DateTimeOriginal`, so reading it moves no wall clock. **What it buys is the true
@@ -674,11 +672,11 @@ misnamed today is measured. Fourteen left for other sections that day.
   is what the preview was meant to prevent. Mirror of `(aft)`: loud-and-wrong there,
   quiet-and-wrong here. [Full entry](research/backlog/age.md)
 
-- **(adx) A LIBRARY THAT MOVES IS HANDLED. WHAT IS MISSING IS THE DISCLOSURE.** Recorded
+- **(adx) A LIBRARY THAT MOVES IS HANDLED. WHAT IS MISSING IS THE DISCLOSURE.** 📏 **Counted 2026-09-02 (P187): 5 of 19** recorded locations stale (soak ten's exFAT, soak eleven's NTFS); `library.root` absent from all nine catalogs because every one was CLI-driven. Recorded
   2026-08-18. Three gaps, one user journey. [Full entry](research/backlog/adx.md)
 
 - **(adn) NOTHING STOPS TWO APPS RUNNING, AND QUITTING THE SECOND DELETES THE WAY BACK INTO
-  THE FIRST.** Recorded 2026-08-14, retitled 2026-08-22.
+  THE FIRST.** 📏 **Uncountable here, 2026-09-02 (P187)**: a user double-clicking a launcher twice; one deliberate reproduction held (`(adh)` test d), no telemetry, 0 unstaged occurrences in any record. Recorded 2026-08-14, retitled 2026-08-22.
   ⚠ **Narrowed 2026-08-22 by `(aaw)`, and the title is now too broad**: two mutating operations on
   one drive can no longer overlap across processes, so *"two sets of in-flight writes"* is gone.
   **What remains is single-instance detection** - two apps, two ports, two sidecars, and
@@ -692,10 +690,10 @@ misnamed today is measured. Fourteen left for other sections that day.
   entry](research/backlog/aed.md)
 
 - **(adg) THE VERIFY RESULT BLOCK MOVES `#bk-preview` BY +92.4px - a bigger mover than `(acw)`, and
-  it cannot be reserved.** [Full entry](research/backlog/adg.md)
+  it cannot be reserved.** 📏 **Uncountable here, 2026-09-02 (P187)**: a user reaching for *Preview copy* while a verify card lands; 4 browser-lane sites reach `#verify-result`, which says the surface is addressed, not how often the gesture happens. [Full entry](research/backlog/adg.md)
 
 - **(ada) THE BACKUPS SCREEN NOW PUTS STATE BELOW THE FORMS, AND A ONE-COPY WARNING CAN FALL BELOW
-  THE FOLD.** [Full entry](research/backlog/ada.md)
+  THE FOLD.** 📏 **Counted 2026-09-02 (P187): 4 of 9** catalogs are one-drive; 2 browser-lane sites reach the at-risk banner; the pixel figure is this entry's own. [Full entry](research/backlog/ada.md)
 
 - **(aby) Organize screen: copy that repeats itself or explains its own button.** [Full
   entry](research/backlog/aby.md)
@@ -706,7 +704,7 @@ misnamed today is measured. Fourteen left for other sections that day.
 - **(abt) The unhinted-residue prompt is CLI-only, because the app cannot ask mid-job.** Recorded
   2026-08-07. [Full entry](research/backlog/abt.md)
 
-- **(abg) A reassured backup ages into SOFTENING and STALE now; what it lacks is a GONE state - "Schrodinger's backup".** ⚠ **Retitled 2026-09-02 (P186)**: staleness shipped in three stages - `drive.py:CustodyTier` at `CUSTODY_SOFTENS_AFTER_DAYS` 30 and `CUSTODY_STALE_AFTER_DAYS` 90, rendered by `cli.py:_cmd_status` and `service/drives.py` alike. The old title named a defect that no longer exists. 📌 **read the
+- **(abg) A reassured backup ages into SOFTENING and STALE now; what it lacks is a GONE state - "Schrodinger's backup".** 📏 **Counted 2026-09-02 (P187): 5 of 39,342** copies carry `missing_at` (soak2 drive B: 2,264 on disk against 2,269 rows); 4 of 16 drive hints no longer resolve. ⚠ **Retitled 2026-09-02 (P186)**: staleness shipped in three stages - `drive.py:CustodyTier` at `CUSTODY_SOFTENS_AFTER_DAYS` 30 and `CUSTODY_STALE_AFTER_DAYS` 90, rendered by `cli.py:_cmd_status` and `service/drives.py` alike. The old title named a defect that no longer exists. 📌 **read the
   entry first - a premise inside it was corrected.** **Stages 1-3 have shipped**; what remains open
   is the `GONE` state, which is unbuilt and unruled. Recorded 2026-08-05. [Full
   entry](research/backlog/abg.md)
@@ -730,7 +728,7 @@ misnamed today is measured. Fourteen left for other sections that day.
 
 - **(r) Analyze mode - the hash cache half is SHIPPED.** [Full entry](research/backlog/r.md)
 
-- **(kk) Persist `GPSDateStamp` at ingest - the coordinates half shipped at v17.** ⚠ **Retitled 2026-09-02 (P186)** so the title leads with what is unbuilt: `catalog.py` has `gps_latitude`/`gps_longitude` and no date column; `GPSDateStamp` is read in `video_utc.py` and never written.
+- **(kk) Persist `GPSDateStamp` at ingest - the coordinates half shipped at v17.** 📏 **Counted 2026-09-02 (P187): 808 of 10,710** files carry coordinates; `GPSDateStamp` in 15 of 115 and 26 of 10,703 corpus files; the `(acn)` shape (GPS date, no capture tag) **2** usable. ⚠ **Retitled 2026-09-02 (P186)** so the title leads with what is unbuilt: `catalog.py` has `gps_latitude`/`gps_longitude` and no date column; `GPSDateStamp` is read in `video_utc.py` and never written.
   ⚠ **Retitled 2026-08-29.** The title read *"it is read and then thrown away"*, which its own
   body corrected on 2026-08-09 and the title outlived: `files.gps_latitude`/`gps_longitude`
   arrived at v17, `event_review` and `trip_review` read them for the jump-cut, and **808 files
@@ -740,7 +738,7 @@ misnamed today is measured. Fourteen left for other sections that day.
 - **(ll) Sub-day event identity that survives a changing file set.** [Full
   entry](research/backlog/ll.md)
 
-- **(hh) `truestill adopt` - bring stray media in an organized drive into the catalog.** [Full
+- **(hh) `truestill adopt` - bring stray media in an organized drive into the catalog.** 📏 **Counted 2026-09-02 (P187): 1** stray on soak2 drive E (2,270 on disk, 2,269 rows; the file is known to A, B and D by content), **0** on soak-2026-08-25's two drives of 10,547 media each. [Full
   entry](research/backlog/hh.md)
 
 ## Internal / tooling
