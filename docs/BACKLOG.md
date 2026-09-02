@@ -579,7 +579,7 @@ conditional, and ten rows were absent rather than conditional.
   the rescue is app-only by recorded deferral, so a CLI sentence must point at the app, which is a
   ruling rather than wording. [Full entry](research/backlog/ahb.md)
 
-- **(agz) A STILL CAN DECLARE ITS OWN UTC OFFSET AND WE THROW IT AWAY.** 📏 **Counted 2026-09-02 (P187): 22 of 9,810 Input stills** (0.22%, 21 post-2016), corpora 5 of 115 and 18 of 10,703. ⚠ P186's *38%* does not reproduce; the rate follows device generation (EXIF 2.31, 2016), not corpus size. Filed 2026-08-24 (P50)
+- **(agz) A STILL CAN DECLARE ITS OWN UTC OFFSET AND WE THROW IT AWAY.** 📏 **Counted 2026-09-02 (P187): 22 of 9,810 Input stills** (0.22%, 21 post-2016), corpora 5 of 115 and 18 of 10,703. ⚠ P186's *38%* is the corpora's post-2016 rate (27 of 71, recent flagships); the family library's post-2016 rate is **8 of 3,207** (0.25%). Device class, not era, decides it. Filed 2026-08-24 (P50)
   out of `(aco)`'s retirement census - the live evidence found while withdrawing a false entry.
   ⚠ **CHANGES NO FOLDER TODAY**, and the entry leads with that: `OffsetTimeOriginal` is the offset
   *of* a local `DateTimeOriginal`, so reading it moves no wall clock. **What it buys is the true

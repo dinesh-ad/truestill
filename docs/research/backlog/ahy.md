@@ -7,6 +7,11 @@
 
   ## MEASURED
 
+  📏 **Limit of the 2026-09-02 (P187) count**: the population is this bench alone - **no soak has
+  run the in-place arm against a fresh catalog** (soak six and nine ran it against populated ones).
+  Four catalogs were left unopened that day (`soak-twelve-2026-08-31`'s damaged-decisions trio,
+  `abs-repro-2026-08-23/c.sqlite`); if one holds such a run, the count rises to two.
+
   An organized drive of 353 files, its catalog moved aside, rebuilt with
   `truestill organize <drive> <drive> --apply --in-place` against a fresh catalog:
 

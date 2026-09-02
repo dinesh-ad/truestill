@@ -84,6 +84,11 @@
     the design that was accepted. The CLI reports on both. An unreadable file that was never
     copied - a cached exact duplicate - therefore has no app-side surface on a run, though the
     CLI names it.
+    📏 **Limit of the 2026-09-02 (P187) measurement**: soak five's **8 unreadable files are never
+    itemised** in its record, so whether any fell in its 35 exact-dup bucket is unknown; the 64
+    run-record entries say 0 by construction (`is_unique: true`). Four catalogs and nine
+    compressed 12b run records were left unopened (`soak-twelve-2026-08-31`'s damaged-decisions
+    trio, `abs-repro-2026-08-23/c.sqlite`); if the intersection exists in evidence, it is there.
   - ✅ **RESIDUE 3 CLOSED 2026-08-21 BY `(aev)`, recorded here 2026-08-22.** Its ask - *"a file
     that is readable but undecodable still returns `None` and is still indistinguishable from a
     video that never had a hash"* - is exactly what `FileHashes.perceptual_computed` now answers,

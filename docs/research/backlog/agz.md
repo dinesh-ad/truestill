@@ -48,6 +48,15 @@ and why `(uu)`'s trap must survive this entry intact. **Read 0x9011. Never 0x901
 
 ## Prevalence - and the 2.37% figure is from the WRONG DENOMINATOR
 
+📏 **Re-measured 2026-09-02 (P187): the 38% below is the CORPORA's rate, and a real library reads
+0.25% for the same era.** 27 of 71 post-2016 corpus stills declare an offset; the family library
+holds **8 of 3,207 post-2016 stills** (22 of 9,810 counting the vendored corpus copies). Same
+method, same era restriction, so the difference is **device class, not era**: the corpora are
+format-edge archives of recent flagships (iPhone 11+, EOS R3, ILCE-7M4), and this family's
+post-2016 photographs come from devices that do not write the tag. **Rank this by the devices a
+library holds, not by 38%.** The paragraph below stands as the corpus measurement it is.
+
+
 ⚠ **The wrong figure is mine, named so the correction survives whoever repeats it.** In P49 I
 measured **34 of 1,434 stills - 2.37%** and applied my own rule from the same turn (*"a signal
 present in 3% of files decides nothing"*) to file this and not build it. **That was wrong, and the

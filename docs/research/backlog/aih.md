@@ -7,6 +7,11 @@
 
   ## MEASURED
 
+  📏 **Limit of the 2026-09-02 (P187) re-measurement, stated so it is met again**: the catalog
+  count groups by dHash equality - Hamming 0 only - which this entry's own figures put at 427 of
+  the 499 pairs the shipped threshold of 5 catches, about 85%. The real library's **4 mixed groups,
+  3 split across folders** are therefore a floor, not a rate.
+
   Corpus: `make_messy_corpus.py`, seed 20260829, 8,970 files / 18.7 GB, ext4. Of 500 EXIF-stripped
   copies placed beside their dated originals, **500 landed in a different folder. Zero landed
   together.**
