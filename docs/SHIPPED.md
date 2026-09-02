@@ -22,6 +22,18 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ahi) TWO OF TEN MUTATING OPERATIONS WRITE NO RUN RECORD, AND THE CENSUS IS KEYED BY MODULE, NOT BY THE OPERATION A ROUTE DECLARES.**
+  ✅ **CLOSED 2026-09-02 (P191).** `archive_extract.py:record_extraction` and `cleanup.py:record_cleanup`
+  write the two missing records from core, called by the app's job and the CLI alike, so every one of
+  the ten `mutating=True` operations leaves a line - §1b's condition 1 at **10 of 10**. Neither had a
+  durable per-file store, so each record is the only account: the unpack names its parts and counts
+  its files; the cleanup **names the folders removed**, by the maintainer's ruling, from
+  `cleanup.py:CleanupOutcome`'s `removed_folders` and never from `plan.removable` minus failures.
+  The census in `test_the_app_records_what_a_run_did.py` is keyed by operation string and derives
+  its key set from `server.py`. The undo record P139 shipped has its behavioural test. Measured on
+  45 library photographs: an unpack record of one part and 45 files; a cleanup record naming the two
+  emptied folders, gone from disk. Body: [`research/backlog/ahi.md`](research/backlog/ahi.md).
+
 - **(ajn) THE APP CANNOT SAY A COPY ARRIVED WITHOUT ITS TIMESTAMPS.** ✅ **CLOSED 2026-09-02 (P190).**
   Core produced the fact (`ActionResult.metadata_ok`) and the sentence
   (`drive_unwritable.py:metadata_not_preserved_note`), the CLI printed both under *METADATA NOT SET*,

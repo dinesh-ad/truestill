@@ -1,6 +1,8 @@
 # (ahi) TWO OF TEN MUTATING OPERATIONS WRITE NO RUN RECORD, AND THE CENSUS IS KEYED BY MODULE, NOT BY THE OPERATION A ROUTE DECLARES.
+> ✅ **CLOSED 2026-09-02 (P191)** - `archive_extract.py:record_extraction`, `cleanup.py:record_cleanup`, the census
+> keyed by operation; see [`SHIPPED.md`](../../SHIPPED.md). The body is kept as the measurement.
 
-*Body of backlog entry `(ahi)`, under **Internal / tooling**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(ahi)`, closed, see [`SHIPPED.md`](../../SHIPPED.md). The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(ahi) TWO OF TEN MUTATING OPERATIONS WRITE NO RUN RECORD, AND THE CENSUS IS KEYED BY MODULE, NOT BY THE OPERATION A ROUTE DECLARES.** Filed 2026-08-25 (P72).
 

@@ -748,24 +748,6 @@ and they are not product defects; keeping them in one drawer stops them competin
   the worst kind of stale; this line is the correction, not a tidy.
   [Full entry](research/backlog/ahn.md)
 
-- **(ahi) TWO OF TEN MUTATING OPERATIONS WRITE NO RUN RECORD, AND THE CENSUS IS KEYED BY MODULE, NOT BY THE OPERATION A ROUTE DECLARES.** ⚠ **Retitled 2026-09-02 (P191); both numbers in the old title were stale.** `server.py` declares **ten** `mutating=True` operations (`rename` is the tenth, `(aix)`); `test_the_app_records_what_a_run_did.py` holds six module rows and four entry-point rows; **`archive unpack` and `clean empty`** are the two whose entry point reaches no writer. `service/migrate.py` records on both paths through core (`migrate.py:_record_migration`, `migrate.py:_record_undo_migration`). Three operation strings - `undo organize`, `set dates`, `trip apply` - have no row keyed as the route declares them, because `_wires_a_record` still asks about a module. ⚠ **And the undo record P139 shipped is pinned by a static row and no test**: nothing under `packages/*/tests` names `"migrate undo"`. Filed 2026-08-25 (P72).
-  ⚠ **The UNDO half shipped 2026-08-29 (P139), and the guard was fixed first because it is
-  why this survived**: its floor named `trips` (which RECORDS) while missing migrate's
-  `undo`, and `_wires_a_record` was module-granular so `migrate` answered `True` on its
-  forward path. The guard now asks per entry point. **`archive unpack` and `clean empty`
-  remain**, each its own judgement.
-  `test_the_app_records_what_a_run_did.py`'s `MUTATING_RUNS` has rows for organize, backup,
-  migrate, bake and organize_undo. Enumerated from `server.py` by AST, there are **nine**
-  `mutating=True` operations: those five plus **`trip apply`, `archive unpack`, `clean empty` and
-  migrate-`undo`** - and none of `service/trips.py`, `service/clean_empty.py` or
-  `service/migrate.py` writes a run record.
-  ⚠ **P69's own docstring predicted this exactly**: *"a new mutating service that writes no record
-  cannot be detected, because nothing in this codebase declares the set of mutating services."*
-  It was written as a stated limit and is now a measured gap - four operations outside the census
-  that exists to make absence visible. Same hand-list blind spot `cli-app-parity.md` has, in the
-  guard written against that class.
-  [Full entry](research/backlog/ahi.md)
-
 - **(ahg) `cli-app-parity.md` IS KEYED BY CLI SUBCOMMAND, SO AN APP-ONLY CAPABILITY HAS NO ROW.**
   Filed 2026-08-25 (P68). The document that answers *"what is actually missing"* **cannot see the
   class of gap that matters most**, structurally rather than by omission: rows are one per
