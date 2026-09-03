@@ -3,7 +3,12 @@
 *Body of backlog entry `(ajv)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(ajv)** Filed 2026-09-03 (P194). Found by listing the artifact, not by reading the tree - the
-  tree is green.
+  tree is green. ✅ **Fix shipped 2026-09-03 (P200)**: `b478c22` the lane and the release run one
+  `npm run build` and the release runs it before PyInstaller; `selfcheck.py` reports the two bundle
+  files; `compare_selfcheck.py` refuses an unbuilt checkout; `9b25839` and `4d7fe6a` teach the
+  self-check flag tests that a checkout with no Node is honestly incomplete. **Closes when the
+  rehearsal's next run lists the bundle in the artifact** - see the last section - and that run is
+  the maintainer's, as every release run is.
 
   ## THE EVIDENCE, PASTED
 

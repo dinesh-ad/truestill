@@ -246,7 +246,12 @@ rather than treated as a triage failure.
   (`if (island) island.set(state)`). The self-check covers fonts and core, not the bundle; the
   rehearsal record never looked. **Ships before any React work and before the next tag**: the
   release lane builds the frontend, the self-check asserts the two bundle files, the rehearsal's
-  next run lists them. [Full entry](research/backlog/ajv.md)
+  next run lists them. ✅ **The fix is in the tree, 2026-09-03** (`b478c22` `9b25839` `4d7fe6a`):
+  the release builds the bundle before PyInstaller, the self-check reports both files by size and
+  digest, the comparison refuses an unbuilt checkout, and a guard reads the workflow's steps.
+  ⚠ **Open until the rehearsal's next run lists the bundle in the artifact** - the release lane
+  is the one lane no test here can run, and a step that exists is not an artifact that carries it.
+  [Full entry](research/backlog/ajv.md)
 
 - **(r) Analyze mode - the hash cache half is SHIPPED.** ⚠ **Build next, 2026-09-02 (P187)**: no condition - tier 2b and the app screen are absent for everyone; scoped work, not a conditional defect. [Full entry](research/backlog/r.md)
 
