@@ -232,7 +232,7 @@ worse than a wrong line - `MISSING` drives `mark_copy_missing`, so it also wrote
 was**, which is the number `(aiy)` had just fixed.
 
 ⚠ **The browser lane has not run since `d7ba4d8`.** `app.js` changed again in `f92c232`. Run it
-before a release; `docs/handoff-2026-09-01.md` carries the rest of what is owed.
+before a release; `docs/handoff-2026-09-03.md` carries the rest of what is owed.
 
 ## 1b. The build order - engine, then contract, then UI
 
@@ -485,6 +485,12 @@ changed in the same commit.
 ---
 
 ## 2b. What stands between here and a first tag (2026-08-22)
+
+⚠ **THE FIRST TAG HAPPENED - `v0.1.0` on 2026-08-30 and `v0.1.1` on 2026-09-03 - and this section
+still reads as if it had not (noted 2026-09-03, P203).** What that changes: `(adz)`'s rule *"until
+the first release tag"* has expired, so every entry it justified is re-argued on its own;
+`(afg)`'s *"whether it blocks a first tag"* was decided by two tags shipping without the page. The
+section below is kept as the record of the pre-tag reasoning.
 
 ⚠ **THE REPOSITORY CANNOT ANSWER THIS ON ITS OWN, AND THAT IS `(aef)`.** Counted there: of the
 open entries, **almost none** carry a release marker in their own text. ⚠ **This said "of 64 open

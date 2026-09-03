@@ -5,6 +5,11 @@ folder / mount point) without losing custody of your photos.
 
 ---
 
+⚠ **Album membership travels with the drive since `(acg)` (2026-09-01).** The drive's decisions
+document carries which photographs are in each album, by content; a photograph the new library has
+not seen yet is kept in the document and counted, and restoring it after that drive is scanned puts
+it in the album. Before `(acg)` the document carried album names with nothing in them.
+
 ## What you do not have to relink
 
 Adobe Lightroom Classic stores **absolute** paths to every photo (including Windows

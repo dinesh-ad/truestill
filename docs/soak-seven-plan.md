@@ -1,5 +1,8 @@
 # Soak seven: the messy library - plan
 
+> ⚠ **RAN 2026-08-29 - the results are in [`soak-eight-record.md`](soak-eight-record.md)**, and this plan is left as written: it is the
+> prediction the record grades (noted 2026-09-03, P203; a status line below that says otherwise is the record).
+
 **The plan, written before the run.** Soaks five and six had no plan document and both records are
 poorer for it; this exists so the prediction below cannot become a rationalisation afterwards.
 

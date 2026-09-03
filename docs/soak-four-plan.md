@@ -1,5 +1,8 @@
 # Soak four - the two commands that delete
 
+> ⚠ **RAN 2026-08-22 - the results are in [`soak-four-record.md`](soak-four-record.md)**, and this plan is left as written: it is the
+> prediction the record grades (noted 2026-09-03, P203; a status line below that says otherwise is the record).
+
 **Status: written 2026-08-22. NOT RUN.** Soaks one and two organized a library at scale; soak
 three made things refuse. This one points at the two commands that **remove the user's data**, and
 neither has ever been run against a real library in any soak.
