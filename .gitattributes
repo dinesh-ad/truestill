@@ -1,0 +1,2 @@
+# Generated from packages/truestill-app/openapi.json by scripts/emit_api_types.py; make check refuses a hand edit.
+packages/truestill-app/frontend/src/generated/** linguist-generated=true

@@ -176,10 +176,14 @@ def _consumers() -> tuple[str, str]:
     which is why `cli.py:4059` prints `outcome.absent` off the core dataclass while the app's
     `BakeSummary.absent` reaches nothing.
     """
+    # ⚠ `src/generated/` is the DECLARED end again, not a reader: `api.d.ts` names every key the
+    # contract has and reads none of them. Counting it as a consumer made all 34 dead keys "live"
+    # the day it landed (`(ahn)` stage E, 2026-09-03). A read is a reference from hand-written
+    # React source; a declaration is what it references.
     react = "\n".join(
         path.read_text(encoding="utf-8")
         for path in sorted(REACT.rglob("*"))
-        if path.suffix in {".ts", ".tsx"}
+        if path.suffix in {".ts", ".tsx"} and "generated" not in path.parts
     )
     return _code_only(APP_JS.read_text(encoding="utf-8")), react
 

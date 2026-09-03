@@ -27,14 +27,21 @@ declare const __BUNDLE_SOURCE_HASH__: string;
 import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 
+import type { components } from "./generated/api";
+
 // Tailwind's entry. Imported HERE rather than linked from the template because Vite has one
 // entry and emits one stylesheet beside `main.js`; the template links that output. `tokens.css`
 // is NOT imported - it is served standalone and must keep exactly one copy.
 import "./styles/tailwind.css";
 
-/** The summary shape `organizeCompletion` consumes. Opaque here on purpose: this island renders
- *  the state machine, and `app.js` owns what a completion looks like. */
-type OrganizeSummary = Record<string, unknown>;
+/** The summary an organize run delivers, as the contract declares it: `organize_run`'s
+ *  `JobTarget[CompletionBase | OrganizeDoneSummary]`, through `openapi.json` and the generated
+ *  types. `(ahn)` stage E: this was `Record<string, unknown>` - the cast that let generated types
+ *  change without complaint - until 2026-09-03. This island still reads no field of it; `app.js`
+ *  does, and adds `cancelled` on the way, which the wire never carries. */
+type OrganizeSummary =
+  | components["schemas"]["OrganizeDoneSummary"]
+  | components["schemas"]["CompletionBase"];
 
 /**
  * The four states `#org-result` can be in, as data rather than as twelve assignments.
