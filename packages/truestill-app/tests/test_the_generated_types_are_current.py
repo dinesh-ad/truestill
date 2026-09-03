@@ -90,12 +90,11 @@ def test_the_islands_payload_type_names_what_the_wire_carries() -> None:
 
 
 def test_the_digest_is_a_fact_about_the_spec_not_about_git(tmp_path: Path) -> None:
-    """The Windows lane checks the spec out with CRLF; the rendered file must not change."""
-    crlf = tmp_path / "openapi.json"
-    crlf.write_bytes(
-        emit_api_types.SPEC.read_text(encoding="utf-8").replace("\n", "\r\n").encode("utf-8")
-    )
-    assert crlf.read_bytes() != emit_api_types.SPEC.read_bytes(), (
-        "the CRLF copy is not a different file"
-    )
-    assert emit_api_types.generate(crlf) == emit_api_types.generate()
+    """The Windows lane checks the spec out with CRLF, so BOTH variants are built here from the
+    normalised text - on that lane the checkout itself is the CRLF one - and must render alike."""
+    text = emit_api_types.SPEC.read_text(encoding="utf-8")
+    lf, crlf = tmp_path / "lf.json", tmp_path / "crlf.json"
+    lf.write_bytes(text.encode("utf-8"))
+    crlf.write_bytes(text.replace("\n", "\r\n").encode("utf-8"))
+    assert lf.read_bytes() != crlf.read_bytes(), "the two variants are not different files"
+    assert emit_api_types.generate(lf) == emit_api_types.generate(crlf) == emit_api_types.generate()
