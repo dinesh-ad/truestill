@@ -87,3 +87,15 @@ def test_the_islands_payload_type_names_what_the_wire_carries() -> None:
     )
     assert 'components["schemas"]["OrganizeDoneSummary"]' in main
     assert 'import type { components } from "./generated/api";' in main
+
+
+def test_the_digest_is_a_fact_about_the_spec_not_about_git(tmp_path: Path) -> None:
+    """The Windows lane checks the spec out with CRLF; the rendered file must not change."""
+    crlf = tmp_path / "openapi.json"
+    crlf.write_bytes(
+        emit_api_types.SPEC.read_text(encoding="utf-8").replace("\n", "\r\n").encode("utf-8")
+    )
+    assert crlf.read_bytes() != emit_api_types.SPEC.read_bytes(), (
+        "the CRLF copy is not a different file"
+    )
+    assert emit_api_types.generate(crlf) == emit_api_types.generate()
