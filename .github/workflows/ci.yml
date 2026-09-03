@@ -445,8 +445,20 @@ jobs:
   # itself as holding *"no application state at all"*. Nobody has tried `-n auto` here. When it
   # runs in single-digit minutes, move this job back to `push` and delete this paragraph.
   #
-  # ⚠ BEFORE A TAG, RUN IT. The publish path has never fired and this lane is the only thing that
-  # sees the screens; `workflow_dispatch` above is how, and `make e2e` is the local equivalent.
+  # ⚠ BEFORE A TAG, RUN IT. This lane is the only thing that sees the screens;
+  # `workflow_dispatch` above is how, and `make e2e` is the local equivalent.
+  #
+  # ⚠ The second half of that reason expired and the rule did not, corrected 2026-09-03 (P205).
+  # It read "The publish path has never fired and this lane is the only thing that sees the
+  # screens"; the publish path has now fired three times - v0.0.0-rehearsal, v0.1.0 and v0.1.1.
+  # THIS WAS THE FOURTH COPY OF THAT CLAIM AND THE LAST ONE FOUND: the P204 sweep that corrected
+  # the other three (PROJECT_STATUS.md twice, IMPLEMENTATION_STANDARDS.md once) grepped only
+  # `*.md`, so a claim living in a workflow comment outlived it by a commit. A sweep is only as
+  # wide as its pathspec, and prose is not only in prose files.
+  #
+  # `(ajv)` is why the rule survives its own justification: this lane was green for nineteen days
+  # over a bundle the published v0.1.0 never had, so running it before a tag is worth MORE now
+  # that the publish path works, not less.
   #
   # ⚠ WHAT IS DELIBERATELY KEPT: the three `check` lanes above. They cost 1-3 minutes and are the
   # ONLY thing that sees Windows and macOS. On 2026-08-20 alone they caught `timeout(1)` not
