@@ -1,6 +1,6 @@
 [project]
 name = "truestill-core"
-version = "0.1.0"
+version = "0.1.1"
 description = "Core library: categorize, date, de-duplicate and place media into a Category/YYYY/MM tree."
 authors = [{ name = "Truestill contributors" }]
 # 3.14 because 3.13 leaves BUGFIX support in October 2026 - two years after its release, when

@@ -6,8 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-03
+
+A patch release. **If you have 0.1.0, take this one before organizing anything.**
+
 ### Fixed
 
+- **The Organize screen shows its results again.** The 0.1.0 downloads shipped without the file
+  that draws the Organize result: *Look inside* ran and the run button appeared, but the preview,
+  the completion card and every error message on that screen stayed blank. The release now packs
+  that file and checks for it before publishing; the other six screens were never affected.
+- **Cancelling a run no longer shows "Something went wrong".** Every accepted cancel painted a red
+  banner, and a cancel clicked in the first instant of an unpack was silently lost - the progress
+  bar kept counting with no result behind it. Cancel is honoured whenever it is clicked, and the
+  screen says so.
 - **`verify` no longer calls a file lost because you tidied it.** If a photograph is not where the
   catalog recorded it, Truestill now looks for the same bytes elsewhere on the drive before saying
   anything, and reports **moved, not lost** with the place it found it. A file that really is gone

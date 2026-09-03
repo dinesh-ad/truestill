@@ -993,7 +993,7 @@ wheels = [
 
 [[package]]
 name = "truestill-app"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/truestill-app" }
 dependencies = [
     { name = "starlette" },
@@ -1010,7 +1010,7 @@ requires-dist = [
 
 [[package]]
 name = "truestill-cli"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/truestill-cli" }
 dependencies = [
     { name = "truestill-core" },
@@ -1021,7 +1021,7 @@ requires-dist = [{ name = "truestill-core", editable = "packages/truestill-core"
 
 [[package]]
 name = "truestill-core"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/truestill-core" }
 dependencies = [
     { name = "imagehash" },
