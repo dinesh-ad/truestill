@@ -21,7 +21,7 @@ import time
 import uuid
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Final, Literal, TypedDict
+from typing import Final, Literal, TypedDict
 
 from truestill_core.catalog_busy import (
     CATALOG_BUSY_CODE,
@@ -58,8 +58,61 @@ from truestill_core.progress import Progress, ProgressCallback
 #: is handed. Closing that end is a spec and generated types, which is `(ahn)` stages 4 and 5.
 type JobTarget[T] = Callable[[ProgressCallback, threading.Event], T]
 
-_SENTINEL_DONE = "done"
-_SENTINEL_ERROR = "error"
+_SENTINEL_DONE: Final = "done"
+_SENTINEL_ERROR: Final = "error"
+
+
+class ProgressFrame(TypedDict):
+    """One tick on the wire: `Progress` as the browser receives it. `(ahn)` stage B."""
+
+    type: Literal["progress"]
+    done: int
+    total: int
+    phase: str
+    item: str
+    tally: dict[str, int]
+
+
+class DoneFrame(TypedDict):
+    """The terminal frame of a job that returned. `(ahn)` stage B.
+
+    ⚠ **`summary` is `object` here, and the union it stands for is DERIVED, never listed.** One
+    registry holds every job shape, so `T` is discharged at :meth:`JobManager.start` exactly as
+    `Job.summary` already says. The wire union is the thirteen factories' `JobTarget[T]` members,
+    read from their annotations by `test_every_route_names_its_payload_type.py`'s
+    `_job_summary_types` - a hand list here would be a second definition of what stage A made
+    derivable, and stage D emits the `oneOf` from that derivation.
+    """
+
+    type: Literal["done"]
+    status: str
+    summary: object
+
+
+class ErrorFrame(TypedDict):
+    """The terminal frame of a job that raised. `(ahn)` stage B."""
+
+    type: Literal["error"]
+    message: str
+    code: str
+
+
+class UnknownJobFrame(TypedDict):
+    """The one frame sent for a job id nobody knows, under `event: error`. `(ahn)` stage B.
+
+    ⚠ **Not queued, and on the wire** - it was a hand-written byte string until 2026-09-03, so no
+    census that read the queue could see it. Built through `json.dumps` now; the bytes are
+    unchanged.
+    """
+
+    message: str
+
+
+#: Everything the queue can carry. ⚠ Until 2026-09-03 it carried ``dict[str, Any]`` and P91's
+#: ruling that the frames were *"three fixed shapes"* was assumed, not checked: 4a typed every
+#: route payload and never looked at the stream. `(ahn)` stage B.
+type Frame = ProgressFrame | DoneFrame | ErrorFrame
+type TerminalFrame = DoneFrame | ErrorFrame
 
 #: The three terminal statuses a job that RETURNED can carry. A job that raised is `type: error`
 #: and has no status of its own.
@@ -224,7 +277,7 @@ class _Occupant:
 class Job:
     id: str
     cancel: threading.Event = field(default_factory=threading.Event)
-    events: queue.Queue[dict[str, Any]] = field(default_factory=queue.Queue)
+    events: queue.Queue[Frame] = field(default_factory=queue.Queue)
     status: str = "running"
     #: ⚠ **``object``, not ``Any``** (`(ahn)` stage 1). One registry holds every job shape, so this
     #: cannot carry the target's ``T``; but ``object`` makes that a narrowing anybody who later
@@ -240,7 +293,7 @@ class Job:
     #: ``stream`` reads *this* rather than ``status`` for exactly that reason: ``status`` is set
     #: while the summary is still being built, so a reader that trusted it could return before the
     #: terminal event existed.
-    terminal: dict[str, Any] | None = None
+    terminal: TerminalFrame | None = None
 
 
 def _hold_across_processes(held: Sequence[DriveRef]) -> list[DriveLock]:
@@ -435,19 +488,18 @@ class JobManager:
 
         def run() -> None:
             started = time.monotonic()
-            terminal: dict[str, Any] | None = None
+            terminal: TerminalFrame | None = None
 
             def progress(update: Progress) -> None:
-                job.events.put(
-                    {
-                        "type": "progress",
-                        "done": update.done,
-                        "total": update.total,
-                        "phase": update.phase,
-                        "item": update.item,
-                        "tally": dict(update.tally),
-                    }
-                )
+                frame: ProgressFrame = {
+                    "type": "progress",
+                    "done": update.done,
+                    "total": update.total,
+                    "phase": update.phase,
+                    "item": update.item,
+                    "tally": dict(update.tally),
+                }
+                job.events.put(frame)
 
             try:
                 try:
@@ -457,16 +509,20 @@ class JobManager:
                     # only layer that sees the whole run including setup. Runtime guarantee for
                     # dict summaries only -- see JobTarget docstring (NotRequired on service types).
                     if isinstance(summary, dict):
-                        summary = {
+                        # Named for what it is: the target's mapping plus one key. The service
+                        # TypedDicts declare `elapsed_seconds` NotRequired for this line.
+                        timed: dict[str, object] = {
                             **summary,
                             "elapsed_seconds": round(time.monotonic() - started, 1),
                         }
+                        summary = timed
                     job.summary = summary
-                    terminal = {
+                    done: DoneFrame = {
                         "type": _SENTINEL_DONE,
                         "status": job.status,
                         "summary": summary,
                     }
+                    terminal = done
                 except Exception as exc:
                     job.status = "error"
                     # ⚠ **CLASSIFIED ON THE CAUSE, because `organizer.execute` now wraps. `(agj)`**
@@ -512,11 +568,12 @@ class JobManager:
                         message, code = catalog_unwritable_message(failure), CATALOG_UNWRITABLE_CODE
                     else:
                         message, code = str(failure), type(failure).__name__
-                    terminal = {
+                    failed: ErrorFrame = {
                         "type": _SENTINEL_ERROR,
                         "message": message,
                         "code": code,
                     }
+                    terminal = failed
             finally:
                 # Always release, including cancel and exception - a stuck lock is worse than
                 # the overlapping-run bug this guard exists to stop. Release *before* the
@@ -577,7 +634,8 @@ class JobManager:
         """
         job = self.get(job_id)
         if job is None:
-            yield b'event: error\ndata: {"message": "unknown job"}\n\n'
+            unknown: UnknownJobFrame = {"message": "unknown job"}
+            yield f"event: error\ndata: {json.dumps(unknown)}\n\n".encode()
             return
         while True:
             try:

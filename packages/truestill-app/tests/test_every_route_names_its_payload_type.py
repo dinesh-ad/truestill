@@ -48,6 +48,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 SERVER = ROOT / "packages/truestill-app/src/truestill_app/server.py"
+JOBS = ROOT / "packages/truestill-app/src/truestill_app/jobs.py"
 SERVICE = ROOT / "packages/truestill-app/src/truestill_app/service"
 
 #: Routes that return no JSON payload at all. ⚠ **A ceiling, not a list to append to** - see
@@ -187,6 +188,81 @@ def _literal_payloads() -> dict[str, int]:
     return found
 
 
+def _spans(tree: ast.Module) -> list[tuple[int, int, str]]:
+    return [
+        (fn.lineno, fn.end_lineno or fn.lineno, fn.name)
+        for fn in ast.walk(tree)
+        if isinstance(fn, ast.FunctionDef | ast.AsyncFunctionDef)
+    ]
+
+
+def _literal_frames(path: Path = JOBS) -> dict[str, int]:
+    """``"<function>: <what>" -> line``, for every frame that reaches the stream with no name.
+
+    ⚠ **Stage B (P195): 4a's census read `JSONResponse(<dict literal>)` in `server.py` and
+    nothing else, so the three SSE frames and one hand-written byte string were untyped AND
+    unlisted - a hole with no note beside it.** Four shapes escape a queue-reading census: a
+    dict literal handed straight to ``.put(...)`` or ``json.dumps(...)``, a dict literal
+    assigned to an UNannotated name (an annotated one is typed by its annotation), and a bytes
+    literal carrying ``data:``, which is a frame written by hand.
+    """
+    tree = _module(path)
+    spans = _spans(tree)
+    found: dict[str, int] = {}
+
+    def record(node: ast.expr | ast.stmt, what: str) -> None:
+        inner = [n for lo, hi, n in spans if lo <= node.lineno <= hi]
+        found[f"{inner[-1] if inner else '?'}: {what}"] = node.lineno
+
+    def keys(literal: ast.Dict) -> str:
+        return ",".join(sorted(ast.unparse(k).strip("'\"") for k in literal.keys if k is not None))
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and node.args and isinstance(node.args[0], ast.Dict):
+            attr = getattr(node.func, "attr", "")
+            if attr in ("put", "dumps"):
+                record(node, f"{attr}({{{keys(node.args[0])}}})")
+        elif isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict):
+            record(node, f"{ast.unparse(node.targets[0])} = {{{keys(node.value)}}}")
+        elif (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, bytes)
+            and b"data:" in node.value
+        ):
+            record(node, "hand-written bytes frame")
+    return found
+
+
+def _typeddict_names() -> set[str]:
+    """Every TypedDict declared in the app, INCLUDING those that inherit another - the base test
+    `"TypedDict" in base` misses `OrganizeDoneSummary(CompletionBase)` and two more."""
+    classes: dict[str, list[str]] = {}
+    for path in [*sorted(SERVICE.glob("*.py")), JOBS]:
+        for node in ast.walk(_module(path)):
+            if isinstance(node, ast.ClassDef):
+                classes[node.name] = [ast.unparse(b) for b in node.bases]
+    names = {n for n, bases in classes.items() if any("TypedDict" in b for b in bases)}
+    while True:
+        more = {
+            n for n, bases in classes.items() if n not in names and any(b in names for b in bases)
+        }
+        if not more:
+            return names
+        names |= more
+
+
+def _job_summary_types() -> dict[str, list[str]]:
+    """``factory -> the members of its JobTarget[T]``: what `DoneFrame.summary` can be, derived
+    from the thirteen annotations rather than listed a second time. `(ahn)` stage B."""
+    out: dict[str, list[str]] = {}
+    for name, returns in _declared_return_types().items():
+        for text in returns:
+            for member in _union_members(text):
+                if member.startswith("JobTarget[") and member.endswith("]"):
+                    out[name] = _union_members(member[len("JobTarget[") : -1])
+    return out
+
+
 def test_every_route_names_a_payload_type() -> None:
     """**The join.** Loop the DERIVED routes; assert into the DECLARATION.
 
@@ -212,7 +288,9 @@ def test_no_new_payload_is_built_from_a_dict_literal() -> None:
     a typed service function AND returns a literal from one branch passes that test and is still
     undeclared here.
     """
-    undeclared = sorted(set(_literal_payloads()) - UNTYPED_LITERAL.keys())
+    undeclared = sorted(
+        (set(_literal_payloads()) | set(_literal_frames())) - UNTYPED_LITERAL.keys()
+    )
 
     assert not undeclared, (
         "these JSON payloads are built from a dict literal and nothing names their type:\n"
@@ -536,3 +614,54 @@ def test_the_response_derivation_is_real() -> None:
         if any(x.startswith("?") for x in t)
     }
     assert not unresolved, f"unresolved responses: {unresolved}"
+
+
+#: The thirteen `JobTarget[T]` factories on 2026-09-03; a floor just under it.
+MEASURED_JOB_FACTORIES = 13
+
+
+def test_the_frame_census_sees_what_escapes_a_queue(tmp_path: Path) -> None:
+    """Driven against source written here: the three unnamed shapes are found, the annotated
+    local - the remedy - is not. ⚠ On `jobs.py` as committed before stage B this census
+    reported four; on the tree it reports none, and that is the whole proof of stage B."""
+    probe = tmp_path / "probe.py"
+    probe.write_text(
+        "def run(q):\n"
+        "    q.put({'type': 'progress', 'done': 1})\n"
+        "    terminal = {'type': 'done'}\n"
+        "    frame: DoneFrame = {'type': 'done'}\n"
+        "    q.put(frame)\n"
+        "def stream():\n"
+        "    yield b'event: error\\ndata: {}\\n\\n'\n",
+        encoding="utf-8",
+    )
+    found = _literal_frames(probe)
+    assert set(found) == {
+        "run: put({done,type})",
+        "run: terminal = {type}",
+        "stream: hand-written bytes frame",
+    }, found
+    assert not _literal_frames(), "a frame reached the stream without a name; give it a TypedDict"
+
+
+def test_done_frame_summary_is_derived_not_listed() -> None:
+    """`DoneFrame.summary` is `object` in code and the union of the factories' `T` here - one
+    definition, read from the annotations stage A made the resolver read. A hand-written
+    `JobSummary` alias would be the second definition this refuses."""
+    factories = _job_summary_types()
+    assert len(factories) >= MEASURED_JOB_FACTORIES - 2, f"only {len(factories)} factories"
+    members = {m for ms in factories.values() for m in ms}
+    assert len(members) >= 12, f"only {len(members)} summary types: {sorted(members)}"
+    declared = _typeddict_names()
+    assert members <= declared, f"not TypedDicts: {sorted(members - declared)}"
+    done = next(
+        n for n in ast.walk(_module(JOBS)) if isinstance(n, ast.ClassDef) and n.name == "DoneFrame"
+    )
+    summary = [
+        ast.unparse(st.annotation)
+        for st in done.body
+        if isinstance(st, ast.AnnAssign) and ast.unparse(st.target) == "summary"
+    ]
+    assert summary == ["object"], (
+        f"DoneFrame.summary is {summary}; the union is derived, not listed"
+    )
