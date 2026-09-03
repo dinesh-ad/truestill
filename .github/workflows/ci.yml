@@ -13,6 +13,21 @@ on:
   # ⚠ Added 2026-08-22 so the browser lane can be run ON PURPOSE - before a tag, or after a change
   # that reaches a screen. Without it the only way to run `e2e` in CI was to wait for 03:17.
   workflow_dispatch:
+    inputs:
+      # MEASURING THE LANE WITHOUT EDITING THE LANE. `(ajx)` asks whether the browser lane can be
+      # brought under the ~8 minute condition, and the only untried lever is `-n auto`. Answering
+      # that needed a run of one engine, in parallel, on CI hardware - which previously meant
+      # committing a change to the `E2E` step, dispatching, reading it, and reverting: three
+      # commits of churn for a number, and a step that has been edited for an experiment is a step
+      # somebody forgets to put back.
+      #
+      # Empty by default, so a scheduled or ordinary dispatch is byte-for-byte the run it always
+      # was. `make e2e` already accepts `E2E_EXTRA`; this exposes it, nothing more.
+      # Example: `-n auto -k webkit` runs the 477 webkit cases in parallel and deselects the rest.
+      e2e_extra:
+        description: "extra pytest args for the e2e lane (empty = the ordinary lane)"
+        required: false
+        default: ""
 
 # The event is part of the group ON PURPOSE. Without it a scheduled run and a push to main share
 # `refs/heads/main`, so the first morning push would cancel the nightly mid-flight - and the one
@@ -598,8 +613,11 @@ jobs:
           echo "MemTotal   = $(awk '/MemTotal/{printf "%.1f GiB", $2/1048576}' /proc/meminfo)"
           echo "model name = $(awk -F': ' '/model name/{print $2; exit}' /proc/cpuinfo)"
 
+      # `inputs.e2e_extra` is empty on schedule and on a plain dispatch, so this is the same
+      # command it has always been unless somebody deliberately asked otherwise. It is appended
+      # AFTER the junit flag so a measurement run still uploads its results.
       - name: E2E
-        run: make e2e E2E_EXTRA="--junitxml=test-results.xml" E2E_SECONDS_MAX=3600
+        run: make e2e E2E_EXTRA="--junitxml=test-results.xml ${{ inputs.e2e_extra }}" E2E_SECONDS_MAX=3600
 
       # 510 browser tests on 2026-09-02; the floor is a fraction (P189, Q1213).
       - name: The lane actually ran
