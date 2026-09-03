@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aju). Next free: (ajv).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajv). Next free: (ajw).**
 **Retired 2026-09-02 (P190), and named here because a retired letter is not a free one:** `(abz)`
 (*"Organize shows one population three ways and connects none of them"*). False before it was
 filed: `app.js:rearrangeNote` (`93635af`, 2026-08-06) prints *"N of M files here are already in
@@ -236,6 +236,17 @@ confirmed against today's code by **one decisive check**, named in its body - no
 That is enough to say *still plausible*; it is not enough to say *confirmed*. **Nothing was deleted
 on the strength of it**, and an entry that turns out already built should be closed with its commit
 rather than treated as a triage failure.
+
+- **(ajv) THE PUBLISHED v0.1.0 CARRIES NO REACT BUNDLE, SO ITS ORGANIZE RESULT REGION NEVER RENDERS.**
+  Filed 2026-09-03 (P194), found by listing the release artifact rather than the tree:
+  `tar tzf truestill-0.1.0-Linux.tar.gz | grep -c static/dist/` → **0**. `release.yml` has no
+  `setup-node` and no `make frontend` before PyInstaller, `static/dist/` is gitignored, and the
+  template loads `/static/dist/main.js` unconditionally, so in the shipped build the island never
+  mounts and `app.js`'s one writer of `#org-result` drops every state silently
+  (`if (island) island.set(state)`). The self-check covers fonts and core, not the bundle; the
+  rehearsal record never looked. **Ships before any React work and before the next tag**: the
+  release lane builds the frontend, the self-check asserts the two bundle files, the rehearsal's
+  next run lists them. [Full entry](research/backlog/ajv.md)
 
 - **(r) Analyze mode - the hash cache half is SHIPPED.** ⚠ **Build next, 2026-09-02 (P187)**: no condition - tier 2b and the app screen are absent for everyone; scoped work, not a conditional defect. [Full entry](research/backlog/r.md)
 

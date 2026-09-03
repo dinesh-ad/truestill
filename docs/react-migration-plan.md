@@ -111,6 +111,41 @@ Organize carrying a third of the suite is the second reason it goes last, after 
 
 ## Order
 
+⚠ **RULED 2026-09-03 (P194): ONE CUTOVER, BUILT IN PARALLEL, FLIPPED BY ONE TEMPLATE - NOT ISLAND
+BY ISLAND.** The paragraphs below are the plan as recorded on 2026-08-14 and are kept as the record.
+What P194 measured, and the mechanism that replaces them:
+
+- **The mechanism below does not exist.** `vite.config.ts` has no `build.manifest` and no `server`
+  block, `home()` is four `str.replace` calls, `npm run dev` is `vite build --watch`; there is no
+  dev server and no client injection. The tree builds to `static/dist/` and the template loads it.
+- **`app.js`, measured**: 3,260 code lines under 4,548 (24% comments); rendering 57%, wiring 18%,
+  plumbing 11%, state 9%. 152 of 204 definitions touch no screen id; the genuinely shared set is
+  four functions. Coexistence would cost two style paths (`app.css`: 1,716 lines, 262 selectors,
+  19 e2e files asserting computed styles), a readiness contract with one writer (`settleScreen`),
+  a silent `window.*` seam per island, the shell picker reached from five screens, and the two
+  `app.js`-keyed censuses alive until the last screen.
+- **The strangler pattern's justification is absent**: live users and unpausable feature work.
+  `(ajv)`: the published v0.1.0 carries no bundle, so no React has ever reached a user.
+- **The mechanism**: the React app is built beside `app.js` and wired to a second template that
+  loads only the bundle; `home()` picks it from `TRUESTILL_UI=react`, read once at startup, default
+  unchanged. The browser lane runs against both (`make e2e`, `make e2e-react`); the unchanged suite
+  is the differential oracle, green against `app.js` and required green against React before the
+  flip. **The flip is one commit** - the template, the switch and the old template - and `app.js`
+  stays in the tree for one release; `git revert` of that commit is the rollback. Every id, class
+  and `data-ready` write is kept, so restyling is a separate arc.
+- **Prerequisites, in order**: `(ajv)`; the browser lane under ~8 minutes (`-n auto`, the lever
+  `ci.yml` names) so the flip is verified per push and not nightly; an import-free equivalent for
+  the two e2e files that call `fmtBytes` and `fmtDuration` as globals; then `app/` and `api/`
+  first, screens in the risk order below, Organize last, the flip, the deletion.
+- **The structure**: `app/` (the shell: 18 ids, the picker, the registry), `api/` (`client.ts`
+  keyed on the generated `paths`, `stream.ts` yielding the frame union as sent with no `ok`
+  adapter, `job.ts` as one state replacing `runJob`'s twenty options), `run/` (the four-state
+  result region the island models, the progress block's eight instances), `lib/format.ts`, `ui/`,
+  and `screens/<data-screen value>/` with one `index.ts` each, no screen importing another, pinned
+  by a Python import guard because there is no linter. Tests stay in `tests/e2e/`.
+- ⚠ **The table above says 487 and `--collect-only` says 510**; the table is the 2026-08-14 shape
+  and is not re-derived here.
+
 Vite **backend-integration mode** during the transition - `build.manifest`, `server.origin`, and
 the Jinja template injecting the dev client - so the Starlette server keeps serving one URL and
 `boot_app` keeps returning it. Islands, one React root per screen, mounted into containers the
