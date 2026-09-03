@@ -308,10 +308,13 @@ jobs:
         timeout-minutes: 10
         run: |
           $setup = Get-ChildItem out -Filter 'TruestillSetup-*.exe' | Select-Object -First 1
-          # `> $null`, not `| Out-Null`: a native command piped to a cmdlet can leave $LASTEXITCODE
-          # unset (PowerShell/PowerShell#19848), and that code is the only status the installer has.
-          & $setup.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART > $null
-          if ($LASTEXITCODE -ne 0) { throw "the installer exited $LASTEXITCODE" }
+          # `Start-Process -Wait -PassThru`, NOT `& ... > $null` with `$LASTEXITCODE`: Setup.exe is a
+          # GUI-subsystem program that re-launches itself, and whether pwsh waits for one - or sets
+          # `$LASTEXITCODE` for it at all - is not promised. The first release dry run after
+          # `f5bd967` added the check threw `the installer exited ` with an EMPTY code: the
+          # status was read from a mechanism that never set it. `-Wait` and `.ExitCode` are.
+          $run = Start-Process -FilePath $setup.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          if ($run.ExitCode -ne 0) { throw "the installer exited $($run.ExitCode)" }
           Start-Sleep -Seconds 5
 
           $app = Join-Path $env:LOCALAPPDATA 'Programs\Truestill\truestill.exe'
@@ -322,8 +325,9 @@ jobs:
           # The installed copy answers for itself, and the checkout decides whether those are the
           # bytes it built. Same pair as the build step, pointed at what a user actually gets.
           New-Item -ItemType Directory -Force -Path findings | Out-Null
-          & $app --self-check findings/selfcheck-installed.json
-          if ($LASTEXITCODE -ne 0) { throw "the INSTALLED copy failed its own self-check" }
+          # The frozen exe is `--noconsole`, a GUI-subsystem program too; same mechanism.
+          $run = Start-Process -FilePath $app -ArgumentList '--self-check','findings/selfcheck-installed.json' -Wait -PassThru
+          if ($run.ExitCode -ne 0) { throw "the INSTALLED copy failed its own self-check (exit $($run.ExitCode))" }
           uv run python packaging/compare_selfcheck.py findings/selfcheck-installed.json
           # ⚠ pwsh does not stop on a native command's exit code, and the runner exits on the LAST
           # $LASTEXITCODE only - so without this line a mismatch here was overwritten by the next
@@ -343,8 +347,8 @@ jobs:
 
           $uninstall = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs\Truestill') -Filter 'unins*.exe' |
             Select-Object -First 1
-          & $uninstall.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART > $null
-          if ($LASTEXITCODE -ne 0) { throw "the uninstaller exited $LASTEXITCODE" }
+          $run = Start-Process -FilePath $uninstall.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          if ($run.ExitCode -ne 0) { throw "the uninstaller exited $($run.ExitCode)" }
           Start-Sleep -Seconds 5
 
           if (Test-Path $app) { throw 'the uninstaller left the program behind' }

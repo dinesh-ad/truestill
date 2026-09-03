@@ -31,6 +31,11 @@ _PIPE = re.compile(r"(?<!\|)\|(?!\|)")
 #: executable path; its exit code is what the step exists for. (`&` on a cmdlet is not native,
 #: and none of the workflows does that.)
 _NATIVE = re.compile(r"^\s*(uv run |& )")
+#: A GUI-subsystem program started the one way pwsh promises to wait for it. Added 2026-09-03
+#: (`(ajv)`'s dry run): `& Setup.exe ... > $null` followed by `$LASTEXITCODE` threw with an EMPTY
+#: code, because pwsh neither waits for a GUI program nor sets `$LASTEXITCODE` for it. The
+#: status a `Start-Process` line means to read is `.ExitCode`, and only with `-Wait -PassThru`.
+_START = re.compile(r"^\s*\$\w+ = Start-Process ")
 
 
 def _run_steps() -> list[tuple[str, str, dict[str, Any]]]:
@@ -96,6 +101,16 @@ def test_a_pwsh_step_reads_the_exit_of_every_native_call_it_makes() -> None:
             continue
         lines = _lines(step)
         for index, line in enumerate(lines):
+            if _START.match(line):
+                if "-Wait" not in line or "-PassThru" not in line:
+                    offenders.append(
+                        f"{workflow} {name}: {line.strip()}  (Start-Process without -Wait -PassThru)"
+                    )
+                elif index < len(lines) - 1 and ".ExitCode" not in lines[index + 1]:
+                    offenders.append(
+                        f"{workflow} {name}: {line.strip()}  (next line does not read .ExitCode)"
+                    )
+                continue
             if not _NATIVE.match(line):
                 continue
             if _PIPE.search(line):
