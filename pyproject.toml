@@ -65,6 +65,10 @@ dev = [
     # it honest. The wheel is 75 KB and pure Python, and having it everywhere is what lets the
     # parser test run on all three lanes rather than only on Windows.
     "pefile>=2024.8.26",
+    # A JSON Schema EMITTER for the payload contract (`scripts/emit_openapi.py`, `(ahn)` stage C),
+    # not a model layer: it defines no model, validates nothing, and the app never imports it.
+    # `packages/truestill-app/pyproject.toml` refuses Pydantic *for our models*; this is not that.
+    "msgspec>=0.21.1",
 ]
 
 # --- Ruff (lint + format), applied repo-wide ------------------------------------------

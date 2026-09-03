@@ -49,7 +49,9 @@ repos:
         # the two errors that appeared were "cannot find pytest" and the untyped-decorator that
         # follows from it, both in the isolated env only. Under `uv run mypy` the pair reports
         # zero either way.
-        additional_dependencies: [imagehash, pillow, platformdirs, pytest, starlette, uvicorn]
+        # msgspec: `scripts/emit_openapi.py` imports it (`(ahn)` stage C), so the isolated env
+        # must know it or the hook refuses a commit `make check` passed. Found that way 2026-09-03.
+        additional_dependencies: [imagehash, msgspec, pillow, platformdirs, pytest, starlette, uvicorn]
 
   - repo: local
     hooks:

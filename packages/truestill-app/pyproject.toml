@@ -16,6 +16,8 @@ classifiers = [
 # Deps isolated to this package; truestill-core stays imagehash+pillow only.
 #   starlette -- minimal ASGI (routing + SSE + static + background); not FastAPI (wraps
 #     Starlette+Pydantic; Pydantic is disallowed for our models and unneeded for one user).
+#     ⚠ msgspec, in the root dev group since 2026-09-03, is NOT an exception to this: it emits
+#     JSON Schema from the TypedDicts at build time and is never imported by the app. `(ahn)` C.
 #   uvicorn -- the ASGI server to run Starlette (no stdlib ASGI server exists).
 # The browser front-end is server-rendered HTML plus TWO client layers, and this sentence used
 # to claim there was only one.
