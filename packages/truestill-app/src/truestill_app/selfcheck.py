@@ -51,6 +51,15 @@ _BINDING_CLAUSE = "shall be included in all copies of one or more of the Font So
 #: `is_file()` and render nothing, which is the failure a bundler is most likely to produce.
 _TRUETYPE_MAGIC = b"\x00\x01\x00\x00"
 
+#: The React bundle `templates/index.html` loads unconditionally, relative to the static root.
+#: ⚠ **`(ajv)`: the published v0.1.0 carried neither file.** `static/dist/` is gitignored and
+#: built by Vite; the release lane never built it, `--collect-data` copied what was on disk, both
+#: requests 404'd in the shipped app, and `app.js` dropped every write to the Organize result
+#: region because the island never mounted. Nothing here was looking - the self-check covered fonts
+#: and core. So the bundle is reported the way the faces are: by size and digest, and a build
+#: step that ran is not evidence; the artifact is read.
+BUNDLE = ("dist/main.js", "dist/main.css")
+
 
 def _digest(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
@@ -121,6 +130,35 @@ def _licence_finding(path: Path) -> Finding:
     return Finding("font licence", Status.OK, f"{len(payload)} bytes", evidence)
 
 
+def bundle_findings(root: Path | None = None) -> list[Finding]:
+    """One finding per bundle file, by size and digest - `MISSING` when never built, `DEGRADED`
+    when built to nothing. ``root`` exists for the same reason as in :func:`font_findings`."""
+    static = root if root is not None else _STATIC
+    return [_bundle_finding(static / name) for name in BUNDLE]
+
+
+def _bundle_finding(path: Path) -> Finding:
+    name = f"bundle {path.name}"
+    try:
+        payload = path.read_bytes()
+    except OSError:
+        return Finding(
+            name,
+            Status.MISSING,
+            f"the React bundle was never built into this install ({path}); the page loads it "
+            "unconditionally, so the Organize result region renders nothing. Run `make frontend`",
+            {"path": str(path)},
+        )
+    evidence: dict[str, str | int] = {
+        "path": str(path),
+        "bytes": len(payload),
+        "sha256": _digest(payload),
+    }
+    if not payload.strip():
+        return Finding(name, Status.DEGRADED, f"built to an empty file ({path})", evidence)
+    return Finding(name, Status.OK, f"{len(payload)} bytes", evidence)
+
+
 def app_findings(root: Path | None = None) -> list[Finding]:
     """Everything a packaged truestill can say about itself: core's answers plus the assets."""
-    return [*core_findings(), *font_findings(root)]
+    return [*core_findings(), *font_findings(root), *bundle_findings(root)]

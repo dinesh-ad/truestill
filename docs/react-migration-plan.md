@@ -19,6 +19,7 @@ how the screens look. Nothing in `truestill-core` or `service/` is in scope.
 | The type scale and text colours are separate | `--type-*` and `--fg-*`. `--text-*` was carrying both, and it is Tailwind's font-size namespace. |
 | The browser lane covers the shipped engine | `(9cdd85d)`. WebKit is what the Tauri shell renders in on Linux and macOS. |
 | The migration's test cost | **3 of 55 e2e files** touch `app.js` internals: two reach into `organizeCompletion`, one calls `showScreen()`. The other 52 assert on rendered words, so they survive a renderer swap and become the acceptance test for each migrated screen. |
+| ⚠ **Corrected 2026-09-03 (P200)** - the row above is the 2026-08-14 record and is ten times off | Measured on the tree: **60 files, 510 tests**; **31 files reach into the page through `evaluate`**, none calls `organizeCompletion` or `showScreen`, and two call `fmtBytes` and `fmtDuration` as globals, which break the day the formatters move into a module. Selection is **84 unique `#id` selectors, 2 `data-testid`, 4 text or role calls** - ids, not words - and **19 files assert computed styles**. Plan the cutover against these, not the row above. |
 
 That last row is the reason this is checkable at all, and it is a rule being cashed in rather than
 luck: *"§9 asserts on the words a person reads, never on element ids"*.
@@ -34,6 +35,10 @@ everywhere (the face is fetched from our origin; both weights reach `loaded`). *
 is the last step: whether a glyph fell back mid-string.** Nothing in this migration closes it, and
 a component library arriving with its own font stack is exactly when it would matter. If a
 cross-engine equivalent appears, this is the test to point at it.
+
+⚠ **Corrected 2026-09-03 (P200): the paragraph below says ~62 `data-testid`; the suite holds 2.**
+Selection is 84 unique `#id` selectors and the `data-screen` / `data-ready` pair that `open_screen`
+drives. The sentence about a selector contract stands; its numbers do not.
 
 **The existing suite keys on ids and `data-*`.** ~62 `data-testid`, plus `#id` selectors and
 semantic hooks (`data-refusal`, `data-risk-action`), and every screen gates on `data-ready`.

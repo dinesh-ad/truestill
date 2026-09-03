@@ -91,3 +91,14 @@ held throughout.
 > preserved and refused its shape - so `git ls-remote` now answers **one head (`main`) and one tag
 > (`v0.1.0`)**. The teardown above is still an accurate record of 2026-08-30, and the one-head
 > finding it exists to report is unaffected. `CLAUDE.md`'s *Live refs* table is the current answer.
+
+## Added 2026-09-03 (P200, `(ajv)`) - what this rehearsal did not look at, and what the next one must list
+
+**A record, not rewritten.** The run above never mentions the React bundle, and the artifact it
+rehearsed carried none: `static/dist/` is gitignored, the publish job built it nowhere, and
+`--collect-data` copied what was on disk. The self-check covered fonts and core. From this date the
+self-check reports `bundle main.js` and `bundle main.css` by size and digest, the job builds them
+before PyInstaller, and `compare_selfcheck.py` refuses a checkout that has not built them. **The
+next run must list, from the artifact itself**: both files in the archive listing, both findings
+`ok` with byte counts, and the comparison matched.
+

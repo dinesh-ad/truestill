@@ -132,6 +132,11 @@ independently and only the list says which one is wrong. `[project.dependencies]
 Hashing, SQLite, concurrency and all path/date work are stdlib. The browser lane additionally
 needs Node; `make check` does not.
 
+⚠ **Running the app from a clone needs the React bundle**, which is gitignored and built by
+Vite: `make frontend-install && make frontend` (Node 24.16.0, pinned by `.nvmrc`). Without it the
+page loads `/static/dist/main.js`, gets a 404, and the Organize result region renders nothing;
+`truestill-app --self-check` names the two missing files.
+
 ## Working on a mounted or cloud filesystem
 
 Truestill runs against a mounted drive or a cloud filesystem (an rclone remote, a NAS, a sync client's mount) as

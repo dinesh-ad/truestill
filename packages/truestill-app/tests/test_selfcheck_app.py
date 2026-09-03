@@ -16,10 +16,19 @@ complete case sits beside them as the cry-wolf half.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import shutil
 from pathlib import Path
 
-from truestill_app.selfcheck import FACES, LICENCE_NAME, app_findings, font_findings
+import pytest
+from truestill_app.selfcheck import (
+    BUNDLE,
+    FACES,
+    LICENCE_NAME,
+    app_findings,
+    bundle_findings,
+    font_findings,
+)
 from truestill_app.server import _STATIC
 from truestill_core.selfcheck import Finding, Status, is_complete
 
@@ -167,4 +176,71 @@ def test_app_findings_is_core_plus_the_assets_only_the_app_can_see() -> None:
     names = [f.name for f in app_findings()]
 
     assert names[:6] == ["install", "exiftool", "trash", "catalog", "cache", "session url"]
-    assert names[6:] == [f"font {FACES[0]}", f"font {FACES[1]}", "font licence"]
+    # `(ajv)`: the bundle joined the assets on 2026-09-03; a shipped v0.1.0 without it is why.
+    assert names[6:] == [
+        f"font {FACES[0]}",
+        f"font {FACES[1]}",
+        "font licence",
+        "bundle main.js",
+        "bundle main.css",
+    ]
+
+
+# ------------------------------------------------------------- the bundle, `(ajv)`'s cry-wolf half
+
+
+def _bundle_copy(tmp_path: Path, *, main_js: bytes | None = b"export {};\n") -> Path:
+    """A static root whose `dist/` holds a plausible bundle, an empty one, or none at all."""
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "main.css").write_bytes(b".x{}\n")
+    if main_js is not None:
+        (dist / "main.js").write_bytes(main_js)
+    return tmp_path
+
+
+def test_the_bundle_never_built_is_reported_missing_by_name(tmp_path: Path) -> None:
+    """`(ajv)`: the published v0.1.0 had no `static/dist/` and nothing said so. This is the
+    finding that would have: run on an install the release lane never built."""
+    findings = bundle_findings(_bundle_copy(tmp_path, main_js=None))
+    assert [f.name for f in findings] == [f"bundle {Path(n).name}" for n in BUNDLE]
+    assert _named(findings, "bundle main.js").status is Status.MISSING
+    assert "make frontend" in _named(findings, "bundle main.js").detail
+    assert _named(findings, "bundle main.css").status is Status.OK
+
+
+def test_a_build_that_produced_an_empty_bundle_is_degraded_not_ok(tmp_path: Path) -> None:
+    """A step that ran is not evidence; the artifact is read. Zero bytes satisfies `is_file()`."""
+    finding = _named(bundle_findings(_bundle_copy(tmp_path, main_js=b"")), "bundle main.js")
+    assert finding.status is Status.DEGRADED
+    assert finding.evidence["bytes"] == 0
+
+
+def test_a_built_bundle_is_reported_by_size_and_digest(tmp_path: Path) -> None:
+    finding = _named(bundle_findings(_bundle_copy(tmp_path)), "bundle main.js")
+    assert finding.status is Status.OK
+    assert finding.evidence["bytes"] == len(b"export {};\n")
+    assert len(str(finding.evidence["sha256"])) == 64
+
+
+def test_the_comparison_refuses_a_checkout_that_never_built_rather_than_expecting_less(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`compare_selfcheck.py` reads the checkout's own bundle as the expectation. A checkout
+    without one must refuse, not compare against a shorter list - an expectation that shrinks to
+    what is on disk is how the bundle went unchecked for nineteen days."""
+    spec = importlib.util.spec_from_file_location(
+        "compare_selfcheck", Path(__file__).resolve().parents[3] / "packaging/compare_selfcheck.py"
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    compare = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(compare)
+    static = tmp_path / "static"
+    shutil.copytree(_REAL_FONTS, static / "fonts")
+    monkeypatch.setattr(compare, "_STATIC", static)
+    with pytest.raises(compare.UnbuiltBundleError, match="make frontend"):
+        compare._repository_digests()
+    _bundle_copy(static)
+    expected = compare._repository_digests()
+    assert {"main.js", "main.css"} <= set(expected)

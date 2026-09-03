@@ -58,6 +58,42 @@
      artifact without them cannot pass its own gate, and `compare_selfcheck.py` compares them.
   3. The rehearsal's next run lists `static/dist/` in the artifact, in the record.
 
+  ## THE CENSUS OF WHAT PACKAGES THE APP (P200) - one fix point, and two other holes of the same shape
+
+  | path | takes its bytes from | after the fix |
+  |---|---|---|
+  | `release.yml` → tar/zip, `.deb` (`build_deb.py` copies `dist/truestill`), Inno (`Source: "dist\truestill\*"`) | PyInstaller's folder, which holds what `--collect-data` found on disk | the bundle is built in the job before PyInstaller, so all three inherit it |
+  | `make build` → `uv build --all-packages` | hatch sweeps `src/truestill_app` in; `static/dist/` only if built | `build` depends on `frontend`; nothing publishes a wheel today (checked: no `uv build`, `twine` or `pypi` in the workflows) |
+  | a clone, `make install`, `uv run truestill-app` | the working tree | the README says the bundle must be built; the self-check names the two files |
+
+  ## WHAT A USER OF v0.1.0 SEES, EXACTLY (P200)
+
+  The Organize screen is **usable and blind**. *Look inside* runs: the preview request completes,
+  the side panel updates (`renderPanel` writes `#panel`), and the run confirm renders because
+  `renderOrganizeRunConfirm` writes `#org-confirm`, outside the island. What never appears: the
+  preview card (counts, folders, duplicates, the unreadable-folder warnings), the running refusal,
+  **the completion card, and every error card** - `jobErrorCard` goes through the same dropped
+  writer. A run proceeds with its progress block and ends in silence. `main.css` being absent
+  changes nothing visible: `app.js` and the template use no Tailwind utility (`hidden` and `grid-*`
+  are `app.css` classes). The other six screens are unaffected. **A note on the v0.1.0 release
+  page is warranted**, and it is the maintainer's to write.
+
+  ## 0.1.1, RECOMMENDED (P200)
+
+  The defect is in the landing screen of the only release, it hides every error on that screen,
+  and the fix is one workflow step plus a check. The honest response is a patch release from
+  `main` once the rehearsal's next run lists the bundle - the repository has no release branches by
+  rule, so 0.1.1 carries the 89 commits since the tag, which are engine fixes and records. Tagging
+  is the maintainer's; the rehearsal is the gate.
+
+  ## WHAT THE NEXT REHEARSAL RUN MUST LIST
+
+  `release-rehearsal-record.md` mentions `dist`, `frontend`, `react` and `vite` zero times, so it
+  could not have caught this. Its next run lists, from the artifact and not from the job log:
+  `static/dist/main.js` and `static/dist/main.css` inside the archive (`tar tzf` / the zip
+  listing), the self-check's two `bundle` findings `ok` with their byte counts, and
+  `compare_selfcheck.py` matching them against the checkout's own build.
+
   **Before any React work.** `react-migration-plan.md` now says why: until the release lane builds
   the frontend, a React screen is a developer-only artefact, as the island has been since
   2026-08-15. **Before the next tag**, obviously.

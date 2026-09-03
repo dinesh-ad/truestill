@@ -157,8 +157,12 @@ frontend-install:
 # configured and never read by anything. Vite strips types; it does not check them. When the
 # check was finally run it was not clean: three TS2591 errors in `vite.config.ts`, unseen since
 # the seam landed.
+# ONE DEFINITION, in `package.json`'s `build` script, so the release lane and this target cannot
+# drift: `(ajv)` is what drifting looked like - `make e2e` built the bundle through this target
+# and `release.yml` built nothing, so the lane was green for nineteen days over a bundle the
+# release never had. The lane and the release now run the same script.
 frontend:
-	cd packages/truestill-app/frontend && npx tsc --noEmit && npx vite build
+	cd packages/truestill-app/frontend && npm run build
 
 # --- browser end-to-end ----------------------------------------------------------------
 # Deliberately outside `check` and outside pytest's testpaths: a fresh clone runs `make check`
@@ -259,7 +263,9 @@ gate: check
 	  fi; \
 	fi
 
-build:
+# The wheel sweeps `src/truestill_app` in, so it carries `static/dist/` only if it was built
+# first. `(ajv)`: an artifact without the bundle serves a page that 404s it.
+build: frontend
 	uv build --all-packages
 
 # Dry run against the staging test set. Writes nothing.

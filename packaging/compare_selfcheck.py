@@ -29,14 +29,36 @@ _ROOT = Path(__file__).resolve().parents[1]
 _STATIC = _ROOT / "packages" / "truestill-app" / "src" / "truestill_app" / "static"
 
 
+#: The bundle files the artifact must carry, relative to the static root. Built by Vite in the
+#: same job before PyInstaller runs, so the checkout holds the bytes the artifact should hold.
+#: `(ajv)`: v0.1.0 shipped without them and nothing compared, because nothing expected them.
+_BUNDLE = ("dist/main.js", "dist/main.css")
+
+
+class UnbuiltBundleError(RuntimeError):
+    """The checkout has no built bundle to compare against - the comparison cannot run."""
+
+
 def _repository_digests() -> dict[str, tuple[int, str]]:
-    """Size and sha256 of every file the artifact is expected to carry, read from the checkout."""
+    """Size and sha256 of every file the artifact is expected to carry, read from the checkout.
+
+    ⚠ Raises rather than returning a shorter expectation when the checkout's own bundle is
+    missing: an expectation that silently shrinks to what happens to be on disk is how the
+    bundle went unchecked for nineteen days.
+    """
     fonts = _STATIC / "fonts"
     expected: dict[str, tuple[int, str]] = {}
     for path in sorted(fonts.iterdir()):
         if path.suffix in {".ttf", ".txt"}:
             payload = path.read_bytes()
             expected[path.name] = (len(payload), hashlib.sha256(payload).hexdigest())
+    for name in _BUNDLE:
+        path = _STATIC / name
+        if not path.is_file():
+            msg = f"{path} is not built in this checkout; run `make frontend` before comparing"
+            raise UnbuiltBundleError(msg)
+        payload = path.read_bytes()
+        expected[path.name] = (len(payload), hashlib.sha256(payload).hexdigest())
     return expected
 
 
@@ -76,6 +98,22 @@ def _evidence(finding: dict[str, object]) -> dict[str, object]:
     """A finding's evidence map, or an empty one. Narrowed here so every caller is typed."""
     value = finding.get("evidence")
     return value if isinstance(value, dict) else {}
+
+
+def _reported_assets(findings: list[dict[str, object]]) -> dict[str, dict[str, object]]:
+    """Every asset finding by file name - fonts and bundle files alike.
+
+    Keyed on every asset finding, not only the ones carrying a digest. A file the artifact
+    reported as MISSING has no sha256, and treating that as "never reported" printed a second,
+    wrong sentence underneath the true one - burying the finding it was meant to support.
+    """
+    reported: dict[str, dict[str, object]] = {}
+    for finding in findings:
+        evidence = _evidence(finding)
+        path = evidence.get("path")
+        if str(finding.get("name", "")).startswith(("font ", "bundle ")) and path is not None:
+            reported[Path(str(path)).name] = evidence
+    return reported
 
 
 def _compare(findings_path: Path) -> list[str]:
@@ -138,17 +176,11 @@ def _compare(findings_path: Path) -> list[str]:
                 f"{finding.get('status')} - {finding.get('detail')}"
             )
 
-    expected = _repository_digests()
-    # Keyed on every asset finding, not only the ones carrying a digest. A file the artifact
-    # reported as MISSING has no sha256, and treating that as "never reported" printed a second,
-    # wrong sentence underneath the true one - burying the finding it was meant to support.
-    reported: dict[str, dict[str, object]] = {}
-    for finding in findings:
-        evidence = _evidence(finding)
-        path = evidence.get("path")
-        if str(finding.get("name", "")).startswith("font ") and path is not None:
-            reported[Path(str(path)).name] = evidence
-
+    try:
+        expected = _repository_digests()
+    except UnbuiltBundleError as exc:
+        return [*problems, f"{findings_path.name}: THE CHECKOUT CANNOT COMPARE - {exc}"]
+    reported = _reported_assets(findings)
     for name, (size, digest) in expected.items():
         evidence = reported.get(name, {})
         if not evidence:

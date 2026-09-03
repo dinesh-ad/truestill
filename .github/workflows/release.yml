@@ -77,6 +77,29 @@ jobs:
       - name: Vendor exiftool
         run: uv run python packaging/exiftool_source.py exiftool-src
 
+      # ⚠ THE BUNDLE, BUILT HERE, BEFORE PYINSTALLER - `(ajv)`. `static/dist/` is gitignored and
+      # `--collect-data` copies what is on disk, so without these three steps the artifact
+      # carries no `main.js`, the page 404s it, and the Organize result region never renders.
+      # v0.1.0 shipped exactly that way, and the browser lane was green the whole time because
+      # `make e2e` depends on `make frontend` and this job did not: the test and the release
+      # built different things. `npm ci`, never `npm install`; `npm run build` is the ONE
+      # definition the Makefile's `frontend` target also runs. `shell: bash` is present on the
+      # Windows runner; GNU make is not promised there, which is why this does not go through it.
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: packages/truestill-app/frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: packages/truestill-app/frontend/package-lock.json
+
+      - name: Build the React bundle
+        shell: bash
+        working-directory: packages/truestill-app/frontend
+        run: |
+          npm ci
+          npm run build
+          ls -la ../src/truestill_app/static/dist/
+
       # `--collect-data truestill_app` is REQUIRED, not decorative: without it the bundle carries
       # none of the app's data - no fonts, no notice, no templates, no app.js, no CSS - because
       # bundlers follow imports and a data file is imported by nothing. Measured 2026-08-12.
