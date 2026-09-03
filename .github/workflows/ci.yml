@@ -580,6 +580,24 @@ jobs:
       # The ceiling is raised for CI hardware rather than removed: shared runners are slower and
       # far more variable than the machine the 1431s figure was measured on, and a ceiling that
       # fires on runner variance is one that gets deleted.
+      # THE PREMISE EVERY TIMING NUMBER IN THIS LANE RESTS ON, printed every run rather than
+      # probed once and written into a comment. `tests/e2e/conftest.py`'s 30 s assertion budget
+      # ("longest wait 28.4 s" over three lanes) and the `-n auto` argument in the banner above
+      # are both arguments about how much CPU this job has, and the conftest has said "a shared
+      # 2-core runner" since 2026-08-15 - written once, never re-checked, and this repository has
+      # been PUBLIC since before then, where GitHub's standard runner is not 2-core.
+      #
+      # Four lines, no dependency, no failure mode: it makes the hardware falsifiable from the
+      # log of ANY run, which is the property a comment can never have. `(ago)`'s bar is met the
+      # cheap way - this is not a guard that must earn itself, it is evidence the lane was not
+      # recording.
+      - name: Runner spec
+        shell: bash
+        run: |
+          echo "nproc      = $(nproc)"
+          echo "MemTotal   = $(awk '/MemTotal/{printf "%.1f GiB", $2/1048576}' /proc/meminfo)"
+          echo "model name = $(awk -F': ' '/model name/{print $2; exit}' /proc/cpuinfo)"
+
       - name: E2E
         run: make e2e E2E_EXTRA="--junitxml=test-results.xml" E2E_SECONDS_MAX=3600
 
