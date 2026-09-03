@@ -1,14 +1,19 @@
 # (ajv) THE PUBLISHED v0.1.0 CARRIES NO REACT BUNDLE, SO ITS ORGANIZE RESULT REGION NEVER RENDERS.
 
-*Body of backlog entry `(ajv)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(ajv)`, in [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
 
 - **(ajv)** Filed 2026-09-03 (P194). Found by listing the artifact, not by reading the tree - the
   tree is green. ✅ **Fix shipped 2026-09-03 (P200)**: `b478c22` the lane and the release run one
   `npm run build` and the release runs it before PyInstaller; `selfcheck.py` reports the two bundle
   files; `compare_selfcheck.py` refuses an unbuilt checkout; `9b25839` and `4d7fe6a` teach the
-  self-check flag tests that a checkout with no Node is honestly incomplete. **Closes when the
-  rehearsal's next run lists the bundle in the artifact** - see the last section - and that run is
-  the maintainer's, as every release run is.
+  self-check flag tests that a checkout with no Node is honestly incomplete. ✅ **CLOSED 2026-09-03
+  (P200) on the release lane's own evidence**: dry run `33733154061` on `9ab3f93`, both platforms
+  green, the artifacts downloaded and listed - `static/dist/main.js` 190,777 bytes and
+  `static/dist/main.css` 16,299 bytes in the Linux tarball, the `.deb` and the Windows zip; both
+  installed copies' self-checks `complete: true` with both bundle findings `ok`; both comparisons
+  matched. The same dry run found and `9ab3f93` fixed a second release-lane defect: the Windows
+  installer step read `$LASTEXITCODE` from a GUI program pwsh never waits for. **0.1.1 and the
+  note on the v0.1.0 release page are the maintainer's.**
 
   ## THE EVIDENCE, PASTED
 

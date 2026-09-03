@@ -102,3 +102,11 @@ before PyInstaller, and `compare_selfcheck.py` refuses a checkout that has not b
 next run must list, from the artifact itself**: both files in the archive listing, both findings
 `ok` with byte counts, and the comparison matched.
 
+**Listed, 2026-09-03, from dry run `33733154061` on `9ab3f93` (`workflow_dispatch`, `dry_run:
+true`, publish skipped)**: `static/dist/main.js` 190,777 bytes and `static/dist/main.css` 16,299
+bytes in `truestill-0.0.0-dev.33733154061-Linux.tar.gz`, in the `.deb`, and in the Windows zip;
+both artifacts' self-checks and both installed copies' self-checks `complete: true` with the two
+bundle findings `ok`; `compare_selfcheck.py` matched on both platforms. The same run's first
+attempt failed on Windows at *Install, verify, uninstall* with `the installer exited ` - an empty
+code - and `9ab3f93` is the fix. **A real tag has not run since; the next one owes nothing new here.**
+

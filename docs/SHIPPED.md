@@ -22,6 +22,21 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ajv) THE PUBLISHED v0.1.0 CARRIES NO REACT BUNDLE, SO ITS ORGANIZE RESULT REGION NEVER RENDERS.**
+  ✅ **CLOSED 2026-09-03 (P200)**, filed the same day from the artifact rather than the tree. The
+  root: the test and the release built different things - `make e2e` depends on `make frontend`
+  and `release.yml` built nothing, so the browser lane was green for nineteen days over a bundle
+  the release never had. `b478c22`: the release runs the same `npm run build` before PyInstaller
+  on both platforms, `selfcheck.py` reports both bundle files by size and digest, and
+  `compare_selfcheck.py` refuses an unbuilt checkout rather than expecting less; `9b25839`
+  `4d7fe6a`: the flag tests accept a Node-less checkout as honestly incomplete; `9ab3f93`: the
+  Windows installer, the installed copy and the uninstaller go through `Start-Process -Wait`,
+  because the dry run found pwsh reading an exit code from a GUI program it never waited for.
+  **Proved from the artifacts of dry run `33733154061`**: the bundle at 190,777 and 16,299 bytes in
+  the tarball, the `.deb` and the zip, both installed copies `complete: true`. What a v0.1.0 user
+  sees: an Organize screen that is usable and blind - no preview, no completion, no error card.
+  0.1.1 recommended; the tag is the maintainer's. Body: [`research/backlog/ajv.md`](research/backlog/ajv.md).
+
 - **(ahn) THE PAYLOAD CONTRACT STOPS AT THE PYTHON BOUNDARY, AND REACT IS BEING BUILT AGAINST NOTHING.**
   ✅ **CLOSED 2026-09-03 (P199)** over five stages, each proving the next safe: **A** `bc484fc` the
   join exact and every job route's refusal arm named; **B** `7d4a0b5` the four SSE frames typed;
