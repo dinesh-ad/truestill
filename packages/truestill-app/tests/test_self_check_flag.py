@@ -62,7 +62,8 @@ def test_the_check_prints_a_report_and_never_starts_a_server(
     assert code == _exit_this_install_earns()
     assert "exiftool" in out
     assert "font DejaVuSansMono.ttf" in out, "the app's own surface is missing from its own check"
-    assert "This install looks complete." in out
+    complete = _exit_this_install_earns() == 0
+    assert ("This install looks complete." in out) is complete, out
     assert "Not checked" not in out, (
         "the app can see every surface, so it must not carry the CLI's caveat"
     )
@@ -84,7 +85,7 @@ def test_a_path_makes_it_write_json_instead_of_printing_the_report(
 
     assert code == _exit_this_install_earns()
     payload = json.loads(destination.read_text(encoding="utf-8"))
-    assert payload["complete"] is True
+    assert payload["complete"] is (_exit_this_install_earns() == 0)
     assert {f["name"] for f in payload["findings"]} >= {"exiftool", "trash", "font licence"}
     assert str(destination) in out, "nothing said where the report went"
     assert "This install looks complete." not in out, "the report was printed as well as written"
