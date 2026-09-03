@@ -1,0 +1,6512 @@
+{
+  "components": {
+    "schemas": {
+      "AppliedReviewGroupPayload": {
+        "properties": {
+          "end": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "event",
+              "trip"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "end",
+          "kind",
+          "name",
+          "path",
+          "start"
+        ],
+        "title": "AppliedReviewGroupPayload",
+        "type": "object"
+      },
+      "ArchivePrecheckPayload": {
+        "properties": {
+          "claimed_bytes": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "free_bytes": {
+            "type": "integer"
+          },
+          "media_entries": {
+            "type": "integer"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "parts": {
+            "type": "integer"
+          },
+          "refusals": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "claimed_bytes",
+          "detail",
+          "free_bytes",
+          "media_entries",
+          "ok",
+          "parts",
+          "refusals"
+        ],
+        "title": "ArchivePrecheckPayload",
+        "type": "object"
+      },
+      "ArmedStatePayload": {
+        "properties": {
+          "armed": {
+            "type": "boolean"
+          },
+          "file_count": {
+            "type": "integer"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "armed",
+          "file_count",
+          "ok",
+          "run_id"
+        ],
+        "title": "ArmedStatePayload",
+        "type": "object"
+      },
+      "AtRiskRow": {
+        "properties": {
+          "drive": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "drive",
+          "name"
+        ],
+        "title": "AtRiskRow",
+        "type": "object"
+      },
+      "BackupPreviewErr": {
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "ok": {
+            "const": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "error",
+          "ok"
+        ],
+        "title": "BackupPreviewErr",
+        "type": "object"
+      },
+      "BackupPreviewOk": {
+        "properties": {
+          "audio": {
+            "type": "integer"
+          },
+          "bytes": {
+            "type": "integer"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "enough": {
+            "type": "boolean"
+          },
+          "free": {
+            "type": "integer"
+          },
+          "from": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "photos": {
+            "type": "integer"
+          },
+          "to": {
+            "type": "string"
+          },
+          "unread_reason": {
+            "type": "string"
+          },
+          "unread_title": {
+            "type": "string"
+          },
+          "unreadable": {
+            "type": "integer"
+          },
+          "unreadable_dirs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "videos": {
+            "type": "integer"
+          },
+          "will_read": {
+            "type": "integer"
+          },
+          "will_register": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "audio",
+          "bytes",
+          "count",
+          "enough",
+          "free",
+          "from",
+          "ok",
+          "photos",
+          "to",
+          "unread_reason",
+          "unread_title",
+          "unreadable",
+          "unreadable_dirs",
+          "videos",
+          "will_read",
+          "will_register"
+        ],
+        "title": "BackupPreviewOk",
+        "type": "object"
+      },
+      "BackupRunSummary": {
+        "properties": {
+          "audio": {
+            "type": "integer"
+          },
+          "bytes_copied": {
+            "type": "integer"
+          },
+          "copied": {
+            "type": "integer"
+          },
+          "eject_note": {
+            "type": "string"
+          },
+          "elapsed_seconds": {
+            "type": "number"
+          },
+          "failed": {
+            "type": "integer"
+          },
+          "finished_clean": {
+            "type": "boolean"
+          },
+          "independence_note": {
+            "type": "string"
+          },
+          "photos": {
+            "type": "integer"
+          },
+          "target_path": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "videos": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "audio",
+          "bytes_copied",
+          "copied",
+          "eject_note",
+          "failed",
+          "finished_clean",
+          "independence_note",
+          "photos",
+          "target_path",
+          "to",
+          "verified",
+          "videos"
+        ],
+        "title": "BackupRunSummary",
+        "type": "object"
+      },
+      "BakeDriveLine": {
+        "properties": {
+          "connected": {
+            "type": "boolean"
+          },
+          "files": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "connected",
+          "files",
+          "label"
+        ],
+        "title": "BakeDriveLine",
+        "type": "object"
+      },
+      "BakePreview": {
+        "properties": {
+          "absent": {
+            "type": "integer"
+          },
+          "confirm_word": {
+            "type": "string"
+          },
+          "drive_label": {
+            "type": "string"
+          },
+          "elsewhere": {
+            "items": {
+              "$ref": "#/components/schemas/BakeDriveLine"
+            },
+            "type": "array"
+          },
+          "irreversible": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "videos_reason": {
+            "type": "string"
+          },
+          "videos_skipped": {
+            "type": "integer"
+          },
+          "will_write": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "absent",
+          "confirm_word",
+          "drive_label",
+          "elsewhere",
+          "irreversible",
+          "ok",
+          "videos_reason",
+          "videos_skipped",
+          "will_write"
+        ],
+        "title": "BakePreview",
+        "type": "object"
+      },
+      "BakeRefusal": {
+        "properties": {
+          "code": {
+            "enum": [
+              "MigrationUnfinished",
+              "NotConfirmed"
+            ]
+          },
+          "drive_label": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "ok": {
+            "const": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "drive_label",
+          "error",
+          "ok"
+        ],
+        "title": "BakeRefusal",
+        "type": "object"
+      },
+      "BakeSummary": {
+        "properties": {
+          "absent": {
+            "type": "integer"
+          },
+          "awaiting": {
+            "items": {
+              "$ref": "#/components/schemas/DriveAwaiting"
+            },
+            "type": "array"
+          },
+          "baked": {
+            "type": "integer"
+          },
+          "completeness": {
+            "type": "string"
+          },
+          "drive_label": {
+            "type": "string"
+          },
+          "elapsed_seconds": {
+            "type": "number"
+          },
+          "failed": {
+            "type": "integer"
+          },
+          "finished_clean": {
+            "type": "boolean"
+          },
+          "refused": {
+            "type": "string"
+          },
+          "videos_reason": {
+            "type": "string"
+          },
+          "videos_skipped": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "absent",
+          "awaiting",
+          "baked",
+          "completeness",
+          "drive_label",
+          "failed",
+          "finished_clean",
+          "videos_reason",
+          "videos_skipped"
+        ],
+        "title": "BakeSummary",
+        "type": "object"
+      },
+      "CaptureSpanPayload": {
+        "properties": {
+          "newest": {
+            "type": "string"
+          },
+          "oldest": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "newest",
+          "oldest"
+        ],
+        "title": "CaptureSpanPayload",
+        "type": "object"
+      },
+      "CatalogBusyPayload": {
+        "properties": {
+          "code": {
+            "enum": [
+              "CatalogBusy"
+            ]
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "error"
+        ],
+        "title": "CatalogBusyPayload",
+        "type": "object"
+      },
+      "CleanEmptyApply": {
+        "properties": {
+          "discarded": {
+            "type": "integer"
+          },
+          "failures": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "held_junk": {
+            "type": "boolean"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "path": {
+            "type": "string"
+          },
+          "record_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "removed": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "discarded",
+          "failures",
+          "held_junk",
+          "ok",
+          "path",
+          "record_error",
+          "removed"
+        ],
+        "title": "CleanEmptyApply",
+        "type": "object"
+      },
+      "CleanEmptyOccupied": {
+        "properties": {
+          "contents": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "readable": {
+            "type": "boolean"
+          },
+          "relative": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "contents",
+          "readable",
+          "relative"
+        ],
+        "title": "CleanEmptyOccupied",
+        "type": "object"
+      },
+      "CleanEmptyPreview": {
+        "properties": {
+          "backend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occupied": {
+            "items": {
+              "$ref": "#/components/schemas/CleanEmptyOccupied"
+            },
+            "type": "array"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "path": {
+            "type": "string"
+          },
+          "removable": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "backend",
+          "occupied",
+          "ok",
+          "path",
+          "removable"
+        ],
+        "title": "CleanEmptyPreview",
+        "type": "object"
+      },
+      "CollapsedEventSummaryPayload": {
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "end": {
+            "type": "string"
+          },
+          "max_photos": {
+            "type": "integer"
+          },
+          "min_photos": {
+            "type": "integer"
+          },
+          "start": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "end",
+          "max_photos",
+          "min_photos",
+          "start"
+        ],
+        "title": "CollapsedEventSummaryPayload",
+        "type": "object"
+      },
+      "CompletionBase": {
+        "properties": {
+          "audio": {
+            "type": "integer"
+          },
+          "bytes_near_dup": {
+            "type": "integer"
+          },
+          "bytes_organized": {
+            "type": "integer"
+          },
+          "bytes_saved": {
+            "type": "integer"
+          },
+          "duplicate_matches": {
+            "$ref": "#/components/schemas/DuplicateReport"
+          },
+          "duplicates": {
+            "type": "integer"
+          },
+          "failed": {
+            "type": "integer"
+          },
+          "failed_files": {
+            "$ref": "#/components/schemas/FailedReport"
+          },
+          "finished_clean": {
+            "type": "boolean"
+          },
+          "folders": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "metadata_files": {
+            "$ref": "#/components/schemas/FailedReport"
+          },
+          "moved_by_copy": {
+            "type": "integer"
+          },
+          "moved_in_place": {
+            "type": "integer"
+          },
+          "near_dup": {
+            "type": "integer"
+          },
+          "near_dup_matches": {
+            "$ref": "#/components/schemas/DuplicateReport"
+          },
+          "newest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "oldest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "organized": {
+            "type": "integer"
+          },
+          "organized_sample": {
+            "$ref": "#/components/schemas/OrganizedSample"
+          },
+          "outcomes": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "photos": {
+            "type": "integer"
+          },
+          "videos": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "audio",
+          "bytes_near_dup",
+          "bytes_organized",
+          "bytes_saved",
+          "duplicate_matches",
+          "duplicates",
+          "failed",
+          "failed_files",
+          "finished_clean",
+          "folders",
+          "metadata_files",
+          "moved_by_copy",
+          "moved_in_place",
+          "near_dup",
+          "near_dup_matches",
+          "newest",
+          "oldest",
+          "organized",
+          "organized_sample",
+          "outcomes",
+          "photos",
+          "videos"
+        ],
+        "title": "CompletionBase",
+        "type": "object"
+      },
+      "DateProvenance": {
+        "properties": {
+          "not_recorded": {
+            "type": "integer"
+          },
+          "recorded": {
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/DateProvenanceRow"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "not_recorded",
+          "recorded",
+          "rows",
+          "total"
+        ],
+        "title": "DateProvenance",
+        "type": "object"
+      },
+      "DateProvenanceRow": {
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "files": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "not_recorded": {
+            "type": "boolean"
+          },
+          "review": {
+            "type": "boolean"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "detail",
+          "evidence",
+          "files",
+          "label",
+          "not_recorded",
+          "review",
+          "source"
+        ],
+        "title": "DateProvenanceRow",
+        "type": "object"
+      },
+      "DateTierFile": {
+        "properties": {
+          "candidate": {
+            "type": "string"
+          },
+          "candidate_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "captured_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "relative": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate",
+          "candidate_date",
+          "captured_at",
+          "evidence",
+          "name",
+          "relative",
+          "sha256"
+        ],
+        "title": "DateTierFile",
+        "type": "object"
+      },
+      "DateTierPage": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/DateTierFile"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "files",
+          "total"
+        ],
+        "title": "DateTierPage",
+        "type": "object"
+      },
+      "DestinationLimit": {
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "filesystem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "oversized": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "detail",
+          "filesystem",
+          "oversized"
+        ],
+        "title": "DestinationLimit",
+        "type": "object"
+      },
+      "DoneFrame": {
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "summary": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ArchivePrecheckPayload"
+              },
+              {
+                "$ref": "#/components/schemas/BackupRunSummary"
+              },
+              {
+                "$ref": "#/components/schemas/BakeSummary"
+              },
+              {
+                "$ref": "#/components/schemas/CompletionBase"
+              },
+              {
+                "$ref": "#/components/schemas/IngestPreviewEmpty"
+              },
+              {
+                "$ref": "#/components/schemas/IngestPreviewSummary"
+              },
+              {
+                "$ref": "#/components/schemas/MigrationApplySummary"
+              },
+              {
+                "$ref": "#/components/schemas/MigrationPreviewOk"
+              },
+              {
+                "$ref": "#/components/schemas/OrganizeDoneSummary"
+              },
+              {
+                "$ref": "#/components/schemas/OrganizePreviewEmpty"
+              },
+              {
+                "$ref": "#/components/schemas/OrganizePreviewSummary"
+              },
+              {
+                "$ref": "#/components/schemas/OrganizeUndoJobSummary"
+              },
+              {
+                "$ref": "#/components/schemas/RenamePreviewPayload"
+              },
+              {
+                "$ref": "#/components/schemas/RenameRunPayload"
+              },
+              {
+                "$ref": "#/components/schemas/UndoJobSummary"
+              },
+              {
+                "$ref": "#/components/schemas/VerifyJobSummary"
+              }
+            ]
+          },
+          "type": {
+            "enum": [
+              "done"
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "summary",
+          "type"
+        ],
+        "title": "DoneFrame",
+        "type": "object"
+      },
+      "DriveAwaiting": {
+        "properties": {
+          "files": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "files",
+          "label"
+        ],
+        "title": "DriveAwaiting",
+        "type": "object"
+      },
+      "DriveBusyPayload": {
+        "properties": {
+          "code": {
+            "enum": [
+              "DriveBusy"
+            ]
+          },
+          "drive_label": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "ok": {
+            "const": false,
+            "type": "boolean"
+          },
+          "operation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "drive_label",
+          "error",
+          "job_id",
+          "ok",
+          "operation"
+        ],
+        "title": "DriveBusyPayload",
+        "type": "object"
+      },
+      "DriveDecisions": {
+        "properties": {
+          "awaiting_restore": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "refusal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "saved_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stale": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "awaiting_restore",
+          "problem",
+          "refusal",
+          "saved_at",
+          "stale"
+        ],
+        "title": "DriveDecisions",
+        "type": "object"
+      },
+      "DriveRow": {
+        "properties": {
+          "audio": {
+            "type": "integer"
+          },
+          "decisions": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DriveDecisions"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "files": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_verified": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "not_found": {
+            "type": "integer"
+          },
+          "not_found_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "photos": {
+            "type": "integer"
+          },
+          "reach": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "uuid": {
+            "type": "string"
+          },
+          "videos": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "audio",
+          "decisions",
+          "files",
+          "label",
+          "last_seen",
+          "last_verified",
+          "not_found",
+          "not_found_at",
+          "path",
+          "photos",
+          "reach",
+          "size",
+          "uuid",
+          "videos"
+        ],
+        "title": "DriveRow",
+        "type": "object"
+      },
+      "DriveUnavailablePayload": {
+        "properties": {
+          "can_register": {
+            "type": "boolean"
+          },
+          "drive_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "ok": {
+            "const": false,
+            "type": "boolean"
+          },
+          "suggested_root": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "can_register",
+          "drive_label",
+          "error",
+          "ok",
+          "suggested_root"
+        ],
+        "title": "DriveUnavailablePayload",
+        "type": "object"
+      },
+      "DrivesPayload": {
+        "properties": {
+          "at_risk": {
+            "items": {
+              "$ref": "#/components/schemas/AtRiskRow"
+            },
+            "type": "array"
+          },
+          "drives": {
+            "items": {
+              "$ref": "#/components/schemas/DriveRow"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "at_risk",
+          "drives"
+        ],
+        "title": "DrivesPayload",
+        "type": "object"
+      },
+      "DuplicateBytesPayload": {
+        "properties": {
+          "near": {
+            "type": "integer"
+          },
+          "reclaimable": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "near",
+          "reclaimable"
+        ],
+        "title": "DuplicateBytesPayload",
+        "type": "object"
+      },
+      "DuplicateReport": {
+        "properties": {
+          "already_in_library": {
+            "type": "integer"
+          },
+          "shown": {
+            "items": {
+              "$ref": "#/components/schemas/DuplicateSample"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "unclassified": {
+            "type": "integer"
+          },
+          "within_this_batch": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "already_in_library",
+          "shown",
+          "total",
+          "unclassified",
+          "within_this_batch"
+        ],
+        "title": "DuplicateReport",
+        "type": "object"
+      },
+      "DuplicateSample": {
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "distance": {
+            "type": "integer"
+          },
+          "kept": {
+            "type": "boolean"
+          },
+          "matched_path": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail",
+          "kept",
+          "matched_path",
+          "name",
+          "origin"
+        ],
+        "title": "DuplicateSample",
+        "type": "object"
+      },
+      "ErrorFrame": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "error"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "type"
+        ],
+        "title": "ErrorFrame",
+        "type": "object"
+      },
+      "EventSettingsPayload": {
+        "properties": {
+          "default_min_files": {
+            "type": "integer"
+          },
+          "is_default": {
+            "type": "boolean"
+          },
+          "min_files": {
+            "type": "integer"
+          },
+          "valid": {
+            "const": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "default_min_files",
+          "is_default",
+          "min_files",
+          "valid"
+        ],
+        "title": "EventSettingsPayload",
+        "type": "object"
+      },
+      "EverydayDaySettingsPayload": {
+        "properties": {
+          "default_threshold": {
+            "type": "integer"
+          },
+          "is_default": {
+            "type": "boolean"
+          },
+          "migrate_anchor": {
+            "type": "string"
+          },
+          "migrate_warning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "threshold": {
+            "type": "integer"
+          },
+          "valid": {
+            "const": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "default_threshold",
+          "is_default",
+          "migrate_anchor",
+          "migrate_warning",
+          "threshold",
+          "valid"
+        ],
+        "title": "EverydayDaySettingsPayload",
+        "type": "object"
+      },
+      "ExpiredSessionPayload": {
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "ok": {
+            "const": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "error",
+          "ok"
+        ],
+        "title": "ExpiredSessionPayload",
+        "type": "object"
+      },
+      "FailedReport": {
+        "properties": {
+          "shown": {
+            "items": {
+              "$ref": "#/components/schemas/FailureSample"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "shown",
+          "total"
+        ],
+        "title": "FailedReport",
+        "type": "object"
+      },
+      "FailureSample": {
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail",
+          "name"
+        ],
+        "title": "FailureSample",
+        "type": "object"
+      },
+      "FilesystemRelationshipErr": {
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "ok": {
+            "const": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "error",
+          "ok"
+        ],
+        "title": "FilesystemRelationshipErr",
+        "type": "object"
+      },
+      "FilesystemRelationshipOk": {
+        "properties": {
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "same_filesystem": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "same_filesystem"
+        ],
+        "title": "FilesystemRelationshipOk",
+        "type": "object"
+      },
+      "FsCreateFailed": {
+        "properties": {
+          "created": {
+            "const": false,
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "error_detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "created",
+          "error",
+          "error_detail"
+        ],
+        "title": "FsCreateFailed",
+        "type": "object"
+      },
+      "FsCreateOk": {
+        "properties": {
+          "created": {
+            "const": true,
+            "type": "boolean"
+          },
+          "exists": {
+            "type": "boolean"
+          },
+          "is_dir": {
+            "type": "boolean"
+          },
+          "is_drive": {
+            "type": "boolean"
+          },
+          "media": {
+            "type": "integer"
+          },
+          "media_capped": {
+            "type": "boolean"
+          },
+          "readable": {
+            "type": "boolean"
+          },
+          "unreadable": {
+            "type": "boolean"
+          },
+          "writable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "created",
+          "exists",
+          "is_dir",
+          "is_drive",
+          "media",
+          "media_capped",
+          "readable",
+          "unreadable",
+          "writable"
+        ],
+        "title": "FsCreateOk",
+        "type": "object"
+      },
+      "FsDirsErr": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/FsEntry"
+            },
+            "type": "array"
+          },
+          "error": {
+            "type": "string"
+          },
+          "roots": {
+            "items": {
+              "$ref": "#/components/schemas/FsRoot"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "entries",
+          "error",
+          "roots"
+        ],
+        "title": "FsDirsErr",
+        "type": "object"
+      },
+      "FsDirsOk": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/FsEntry"
+            },
+            "type": "array"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "roots": {
+            "items": {
+              "$ref": "#/components/schemas/FsRoot"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "entries",
+          "parent",
+          "path",
+          "roots"
+        ],
+        "title": "FsDirsOk",
+        "type": "object"
+      },
+      "FsEntry": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "path"
+        ],
+        "title": "FsEntry",
+        "type": "object"
+      },
+      "FsRoot": {
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "path"
+        ],
+        "title": "FsRoot",
+        "type": "object"
+      },
+      "FsValidateResolved": {
+        "properties": {
+          "exists": {
+            "type": "boolean"
+          },
+          "is_dir": {
+            "type": "boolean"
+          },
+          "is_drive": {
+            "type": "boolean"
+          },
+          "media": {
+            "type": "integer"
+          },
+          "media_capped": {
+            "type": "boolean"
+          },
+          "readable": {
+            "type": "boolean"
+          },
+          "unreadable": {
+            "type": "boolean"
+          },
+          "writable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "exists",
+          "is_dir",
+          "is_drive",
+          "media",
+          "media_capped",
+          "readable",
+          "unreadable",
+          "writable"
+        ],
+        "title": "FsValidateResolved",
+        "type": "object"
+      },
+      "FsValidateUnresolved": {
+        "properties": {
+          "exists": {
+            "type": "boolean"
+          },
+          "is_dir": {
+            "type": "boolean"
+          },
+          "media": {
+            "type": "integer"
+          },
+          "readable": {
+            "type": "boolean"
+          },
+          "unreadable": {
+            "type": "boolean"
+          },
+          "writable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "exists",
+          "is_dir",
+          "media",
+          "readable",
+          "unreadable",
+          "writable"
+        ],
+        "title": "FsValidateUnresolved",
+        "type": "object"
+      },
+      "InferredLocalShiftPayload": {
+        "properties": {
+          "after": {
+            "type": "string"
+          },
+          "before": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "line": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "offset": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "after",
+          "before",
+          "evidence",
+          "line",
+          "name",
+          "offset"
+        ],
+        "title": "InferredLocalShiftPayload",
+        "type": "object"
+      },
+      "IngestPreviewEmpty": {
+        "properties": {
+          "files": {
+            "type": "integer"
+          },
+          "missing_sidecar": {
+            "type": "integer"
+          },
+          "record_error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "files",
+          "missing_sidecar"
+        ],
+        "title": "IngestPreviewEmpty",
+        "type": "object"
+      },
+      "IngestPreviewSummary": {
+        "properties": {
+          "dates_exif": {
+            "type": "integer"
+          },
+          "dates_photo_taken": {
+            "type": "integer"
+          },
+          "dates_upload_approx": {
+            "type": "integer"
+          },
+          "dup_collapsed": {
+            "type": "integer"
+          },
+          "elapsed_seconds": {
+            "type": "number"
+          },
+          "files": {
+            "type": "integer"
+          },
+          "future_rejected": {
+            "type": "integer"
+          },
+          "inferred_local_shifts": {
+            "items": {
+              "$ref": "#/components/schemas/InferredLocalShiftPayload"
+            },
+            "type": "array"
+          },
+          "kept": {
+            "type": "integer"
+          },
+          "missing_sidecar": {
+            "type": "integer"
+          },
+          "reclaimed_mb": {
+            "type": "number"
+          },
+          "record_error": {
+            "type": "string"
+          },
+          "sentinel_rejected": {
+            "type": "integer"
+          },
+          "suspect_default": {
+            "type": "integer"
+          },
+          "undated": {
+            "type": "integer"
+          },
+          "unreadable": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dates_exif",
+          "dates_photo_taken",
+          "dates_upload_approx",
+          "dup_collapsed",
+          "files",
+          "future_rejected",
+          "inferred_local_shifts",
+          "kept",
+          "missing_sidecar",
+          "reclaimed_mb",
+          "sentinel_rejected",
+          "suspect_default",
+          "undated",
+          "unreadable"
+        ],
+        "title": "IngestPreviewSummary",
+        "type": "object"
+      },
+      "InvalidEventProposalPayload": {
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "ok": {
+            "const": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "error",
+          "ok"
+        ],
+        "title": "InvalidEventProposalPayload",
+        "type": "object"
+      },
+      "InvalidEventSettingsPayload": {
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "valid": {
+            "const": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "error",
+          "valid"
+        ],
+        "title": "InvalidEventSettingsPayload",
+        "type": "object"
+      },
+      "InvalidEverydayDaySettingsPayload": {
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "valid": {
+            "const": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "error",
+          "valid"
+        ],
+        "title": "InvalidEverydayDaySettingsPayload",
+        "type": "object"
+      },
+      "JobStarted": {
+        "properties": {
+          "job_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "JobStarted",
+        "type": "object"
+      },
+      "LargestFilesPayload": {
+        "properties": {
+          "shown": {
+            "items": {
+              "$ref": "#/components/schemas/SizedFilePayload"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "shown",
+          "total"
+        ],
+        "title": "LargestFilesPayload",
+        "type": "object"
+      },
+      "LayoutPreviewRow": {
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "when": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "description",
+          "path",
+          "warnings",
+          "when"
+        ],
+        "title": "LayoutPreviewRow",
+        "type": "object"
+      },
+      "LayoutState": {
+        "properties": {
+          "default_preset": {
+            "type": "string"
+          },
+          "is_default": {
+            "type": "boolean"
+          },
+          "preset_titles": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "presets": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "preview": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutPreviewRow"
+            },
+            "type": "array"
+          },
+          "template": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "default_preset",
+          "is_default",
+          "preset_titles",
+          "presets",
+          "preview",
+          "template"
+        ],
+        "title": "LayoutState",
+        "type": "object"
+      },
+      "LeftInSource": {
+        "properties": {
+          "already_in_library": {
+            "type": "integer"
+          },
+          "folders": {
+            "items": {
+              "$ref": "#/components/schemas/LeftInSourceFolder"
+            },
+            "type": "array"
+          },
+          "folders_total": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "unclassified": {
+            "type": "integer"
+          },
+          "within_this_batch": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "already_in_library",
+          "folders",
+          "folders_total",
+          "total",
+          "unclassified",
+          "within_this_batch"
+        ],
+        "title": "LeftInSource",
+        "type": "object"
+      },
+      "LeftInSourceFolder": {
+        "properties": {
+          "files": {
+            "type": "integer"
+          },
+          "folder": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "files",
+          "folder"
+        ],
+        "title": "LeftInSourceFolder",
+        "type": "object"
+      },
+      "LeftoverEmptyFolders": {
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "emptied": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "folders": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "source_root": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "emptied",
+          "folders",
+          "source_root"
+        ],
+        "title": "LeftoverEmptyFolders",
+        "type": "object"
+      },
+      "LibraryStats": {
+        "properties": {
+          "completeness": {
+            "$ref": "#/components/schemas/LibraryStatsCompleteness"
+          },
+          "dates": {
+            "$ref": "#/components/schemas/DateProvenance"
+          },
+          "safety": {
+            "$ref": "#/components/schemas/LibraryStatsSafety"
+          },
+          "shape": {
+            "$ref": "#/components/schemas/LibraryStatsShape"
+          }
+        },
+        "required": [
+          "completeness",
+          "dates",
+          "safety",
+          "shape"
+        ],
+        "title": "LibraryStats",
+        "type": "object"
+      },
+      "LibraryStatsCompleteness": {
+        "properties": {
+          "exact_duplicates_found": {
+            "type": "null"
+          },
+          "exact_duplicates_omission_reason": {
+            "type": "string"
+          },
+          "near_duplicates_flagged": {
+            "type": "integer"
+          },
+          "side_bin_files": {
+            "type": "integer"
+          },
+          "timeline_files": {
+            "type": "integer"
+          },
+          "undated_files": {
+            "type": "integer"
+          },
+          "undated_samples": {
+            "items": {
+              "$ref": "#/components/schemas/LibraryStatsUndatedSample"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "exact_duplicates_found",
+          "exact_duplicates_omission_reason",
+          "near_duplicates_flagged",
+          "side_bin_files",
+          "timeline_files",
+          "undated_files",
+          "undated_samples"
+        ],
+        "title": "LibraryStatsCompleteness",
+        "type": "object"
+      },
+      "LibraryStatsDrive": {
+        "properties": {
+          "files": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "last_verified": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "size": {
+            "type": "integer"
+          },
+          "was_checked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "files",
+          "label",
+          "last_verified",
+          "size",
+          "was_checked"
+        ],
+        "title": "LibraryStatsDrive",
+        "type": "object"
+      },
+      "LibraryStatsSafety": {
+        "properties": {
+          "audio": {
+            "type": "integer"
+          },
+          "drives": {
+            "items": {
+              "$ref": "#/components/schemas/LibraryStatsDrive"
+            },
+            "type": "array"
+          },
+          "files_on_one_drive": {
+            "type": "integer"
+          },
+          "files_on_two_plus_drives": {
+            "type": "integer"
+          },
+          "files_on_zero_drives": {
+            "type": "integer"
+          },
+          "independence": {
+            "type": "string"
+          },
+          "never_verified_files": {
+            "type": "integer"
+          },
+          "photos": {
+            "type": "integer"
+          },
+          "total_files": {
+            "type": "integer"
+          },
+          "total_size": {
+            "type": "integer"
+          },
+          "videos": {
+            "type": "integer"
+          },
+          "zero_drive_samples": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "audio",
+          "drives",
+          "files_on_one_drive",
+          "files_on_two_plus_drives",
+          "files_on_zero_drives",
+          "independence",
+          "never_verified_files",
+          "photos",
+          "total_files",
+          "total_size",
+          "videos",
+          "zero_drive_samples"
+        ],
+        "title": "LibraryStatsSafety",
+        "type": "object"
+      },
+      "LibraryStatsShape": {
+        "properties": {
+          "by_format": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "by_year": {
+            "items": {
+              "$ref": "#/components/schemas/LibraryStatsYear"
+            },
+            "type": "array"
+          },
+          "newest_capture": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "oldest_capture": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "by_format",
+          "by_year",
+          "newest_capture",
+          "oldest_capture"
+        ],
+        "title": "LibraryStatsShape",
+        "type": "object"
+      },
+      "LibraryStatsUndatedSample": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "relative": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "source_path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "relative",
+          "sha256",
+          "source_path"
+        ],
+        "title": "LibraryStatsUndatedSample",
+        "type": "object"
+      },
+      "LibraryStatsYear": {
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "year": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "year"
+        ],
+        "title": "LibraryStatsYear",
+        "type": "object"
+      },
+      "LibraryStatus": {
+        "properties": {
+          "audio": {
+            "type": "integer"
+          },
+          "backup_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "by_format": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "bytes": {
+            "type": "integer"
+          },
+          "catalog_detail": {
+            "type": "string"
+          },
+          "catalog_path": {
+            "type": "string"
+          },
+          "catalog_presence": {
+            "type": "string"
+          },
+          "catalog_tone": {
+            "enum": [
+              "alert",
+              "info",
+              "notice"
+            ]
+          },
+          "custody_dated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "custody_dated_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "custody_tier": {
+            "type": "string"
+          },
+          "files": {
+            "type": "integer"
+          },
+          "files_no_copy": {
+            "type": "integer"
+          },
+          "files_on_a_drive": {
+            "type": "integer"
+          },
+          "files_one_copy": {
+            "type": "integer"
+          },
+          "held_floor": {
+            "type": "integer"
+          },
+          "independence": {
+            "type": "string"
+          },
+          "independence_note": {
+            "type": "string"
+          },
+          "library_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "library_root": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "needs_library_root": {
+            "type": "boolean"
+          },
+          "never_checked_drives": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "photos": {
+            "type": "integer"
+          },
+          "places": {
+            "type": "integer"
+          },
+          "redundancy_floor": {
+            "type": "integer"
+          },
+          "single_copy": {
+            "type": "integer"
+          },
+          "videos": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "audio",
+          "backup_path",
+          "by_format",
+          "bytes",
+          "catalog_detail",
+          "catalog_path",
+          "catalog_presence",
+          "catalog_tone",
+          "custody_dated_at",
+          "custody_dated_days",
+          "custody_tier",
+          "files",
+          "files_no_copy",
+          "files_on_a_drive",
+          "files_one_copy",
+          "held_floor",
+          "independence",
+          "independence_note",
+          "library_path",
+          "library_root",
+          "needs_library_root",
+          "never_checked_drives",
+          "photos",
+          "places",
+          "redundancy_floor",
+          "single_copy",
+          "videos"
+        ],
+        "title": "LibraryStatus",
+        "type": "object"
+      },
+      "MatchedDrivePayload": {
+        "properties": {
+          "files": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reach": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "files",
+          "label",
+          "path",
+          "reach"
+        ],
+        "title": "MatchedDrivePayload",
+        "type": "object"
+      },
+      "MatchedDrivesPayload": {
+        "properties": {
+          "drives": {
+            "items": {
+              "$ref": "#/components/schemas/MatchedDrivePayload"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "unplaced": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "drives",
+          "total",
+          "unplaced"
+        ],
+        "title": "MatchedDrivesPayload",
+        "type": "object"
+      },
+      "MergeReviewCardsError": {
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "MergeReviewCardsError",
+        "type": "object"
+      },
+      "MigrationApplySummary": {
+        "properties": {
+          "elapsed_seconds": {
+            "type": "number"
+          },
+          "finished_clean": {
+            "type": "boolean"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/AppliedReviewGroupPayload"
+            },
+            "type": "array"
+          },
+          "label": {
+            "type": "string"
+          },
+          "leftover_empty_folders": {
+            "$ref": "#/components/schemas/LeftoverEmptyFolders"
+          },
+          "migrated": {
+            "type": "integer"
+          },
+          "refused": {
+            "items": {
+              "$ref": "#/components/schemas/MigrationRefusalPayload"
+            },
+            "type": "array"
+          },
+          "resumed": {
+            "type": "integer"
+          },
+          "stopped": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MigrationStopPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "finished_clean",
+          "label",
+          "migrated",
+          "refused",
+          "resumed",
+          "stopped"
+        ],
+        "title": "MigrationApplySummary",
+        "type": "object"
+      },
+      "MigrationMove": {
+        "properties": {
+          "new": {
+            "type": "string"
+          },
+          "old": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "new",
+          "old"
+        ],
+        "title": "MigrationMove",
+        "type": "object"
+      },
+      "MigrationPreviewOk": {
+        "properties": {
+          "day_folder_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "elapsed_seconds": {
+            "type": "number"
+          },
+          "label": {
+            "type": "string"
+          },
+          "moves": {
+            "items": {
+              "$ref": "#/components/schemas/MigrationMove"
+            },
+            "type": "array"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "pending_drives": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "template": {
+            "type": "string"
+          },
+          "unchanged": {
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "day_folder_reasons",
+          "label",
+          "moves",
+          "ok",
+          "pending_drives",
+          "template",
+          "unchanged",
+          "warnings"
+        ],
+        "title": "MigrationPreviewOk",
+        "type": "object"
+      },
+      "MigrationRefusalPayload": {
+        "properties": {
+          "reason": {
+            "type": "string"
+          },
+          "relative": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "relative"
+        ],
+        "title": "MigrationRefusalPayload",
+        "type": "object"
+      },
+      "MigrationStopPayload": {
+        "properties": {
+          "fault": {
+            "type": "boolean"
+          },
+          "headline": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "never_attempted": {
+            "type": "integer"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fault",
+          "headline",
+          "kind",
+          "never_attempted",
+          "reason"
+        ],
+        "title": "MigrationStopPayload",
+        "type": "object"
+      },
+      "ModeMechanism": {
+        "properties": {
+          "requires_destination": {
+            "type": "boolean"
+          },
+          "reversible": {
+            "type": "boolean"
+          },
+          "same_filesystem": {
+            "type": "boolean"
+          },
+          "uses_rename": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "requires_destination",
+          "reversible",
+          "same_filesystem",
+          "uses_rename"
+        ],
+        "title": "ModeMechanism",
+        "type": "object"
+      },
+      "NamedEventsApplied": {
+        "properties": {
+          "events": {
+            "type": "integer"
+          },
+          "trips": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "events",
+          "trips"
+        ],
+        "title": "NamedEventsApplied",
+        "type": "object"
+      },
+      "NextStep": {
+        "properties": {
+          "action": {
+            "enum": [
+              "bake",
+              "migrate"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "detail",
+          "done",
+          "label"
+        ],
+        "title": "NextStep",
+        "type": "object"
+      },
+      "OrganizeDoneSummary": {
+        "properties": {
+          "audio": {
+            "type": "integer"
+          },
+          "bytes_near_dup": {
+            "type": "integer"
+          },
+          "bytes_organized": {
+            "type": "integer"
+          },
+          "bytes_saved": {
+            "type": "integer"
+          },
+          "drive_label": {
+            "type": "string"
+          },
+          "duplicate_matches": {
+            "$ref": "#/components/schemas/DuplicateReport"
+          },
+          "duplicates": {
+            "type": "integer"
+          },
+          "elapsed_seconds": {
+            "type": "number"
+          },
+          "failed": {
+            "type": "integer"
+          },
+          "failed_files": {
+            "$ref": "#/components/schemas/FailedReport"
+          },
+          "finished_clean": {
+            "type": "boolean"
+          },
+          "folders": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "left_in_source": {
+            "$ref": "#/components/schemas/LeftInSource"
+          },
+          "leftover_empty_folders": {
+            "$ref": "#/components/schemas/LeftoverEmptyFolders"
+          },
+          "mechanism": {
+            "$ref": "#/components/schemas/ModeMechanism"
+          },
+          "metadata_files": {
+            "$ref": "#/components/schemas/FailedReport"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "moved_by_copy": {
+            "type": "integer"
+          },
+          "moved_in_place": {
+            "type": "integer"
+          },
+          "near_dup": {
+            "type": "integer"
+          },
+          "near_dup_matches": {
+            "$ref": "#/components/schemas/DuplicateReport"
+          },
+          "newest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "oldest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "organized": {
+            "type": "integer"
+          },
+          "organized_sample": {
+            "$ref": "#/components/schemas/OrganizedSample"
+          },
+          "outcomes": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "photos": {
+            "type": "integer"
+          },
+          "record_error": {
+            "type": "string"
+          },
+          "single_copy": {
+            "type": "integer"
+          },
+          "videos": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "audio",
+          "bytes_near_dup",
+          "bytes_organized",
+          "bytes_saved",
+          "drive_label",
+          "duplicate_matches",
+          "duplicates",
+          "failed",
+          "failed_files",
+          "finished_clean",
+          "folders",
+          "mechanism",
+          "metadata_files",
+          "mode",
+          "moved_by_copy",
+          "moved_in_place",
+          "near_dup",
+          "near_dup_matches",
+          "newest",
+          "oldest",
+          "organized",
+          "organized_sample",
+          "outcomes",
+          "photos",
+          "single_copy",
+          "videos"
+        ],
+        "title": "OrganizeDoneSummary",
+        "type": "object"
+      },
+      "OrganizeInventory": {
+        "properties": {
+          "audio": {
+            "type": "integer"
+          },
+          "by_format": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "files": {
+            "type": "integer"
+          },
+          "photos": {
+            "type": "integer"
+          },
+          "skipped": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "skipped_folders": {
+            "items": {
+              "$ref": "#/components/schemas/SkippedFolders"
+            },
+            "type": "array"
+          },
+          "tier": {
+            "enum": [
+              "inventory"
+            ]
+          },
+          "total_bytes": {
+            "type": "integer"
+          },
+          "videos": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "audio",
+          "by_format",
+          "files",
+          "photos",
+          "skipped",
+          "skipped_folders",
+          "tier",
+          "total_bytes",
+          "videos"
+        ],
+        "title": "OrganizeInventory",
+        "type": "object"
+      },
+      "OrganizeModeState": {
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "modes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "mode",
+          "modes"
+        ],
+        "title": "OrganizeModeState",
+        "type": "object"
+      },
+      "OrganizePreviewEmpty": {
+        "properties": {
+          "files": {
+            "type": "integer"
+          },
+          "folders": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "mechanism": {
+            "$ref": "#/components/schemas/ModeMechanism"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "skipped": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "skipped_folders": {
+            "items": {
+              "$ref": "#/components/schemas/SkippedFolders"
+            },
+            "type": "array"
+          },
+          "suppressed_diagnostics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SuppressedDiagnostics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tier": {
+            "enum": [
+              "dedup"
+            ]
+          },
+          "uncompared": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Uncompared"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "files",
+          "folders",
+          "mechanism",
+          "mode",
+          "skipped",
+          "skipped_folders",
+          "suppressed_diagnostics",
+          "tier",
+          "uncompared"
+        ],
+        "title": "OrganizePreviewEmpty",
+        "type": "object"
+      },
+      "OrganizePreviewSummary": {
+        "properties": {
+          "audio": {
+            "type": "integer"
+          },
+          "by_format": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "capture_span": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CaptureSpanPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "destination_is_drive": {
+            "type": "boolean"
+          },
+          "destination_limit": {
+            "$ref": "#/components/schemas/DestinationLimit"
+          },
+          "duplicate_bytes": {
+            "$ref": "#/components/schemas/DuplicateBytesPayload"
+          },
+          "elapsed_seconds": {
+            "type": "number"
+          },
+          "exact_dup": {
+            "type": "integer"
+          },
+          "exact_dup_matches": {
+            "$ref": "#/components/schemas/DuplicateReport"
+          },
+          "files": {
+            "type": "integer"
+          },
+          "folders": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "future_rejected": {
+            "type": "integer"
+          },
+          "heic_perceptual_skipped": {
+            "type": "integer"
+          },
+          "inferred_local_shifts": {
+            "items": {
+              "$ref": "#/components/schemas/InferredLocalShiftPayload"
+            },
+            "type": "array"
+          },
+          "largest_files": {
+            "$ref": "#/components/schemas/LargestFilesPayload"
+          },
+          "matched_drives": {
+            "$ref": "#/components/schemas/MatchedDrivesPayload"
+          },
+          "mechanism": {
+            "$ref": "#/components/schemas/ModeMechanism"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "near_dup": {
+            "type": "integer"
+          },
+          "near_dup_matches": {
+            "$ref": "#/components/schemas/DuplicateReport"
+          },
+          "new_unique": {
+            "type": "integer"
+          },
+          "photos": {
+            "type": "integer"
+          },
+          "sentinel_rejected": {
+            "type": "integer"
+          },
+          "skipped": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "skipped_folders": {
+            "items": {
+              "$ref": "#/components/schemas/SkippedFolders"
+            },
+            "type": "array"
+          },
+          "suppressed_diagnostics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SuppressedDiagnostics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "suspect_default": {
+            "type": "integer"
+          },
+          "tier": {
+            "enum": [
+              "dedup"
+            ]
+          },
+          "uncompared": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Uncompared"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "undated": {
+            "type": "integer"
+          },
+          "unreadable_files": {
+            "$ref": "#/components/schemas/UnreadableReport"
+          },
+          "videos": {
+            "type": "integer"
+          },
+          "will_organize": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "audio",
+          "by_format",
+          "capture_span",
+          "destination_is_drive",
+          "duplicate_bytes",
+          "exact_dup",
+          "exact_dup_matches",
+          "files",
+          "folders",
+          "future_rejected",
+          "inferred_local_shifts",
+          "largest_files",
+          "matched_drives",
+          "mechanism",
+          "mode",
+          "near_dup",
+          "near_dup_matches",
+          "new_unique",
+          "photos",
+          "sentinel_rejected",
+          "skipped",
+          "skipped_folders",
+          "suppressed_diagnostics",
+          "suspect_default",
+          "tier",
+          "uncompared",
+          "undated",
+          "unreadable_files",
+          "videos",
+          "will_organize"
+        ],
+        "title": "OrganizePreviewSummary",
+        "type": "object"
+      },
+      "OrganizeUndoJobSummary": {
+        "properties": {
+          "applied": {
+            "type": "boolean"
+          },
+          "dest_root": {
+            "type": "string"
+          },
+          "elapsed_seconds": {
+            "type": "number"
+          },
+          "finished_clean": {
+            "type": "boolean"
+          },
+          "record_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "restorable": {
+            "type": "integer"
+          },
+          "restored": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/OrganizeUndoSkipped"
+            },
+            "type": "array"
+          },
+          "source_root": {
+            "type": "string"
+          },
+          "still_armed": {
+            "type": "boolean"
+          },
+          "stopped": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OrganizeUndoStopped"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "applied",
+          "dest_root",
+          "finished_clean",
+          "record_error",
+          "restorable",
+          "restored",
+          "run_id",
+          "skipped",
+          "source_root",
+          "still_armed",
+          "stopped"
+        ],
+        "title": "OrganizeUndoJobSummary",
+        "type": "object"
+      },
+      "OrganizeUndoSkipped": {
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "relative": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail",
+          "reason",
+          "relative"
+        ],
+        "title": "OrganizeUndoSkipped",
+        "type": "object"
+      },
+      "OrganizeUndoStateArmed": {
+        "properties": {
+          "armed": {
+            "const": true,
+            "type": "boolean"
+          },
+          "dest_root": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "restorable": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/OrganizeUndoSkipped"
+            },
+            "type": "array"
+          },
+          "source_root": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "armed",
+          "dest_root",
+          "ok",
+          "restorable",
+          "run_id",
+          "skipped",
+          "source_root",
+          "status"
+        ],
+        "title": "OrganizeUndoStateArmed",
+        "type": "object"
+      },
+      "OrganizeUndoStateDisarmed": {
+        "properties": {
+          "armed": {
+            "const": false,
+            "type": "boolean"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "restorable": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "null"
+          }
+        },
+        "required": [
+          "armed",
+          "ok",
+          "restorable",
+          "run_id"
+        ],
+        "title": "OrganizeUndoStateDisarmed",
+        "type": "object"
+      },
+      "OrganizeUndoStopped": {
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "never_attempted": {
+            "type": "integer"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "never_attempted",
+          "reason"
+        ],
+        "title": "OrganizeUndoStopped",
+        "type": "object"
+      },
+      "OrganizedSample": {
+        "properties": {
+          "shown": {
+            "items": {
+              "$ref": "#/components/schemas/OrganizedTile"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "shown",
+          "total"
+        ],
+        "title": "OrganizedSample",
+        "type": "object"
+      },
+      "OrganizedTile": {
+        "properties": {
+          "h": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "w": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "sha256"
+        ],
+        "title": "OrganizedTile",
+        "type": "object"
+      },
+      "PreviewLayoutErr": {
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "valid": {
+            "const": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "error",
+          "valid"
+        ],
+        "title": "PreviewLayoutErr",
+        "type": "object"
+      },
+      "PreviewLayoutOk": {
+        "properties": {
+          "preview": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutPreviewRow"
+            },
+            "type": "array"
+          },
+          "valid": {
+            "const": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "preview",
+          "valid"
+        ],
+        "title": "PreviewLayoutOk",
+        "type": "object"
+      },
+      "ProgressFrame": {
+        "properties": {
+          "done": {
+            "type": "integer"
+          },
+          "item": {
+            "type": "string"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "tally": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "type": {
+            "enum": [
+              "progress"
+            ]
+          }
+        },
+        "required": [
+          "done",
+          "item",
+          "phase",
+          "tally",
+          "total",
+          "type"
+        ],
+        "title": "ProgressFrame",
+        "type": "object"
+      },
+      "ProposedReviewCardsPayload": {
+        "properties": {
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewCardPayload"
+            },
+            "type": "array"
+          },
+          "collapsed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CollapsedEventSummaryPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "declines": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "label": {
+            "type": "string"
+          },
+          "min_files": {
+            "type": "integer"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "session": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "cards",
+          "collapsed",
+          "declines",
+          "label",
+          "min_files",
+          "ok",
+          "session"
+        ],
+        "title": "ProposedReviewCardsPayload",
+        "type": "object"
+      },
+      "RenamePreviewPayload": {
+        "properties": {
+          "moves": {
+            "type": "integer"
+          },
+          "new_folder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "old_folder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "refusal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "moves",
+          "new_folder",
+          "old_folder",
+          "refusal"
+        ],
+        "title": "RenamePreviewPayload",
+        "type": "object"
+      },
+      "RenameRunPayload": {
+        "properties": {
+          "finished_clean": {
+            "type": "boolean"
+          },
+          "moved": {
+            "type": "integer"
+          },
+          "name_now": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "renamed": {
+            "type": "boolean"
+          },
+          "stopped": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MigrationStopPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "finished_clean",
+          "moved",
+          "name_now",
+          "renamed",
+          "stopped"
+        ],
+        "title": "RenameRunPayload",
+        "type": "object"
+      },
+      "RescueOk": {
+        "properties": {
+          "captured_at": {
+            "type": "string"
+          },
+          "next_steps": {
+            "items": {
+              "$ref": "#/components/schemas/NextStep"
+            },
+            "type": "array"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "states": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "time_assumed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "captured_at",
+          "next_steps",
+          "ok",
+          "states",
+          "time_assumed"
+        ],
+        "title": "RescueOk",
+        "type": "object"
+      },
+      "RescueRefusal": {
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "ok": {
+            "const": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "error",
+          "ok"
+        ],
+        "title": "RescueRefusal",
+        "type": "object"
+      },
+      "RevealErr": {
+        "properties": {
+          "can_register": {
+            "type": "boolean"
+          },
+          "drive_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "ok": {
+            "const": false,
+            "type": "boolean"
+          },
+          "suggested_root": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "error",
+          "ok"
+        ],
+        "title": "RevealErr",
+        "type": "object"
+      },
+      "RevealOk": {
+        "properties": {
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "path"
+        ],
+        "title": "RevealOk",
+        "type": "object"
+      },
+      "ReviewCardPayload": {
+        "properties": {
+          "active_days": {
+            "type": "integer"
+          },
+          "collapsed": {
+            "type": "boolean"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewDayPayload"
+            },
+            "type": "array"
+          },
+          "end": {
+            "type": "string"
+          },
+          "existing_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "existing_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "enum": [
+              "event",
+              "trip"
+            ]
+          },
+          "location": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start": {
+            "type": "string"
+          },
+          "suggested_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "active_days",
+          "collapsed",
+          "count",
+          "days",
+          "end",
+          "existing_id",
+          "existing_name",
+          "kind",
+          "location",
+          "start",
+          "suggested_name"
+        ],
+        "title": "ReviewCardPayload",
+        "type": "object"
+      },
+      "ReviewCardsPayload": {
+        "properties": {
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewCardPayload"
+            },
+            "type": "array"
+          },
+          "collapsed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CollapsedEventSummaryPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "session": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "cards",
+          "collapsed",
+          "session"
+        ],
+        "title": "ReviewCardsPayload",
+        "type": "object"
+      },
+      "ReviewDayPayload": {
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "date": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "date"
+        ],
+        "title": "ReviewDayPayload",
+        "type": "object"
+      },
+      "SetLayoutErr": {
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "valid": {
+            "const": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "error",
+          "valid"
+        ],
+        "title": "SetLayoutErr",
+        "type": "object"
+      },
+      "SetLayoutOk": {
+        "properties": {
+          "default_preset": {
+            "type": "string"
+          },
+          "is_default": {
+            "type": "boolean"
+          },
+          "preset_titles": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "presets": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "preview": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutPreviewRow"
+            },
+            "type": "array"
+          },
+          "template": {
+            "type": "string"
+          },
+          "valid": {
+            "const": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "default_preset",
+          "is_default",
+          "preset_titles",
+          "presets",
+          "preview",
+          "template",
+          "valid"
+        ],
+        "title": "SetLayoutOk",
+        "type": "object"
+      },
+      "SetLibraryRootErr": {
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "SetLibraryRootErr",
+        "type": "object"
+      },
+      "SetLibraryRootOk": {
+        "properties": {
+          "library_root": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "library_root"
+        ],
+        "title": "SetLibraryRootOk",
+        "type": "object"
+      },
+      "SetOrganizeModeResult": {
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "mode",
+          "ok"
+        ],
+        "title": "SetOrganizeModeResult",
+        "type": "object"
+      },
+      "SetSidebarCollapsedResult": {
+        "properties": {
+          "collapsed": {
+            "type": "boolean"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "collapsed",
+          "ok"
+        ],
+        "title": "SetSidebarCollapsedResult",
+        "type": "object"
+      },
+      "SetTextSizeResult": {
+        "properties": {
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "size": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "size"
+        ],
+        "title": "SetTextSizeResult",
+        "type": "object"
+      },
+      "SidebarState": {
+        "properties": {
+          "collapsed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "collapsed"
+        ],
+        "title": "SidebarState",
+        "type": "object"
+      },
+      "SizedFilePayload": {
+        "properties": {
+          "bytes": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "bytes",
+          "name"
+        ],
+        "title": "SizedFilePayload",
+        "type": "object"
+      },
+      "SkippedFolders": {
+        "properties": {
+          "folders": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "label": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "remedy": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "folders",
+          "label",
+          "reason",
+          "remedy",
+          "total"
+        ],
+        "title": "SkippedFolders",
+        "type": "object"
+      },
+      "SuppressedDiagnostics": {
+        "properties": {
+          "decoder_lines": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "warnings": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "decoder_lines",
+          "total",
+          "warnings"
+        ],
+        "title": "SuppressedDiagnostics",
+        "type": "object"
+      },
+      "TextSizeState": {
+        "properties": {
+          "size": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "size"
+        ],
+        "title": "TextSizeState",
+        "type": "object"
+      },
+      "Uncompared": {
+        "properties": {
+          "files": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "label": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "remedy": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "files",
+          "label",
+          "reason",
+          "remedy",
+          "total"
+        ],
+        "title": "Uncompared",
+        "type": "object"
+      },
+      "UndoJobSummary": {
+        "properties": {
+          "applied": {
+            "type": "boolean"
+          },
+          "elapsed_seconds": {
+            "type": "number"
+          },
+          "finished_clean": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string"
+          },
+          "refused": {
+            "items": {
+              "$ref": "#/components/schemas/UndoRefusalPayload"
+            },
+            "type": "array"
+          },
+          "reversed_files": {
+            "type": "integer"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stopped": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MigrationStopPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "applied",
+          "finished_clean",
+          "label",
+          "refused",
+          "reversed_files",
+          "run_id",
+          "stopped"
+        ],
+        "title": "UndoJobSummary",
+        "type": "object"
+      },
+      "UndoRefusalPayload": {
+        "properties": {
+          "reason": {
+            "type": "string"
+          },
+          "relative": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "relative"
+        ],
+        "title": "UndoRefusalPayload",
+        "type": "object"
+      },
+      "UnknownJobFrame": {
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "UnknownJobFrame",
+        "type": "object"
+      },
+      "UnreadableReport": {
+        "properties": {
+          "shown": {
+            "items": {
+              "$ref": "#/components/schemas/UnreadableSample"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "shown",
+          "total"
+        ],
+        "title": "UnreadableReport",
+        "type": "object"
+      },
+      "UnreadableSample": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "path",
+          "reason"
+        ],
+        "title": "UnreadableSample",
+        "type": "object"
+      },
+      "VerifyJobSummary": {
+        "properties": {
+          "elapsed_seconds": {
+            "type": "number"
+          },
+          "finished_clean": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string"
+          },
+          "mismatch": {
+            "type": "integer"
+          },
+          "missing": {
+            "type": "integer"
+          },
+          "moved": {
+            "type": "integer"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/VerifyProblem"
+            },
+            "type": "array"
+          },
+          "second_location": {
+            "type": "string"
+          },
+          "unreadable": {
+            "type": "integer"
+          },
+          "unverifiable": {
+            "type": "integer"
+          },
+          "verified": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "finished_clean",
+          "label",
+          "mismatch",
+          "missing",
+          "moved",
+          "problems",
+          "unreadable",
+          "unverifiable",
+          "verified"
+        ],
+        "title": "VerifyJobSummary",
+        "type": "object"
+      },
+      "VerifyProblem": {
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "relative": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "relative",
+          "status"
+        ],
+        "title": "VerifyProblem",
+        "type": "object"
+      },
+      "WhereCopy": {
+        "properties": {
+          "drive": {
+            "type": "string"
+          },
+          "last_verified": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "relative": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "drive",
+          "last_verified",
+          "name",
+          "relative"
+        ],
+        "title": "WhereCopy",
+        "type": "object"
+      },
+      "WhereResult": {
+        "properties": {
+          "copies": {
+            "items": {
+              "$ref": "#/components/schemas/WhereCopy"
+            },
+            "type": "array"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "pages": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "copies",
+          "page",
+          "page_size",
+          "pages",
+          "total"
+        ],
+        "title": "WhereResult",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Truestill app",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "home",
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "HTMLResponse (no JSON body)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/backup/preview": {
+      "post": {
+        "operationId": "backup_preview",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/BackupPreviewErr"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BackupPreviewOk"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "BackupPreviewErr | BackupPreviewOk"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/backup/run": {
+      "post": {
+        "operationId": "backup_run",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | JobStarted"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/clean-empty/apply": {
+      "post": {
+        "operationId": "clean_empty_apply",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/CleanEmptyApply"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "CleanEmptyApply | DriveBusyPayload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/clean-empty/preview": {
+      "post": {
+        "operationId": "clean_empty_preview",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleanEmptyPreview"
+                }
+              }
+            },
+            "description": "CleanEmptyPreview"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/dates/bake/preview": {
+      "post": {
+        "operationId": "dates_bake_preview",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/BakePreview"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BakeRefusal"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DriveUnavailablePayload"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "BakePreview | BakeRefusal | DriveUnavailablePayload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/dates/bake/run": {
+      "post": {
+        "operationId": "dates_bake_run",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/BakeRefusal"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DriveUnavailablePayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "BakeRefusal | DriveBusyPayload | DriveUnavailablePayload | JobStarted"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BakeRefusal"
+                }
+              }
+            },
+            "description": "BakeRefusal"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/dates/confirm": {
+      "post": {
+        "operationId": "dates_confirm",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/RescueOk"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RescueRefusal"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "RescueOk | RescueRefusal"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/dates/files": {
+      "get": {
+        "operationId": "dates_tier_files",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DateTierPage"
+                }
+              }
+            },
+            "description": "DateTierPage"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/drives": {
+      "get": {
+        "operationId": "drives",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrivesPayload"
+                }
+              }
+            },
+            "description": "DrivesPayload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/events/propose": {
+      "post": {
+        "operationId": "events_propose",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/InvalidEventProposalPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ProposedReviewCardsPayload"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "InvalidEventProposalPayload | ProposedReviewCardsPayload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/events/settings": {
+      "get": {
+        "operationId": "event_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/EventSettingsPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidEventSettingsPayload"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "EventSettingsPayload | InvalidEventSettingsPayload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      },
+      "post": {
+        "operationId": "event_settings_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/EventSettingsPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidEventSettingsPayload"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "EventSettingsPayload | InvalidEventSettingsPayload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/events/{session}/apply": {
+      "post": {
+        "operationId": "events_apply",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NamedEventsApplied"
+                }
+              }
+            },
+            "description": "NamedEventsApplied"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpiredSessionPayload"
+                }
+              }
+            },
+            "description": "ExpiredSessionPayload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/events/{session}/apply-to-disk": {
+      "post": {
+        "operationId": "events_apply_to_disk",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | JobStarted"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpiredSessionPayload"
+                }
+              }
+            },
+            "description": "ExpiredSessionPayload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/events/{session}/merge": {
+      "post": {
+        "operationId": "events_merge",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/MergeReviewCardsError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ReviewCardsPayload"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "MergeReviewCardsError | ReviewCardsPayload"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpiredSessionPayload"
+                }
+              }
+            },
+            "description": "ExpiredSessionPayload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/events/{session}/preview": {
+      "post": {
+        "operationId": "events_preview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DriveUnavailablePayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | DriveUnavailablePayload | JobStarted"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpiredSessionPayload"
+                }
+              }
+            },
+            "description": "ExpiredSessionPayload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/events/{session}/split": {
+      "post": {
+        "operationId": "events_split",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewCardsPayload"
+                }
+              }
+            },
+            "description": "ReviewCardsPayload"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpiredSessionPayload"
+                }
+              }
+            },
+            "description": "ExpiredSessionPayload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/fs/create": {
+      "post": {
+        "operationId": "fs_create",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/FsCreateFailed"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FsCreateOk"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "FsCreateFailed | FsCreateOk"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/fs/dirs": {
+      "get": {
+        "operationId": "fs_dirs",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/FsDirsErr"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FsDirsOk"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "FsDirsErr | FsDirsOk"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/fs/relationship": {
+      "get": {
+        "operationId": "fs_relationship",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/FilesystemRelationshipErr"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FilesystemRelationshipOk"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "FilesystemRelationshipErr | FilesystemRelationshipOk"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/fs/validate": {
+      "get": {
+        "operationId": "fs_validate",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/FsValidateResolved"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FsValidateUnresolved"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "FsValidateResolved | FsValidateUnresolved"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/ingest/archives/precheck": {
+      "post": {
+        "operationId": "ingest_archives_precheck",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchivePrecheckPayload"
+                }
+              }
+            },
+            "description": "ArchivePrecheckPayload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/ingest/archives/run": {
+      "post": {
+        "operationId": "ingest_archives_run",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | JobStarted"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/ingest/preview": {
+      "post": {
+        "operationId": "ingest_preview",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | JobStarted"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/jobs/{job_id}/cancel": {
+      "post": {
+        "operationId": "job_cancel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Response (no JSON body)"
+          },
+          "404": {
+            "description": "Response (no JSON body)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/jobs/{job_id}/events": {
+      "get": {
+        "operationId": "job_events",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DoneFrame"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ErrorFrame"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ProgressFrame"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UnknownJobFrame"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "one frame per event: DoneFrame | ErrorFrame | ProgressFrame | UnknownJobFrame"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/layout": {
+      "get": {
+        "operationId": "layout_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LayoutState"
+                }
+              }
+            },
+            "description": "LayoutState"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      },
+      "post": {
+        "operationId": "layout_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/SetLayoutErr"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SetLayoutOk"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "SetLayoutErr | SetLayoutOk"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/layout/everyday-day-threshold": {
+      "get": {
+        "operationId": "everyday_day_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/EverydayDaySettingsPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidEverydayDaySettingsPayload"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "EverydayDaySettingsPayload | InvalidEverydayDaySettingsPayload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      },
+      "post": {
+        "operationId": "everyday_day_settings_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/EverydayDaySettingsPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidEverydayDaySettingsPayload"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "EverydayDaySettingsPayload | InvalidEverydayDaySettingsPayload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/layout/preview": {
+      "post": {
+        "operationId": "layout_preview",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/PreviewLayoutErr"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PreviewLayoutOk"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "PreviewLayoutErr | PreviewLayoutOk"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/library/root": {
+      "post": {
+        "operationId": "library_root",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/SetLibraryRootErr"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SetLibraryRootOk"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "SetLibraryRootErr | SetLibraryRootOk"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/library/stats": {
+      "get": {
+        "operationId": "library_stats",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryStats"
+                }
+              }
+            },
+            "description": "LibraryStats"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/library/status": {
+      "get": {
+        "operationId": "library_status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryStatus"
+                }
+              }
+            },
+            "description": "LibraryStatus"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/migrate/preview": {
+      "post": {
+        "operationId": "migrate_preview",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DriveUnavailablePayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | DriveUnavailablePayload | JobStarted"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/migrate/run": {
+      "post": {
+        "operationId": "migrate_run",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | JobStarted"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/migrate/undo": {
+      "get": {
+        "operationId": "migrate_undo_armed",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ArmedStatePayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DriveUnavailablePayload"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "ArmedStatePayload | DriveUnavailablePayload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/migrate/undo/apply": {
+      "post": {
+        "operationId": "migrate_undo_apply",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DriveUnavailablePayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | DriveUnavailablePayload | JobStarted"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/migrate/undo/preview": {
+      "post": {
+        "operationId": "migrate_undo_preview",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DriveUnavailablePayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | DriveUnavailablePayload | JobStarted"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/organize/inventory": {
+      "post": {
+        "operationId": "organize_inventory",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeInventory"
+                }
+              }
+            },
+            "description": "OrganizeInventory"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/organize/preview": {
+      "post": {
+        "operationId": "organize_preview",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | JobStarted"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/organize/run": {
+      "post": {
+        "operationId": "organize_run",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | JobStarted"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/organize/settings": {
+      "get": {
+        "operationId": "organize_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeModeState"
+                }
+              }
+            },
+            "description": "OrganizeModeState"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      },
+      "post": {
+        "operationId": "organize_settings_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetOrganizeModeResult"
+                }
+              }
+            },
+            "description": "SetOrganizeModeResult"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/organize/undo": {
+      "get": {
+        "operationId": "organize_undo_state",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/OrganizeUndoStateArmed"
+                    },
+                    {
+                      "$ref": "#/components/schemas/OrganizeUndoStateDisarmed"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "OrganizeUndoStateArmed | OrganizeUndoStateDisarmed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/organize/undo/apply": {
+      "post": {
+        "operationId": "organize_undo_apply",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    },
+                    {
+                      "$ref": "#/components/schemas/OrganizeUndoStateArmed"
+                    },
+                    {
+                      "$ref": "#/components/schemas/OrganizeUndoStateDisarmed"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | JobStarted | OrganizeUndoStateArmed | OrganizeUndoStateDisarmed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/organize/undo/preview": {
+      "post": {
+        "operationId": "organize_undo_preview",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    },
+                    {
+                      "$ref": "#/components/schemas/OrganizeUndoStateArmed"
+                    },
+                    {
+                      "$ref": "#/components/schemas/OrganizeUndoStateDisarmed"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | JobStarted | OrganizeUndoStateArmed | OrganizeUndoStateDisarmed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/rename/preview": {
+      "post": {
+        "operationId": "rename_preview",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DriveUnavailablePayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | DriveUnavailablePayload | JobStarted"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/rename/run": {
+      "post": {
+        "operationId": "rename_run",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DriveUnavailablePayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | DriveUnavailablePayload | JobStarted"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/reveal": {
+      "post": {
+        "operationId": "reveal",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/RevealErr"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RevealOk"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "RevealErr | RevealOk"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/sidebar/settings": {
+      "get": {
+        "operationId": "sidebar_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SidebarState"
+                }
+              }
+            },
+            "description": "SidebarState"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      },
+      "post": {
+        "operationId": "sidebar_settings_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetSidebarCollapsedResult"
+                }
+              }
+            },
+            "description": "SetSidebarCollapsedResult"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/text-size/settings": {
+      "get": {
+        "operationId": "text_size_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextSizeState"
+                }
+              }
+            },
+            "description": "TextSizeState"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      },
+      "post": {
+        "operationId": "text_size_settings_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetTextSizeResult"
+                }
+              }
+            },
+            "description": "SetTextSizeResult"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/thumb/{sha256}": {
+      "get": {
+        "operationId": "thumb",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sha256",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Response (no JSON body)"
+          },
+          "400": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "PlainTextResponse (no JSON body)"
+          },
+          "404": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "PlainTextResponse (no JSON body)"
+          },
+          "415": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "PlainTextResponse (no JSON body)"
+          },
+          "422": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "PlainTextResponse (no JSON body)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/verify/run": {
+      "post": {
+        "operationId": "verify_run",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DriveUnavailablePayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | DriveUnavailablePayload | JobStarted"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/where": {
+      "get": {
+        "operationId": "where",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhereResult"
+                }
+              }
+            },
+            "description": "WhereResult"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    }
+  }
+}

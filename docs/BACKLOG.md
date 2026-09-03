@@ -747,7 +747,7 @@ and they are not product defects; keeping them in one drawer stops them competin
   25 exists in `c6845d1`'s message and in prose only. An entry claiming work that does not exist is
   the worst kind of stale; this line is the correction, not a tidy.
   ✅ **STAGE 4b's RESOLVER SHIPPED 2026-09-02 (P191) and STOPPED BEFORE THE ROWS, as instructed.**
-  `test_every_route_names_its_payload_type.py:_response_types` answers from what reaches a
+  `payload_contract.py:response_types` (moved from the resolver test in stage D) answers from what reaches a
   `JSONResponse` - the first argument of every reachable call, through `run_in_threadpool` and into
   `_start_drive_job`'s three arms. Re-derived over the tree: **52 routes, 29 multi-type** (17
   job-start routes sharing one envelope, 6 `GET`+`POST` pairs, 6 genuine unions), one expression

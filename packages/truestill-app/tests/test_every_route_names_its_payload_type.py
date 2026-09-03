@@ -43,8 +43,12 @@ followed to a depth bound. Linear in the source, well under a second.
 from __future__ import annotations
 
 import ast
-from collections import defaultdict
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+
+import payload_contract as pc
 
 ROOT = Path(__file__).resolve().parents[3]
 SERVER = ROOT / "packages/truestill-app/src/truestill_app/server.py"
@@ -82,25 +86,6 @@ MEASURED_ROUTES = 52  # 50 on 2026-08-25; re-measured 2026-09-02 (P191)
 MEASURED_RESOLVED = 49  # 47 on 2026-08-25
 
 
-def _module(path: Path) -> ast.Module:
-    return ast.parse(path.read_text(encoding="utf-8"))
-
-
-def _functions(tree: ast.Module) -> dict[str, ast.FunctionDef | ast.AsyncFunctionDef]:
-    return {
-        n.name: n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef)
-    }
-
-
-def _routes(tree: ast.Module) -> list[tuple[str, str]]:
-    """``(path, handler name)`` for every `Route(...)` the server declares."""
-    return [
-        (ast.unparse(n.args[0]).strip("'\""), ast.unparse(n.args[1]))
-        for n in ast.walk(tree)
-        if isinstance(n, ast.Call) and getattr(n.func, "id", "") == "Route" and len(n.args) > 1
-    ]
-
-
 def _service_names(
     fn: ast.FunctionDef | ast.AsyncFunctionDef,
     helpers: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
@@ -128,24 +113,14 @@ def _service_names(
     return found
 
 
-def _declared_return_types() -> dict[str, set[str]]:
-    """``service function name -> the return annotations it is declared with.``"""
-    annotations: dict[str, set[str]] = defaultdict(set)
-    for path in sorted(SERVICE.glob("*.py")):
-        for node in ast.walk(_module(path)):
-            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.returns:
-                annotations[node.name].add(ast.unparse(node.returns))
-    return annotations
-
-
 def _resolution() -> tuple[dict[str, set[str]], list[str]]:
     """``({route: payload types}, [routes that name none])``."""
-    tree = _module(SERVER)
-    helpers = _functions(tree)
-    typed = _declared_return_types()
+    tree = pc.module(SERVER)
+    helpers = pc.functions(tree)
+    typed = pc.declared_return_types()
     resolved: dict[str, set[str]] = {}
     bare: list[str] = []
-    for path, handler in _routes(tree):
+    for path, handler in pc.routes(tree):
         fn = helpers.get(handler)
         names = _service_names(fn, helpers) if fn is not None else set()
         types = {t for name in names for t in typed.get(name, set())}
@@ -163,7 +138,7 @@ def _literal_payloads() -> dict[str, int]:
     `_catalog_busy_refusal` and `expired_session`, and the biggest is `_start_drive_job`'s - a
     census of handlers alone would have found five of seven and looked complete.
     """
-    tree = _module(SERVER)
+    tree = pc.module(SERVER)
     spans = [
         (fn.lineno, fn.end_lineno or fn.lineno, fn.name)
         for fn in ast.walk(tree)
@@ -206,7 +181,7 @@ def _literal_frames(path: Path = JOBS) -> dict[str, int]:
     assigned to an UNannotated name (an annotated one is typed by its annotation), and a bytes
     literal carrying ``data:``, which is a frame written by hand.
     """
-    tree = _module(path)
+    tree = pc.module(path)
     spans = _spans(tree)
     found: dict[str, int] = {}
 
@@ -231,36 +206,6 @@ def _literal_frames(path: Path = JOBS) -> dict[str, int]:
         ):
             record(node, "hand-written bytes frame")
     return found
-
-
-def _typeddict_names() -> set[str]:
-    """Every TypedDict declared in the app, INCLUDING those that inherit another - the base test
-    `"TypedDict" in base` misses `OrganizeDoneSummary(CompletionBase)` and two more."""
-    classes: dict[str, list[str]] = {}
-    for path in [*sorted(SERVICE.glob("*.py")), JOBS]:
-        for node in ast.walk(_module(path)):
-            if isinstance(node, ast.ClassDef):
-                classes[node.name] = [ast.unparse(b) for b in node.bases]
-    names = {n for n, bases in classes.items() if any("TypedDict" in b for b in bases)}
-    while True:
-        more = {
-            n for n, bases in classes.items() if n not in names and any(b in names for b in bases)
-        }
-        if not more:
-            return names
-        names |= more
-
-
-def _job_summary_types() -> dict[str, list[str]]:
-    """``factory -> the members of its JobTarget[T]``: what `DoneFrame.summary` can be, derived
-    from the thirteen annotations rather than listed a second time. `(ahn)` stage B."""
-    out: dict[str, list[str]] = {}
-    for name, returns in _declared_return_types().items():
-        for text in returns:
-            for member in _union_members(text):
-                if member.startswith("JobTarget[") and member.endswith("]"):
-                    out[name] = _union_members(member[len("JobTarget[") : -1])
-    return out
 
 
 def test_every_route_names_a_payload_type() -> None:
@@ -323,7 +268,7 @@ def test_the_declarations_cannot_grow_and_the_derived_side_is_real() -> None:
     """
     resolved, bare = _resolution()
 
-    assert len(_routes(_module(SERVER))) >= MEASURED_ROUTES - 5
+    assert len(pc.routes(pc.module(SERVER))) >= MEASURED_ROUTES - 5
     assert len(resolved) >= MEASURED_RESOLVED - 5, f"only {len(resolved)} routes resolved"
     assert len(NOT_A_JSON_PAYLOAD) <= 3, "a fourth route that returns no payload needs a ruling"
     assert not UNTYPED_LITERAL, (
@@ -347,7 +292,7 @@ def test_the_resolver_ignores_how_the_service_function_is_called() -> None:
         "def helper(x):\n    return service.viaHelper(x)\n"
         "def h4(r):\n    return helper(1)\n"
     )
-    helpers = _functions(module)
+    helpers = pc.functions(module)
 
     assert _service_names(helpers["h1"], helpers) == {"direct"}
     assert _service_names(helpers["h2"], helpers) == {"pooled"}, "the threadpool shape was missed"
@@ -360,216 +305,6 @@ def test_the_resolver_ignores_how_the_service_function_is_called() -> None:
 # ------------------------------------------------------- `(ahn)` stage 4b: what REACHES a JSONResponse
 
 #: The pool helper: `run_in_threadpool(F, ...)` answers with whatever `F` answers with.
-_POOL = "run_in_threadpool"
-#: Response classes that carry no JSON payload; a route returning one is not a payload route.
-_NOT_JSON = ("HTMLResponse", "StreamingResponse", "PlainTextResponse", "Response")
-
-
-def _is_service(f: ast.expr) -> bool:
-    return (
-        isinstance(f, ast.Attribute) and isinstance(f.value, ast.Name) and f.value.id == "service"
-    )
-
-
-class _Scope:
-    """What a name means inside one handler: its declared annotation, or the type of what was
-    assigned to it, resolved lazily and in source order."""
-
-    def __init__(
-        self,
-        handler: ast.FunctionDef | ast.AsyncFunctionDef,
-        helpers: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
-        typed: dict[str, set[str]],
-        bound: dict[str, str] | None = None,
-    ) -> None:
-        self.helpers, self.typed = helpers, typed
-        self.declared: dict[str, str] = {
-            a.arg: ast.unparse(a.annotation)
-            for a in handler.args.args + handler.args.kwonlyargs
-            if a.annotation is not None
-        }
-        # A helper's parameter means what the CALLER passed, not its own annotation: stage A.
-        self.declared.update(bound or {})
-        self.raw: dict[str, ast.expr] = {}
-        self.resolving: set[str] = set()
-        self.body = _own_statements(handler)
-        for node in self.body:
-            if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-                self.declared[node.target.id] = ast.unparse(node.annotation)
-            elif (
-                isinstance(node, ast.Assign)
-                and len(node.targets) == 1
-                and isinstance(node.targets[0], ast.Name)
-            ):
-                self.raw[node.targets[0].id] = node.value
-
-    def of_callable(self, f: ast.expr) -> str:
-        # `partial(service.X, ...)` is the callable `service.X` with arguments filled in; the
-        # pool runs it and the response is still what `service.X` declares. Stage A.
-        if isinstance(f, ast.Call) and getattr(f.func, "id", None) == "partial" and f.args:
-            return self.of_callable(f.args[0])
-        if _is_service(f):
-            assert isinstance(f, ast.Attribute)
-            return " | ".join(sorted(self.typed.get(f.attr, {f"?service.{f.attr}"})))
-        name = getattr(f, "id", None)
-        return f"HELPER:{name}" if name in self.helpers else f"?callable:{ast.unparse(f)[:40]}"
-
-    def of_name(self, name: str) -> str:
-        if name in self.declared:
-            return self.declared[name]
-        if name in self.raw and name not in self.resolving:
-            self.resolving.add(name)
-            try:
-                return self.of(self.raw[name])
-            finally:
-                self.resolving.discard(name)
-        return f"?local:{name}"
-
-    def of_call(self, call: ast.Call) -> str:
-        f = call.func
-        name = getattr(f, "id", None)
-        if name == _POOL and call.args:
-            return self.of_callable(call.args[0])
-        if _is_service(f):
-            return self.of_callable(f)
-        if name == "dict" and call.args:
-            return self.of(call.args[0])
-        if name in self.helpers:
-            return f"HELPER:{name}"
-        return f"?{ast.unparse(call)[:40]}"
-
-    def binding(self, text: str, args: list[ast.expr]) -> dict[str, str]:
-        """What a followed helper's first positional parameter is, from this call's argument.
-
-        `_start_drive_job(started, ...)` receives the factory's return, and its own annotation
-        (`JobTarget[object] | Mapping[str, object]`) is deliberately wide. The caller's argument
-        is the precise type, minus every `JobTarget[...]` member - a job target is run, never
-        sent, which was stage 2's whole lesson. An empty remainder means the refusal arm is
-        unreachable from this caller and is recorded as :data:`_NEVER`.
-        """
-        if not text.startswith("HELPER:") or not args:
-            return {}
-        params = self.helpers[text.removeprefix("HELPER:")].args.args
-        if not params:
-            return {}
-        kept = [m for m in _union_members(self.of(args[0])) if not m.startswith("JobTarget[")]
-        return {params[0].arg: " | ".join(kept) or _NEVER}
-
-    def of(self, expr: ast.expr) -> str:
-        if isinstance(expr, ast.Await):
-            return self.of(expr.value)
-        if isinstance(expr, ast.Name):
-            return self.of_name(expr.id)
-        if isinstance(expr, ast.Dict):
-            return "dict literal"
-        if isinstance(expr, ast.Call):
-            return self.of_call(expr)
-        return f"?{ast.unparse(expr)[:40]}"
-
-
-#: A response arm proved unreachable from its caller: `dict(target)` when every member the
-#: caller passes is a `JobTarget[...]`. Dropped from a route's set, never written into a row.
-_NEVER = "never"
-
-
-def _union_members(text: str) -> list[str]:
-    """`A | B[C | D] | E` -> `["A", "B[C | D]", "E"]` - a split that respects brackets, because
-    `JobTarget[CompletionBase | OrganizeDoneSummary]` is one member, not two."""
-    members, depth, start = [], 0, 0
-    for i, ch in enumerate(text):
-        depth += ch == "["
-        depth -= ch == "]"
-        if depth == 0 and text.startswith(" | ", i):
-            members.append(text[start:i])
-            start = i + 3
-    members.append(text[start:])
-    return [m for m in members if m]
-
-
-def _own_statements(node: ast.AST) -> list[ast.AST]:
-    """Every node inside `node` except those inside a nested function - a nested function is its
-    own scope, and its returns are not this handler's."""
-    out: list[ast.AST] = []
-    for child in ast.iter_child_nodes(node):
-        if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda):
-            continue
-        out.append(child)
-        out.extend(_own_statements(child))
-    return out
-
-
-def _returned(node: ast.Return, scope: _Scope) -> tuple[str, dict[str, str]]:
-    """What one `return` sends: the argument of `JSONResponse(...)`, a helper to follow (with
-    what its first parameter is bound to), a non-JSON response class, or an unresolved
-    expression kept under `?`."""
-    assert node.value is not None
-    value = node.value.value if isinstance(node.value, ast.Await) else node.value
-    if isinstance(value, ast.Call):
-        name = getattr(value.func, "id", None)
-        if name == "JSONResponse" and value.args:
-            return scope.of(value.args[0]), {}
-        if name in _NOT_JSON:
-            return f"not JSON:{name}", {}
-        if name == _POOL and value.args:
-            text = scope.of_callable(value.args[0])
-            return text, scope.binding(text, value.args[1:])
-        if name in scope.helpers:
-            return f"HELPER:{name}", scope.binding(f"HELPER:{name}", value.args)
-    return f"?{ast.unparse(node.value)[:40]}", {}
-
-
-def _response_types(
-    handler: ast.FunctionDef | ast.AsyncFunctionDef,
-    helpers: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
-    typed: dict[str, set[str]],
-    seen: frozenset[str] = frozenset(),
-    bound: dict[str, str] | None = None,
-) -> set[str]:
-    """The types of every expression that reaches ``JSONResponse(...)`` from this handler.
-
-    **The rule, written down (P191):** the response is the first positional argument of every
-    `JSONResponse(...)` reachable from the handler, and a helper the handler returns through -
-    `_start_drive_job`, directly or via `run_in_threadpool` - contributes every one of ITS
-    responses. That is what stage 2's resolver does not do: it names every `service.X` the
-    handler *refers to*, so a job route resolved to `JobTarget[BackupRunSummary]`, the factory's
-    callable type, which no route ever sends.
-
-    **Stage A (P193) closed the two gaps P191 left open, without branch analysis.** A narrowed
-    value is bound to an annotated local in `server.py` (`busy: DriveBusyPayload = result`), so
-    the name IS the arm; and a followed helper's first parameter reads as the caller's argument
-    minus its `JobTarget[...]` members, so `dict(target)` names the refusal payloads this route
-    can actually send. Every unresolved expression is kept under `?`, never dropped - an
-    unresolved response must show up in the derivation, not vanish from it.
-    """
-    scope = _Scope(handler, helpers, typed, bound)
-    types: set[str] = set()
-    for node in scope.body:
-        if not isinstance(node, ast.Return) or node.value is None:
-            continue
-        text, binding = _returned(node, scope)
-        if not text.startswith("HELPER:"):
-            types.add(text)
-            continue
-        name = text.removeprefix("HELPER:")
-        if name in seen or name == handler.name:
-            types.add(f"?recursive:{name}")
-        else:
-            types |= _response_types(helpers[name], helpers, typed, seen | {name}, binding)
-    return types - {_NEVER}
-
-
-def _response_resolution() -> dict[str, set[str]]:
-    """``route -> the types that reach its JSONResponse``, the stage-4b derivation."""
-    tree = _module(SERVER)
-    helpers = _functions(tree)
-    typed = _declared_return_types()
-    return {
-        path: _response_types(helpers[handler], helpers, typed)
-        for path, handler in _routes(tree)
-        if handler in helpers
-    }
-
-
 #: Re-derived 2026-09-02 (P193, stage A): 52 routes, MEASURED_MULTI_TYPE_RESPONSES resolve to more
 #: than one type-string (40 when a `X | Y` string is counted by member), and the job envelope is
 #: now named PER ROUTE - `JobStarted`, `DriveBusyPayload`,
@@ -589,7 +324,7 @@ def test_the_response_derivation_is_real() -> None:
     declared return, and the unresolved set must stay small and named - a resolver that answered
     `?` for everything would still "resolve" 52 routes.
     """
-    resolution = _response_resolution()
+    resolution = pc.response_resolution()
     assert len(resolution) >= MEASURED_RESPONSE_ROUTES - 5, f"only {len(resolution)} routes"
     job_start = [p for p, t in resolution.items() if any("JobStarted" in x for x in t)]
     assert len(job_start) >= 15, f"only {len(job_start)} job-start routes show the envelope"
@@ -648,14 +383,16 @@ def test_done_frame_summary_is_derived_not_listed() -> None:
     """`DoneFrame.summary` is `object` in code and the union of the factories' `T` here - one
     definition, read from the annotations stage A made the resolver read. A hand-written
     `JobSummary` alias would be the second definition this refuses."""
-    factories = _job_summary_types()
+    factories = pc.job_summary_types()
     assert len(factories) >= MEASURED_JOB_FACTORIES - 2, f"only {len(factories)} factories"
     members = {m for ms in factories.values() for m in ms}
     assert len(members) >= 12, f"only {len(members)} summary types: {sorted(members)}"
-    declared = _typeddict_names()
+    declared = pc.typeddict_names()
     assert members <= declared, f"not TypedDicts: {sorted(members - declared)}"
     done = next(
-        n for n in ast.walk(_module(JOBS)) if isinstance(n, ast.ClassDef) and n.name == "DoneFrame"
+        n
+        for n in ast.walk(pc.module(JOBS))
+        if isinstance(n, ast.ClassDef) and n.name == "DoneFrame"
     )
     summary = [
         ast.unparse(st.annotation)

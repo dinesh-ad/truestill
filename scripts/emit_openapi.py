@@ -127,3 +127,193 @@ def empty_schemas(schemas: dict[str, dict[str, Any]]) -> list[str]:
         for field, sub in schema.get("properties", {}).items()
         if sub == {}
     ]
+
+
+# --- the document: the join, stage D -------------------------------------------------------
+
+import argparse
+import json
+import sys
+import tomllib
+
+import payload_contract as pc
+
+#: Where the committed spec lives. Regenerate with `uv run python scripts/emit_openapi.py --write`;
+#: `--check` (the default) exits 1 when the tree and the file disagree, and
+#: `test_the_committed_spec_is_current.py` asserts the same in `make check`.
+SPEC = pc.ROOT / "packages/truestill-app/openapi.json"
+EVENTS_ROUTE = "/api/jobs/{job_id}/events"
+#: Non-JSON response classes and what they put on the wire; `Response` carries no body worth a
+#: content type, and `StreamingResponse` is the event stream, handled by name.
+NON_JSON_CONTENT = {"HTMLResponse": "text/html", "PlainTextResponse": "text/plain"}
+
+
+def ref(name: str) -> dict[str, str]:
+    return {"$ref": REF_TEMPLATE.format(name=name)}
+
+
+def tag_of(names: list[str], schemas: dict[str, dict[str, Any]]) -> tuple[str, str] | None:
+    """A property every member carries with a single fixed value, distinct per member -
+    ``(property, "string" | "boolean")`` - or ``None`` when the union has no such property.
+
+    OpenAPI's `discriminator` requires a STRING property, so a boolean tag (`ok: true/false`) is
+    reported but not emitted as one; TypeScript narrows on a boolean literal without it.
+    """
+    if len(names) < 2:
+        return None
+    shared = set.intersection(*(set(schemas[n].get("required", [])) for n in names))
+    for prop in sorted(shared):
+        values: list[object] = []
+        for n in names:
+            sub = schemas[n]["properties"][prop]
+            if "const" in sub:
+                values.append(sub["const"])
+            elif isinstance(sub.get("enum"), list) and len(sub["enum"]) == 1:
+                values.append(sub["enum"][0])
+            else:
+                break
+        else:
+            if len(set(map(repr, values))) == len(values):
+                kind = "boolean" if all(isinstance(v, bool) for v in values) else "string"
+                return prop, kind
+    return None
+
+
+def schema_for(names: list[str], schemas: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """One `$ref`, or a `oneOf` of them with a `discriminator` when a string tag exists.
+
+    ⚠ **`oneOf`, never `anyOf`, and every arm of a status in ONE schema.** Two responses on the
+    same status and content type overwrite each other silently (oaswrap#44); the union is the
+    only shape that keeps every arm, and `anyOf` degrades to a loose type in generators.
+    """
+    if len(names) == 1:
+        return ref(names[0])
+    out: dict[str, Any] = {"oneOf": [ref(n) for n in names]}
+    tag = tag_of(names, schemas)
+    if tag is not None and tag[1] == "string":
+        prop = tag[0]
+        mapping = {}
+        for n in names:
+            sub = schemas[n]["properties"][prop]
+            mapping[str(sub["const"] if "const" in sub else sub["enum"][0])] = ref(n)["$ref"]
+        out["discriminator"] = {"propertyName": prop, "mapping": mapping}
+    return out
+
+
+def responses_for(
+    arms: set[pc.Arm],
+    method: str,
+    extra: set[pc.Arm],
+    schemas: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """The `responses` object of one operation: every arm this method reaches, grouped by status,
+    each status's JSON arms as one schema, plus the arms every route carries (`extra`)."""
+    mine = {a for a in arms if a.method in (None, method)} | extra
+    out: dict[str, dict[str, Any]] = {}
+    for status in sorted({a.status for a in mine}):
+        at = [a for a in mine if a.status == status]
+        json_names = sorted(
+            {m for a in at if not a.type.startswith("not JSON") for m in pc.union_members(a.type)}
+        )
+        plain = sorted(
+            {a.type.removeprefix("not JSON:") for a in at if a.type.startswith("not JSON")}
+        )
+        content: dict[str, Any] = {}
+        if json_names:
+            content["application/json"] = {"schema": schema_for(json_names, schemas)}
+        for cls in plain:
+            if cls in NON_JSON_CONTENT:
+                content[NON_JSON_CONTENT[cls]] = {"schema": {"type": "string"}}
+        described = json_names + [f"{cls} (no JSON body)" for cls in plain]
+        response: dict[str, Any] = {"description": " | ".join(described)}
+        if content:
+            response["content"] = content
+        out[str(status)] = response
+    return out
+
+
+def path_parameters(path: str) -> list[dict[str, Any]]:
+    return [
+        {"name": name, "in": "path", "required": True, "schema": {"type": "string"}}
+        for name in (
+            seg[1:-1] for seg in path.split("/") if seg.startswith("{") and seg.endswith("}")
+        )
+    ]
+
+
+def document() -> dict[str, Any]:
+    """The whole OpenAPI 3.1 document, from the derivations and the components - deterministic:
+    key order sorted at dump time, nothing dated, no path outside the routes'."""
+    tree = pc.module(pc.SERVER)
+    helpers = pc.functions(tree)
+    typed = pc.declared_return_types()
+    schemas = components(pc.roots())
+    # Q1273 - `DoneFrame.summary` is the union of the factories' `T`, derived, never listed.
+    summaries = sorted({m for ms in pc.job_summary_types().values() for m in ms})
+    schemas["DoneFrame"]["properties"]["summary"] = schema_for(summaries, schemas)
+    # The refusal every route can carry, from `exception_handlers={...}`: its own status, on every operation.
+    carried = {
+        pc.Arm(arm.status, None, arm.type)
+        for name in pc.exception_handler_names(tree)
+        if name in helpers
+        for arm in pc.response_arms(helpers[name], helpers, typed)
+    }
+    paths: dict[str, dict[str, Any]] = {}
+    for path, handler, methods in pc.routes_with_methods(tree):
+        arms = pc.response_arms(helpers[handler], helpers, typed, pc.Follow(methods=tuple(methods)))
+        item: dict[str, Any] = {}
+        for method in methods:
+            operation: dict[str, Any] = {
+                "operationId": handler if len(methods) == 1 else f"{handler}_{method.lower()}",
+                "responses": responses_for(arms, method, carried, schemas),
+            }
+            if path == EVENTS_ROUTE:
+                # SSE is not native in 3.1 (`itemSchema` is 3.2): the 3.1 shape is the
+                # per-event schema under `text/event-stream`, which Schemathesis reads.
+                frames = sorted(pc.frame_roots())
+                operation["responses"]["200"] = {
+                    "description": "one frame per event: " + " | ".join(frames),
+                    "content": {"text/event-stream": {"schema": schema_for(frames, schemas)}},
+                }
+            if parameters := path_parameters(path):
+                operation["parameters"] = parameters
+            item[method.lower()] = operation
+        paths[path] = item
+    version = tomllib.loads(
+        (pc.ROOT / "packages/truestill-app/pyproject.toml").read_text(encoding="utf-8")
+    )["project"]["version"]
+    return {
+        "openapi": "3.1.0",
+        "info": {"title": "Truestill app", "version": version},
+        "paths": paths,
+        "components": {"schemas": schemas},
+    }
+
+
+def render() -> str:
+    """The committed bytes: sorted keys, two-space indent, one trailing newline."""
+    return json.dumps(document(), indent=2, sort_keys=True) + "\n"
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
+    parser.add_argument(
+        "--write", action="store_true", help=f"write {SPEC.relative_to(pc.ROOT).as_posix()}"
+    )
+    args = parser.parse_args(argv)
+    text = render()
+    if args.write:
+        SPEC.write_text(text, encoding="utf-8")
+        print(f"wrote {SPEC.relative_to(pc.ROOT).as_posix()}")
+        return 0
+    if SPEC.exists() and SPEC.read_text(encoding="utf-8") == text:
+        print(f"{SPEC.relative_to(pc.ROOT).as_posix()} is current")
+        return 0
+    print(
+        f"{SPEC.relative_to(pc.ROOT).as_posix()} is stale; run: uv run python scripts/emit_openapi.py --write"
+    )
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

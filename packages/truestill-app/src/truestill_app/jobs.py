@@ -79,9 +79,9 @@ class DoneFrame(TypedDict):
     ⚠ **`summary` is `object` here, and the union it stands for is DERIVED, never listed.** One
     registry holds every job shape, so `T` is discharged at :meth:`JobManager.start` exactly as
     `Job.summary` already says. The wire union is the thirteen factories' `JobTarget[T]` members,
-    read from their annotations by `test_every_route_names_its_payload_type.py`'s
-    `_job_summary_types` - a hand list here would be a second definition of what stage A made
-    derivable, and stage D emits the `oneOf` from that derivation.
+    read from their annotations by `scripts/payload_contract.py`'s `job_summary_types` - a hand
+    list here would be a second definition of what stage A made derivable, and stage D emits the
+    `oneOf` from that derivation into `openapi.json`.
     """
 
     type: Literal["done"]

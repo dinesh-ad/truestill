@@ -160,7 +160,7 @@
 
   ## STAGE 4b, RE-DERIVED 2026-09-02 (P191) - AND WHERE IT STOPS
 
-  `test_every_route_names_its_payload_type.py:_response_types` is the narrowed resolver. The rule,
+  `payload_contract.py:response_types` (moved from the resolver test in stage D) is the narrowed resolver. The rule,
   written down: **the response is the first positional argument of every `JSONResponse(...)`
   reachable from the handler**; a helper the handler returns through - `_start_drive_job`, directly
   or via `run_in_threadpool` - contributes every one of its responses; a local reads as its declared
