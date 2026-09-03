@@ -22,6 +22,20 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ahn) THE PAYLOAD CONTRACT STOPS AT THE PYTHON BOUNDARY, AND REACT IS BEING BUILT AGAINST NOTHING.**
+  ✅ **CLOSED 2026-09-03 (P199)** over five stages, each proving the next safe: **A** `bc484fc` the
+  join exact and every job route's refusal arm named; **B** `7d4a0b5` the four SSE frames typed;
+  **C** `adf2a2e` 128 components from the closure the wire reaches, emitted by msgspec after a
+  rebuild pass, never from the inventory; **D** `7b476d9` `packages/truestill-app/openapi.json`
+  committed, every arm of a status one `oneOf`, `make check` red on drift; **E** `7cfac72` and
+  `1ee8ff3` `frontend/src/generated/api.d.ts` by `scripts/emit_api_types.py`, accepted byte for byte
+  against `openapi-typescript`'s frozen rendering because TypeScript 7 ships no compiler API, and
+  `main.tsx`'s `Record<string, unknown>` replaced by the union `organize_run` declares. Two things
+  the work found: **`cancelled` and `ok` are browser-side additions** the wire never carries, and
+  **no job envelope can be discriminated** because `JobStarted` is one key - `(ajt)`. Condition 3
+  does not tick: its consumed end waits on the React migration - `(aju)`.
+  Body: [`research/backlog/ahn.md`](research/backlog/ahn.md).
+
 - **(ahi) TWO OF TEN MUTATING OPERATIONS WRITE NO RUN RECORD, AND THE CENSUS IS KEYED BY MODULE, NOT BY THE OPERATION A ROUTE DECLARES.**
   ✅ **CLOSED 2026-09-02 (P191).** `archive_extract.py:record_extraction` and `cleanup.py:record_cleanup`
   write the two missing records from core, called by the app's job and the CLI alike, so every one of

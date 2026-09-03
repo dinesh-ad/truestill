@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajs). Next free: (ajt).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aju). Next free: (ajv).**
 **Retired 2026-09-02 (P190), and named here because a retired letter is not a free one:** `(abz)`
 (*"Organize shows one population three ways and connects none of them"*). False before it was
 filed: `app.js:rearrangeNote` (`93635af`, 2026-08-06) prints *"N of M files here are already in
@@ -725,39 +725,6 @@ and they are not product defects; keeping them in one drawer stops them competin
   **purpose** rather than its letter, and is also the only one whose cost is not trivial.
   [Full entry](research/backlog/ahm.md)
 
-- **(ahn) THE PAYLOAD CONTRACT STOPS AT THE PYTHON BOUNDARY, AND REACT IS BEING BUILT AGAINST
-  NOTHING.** Filed 2026-08-25 (P81). The TypedDicts (**derived at emission, no count carried** - P193) describe every route's return **in Python**,
-  and nothing carries any of it across the wire; the React source consumes **zero** payload keys.
-  ⚠ **The live instance is already in the tree, before a screen exists**: `main.tsx:37` declares
-  `type OrganizeSummary = Record<string, unknown>` - the cast that lets generated types change
-  without complaint and the pull request go green.
-  **The mechanism is a field standard**: the backend emits an OpenAPI spec, `openapi-typescript`
-  generates the types, the frontend imports them - mechanical at **both** ends, which is the end
-  `(ahl)` cannot reach. ⚠ **This project does not get it free, by a standing decision**:
-  `pyproject.toml:17` records *"not FastAPI ... Pydantic is disallowed for our models"*, and
-  **`pydantic` appears in no `pyproject.toml` in this workspace** (checked).
-  ⚠ **And the join does not exist**: `server.py` declares **52** routes (2026-09-02; it read 50),
-  48 handlers annotated `-> JSONResponse` and four that are not JSON, never the payload they
-  return. This entry records the gap and the mechanism; it does **not** choose between
-  hand-writing the spec, generating it from the TypedDicts, or emitting it from the routes.
-  ⚠ **CORRECTED 2026-09-02 (P191): the stage-4b resolver narrowing this entry reported as done IS
-  NOT IN THE TREE.** `test_every_route_names_its_payload_type.py` still resolves a route to every
-  `service.X` *referenced* in its handler, yields **12** multi-type routes, and names
-  `JobTarget[BackupRunSummary]` - a factory's callable type - for `/api/backup/run`. The re-derived
-  25 exists in `c6845d1`'s message and in prose only. An entry claiming work that does not exist is
-  the worst kind of stale; this line is the correction, not a tidy.
-  ✅ **STAGE 4b's RESOLVER SHIPPED 2026-09-02 (P191) and STOPPED BEFORE THE ROWS, as instructed.**
-  `payload_contract.py:response_types` (moved from the resolver test in stage D) answers from what reaches a
-  `JSONResponse` - the first argument of every reachable call, through `run_in_threadpool` and into
-  `_start_drive_job`'s three arms. Re-derived over the tree: **52 routes, 29 multi-type** (17
-  job-start routes sharing one envelope, 6 `GET`+`POST` pairs, 6 genuine unions), one expression
-  unresolved and named. No declaration row is written. **Two rulings are the maintainer's** and
-  are in the body: the emission shape and the `openapi-typescript` dependency.
-  ✅ **BOTH RULED 2026-09-02 (P193)**: components from the TypedDicts via **msgspec** (tried on all of
-  them; works after a rebuild pass the body records), the route join from the resolver, the spec
-  committed and red on drift; `openapi-typescript` approved. Five stages A-E in the body, A first.
-  [Full entry](research/backlog/ahn.md)
-
 - **(ahg) `cli-app-parity.md` IS KEYED BY CLI SUBCOMMAND, SO AN APP-ONLY CAPABILITY HAS NO ROW.**
   Filed 2026-08-25 (P68). The document that answers *"what is actually missing"* **cannot see the
   class of gap that matters most**, structurally rather than by omission: rows are one per
@@ -894,6 +861,16 @@ and they are not product defects; keeping them in one drawer stops them competin
   entry](research/backlog/abc.md)
 
 ## Blocked - do not build yet
+
+- **(aju) CONDITION 3'S CONSUMED END WAITS ON THE REACT MIGRATION, AND §1b CANNOT ORDER IT BEFORE.**
+  Filed 2026-09-03 (P199) at `(ahn)`'s closure. The contract is declared, committed and typed on
+  both ends, and **34 keys are still computed and read by no one** - the `DEAD` table in
+  `test_no_thirty_fifth_dead_payload_key.py`, a regex over `app.js`. A read becomes a compiler fact
+  only when hand-written React reads the payload through `api.d.ts`; so the replacement census is a
+  **compiler-resolved reference search over the generated types**, per island, in the Node lane,
+  and each dead key is decided there - read on the screen, or deleted from its payload. Blocked on
+  `(adi)` by construction: the engine cannot finish this condition before the UI exists to read.
+  [Full entry](research/backlog/aju.md)
 
 **The entry itself says do not build.** Each names what would unblock it. ⚠ **A blocker entry rots
 differently**: if what it waits on never arrives, it should be **retired**, not left here looking
@@ -1208,6 +1185,14 @@ here because a lost answer key corrupts every measurement taken against it, whic
   build. Recorded 2026-08-02. [Full entry](research/backlog/aao.md)
 
 ## Ideas / deferred
+
+- **(ajt) THE JOB ENVELOPE HAS NO TAG, SO EVERY JOB ROUTE'S RESPONSE IS A BARE UNION.** Filed
+  2026-09-03 (P199) at `(ahn)`'s closure. `jobs.py:JobStarted` is `{"job_id"}` and nothing else, so
+  no property is shared with `DriveBusyPayload` and the refusal payloads, no discriminator can be
+  emitted, and TypeScript narrows the envelope with `in` rather than on a literal. Ten of the
+  document's unions are in this class, every job route among them. Giving `JobStarted` a tag changes
+  a payload seventeen routes return, which is why it is a decision and not part of stage D.
+  [Full entry](research/backlog/ajt.md)
 
 **Parked deliberately.** Several share machinery - see **Converged programs** before picking one.
 

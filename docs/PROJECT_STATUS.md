@@ -248,8 +248,14 @@ page.
 
 1. **The engine finishes first.** The CLI and `truestill-core` carry every behaviour. The app is a
    panel over them and never the only home of anything.
-2. **The payload shapes are then declared STABLE and pinned by contract tests.**
+2. **The payload shapes are then declared STABLE and pinned by contract tests.** ✅ **2026-09-03,
+   `(ahn)` closed**: `openapi.json` and `api.d.ts` are derived, committed, and red on drift in
+   `make check`.
 3. **Only then is the UI built** - React, replacing `app.js` entirely (`(adi)`).
+   ⚠ **One condition of step 1 cannot finish before step 3, and this order said nothing about it
+   until 2026-09-03**: condition 3's consumed end is the UI itself - a field is unread until a
+   screen reads it. The engine-side half is done; the rest is decided key by key as each island
+   lands. `(aju)` carries it, and §1b's order is read with that exception.
 
 ### The rule that makes step 3 safe
 
@@ -296,7 +302,7 @@ what stops is changing *what a route returns* under a consumer that already read
    none remain since 2026-09-02 (`(ahi)` closed; this line named migrate's `undo` for four days after P139 shipped it). ⚠ **THE ABSENT THREE READ *"trip apply, clean empty, archive unpack"* UNTIL 2026-08-27 AND `trip apply` WAS NEVER ONE OF THEM.** Derived from `server.py` by AST rather than recalled: `trip apply` calls `service.migration_apply`, which records - the maintainer established this on 2026-08-26 by reading the ROUTE's call graph rather than the module sharing its name. The operation that actually writes nothing is **migrate's `undo`**: `migration_undo` READS the reversible run's id (`service/migrate.py:migration_armed_state`) and writes no record of its own. Absent from a run history, an undo is the one operation whose absence makes the history lie about the state of the disk. Pinned by `test_the_app_records_what_a_run_did.py`, which
    lists each surface *with its reason*.
 2. **Every surface reports its own stop.** `(ahc)` closed migrate's last one.
-3. **No route computes a field no consumer reads.** ⚠ **BLOCKED ON `(ahn)`, not on any count.**
+3. **No route computes a field no consumer reads.** ⚠ **WAITS ON THE REACT MIGRATION (`(aju)`), not on `(ahn)`, which closed 2026-09-03.**
    ⚠ **The table above is EVIDENCE, not the list.** Derived from the AST by `(ahl)`, and ⚠ **the
    inventory figures are DERIVED, never quoted - they rotted once already.** A 2026-08-25 snapshot
    read *"117 TypedDicts, 579 key slots, 289 distinct key names"* and by 2026-08-29 the tree was at
@@ -320,7 +326,7 @@ what stops is changing *what a route returns* under a consumer that already read
 |---|---|---|
 | 1 | every mutating run leaves a line in the run history | ✅ **10 of 10** since 2026-09-02 (`(ahi)` closed: `archive unpack` and `clean empty` record); ⚠ it read *8 of 10* that morning and *7 of 9* before the recount - `clean empty` and `archive unpack` remain, which is `(ahi)`; ⚠ this read **6 of 9** until migrate's `undo` gained its record, and the guard that should have watched it could not see inside a module; see §1b's note on why `trip apply` was named here wrongly until 2026-08-27. ⚠ Reworded 2026-08-25: *"writes a record"* could not be met by bake, which correctly writes a line and no detail |
 | 2 | every surface reports its own stop | ✅ `(ahc)` closed migrate's last one; ⚠ **it was ticked here while FALSE for one of them, until `(ajd)` on 2026-08-31** - `backup`'s CLI caught only `ValueError`, so a drive that vanished mid-copy reached the user as a **Python traceback**, twice, measured. The app was fine (`jobs.py` wraps any exception into an error event), which is exactly why a tick taken per-defect rather than per-surface missed it. 🔑 **The condition is met and STILL UNGUARDED**, and this is the second time that has cost something |
-| 3 | no route computes a field no consumer reads | ❌ **BLOCKED ON AN UNTYPED CONSUMER**, and that is a different blocker from *"nothing declares the join"* - `(ahn)` stages 1, 2 and 4a built it, and **4a left no route payload untyped**: the seven dict literals are gone and the guard's ceiling is zero. The CONSUMED end is still a text search over `app.js`, so **no number here is a ceiling** - both methods err toward calling a dead field live. ⚠ **Stages A-D shipped 2026-09-02/03** (`bc484fc` `7d4a0b5` `adf2a2e` `7b476d9`): the join is exact, the frames are typed, `openapi.json` is committed and `make check` is red on drift. **Stage E is blocked on a ruling** - `openapi-typescript` cannot run under TypeScript 7, which ships no compiler API; `(ahn)`'s E row carries the two shapes. ⚠ **AND THE CONDITION DOES NOT TICK AT STAGE 5, which this cell claimed**: the `DEAD` table still holds **34** keys computed and read by no one; a typed consumer makes each of them a compiler fact only once a React screen reads the payload. **Ticks when that table is empty** |
+| 3 | no route computes a field no consumer reads | ❌ **WAITS ON THE REACT MIGRATION - `(aju)`.** The declared end is finished: `(ahn)` closed 2026-09-03 with the contract derived, committed and typed on both ends (`openapi.json`, `api.d.ts`), red on drift in `make check`. The consumed end is still the `DEAD` table - **34** keys computed and read by no one, a regex over `app.js` - and it empties only as each React island reads its payload through the generated types, key by key: read on the screen, or deleted. **Ticks when that table is empty**, which the engine cannot do alone |
 | 4 | no mutating behaviour lives only in the app | ✅ **met AND GUARDED** since `(ahj)` - every mutating operation names a CLI subcommand the parser defines, or a recorded deferral |
 
 ⚠ **TWO of the four are checked by a guard, and each pins a DECLARATION rather than behaviour.**

@@ -1,9 +1,13 @@
 # (ahn) THE PAYLOAD CONTRACT STOPS AT THE PYTHON BOUNDARY, AND REACT IS BEING BUILT AGAINST NOTHING.
 
-*Body of backlog entry `(ahn)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(ahn)`, in [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
 
 - **(ahn) THE PAYLOAD CONTRACT STOPS AT THE PYTHON BOUNDARY, AND REACT IS BEING BUILT AGAINST
-  NOTHING.** Filed 2026-08-25 (P81).
+  NOTHING.** Filed 2026-08-25 (P81). ✅ **CLOSED 2026-09-03 (P199)** over stages A-E: `bc484fc`
+  `7d4a0b5` `adf2a2e` `7b476d9` `7cfac72` (`1ee8ff3` for the Windows lane). The contract is
+  derived, committed, typed and red on drift at both ends, and `main.tsx`'s cast is gone. **What
+  remains left with its own letter**: the bare job envelope is `(ajt)`; condition 3's consumed
+  end, which waits on the React migration, is `(aju)`. The text below is the record.
 
   ## THE GAP
 
