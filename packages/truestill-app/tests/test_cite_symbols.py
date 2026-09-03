@@ -160,6 +160,21 @@ def test_a_path_prefix_the_author_wrote_is_not_thrown_away() -> None:
     assert options == ["packages/truestill-app/src/truestill_app/service/bake.py"], options
 
 
+def test_a_dot_path_is_not_eaten_by_the_prefix_strip() -> None:
+    """`lstrip("./")` takes a character set, so it ate the leading dot of every dot-path.
+
+    `.github/workflows/ci.yml` became `github/workflows/ci.yml`, which is neither a tracked path
+    nor a suffix of one, so a correct citation was refused as "no tracked file of that name".
+    Eight tracked paths were unreachable this way, both workflows among them; the guard had never
+    been pointed at one until 2026-09-03.
+    """
+    tracked = cite.tracked_files()
+
+    assert cite.candidates(".github/workflows/ci.yml", tracked) == [".github/workflows/ci.yml"]
+    # and the prefix it IS meant to strip still goes
+    assert cite.candidates("./scripts/cite_symbols.py", tracked) == ["scripts/cite_symbols.py"]
+
+
 def test_an_unknown_symbol_is_reported_rather_than_resolved() -> None:
     target, why = cite.resolve("drive.py", "no_such_symbol_anywhere", cite.tracked_files())
 

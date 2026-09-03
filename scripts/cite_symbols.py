@@ -191,7 +191,13 @@ def candidates(raw: str, tracked: set[str]) -> list[str]:
     ambiguity the author resolved - 17 of the converter's first 38 refusals were this, not a real
     one.
     """
-    exact = raw.lstrip("./")
+    # `removeprefix`, never `lstrip("./")`: lstrip takes a CHARACTER SET, so it ate the leading
+    # dot of every dot-path and turned `.github/workflows/ci.yml` into `github/workflows/ci.yml`,
+    # which matches no tracked file and no path SUFFIX either. The guard then reported a correct
+    # citation as "no tracked file of that name" - a false refusal over 8 tracked paths including
+    # both workflows and `.pre-commit-config.yaml`. Found 2026-09-03 (P206) by the first document
+    # that ever cited one.
+    exact = raw.removeprefix("./")
     if exact in tracked:
         return [exact]
     if not _SUFFIXES:
