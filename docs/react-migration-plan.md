@@ -144,10 +144,17 @@ What P194 measured, and the mechanism that replaces them:
   flip. **The flip is one commit** - the template, the switch and the old template - and `app.js`
   stays in the tree for one release; `git revert` of that commit is the rollback. Every id, class
   and `data-ready` write is kept, so restyling is a separate arc.
-- **Prerequisites, in order**: `(ajv)`; the browser lane under ~8 minutes (`-n auto`, the lever
-  `ci.yml` names) so the flip is verified per push and not nightly; an import-free equivalent for
-  the two e2e files that call `fmtBytes` and `fmtDuration` as globals; then `app/` and `api/`
-  first, screens in the risk order below, Organize last, the flip, the deletion.
+- **Prerequisites, in order**: `(ajv)`; ⚠ **the browser lane under ~8 minutes is `(ajx)` and is a
+  BLOCK, not a task** - corrected 2026-09-03 (P206) after it was measured rather than assumed. On
+  the lane's own printed hardware (`nproc = 4`) two samples gave **chromium 415.1s / webkit 791.9s**
+  and **chromium 550.7s / webkit 993.4s**, a **28% run-to-run swing**; a split by engine costs
+  850-1067 s against the 480 s condition and **misses by 77-122%**, and `-n auto` - the one untried
+  lever - would need **>=1.88x fast / >=2.35x slow**. It does not sit between `(ajv)` and the
+  formatter work as a thing somebody does; it needs a **ruling** (runner spend, or moving classes
+  out of the browser lane the way the JSON-client guard does). The rest of the order is unchanged:
+  an import-free equivalent for the two e2e files that call `fmtBytes` and `fmtDuration` as
+  globals; then `app/` and `api/` first, screens in the risk order below, Organize last, the flip,
+  the deletion. **The flip itself is not blocked** - only its per-push verification is.
 - **The structure**: `app/` (the shell: 18 ids, the picker, the registry), `api/` (`client.ts`
   keyed on the generated `paths`, `stream.ts` yielding the frame union as sent with no `ok`
   adapter, `job.ts` as one state replacing `runJob`'s twenty options), `run/` (the four-state

@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ajw). Next free: (ajx).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aka). Next free: (akb).**
 **Retired 2026-09-02 (P190), and named here because a retired letter is not a free one:** `(abz)`
 (*"Organize shows one population three ways and connects none of them"*). False before it was
 filed: `app.js:rearrangeNote` (`93635af`, 2026-08-06) prints *"N of M files here are already in
@@ -608,6 +608,26 @@ scripts no gate runs, test corpora, payload typing, documentation keying. These 
 and they are not product defects; keeping them in one drawer stops them competing with
 **Build next** for attention.
 
+- **(ajy) THE 28.4 s WORST CASE THE ASSERTION BUDGET RESTS ON WAS MEASURED ON HARDWARE NOBODY CAN
+  IDENTIFY.** Filed 2026-09-03 (P206). `tests/e2e/conftest.py` argues its 30 s budget from
+  *"three full lanes ... longest wait **28.4 s**"* on *"a shared **2-core** runner"* (2026-08-15).
+  The lane prints `nproc = 4`. Three checks say the provenance is unrecoverable, not merely
+  unrecorded: nothing printed the core count then; the oldest retained run is
+  **2026-08-23T16:57:01Z**, eight days later; and `gh api .../events` exposes no visibility event,
+  so public-vs-private on the day cannot be established. **The 1.6 s of headroom is the whole
+  risk argument against `-n auto` in `(ajx)`, and it is unverified.** Re-measuring costs 63-81 min
+  of runner time and a temporary `conftest.py` edit, so it is the maintainer's. ⚠ The cheap half
+  is done: every run from `ce17611` carries its own hardware. [Full entry](research/backlog/ajy.md)
+
+- **(ajz) `gh run view --log` SUCCEEDS WITH ZERO BYTES, AND A JOB'S LOG IS `BlobNotFound` UNTIL THE
+  JOB ENDS.** Filed 2026-09-03 (P206), `(ajs)`'s shape in the tool we read CI with.
+  `gh run view --job=100571788576 --log` returned **rc=0, 0 bytes, empty stderr** on a failed job;
+  `gh api "repos/{owner}/{repo}/actions/jobs/100571788576/logs"` returned **318,638 bytes** with
+  the failing test in it. Not retention, not permissions. Second behaviour: a completed step's
+  output is `BlobNotFound` until the whole job finishes - loud, so only latency. **Use the REST
+  endpoint; never read empty output from `gh run view --log` as evidence.** No guard proposed -
+  it is a third-party exit contract, and `(ago)`'s bar refuses one. [Full entry](research/backlog/ajz.md)
+
 - **(ajs) AT NO LAYER OF THIS TOOLING DOES "THE CHECK DID NOT RUN" LOOK DIFFERENT FROM "THE CHECK PASSED".**
   Filed 2026-09-02 (P189) from P188's census. A shell pipeline reports its last command; a
   substitution reports its output; PowerShell exits on the last native code; pre-commit prints
@@ -874,6 +894,20 @@ and they are not product defects; keeping them in one drawer stops them competin
 
 ## Blocked - do not build yet
 
+- **(ajx) THE ~8 MINUTE BROWSER-LANE PREREQUISITE IS A BLOCK, NOT A TASK.** Filed 2026-09-03
+  (P206) from two measured samples on the lane's own printed hardware (`nproc = 4`, 15.6 GiB).
+  Per-engine, by attributing every result line's elapsed to its parametrised engine:
+  **chromium 415.1s / webkit 791.9s** (run `33791378006`) and **chromium 550.7s / webkit 993.4s**
+  (run `33796360000`) - a **28% run-to-run swing on identical work**, which is the finding. Against
+  the 480 s condition: serial is 2.6-3.4x over, and **a split by engine misses by 77-122%**
+  (webkit + setup = 850-1067 s). Chromium alone clears only on the fast sample, and a
+  chromium-only lane is refused by `ci.yml`'s own comment - *"a lane that is green only in
+  Chromium says nothing about it."* Not the `if: false` shape - `-n auto` *could* fire, needing
+  **>=1.88x fast / >=2.35x slow** - so it is **unverified and receding**: written for a ~470-test
+  lane that now produces **988 results**. Both `handoff-2026-09-03.md` and
+  `react-migration-plan.md` list it as a numbered prerequisite; both now say it is a block.
+  Unblocked by a ruling: runner spend, or the contract-guard route. [Full entry](research/backlog/ajx.md)
+
 - **(aju) CONDITION 3'S CONSUMED END WAITS ON THE REACT MIGRATION, AND §1b CANNOT ORDER IT BEFORE.**
   Filed 2026-09-03 (P199) at `(ahn)`'s closure. The contract is declared, committed and typed on
   both ends, and **34 keys are still computed and read by no one** - the `DEAD` table in
@@ -958,6 +992,20 @@ cited letter must resolve.
 **Evidence, and most say so in their own first lines** - *"Record only - do not build"*. They are
 here because a lost answer key corrupts every measurement taken against it, which is `(ait)` and
 `(aiu)`'s ruling. ⚠ **Never delete one to shorten the list.**
+
+- **(aka) A PROSE SWEEP SCOPED TO PROSE FILES MISSES PROSE IN CODE.** **Record only - do not
+  build.** Filed 2026-09-03 (P206) from my own error one commit earlier. P204 corrected the
+  falsified *"the publish job has never run"* in three places and **reported the sweep complete**;
+  its pathspec was `*.md`, and `git grep -nI ... -- . ':!*.md'` found a fourth copy the next day at
+  `ci.yml:448` - in the banner a person reads when deciding whether to dispatch the browser lane
+  before tagging, which is exactly the reader it could mislead. Fixed in `0ff18ef`.
+  ⚠ **A grep hit is not a defect**: `docs/research/backlog/afg.md:56` carries the same premise and
+  needed nothing - it already reads *"⚠ That premise expired 2026-08-30"*. **No guard is possible**
+  and that is stated rather than left as a gap: a guard would have to know a sentence is false, and
+  a duplicate-string detector would fire on every deliberate shared quotation. **The rule:** sweep
+  with `git grep` over the whole tree, and read each hit before calling it a defect - prose lives
+  in workflow comments, docstrings, `Makefile` and `pyproject.toml`, all four load-bearing here.
+  [Full entry](research/backlog/aka.md)
 
 - **(aik) NOTHING READS A META ARCHIVE'S SIDECAR, AND ITS MEDIA ARRIVES STRIPPED.** 📏 **Measured zero 2026-09-02 (P187) - Records**: 0 sidecar JSON of any shape on this machine; the one archive held is a Google Photos album download (531 jpg, 3 mp4, 0 json). No Takeout sidecar exists here either, so the shipped `takeout.py` has the same local evidence as the missing Meta reader. **Where it would come from**: one user act - *Download your information* on facebook.com or instagram.com; not a device, not interchange. Filed
   2026-08-29 (P135), from source. A Facebook or Instagram archive ships media with metadata

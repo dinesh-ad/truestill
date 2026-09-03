@@ -360,6 +360,15 @@ exists to prevent.
   🔑 **Each was a sentence that was nearly right and wrong about one surface**, and each survived
   because the check that produced it was never re-run. **Read the body, then run its check** - the
   entry's own text is a premise, not evidence.
+  ⚠ **AND SWEEP THE WHOLE TREE, NOT `*.md`** (2026-09-03, `(aka)`). A correction to a factual
+  claim is only as wide as its pathspec, and **the pathspec is the one part of a sweep nothing
+  reports back to you**. P204 corrected *"the publish job has never run"* in three documents and
+  reported the class closed; `git grep -nI -e "<claim>" -- . ':!*.md'` found a fourth copy the next
+  day in `ci.yml`'s banner - the text a person reads when deciding whether to dispatch the browser
+  lane before tagging. Prose is load-bearing in workflow comments, docstrings, `Makefile` and
+  `pyproject.toml` here. **Use `git grep -nI -e "<claim>" -- .` and read each hit before calling it
+  a defect** - one of the five hits was `afg.md`, already corrected on the day it expired.
+  **No guard is possible**: a guard would have to know a sentence is false.
 - ⚠ **QUOTE THE LINE, DO NOT SUMMARISE IT** - when a finding rests on a transcript, a run record
   or a log, **paste the line into the entry**. Two of four entries filed on 2026-08-31/09-01 had a
   mechanism that had to be corrected - `(aiq)` and `(aji)` - and **both times the wrong claim was
