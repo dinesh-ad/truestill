@@ -23,7 +23,10 @@ USES what it asked for. So this is a **declaration with a floor**, never a proof
 
 ⚠ **IT IS A STOPGAP WITH A KNOWN END DATE, AND THAT IS SAID HERE RATHER THAN ONLY IN THE ENTRY.**
 Its consumed end is a text search over `static/app.js`, and `app.js` is being **deleted** by the
-React migration. **Retire this file with it.** What replaces it is `(ahn)`: the backend emits an
+React migration. **The event that retires this file is the deletion of `app.js`, its last reader**
+(stated 2026-09-03, P198: `(ahn)` stage 5 typed the consumer and retired nothing, because the React
+source still reads zero keys). Its replacement is a compiler-resolved reference search over the
+generated types in the Node lane, which does not exist yet. What replaces it is `(ahn)`: the backend emits an
 OpenAPI spec, `openapi-typescript` generates the types, the frontend imports them - mechanical at
 *both* ends, which is the end this file cannot reach. A guard nobody retires is how a dead check
 outlives the thing it checked, keeps passing, and gets quoted as coverage.

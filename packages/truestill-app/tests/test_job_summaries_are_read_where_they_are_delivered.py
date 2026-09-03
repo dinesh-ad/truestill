@@ -26,10 +26,11 @@ live. So the scope here is the one place the binding is unambiguous: a `runJob({
 would otherwise pass as a clean sweep declaring every key dead. `test_a_payload_that_reads_nothing_is_a_broken_binding`
 holds that case by name because it is the one that would quietly destroy the guard's meaning.
 
-⚠ **THIS FILE HAS AN END DATE, and it is the same one `test_no_thirty_fifth_dead_payload_key.py`
-has.** Both are text searches over `app.js`, and both die at `(ahn)` **stage 5**, when a read
-becomes a **type reference** the TypeScript compiler resolves and neither the chaser nor the
-key-name census has anything left to do. ⚠ **This one dies first**: its subject is 7 `runJob`
+⚠ **THIS FILE IS RETIRED BY AN EVENT, NOT A DATE - and the event is NOT `(ahn)` stage 5**, which
+this said until 2026-09-03 (P198). Stage 5 made a read a type reference the compiler can resolve;
+it retired nothing, because `app.js` is still the only reader. **The event is a React island that
+owns a job screen landing**: each one retires the rows for the `runJob` blocks it replaces, and the
+file goes with the last. Both censuses are text searches over `app.js` and die with its readers. ⚠ **This one dies first**: its subject is 7 `runJob`
 blocks, so the first migrated island that owns a job screen retires its rows one at a time, while
 P83's guard covers all 289 key names and survives until the last screen moves. Retire them, do not
 inherit them.
