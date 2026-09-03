@@ -130,7 +130,13 @@ What P194 measured, and the mechanism that replaces them:
   a silent `window.*` seam per island, the shell picker reached from five screens, and the two
   `app.js`-keyed censuses alive until the last screen.
 - **The strangler pattern's justification is absent**: live users and unpausable feature work.
-  `(ajv)`: the published v0.1.0 carries no bundle, so no React has ever reached a user.
+  ⚠ **The evidence for this moved on 2026-09-03 and the conclusion did not, corrected the same day
+  (P204).** It read *"`(ajv)`: the published v0.1.0 carries no bundle, so no React has ever reached
+  a user."* `(ajv)` is **closed** and `v0.1.1` ships the bundle - 190,777 and 16,299 bytes in the
+  tarball, the `.deb` and the zip - so React now reaches anyone who installs it. What survives is
+  the half that was always doing the work: **there are no live users to strangle around**, which is
+  a fact about adoption rather than about the bundle. Stated separately here because the two were
+  one sentence, and only one of them expired.
 - **The mechanism**: the React app is built beside `app.js` and wired to a second template that
   loads only the bundle; `home()` picks it from `TRUESTILL_UI=react`, read once at startup, default
   unchanged. The browser lane runs against both (`make e2e`, `make e2e-react`); the unchanged suite

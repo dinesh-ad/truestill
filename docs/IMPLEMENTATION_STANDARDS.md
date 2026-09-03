@@ -872,8 +872,13 @@ not treat its silence as coverage (`ENGINEERING_STANDARD.md` §4's fifty-fourth 
 screen"*, and that condition could not fire** - `(adi)` migrates by island, not by screen. **The
 condition is now one that can: the lane returns to per-push when it finishes in under ~8 minutes**,
 a lever that exists and is unused (`make e2e` is serial across two browsers while `pytest-xdist`
-is already a dependency). ⚠ **Before a tag, run it** - the publish path has never fired and this
-lane is the only thing that sees the screens.
+is already a dependency). ⚠ **Before a tag, run it** - this lane is the only thing that sees the
+screens. ⚠ **The second half of that reason expired and the rule did not, corrected 2026-09-03
+(P204).** It read *"the publish path has never fired and this lane is the only thing that sees the
+screens"*; the publish path has now fired three times (`gh run list --workflow release.yml`), and
+`(ajv)` is why the rule survives its own justification - the browser lane was **green for nineteen
+days over a bundle the published v0.1.0 never had**, so running it before a tag is worth more now
+that the publish path works, not less.
 
 > ⚠ **A LIVE CONFLICT, recorded 2026-08-23 rather than resolved silently. `(afw)` Stage 4.**
 >

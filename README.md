@@ -331,6 +331,15 @@ Truestill is licensed under the [Apache License 2.0](LICENSE). The published sou
 open-core: the repository is Apache-2.0; paid Pro capabilities (when they ship) attach through
 the capability seam rather than a separate closed tree (`docs/DECISIONS.md` D7, D6).
 
-> **Status:** **0.1.0 is published** (2026-08-30). Pre-1.0, and the newcomer-facing rewrite
-> this note was carrying is still pending. This README is deliberately factual rather than
-> promotional; the newcomer-facing rewrite with screenshots is a tracked pre-launch task.
+> **Status:** **published and pre-1.0.** Which release is current is not written here - the
+> [Releases](https://github.com/dinesh-ad/truestill/releases) page and `CHANGELOG.md` are the
+> answer, and [Install](#install) already downloads by glob rather than by number. This README is
+> deliberately factual rather than promotional; the newcomer-facing rewrite with screenshots is a
+> tracked pre-launch task.
+>
+> ⚠ **This line read *"**0.1.0 is published** (2026-08-30)"* until 2026-09-03 (P204), four days
+> after `v0.1.1` became Latest** - so the one live document a new user reads first named the build
+> whose Organize screen is **usable and blind** (`(ajv)`), while `CHANGELOG.md` said *"If you have
+> 0.1.0, take this one before organizing anything."* A version number in prose is a fact with an
+> expiry date; the fix is not a fresher number but no number, which is why the sentence above
+> carries none.

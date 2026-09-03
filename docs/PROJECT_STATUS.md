@@ -543,9 +543,10 @@ silence. That is the state the project is actually in, and a shape that admits i
 manufactures 57 answers.
 
 **Not on the list and not letters at all** - they have no entry to resolve against, so the guard
-cannot hold them and this line is what carries them: the **publish job has never run**, and
-`(aad)` item 5's **download page** (whose home is `(afg)`, itself undecided as to whether it
-blocks). Both are detailed below.
+cannot hold them and this line is what carries them: `(aad)` item 5's **download page** (whose
+home is `(afg)`, itself undecided as to whether it blocks). It is detailed below.
+⚠ **The publish job was the second of these and it is no longer one, corrected 2026-09-03
+(P204).** It has run three times; see *Not blocking a tag* below for the runs.
 
 ### Actually blocking
 
@@ -553,9 +554,32 @@ blocks). Both are detailed below.
 |---|---|
 | **`(aad)` installers** | The **only** entry the backlog calls *"LAUNCH-BLOCKING"*. Its two biggest items are ✅ built and now proven: the release lane and the Windows installer. |
 | **`(aad)` item 5 - the download page** | D9 requires Windows users be told what SmartScreen will show, **in plain language, above the button, before they download**. Not written. ⚠ Confirmed still mandatory 2026-08-21: an unsigned installer on winget still shows the warning, so there is no second path. |
-| **The publish job has NEVER RUN** | `gh run list --workflow release.yml` shows **0** tag-triggered runs. Build is proven on both platforms; **sigstore signing and `gh release create` are not**. This is now the largest untested subsystem, and it is untested *by construction* - only a real `v*` tag fires it. |
 
 ### Not blocking a tag, corrected from a working list
+
+- ⚠ **THE PUBLISH JOB HAS RUN, and this row sat under *Actually blocking* for twelve days after
+  it was written and four days after it was false.** Corrected 2026-09-03 (P204). It read: *"The
+  publish job has NEVER RUN | `gh run list --workflow release.yml` shows **0** tag-triggered runs.
+  Build is proven on both platforms; **sigstore signing and `gh release create` are not**. This is
+  now the largest untested subsystem."* Its own command now answers:
+
+  ```
+  completed  success  chore(release): 0.1.1 ...  release  v0.1.1             push  33748895916  37m46s
+  completed  success  docs: what 0.1.0 gives ...  release  v0.1.0            push  33317913759  18m45s
+  completed  success  release                     release  v0.0.0-rehearsal  push  33310530340   5m52s
+  ```
+
+  **Three tag-triggered runs, two of them real publications.** Both named unknowns are now proven
+  at the artifact: `cosign verify-blob` returns *Verified OK* against the published `SHA256SUMS`
+  (handoff of 2026-09-03, verified with no credentials), and `gh release create` has published
+  twice. 🔑 **Why it outlived its own falsification is the finding, not the row.** `git blame`
+  dates it to **2026-08-22**; the first tag-triggered run was **2026-08-30 12:04**
+  (`v0.0.0-rehearsal`, run `33310530340`) - and that run is *the subject of a mapped canon
+  document*, [`release-rehearsal-record.md`](release-rehearsal-record.md). So the contradicting
+  evidence was not missing, it was **in a different file**, and nothing re-runs the command a row
+  quotes. A heading that asserts *blocking* is a claim with an expiry date and no guard; the
+  standing rule this repo already has - **a census or a claim is re-run before it is acted on**
+  (`CLAUDE.md`) - is what applies, and it applies to headings too.
 
 - **`(afe)` is closed** (2026-08-22), so it is no longer on the list above. A catalog that cannot
   be written now ends the run with a report rather than a traceback, and removes the one copy it
