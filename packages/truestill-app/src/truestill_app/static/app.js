@@ -99,6 +99,22 @@ async function api(path, body) {
 }
 const get = (path) => api(path);
 
+// A POST to a route the contract declares WITHOUT a body - `/api/jobs/{job_id}/cancel` answers a
+// bare 202, and `api.d.ts` reads `content?: never` for it. `api()` must not be used there: it
+// parses every 2xx as JSON, so an accepted cancel threw `did not return JSON`, painted the red
+// banner on every browser, and - when the click was queued before the job was named - aborted
+// `runJob` before it subscribed to the stream (nightly 33731353952, WebKit). Resolves with the
+// status; throws on a non-2xx with the route's own words, like `api()`.
+async function send(path) {
+  const res = await fetch(path, { method: "POST", headers: { "X-Truestill-Token": TOKEN } });
+  noticeIfPageIsStale(res);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`${path} failed (${res.status} ${res.statusText}): ${text.slice(0, 500) || "no body"}`);
+  }
+  return res.status;
+}
+
 // The one place a thrown error becomes something a user can actually see. Every screen shares
 // this banner (it lives outside the per-screen sections in index.html) so a failure is visible
 // regardless of which screen was open when it happened.
@@ -392,7 +408,7 @@ function createProgress(prefix) {
 
   const sendCancel = async (id) => {
     try {
-      await api(`/api/jobs/${id}/cancel`, {});
+      await send(`/api/jobs/${id}/cancel`);
     } catch (err) {
       // A queued cancel can arrive after the work finished on its own: the job is gone and the
       // route answers 404. That is the truthful outcome of "it beat you to it", not a fault to

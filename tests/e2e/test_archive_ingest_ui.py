@@ -163,6 +163,8 @@ def test_cancelling_leaves_a_staging_tree_the_next_run_can_clear(ui: Page, tmp_p
     ui.click("#rc-cancel")
 
     expect(ui.locator("[data-testid='rc-cancelled']")).to_be_visible(timeout=60_000)
+    # An accepted cancel is not something that went wrong; the banner said it was, on every engine.
+    expect(ui.locator("#global-error")).to_be_hidden()
     staging = destination / ".truestill-staging"
     assert list(staging.glob("*.json")), "cancel left a tree with no journal to attribute it"
 
@@ -188,3 +190,41 @@ def test_an_entry_too_large_for_the_drive_is_refused_by_code(
 
     expect(ui.locator("[data-refusal='oversized_entry']")).to_be_visible()
     expect(ui.locator("[data-testid='rc-refusal-detail']")).to_contain_text("a/VID_4K.mp4")
+
+
+def test_a_cancel_clicked_before_the_job_is_named_is_honoured_and_shows_no_error(
+    ui: Page, tmp_path: Path
+) -> None:
+    """The nightly of 2026-09-03 (run 33731353952, WebKit) lost this race to the scheduler; here
+    the order is forced. The run's response is held until the cancel has been clicked, so the
+    click is queued (`wanted`) and sent from `setJob` inside `runJob`'s own flow - and that path
+    used to die: `job_cancel` answers a bodiless 202, `sendCancel` went through the JSON client,
+    and the throw aborted `runJob` before it subscribed to the stream. Nobody listened for the
+    cancelled frame, the elapsed ticker ran on, and a red banner said `did not return JSON`.
+    """
+    source = tmp_path / "src"
+    destination = tmp_path / "dest"
+    _zip(
+        source / "photos.zip",
+        {f"Takeout/a/IMG_{i:04d}.jpg": b"\xff\xd8" + b"x" * 90_000 for i in range(60)},
+    )
+    _preview(ui, source, destination)
+
+    held: list[object] = []
+
+    def hold(route: object) -> None:
+        held.append(route)
+
+    ui.route("**/api/ingest/archives/run", hold)
+    ui.click("[data-testid='rc-confirm']")
+    expect(ui.locator("#rc-cancel")).to_be_enabled()
+    ui.click("#rc-cancel")
+    expect(ui.locator("#rc-cancel")).to_have_text("Stopping…")
+    for route in held:
+        route.continue_()  # type: ignore[attr-defined]  # the queued cancel fires the moment the job is named
+
+    expect(ui.locator("[data-testid='rc-cancelled']")).to_be_visible(timeout=60_000)
+    expect(ui.locator("#global-error")).to_be_hidden()
+    assert list((destination / ".truestill-staging").glob("*.json")), (
+        "cancel left a tree with no journal"
+    )
