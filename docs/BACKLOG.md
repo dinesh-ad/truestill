@@ -645,7 +645,14 @@ and they are not product defects; keeping them in one drawer stops them competin
   **An entry, deliberately no guard yet**: one instance found by a state check is a count, not a rate, and `(ago)`'s bar is red on the past over a class no guard covers. The body carries
   the census command; re-run it before deciding. Body: [`research/backlog/ajr.md`](research/backlog/ajr.md).
 
-- **(ajm) A BROWSER TEST MEASURES THE MACHINE'S TEMP PATH, NOT THE PRODUCT.** Filed 2026-09-01
+- **(ajm) A BROWSER TEST MEASURES THE MACHINE'S TEMP PATH, NOT THE PRODUCT.**
+  ⚠ **AND IT IS NOW A GATE, NOT ONLY AN INSTRUMENT DEFECT (2026-09-03, P207).** It failed in
+  **both** `-n auto` samples (`33802113061`, `33803207647`) on
+  `'/tmp/pytest-of-runner/pytest-0/popen-gw2/test_the_catalog_path_fit…catalog.sqlite'` - xdist
+  inserts a `popen-gwN` component and lengthens `tmp_path`, which is a **second trigger** for the
+  same root cause as the local `/data` volume. **Any future parallelism of the browser lane has to
+  fix this first**, whatever the reason for trying it; a lane that goes red on its own worker
+  layout cannot measure anything. Filed 2026-09-01
   (P173). **An instrument defect, DIAGNOSED rather than merely observed** - it was reported as
   *"undiagnosed, costs 26 minutes to learn nothing"* and one run settled it.
   `test_narrow_top_bar.py::test_the_catalog_path_fits_rather_than_truncating_to_nothing` fails on
@@ -894,20 +901,6 @@ and they are not product defects; keeping them in one drawer stops them competin
 
 ## Blocked - do not build yet
 
-- **(ajx) THE ~8 MINUTE BROWSER-LANE PREREQUISITE IS A BLOCK, NOT A TASK.** Filed 2026-09-03
-  (P206) from two measured samples on the lane's own printed hardware (`nproc = 4`, 15.6 GiB).
-  Per-engine, by attributing every result line's elapsed to its parametrised engine:
-  **chromium 415.1s / webkit 791.9s** (run `33791378006`) and **chromium 550.7s / webkit 993.4s**
-  (run `33796360000`) - a **28% run-to-run swing on identical work**, which is the finding. Against
-  the 480 s condition: serial is 2.6-3.4x over, and **a split by engine misses by 77-122%**
-  (webkit + setup = 850-1067 s). Chromium alone clears only on the fast sample, and a
-  chromium-only lane is refused by `ci.yml`'s own comment - *"a lane that is green only in
-  Chromium says nothing about it."* Not the `if: false` shape - `-n auto` *could* fire, needing
-  **>=1.88x fast / >=2.35x slow** - so it is **unverified and receding**: written for a ~470-test
-  lane that now produces **988 results**. Both `handoff-2026-09-03.md` and
-  `react-migration-plan.md` list it as a numbered prerequisite; both now say it is a block.
-  Unblocked by a ruling: runner spend, or the contract-guard route. [Full entry](research/backlog/ajx.md)
-
 - **(aju) CONDITION 3'S CONSUMED END WAITS ON THE REACT MIGRATION, AND §1b CANNOT ORDER IT BEFORE.**
   Filed 2026-09-03 (P199) at `(ahn)`'s closure. The contract is declared, committed and typed on
   both ends, and **34 keys are still computed and read by no one** - the `DEAD` table in
@@ -950,6 +943,25 @@ like approved work.
 **A decision was made and recorded so it is not re-litigated.** There is nothing to build. They
 keep their letters because `IMPLEMENTATION_STANDARDS.md` and other documents cite letters, and a
 cited letter must resolve.
+
+- **(ajx) THE ~8 MINUTE BROWSER-LANE CONDITION IS RETIRED - IT ASKED THE WRONG QUESTION.**
+  ⚠ **Ruled 2026-09-03 (P207)**; filed the same day (P206) as a block, and retiring it is the
+  better answer than pursuing it. **Measured, not argued**, on the hardware the lane now prints
+  (`nproc = 4`, 15.6 GiB): `-n auto -k webkit` over two dispatches ran the webkit half in
+  **554.97 s** (`33802113061`) and **695.19 s** (`33803207647`) - **1.43x and 1.79x** against a
+  serial baseline needing **>=1.88x**. Best configuration ever measured: **10.2 min, and red** -
+  the assertion budget was exhausted twice (*"Expect to_contain_text with timeout 30000ms"*) and
+  `(ajm)` fired because xdist lengthens `tmp_path` with `popen-gwN`.
+  🔑 **The replacement is TWO STAGES**, binding in `IMPLEMENTATION_STANDARDS.md`: **FAST every
+  push** - `make check`, **40 s over 3,543 tests**, plus contract guards that catch browser
+  classes with no browser, the worked example being
+  `test_the_json_client_is_only_used_on_json_routes.py` at **0.07 s**; **SLOW on a narrower
+  trigger** - the full suite, both engines, unchanged, nightly and on dispatch. **This is the
+  field's own answer, not a lowered bar**: the ten-minute rule is real (Beck; DORA), but DORA's
+  remedy is *"split out longer-running tests into a separate build"*. ⚠ **Retired is not skipped
+  and licenses no subset** - the *"No curated smoke suite"* refusal stands, and the `(adi)`
+  cutover's gate is **the unchanged browser suite green against React, both engines, before the
+  flip commit**, achievable today with no lever and no spend. [Full entry](research/backlog/ajx.md)
 
 - **(afq) A PREVIEW OCCUPIES THE DRIVE IN THE APP, AND NOTHING SAYS WHY.** ⚠ **Rulings, 2026-09-02 (P186)**: no code gap - the refusal is deliberate and needs its own justification, which is a decision. `_start_drive_job`
   passes `operation="organize preview"` to `jobs.start`, which occupies the drive exactly as an

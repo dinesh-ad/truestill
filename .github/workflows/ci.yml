@@ -15,7 +15,8 @@ on:
   workflow_dispatch:
     inputs:
       # MEASURING THE LANE WITHOUT EDITING THE LANE. `(ajx)` asks whether the browser lane can be
-      # brought under the ~8 minute condition, and the only untried lever is `-n auto`. Answering
+      # brought under the ~8 minute condition (retired 2026-09-03 by `(ajx)`; the answer was no),
+      # and the only untried lever was `-n auto`. Answering
       # that needed a run of one engine, in parallel, on CI hardware - which previously meant
       # committing a change to the `E2E` step, dispatching, reading it, and reverting: three
       # commits of churn for a number, and a step that has been edited for an experiment is a step
@@ -452,13 +453,24 @@ jobs:
   # `packages/*/src/**`, which fires on 38% of commits (23 of the last 60, measured) - most of the
   # cost, plus a filter that fails SILENTLY when it is wrong.
   #
-  # ⚠ WHAT TURNS PER-PUSH BACK ON, AND THIS ONE CAN FIRE: **the lane finishing in under ~8
-  # minutes.** That is a lever that exists today and is unused - `pytest-xdist` is already a
-  # dependency and `make test` already runs `-n auto`, while `make e2e` is SERIAL across two
-  # browsers. The suite is structurally parallel-safe: `app_server` is function-scoped on an
-  # ephemeral port with its own catalog, and the one session-scoped fixture `retiring` documents
-  # itself as holding *"no application state at all"*. Nobody has tried `-n auto` here. When it
-  # runs in single-digit minutes, move this job back to `push` and delete this paragraph.
+  # ⚠ THE ~8 MINUTE CONDITION IS RETIRED (2026-09-03, P207) AND THIS JOB STAYS WHERE IT IS.
+  # It read: "WHAT TURNS PER-PUSH BACK ON, AND THIS ONE CAN FIRE: the lane finishing in under ~8
+  # minutes ... Nobody has tried `-n auto` here." Somebody has now. On this runner (`nproc = 4`,
+  # printed by the `Runner spec` step below) `-n auto -k webkit` ran the webkit half in 554.97 s
+  # and 695.19 s across two dispatches - 1.43x and 1.79x against a serial baseline that needed
+  # >=1.88x - so the best configuration ever measured is 10.2 min, and it was RED: the assertion
+  # budget was exhausted twice ("Expect to_contain_text with timeout 30000ms"), and `(ajm)` fired
+  # because xdist lengthens `tmp_path` with a `popen-gwN` component.
+  #
+  # The replacement is TWO STAGES, and `IMPLEMENTATION_STANDARDS.md` 6.1 is the binding form:
+  # FAST every push (`make check`, 40 s over 3,543 tests, plus contract guards that catch browser
+  # classes with no browser - `test_the_json_client_is_only_used_on_json_routes.py` does it in
+  # 0.07 s); SLOW on a narrower trigger, this job, both engines, unchanged. That is DORA's own
+  # remedy - "split out longer-running tests into a separate build" - not a lowered bar.
+  #
+  # ⚠ RETIRED IS NOT SKIPPED. The `(adi)` cutover's gate is that this suite runs green against
+  # React, both engines, before the flip commit. No subsetting: 6.1's "No curated smoke suite"
+  # refusal stands. `(ajx)` carries the measurement and the field evidence.
   #
   # ⚠ BEFORE A TAG, RUN IT. This lane is the only thing that sees the screens;
   # `workflow_dispatch` above is how, and `make e2e` is the local equivalent.

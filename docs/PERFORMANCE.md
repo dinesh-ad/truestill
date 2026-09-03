@@ -541,6 +541,21 @@ actually occupies: **1169-1391 s (19.5-23.2 min) across eight consecutive CI run
 **1475 s (24.6 min)** for `make e2e` locally. A lane with a `(ado)`-shaped tail varies by 19%
 run to run, so one number reads as precision it does not have. The range is the honest form.
 
+⚠ **TAKE TWO SAMPLES OF THIS LANE, NEVER ONE - AND THE ARGUMENT IS 22x, NOT 19%** (2026-09-03,
+P207, `(ajx)`). Two dispatches of the **same suite on the same hardware**, fifty minutes apart,
+gave **1207.4 s and 1544.8 s** end to end (+28%) and, per engine, chromium 415.1 s -> 550.7 s
+(+33%) with webkit 791.9 s -> 993.4 s (+25%). 🔑 **The single-test figure is what settles it.**
+`test_migrate_undo.py::test_cancel_during_undo_apply_stops_and_leaves_the_journal_resumable[webkit]`
+was **14.85 s in one run and 330.08 s in the next** - a **22x swing on identical work**. In the
+first run the slowest test in the lane was 19.17 s and everything passed; in the second the
+assertion budget was exhausted twice and the run was red.
+
+**So sample one alone would have read as a pass, and a decision taken on it would have been
+wrong.** This belongs beside **any** timing measurement of this lane, not only in `(ajx)`: a
+single run of a lane with this tail is not a measurement, it is one draw from a wide
+distribution. Report the pair, and report the **longest single wait** alongside the total - the
+total is what tempts, the tail is what decides.
+
 | Lane | Wall-clock | GitHub billing multiplier |
 |---|---|---|
 | `check (windows-latest)` | **6.2 min** | 2x |

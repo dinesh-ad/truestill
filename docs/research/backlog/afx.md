@@ -138,6 +138,11 @@
   `-n auto`, and `make e2e` is serial across two browsers. `ci.yml` names it as the condition for
   per-push returning (*"when the lane finishes in under ~8 minutes"*).
 
+  ⚠ **THE CONDITION QUOTED ABOVE IS RETIRED (2026-09-03, P207, `(ajx)`), and this paragraph's
+  call was vindicated rather than overtaken.** `-n auto` was finally measured on the webkit half:
+  **1.43x and 1.79x** over two dispatches against a baseline needing **>=1.88x**, best case
+  **10.2 min and red**. The reasoning below reached the right answer before the measurement did.
+
   ⚠ **It is not worth measuring here.** This lane protects a UI that `(adi)` is replacing island
   by island, and parallelising a suite whose subject is being rewritten spends the measurement
   twice. Recorded so the next person does not re-derive the lever and mistake its absence for an

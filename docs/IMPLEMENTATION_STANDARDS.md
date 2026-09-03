@@ -869,10 +869,41 @@ uv run pytest tests/e2e --collect-only -q | grep -oE '[0-9]+ tests collected'
 **If a change genuinely reaches a screen, say so and ask**; do not run it by reflex and do
 not treat its silence as coverage (`ENGINEERING_STANDARD.md` §4's fifty-fourth member).
 ⚠ **It was `if: false` from 2026-08-20 to 2026-08-22 on the condition *"the first migrated
-screen"*, and that condition could not fire** - `(adi)` migrates by island, not by screen. **The
-condition is now one that can: the lane returns to per-push when it finishes in under ~8 minutes**,
-a lever that exists and is unused (`make e2e` is serial across two browsers while `pytest-xdist`
-is already a dependency). ⚠ **Before a tag, run it** - this lane is the only thing that sees the
+screen"*, and that condition could not fire** - `(adi)` migrates by island, not by screen. **Its
+replacement - *"the lane returns to per-push when it finishes in under ~8 minutes"* - is RETIRED
+as of 2026-09-03 (P207), and this is the binding statement of what replaces it.** `(ajx)` carries
+the measurement and the field evidence; the short form is that the condition asked the wrong
+question.
+
+**THE TWO STAGES, and this is the rule.**
+
+1. **FAST - every push.** `make check`, plus the **contract guards that catch browser classes
+   without a browser**. This stage is already best-in-class and is the one a ten-minute rule is
+   about: **40 s over 3,543 tests**. The worked example is
+   `test_the_json_client_is_only_used_on_json_routes.py` - it catches the JSON-client-on-a-bodiless-route
+   class in **0.07 s**, the class that cost a nightly red and shipped a broken cancel to users.
+   **Growing this stage is the standing work**; every browser-only class converted to a contract
+   guard is coverage moved from the slow stage to the fast one.
+2. **SLOW - a narrower trigger.** The full browser suite, **both engines, unchanged**: nightly,
+   on `workflow_dispatch`, and before a tag. It is not subsetted, not parallelised and not
+   trimmed.
+
+🔑 **This is where the field puts the two stages, not a lowered bar.** The ten-minute rule is
+real - Kent Beck: *"a build that takes longer than ten minutes will be used much less often,
+missing the opportunity for feedback"* - and DORA sets the same upper limit. **But DORA's own
+remedy is not "make the slow tests fast"**: *"improve the efficiency of your tests, add more
+compute resources so you can run them in parallel, or **split out longer-running tests into a
+separate build** using the deployment pipeline pattern."* Forcing a 20-minute two-engine browser
+suite into the first stage is the thing the pattern says not to do. We already have the fast loop.
+
+⚠ **RETIRED DOES NOT MEAN SKIPPED, AND IT DOES NOT LICENSE A SUBSET.** The refusal below -
+*"No curated smoke suite"* - **stands unchanged**. The lane does not matter less; it moved to the
+stage it belongs in. **The `(adi)` cutover's gate is explicit: the unchanged browser suite runs
+GREEN against React before the flip commit**, on a dispatch, both engines. That gate is
+achievable today with no lever, no spend and no subsetting - which the ~8 minute condition never
+was.
+
+⚠ **Before a tag, run it** - this lane is the only thing that sees the
 screens. ⚠ **The second half of that reason expired and the rule did not, corrected 2026-09-03
 (P204).** It read *"the publish path has never fired and this lane is the only thing that sees the
 screens"*; the publish path has now fired three times (`gh run list --workflow release.yml`), and

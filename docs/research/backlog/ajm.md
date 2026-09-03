@@ -4,6 +4,25 @@
 [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with
 [`SHIPPED.md`](../../SHIPPED.md).*
 
+⚠ **AND IT IS NOW A GATE, NOT ONLY AN INSTRUMENT DEFECT (2026-09-03, P207, from `(ajx)`).**
+It failed in **both** `-n auto` dispatches of the webkit half - `33802113061` and `33803207647` -
+on a path the worker layout made longer:
+
+```
+AssertionError: the path is still being ellipsised with room to spare:
+'/tmp/pytest-of-runner/pytest-0/popen-gw2/test_the_catalog_path_fit…catalog.sqlite'
+```
+
+`pytest-xdist` inserts a `popen-gwN` component into `tmp_path`, which is a **second trigger for
+the same root cause** this entry already names: the test asserts a path shows whole and does not
+control the path's length. The first trigger was a machine with a `/data` volume (95 chars against
+CI's 77); this one is the runner's own parallelism.
+
+🔑 **So any future attempt to parallelise the browser lane has to fix this first**, whatever the
+reason for trying it - a lane that goes red on its own worker layout cannot measure anything, and
+`(ait)`/`(aiu)`'s ruling that instrument defects outrank product findings is exactly why. This
+does not change the diagnosis below or the fix; it changes what depends on it.
+
 Filed 2026-09-01 (P173). **An instrument defect, and it is diagnosed rather than merely
 observed** - it was reported as "undiagnosed, costs 26 minutes to learn nothing" and one run
 settled it.

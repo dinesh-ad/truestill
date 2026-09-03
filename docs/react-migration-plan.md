@@ -144,17 +144,24 @@ What P194 measured, and the mechanism that replaces them:
   flip. **The flip is one commit** - the template, the switch and the old template - and `app.js`
   stays in the tree for one release; `git revert` of that commit is the rollback. Every id, class
   and `data-ready` write is kept, so restyling is a separate arc.
-- **Prerequisites, in order**: `(ajv)`; ⚠ **the browser lane under ~8 minutes is `(ajx)` and is a
-  BLOCK, not a task** - corrected 2026-09-03 (P206) after it was measured rather than assumed. On
-  the lane's own printed hardware (`nproc = 4`) two samples gave **chromium 415.1s / webkit 791.9s**
-  and **chromium 550.7s / webkit 993.4s**, a **28% run-to-run swing**; a split by engine costs
-  850-1067 s against the 480 s condition and **misses by 77-122%**, and `-n auto` - the one untried
-  lever - would need **>=1.88x fast / >=2.35x slow**. It does not sit between `(ajv)` and the
-  formatter work as a thing somebody does; it needs a **ruling** (runner spend, or moving classes
-  out of the browser lane the way the JSON-client guard does). The rest of the order is unchanged:
-  an import-free equivalent for the two e2e files that call `fmtBytes` and `fmtDuration` as
-  globals; then `app/` and `api/` first, screens in the risk order below, Organize last, the flip,
-  the deletion. **The flip itself is not blocked** - only its per-push verification is.
+- **Prerequisites, in order**: `(ajv)`; an import-free equivalent for the two e2e files that call
+  `fmtBytes` and `fmtDuration` as globals; then `app/` and `api/` first, screens in the risk order
+  below, Organize last, the flip, the deletion.
+  ⚠ **THE BROWSER LANE UNDER ~8 MINUTES IS NO LONGER ON THIS LIST - the condition is RETIRED**
+  (2026-09-03, P207, `(ajx)`), so the order above is one item shorter rather than one item
+  blocked. It was listed here as a numbered task; it was never one. Measured on the lane's own
+  printed hardware (`nproc = 4`): `-n auto` on the webkit half gave **554.97 s and 695.19 s**
+  across two dispatches - **1.43x and 1.79x** against a baseline needing **>=1.88x** - so the best
+  configuration ever measured is **10.2 min and it was red**, the assertion budget exhausted twice.
+  🔑 **The replacement is two stages** (binding in `IMPLEMENTATION_STANDARDS.md`), which is DORA's
+  own remedy - *"split out longer-running tests into a separate build"* - rather than a lowered
+  bar. Nothing about the migration's order or mechanism changes.
+- 🔑 **THE FLIP'S GATE, stated so "retired" is never read as "skipped": the unchanged browser
+  suite runs GREEN against React, both engines, on a dispatch, BEFORE the flip commit.** That is
+  the differential oracle this plan already describes, and it is **achievable today with no lever,
+  no spend and no subsetting** - which the ~8 minute condition never was. The lane does not matter
+  less; it moved to the stage it belongs in, and `IMPLEMENTATION_STANDARDS.md`'s *"No curated
+  smoke suite"* refusal **stands unchanged**.
 - **The structure**: `app/` (the shell: 18 ids, the picker, the registry), `api/` (`client.ts`
   keyed on the generated `paths`, `stream.ts` yielding the frame union as sent with no `ok`
   adapter, `job.ts` as one state replacing `runJob`'s twenty options), `run/` (the four-state

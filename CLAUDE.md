@@ -292,9 +292,17 @@ exists to prevent.
   2026-08-22, and every figure written in since has rotted within days -
   `uv run pytest tests/e2e --collect-only -q | grep -oE '[0-9]+ tests collected'`.
   ⚠ **The old condition, *"the first migrated screen"*, could not fire**: `(adi)` migrates by
-  ISLAND, not by screen. **Per-push returns when the lane finishes in under ~8 minutes** - a lever
-  that exists and is unused, since `make e2e` is serial across two browsers while `pytest-xdist`
-  is already a dependency and `make test` already uses `-n auto`.
+  ISLAND, not by screen. ⚠ **AND ITS REPLACEMENT - *"per-push returns when the lane finishes in
+  under ~8 minutes"* - IS RETIRED (2026-09-03, `(ajx)`), because it asked the wrong question.**
+  Measured on `nproc = 4`: `-n auto` on the webkit half gave **1.43x and 1.79x** against a
+  baseline needing **>=1.88x**, so the best configuration is 10.2 min and it was **red** - the
+  assertion budget blew twice. **The replacement is two stages**, binding in
+  `IMPLEMENTATION_STANDARDS.md`: **FAST every push** (`make check`, 40 s over 3,543 tests, plus
+  contract guards that catch browser classes with no browser -
+  `test_the_json_client_is_only_used_on_json_routes.py` in 0.07 s) and **SLOW on a narrower
+  trigger** (this lane, both engines, unchanged). That is DORA's own remedy, *"split out
+  longer-running tests into a separate build"*. ⚠ **Retired is not skipped and licenses no
+  subset**: the cutover's gate is the unchanged suite green against React before the flip.
   ⚠ **A path filter was refused with a proof, not a hunch**: `(afo)` touched core, an app service
   and the CLI, **no markup path**, and changed wording two `tests/e2e/` files assert directly.
   ⚠ **Its silence is not coverage** - `ENGINEERING_STANDARD.md` §4's fifty-fourth member. The three
