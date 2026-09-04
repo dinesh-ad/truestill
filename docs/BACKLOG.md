@@ -677,29 +677,6 @@ and they are not product defects; keeping them in one drawer stops them competin
   **An entry, deliberately no guard yet**: one instance found by a state check is a count, not a rate, and `(ago)`'s bar is red on the past over a class no guard covers. The body carries
   the census command; re-run it before deciding. Body: [`research/backlog/ajr.md`](research/backlog/ajr.md).
 
-- **(ajm) A BROWSER TEST MEASURES THE MACHINE'S TEMP PATH, NOT THE PRODUCT.**
-  ⚠ **AND IT IS NOW A GATE, NOT ONLY AN INSTRUMENT DEFECT (2026-09-03, P207).** It failed in
-  **both** `-n auto` samples (`33802113061`, `33803207647`) on
-  `'/tmp/pytest-of-runner/pytest-0/popen-gw2/test_the_catalog_path_fit…catalog.sqlite'` - xdist
-  inserts a `popen-gwN` component and lengthens `tmp_path`, which is a **second trigger** for the
-  same root cause as the local `/data` volume. **Any future parallelism of the browser lane has to
-  fix this first**, whatever the reason for trying it; a lane that goes red on its own worker
-  layout cannot measure anything. Filed 2026-09-01
-  (P173). **An instrument defect, DIAGNOSED rather than merely observed** - it was reported as
-  *"undiagnosed, costs 26 minutes to learn nothing"* and one run settled it.
-  `test_narrow_top_bar.py::test_the_catalog_path_fits_rather_than_truncating_to_nothing` fails on
-  **both** browsers locally and passes in CI; reproduced at `2ba5cdb` with all work stashed, so it
-  predates P169-P172. 🔑 **The test asserts a path shows whole *"with room to spare"* and does not
-  control the path's length.** `suite_scratch.scratch_root()` decides that and says so in its own
-  docstring - *"`None` is the CI answer and is not a failure: no runner has a `/data`"* - so
-  `tmp_path` is **95 chars here against 77 on CI**. ⚠ **Eighteen characters is the entire
-  difference, and it is NOT flakiness** but a deterministic dependency on whether the machine has
-  a `/data` volume. Ranks by `(ait)`/`(aiu)`'s ruling that instrument defects outrank product
-  findings: a lane that always ends in two known-irrelevant failures is one whose next real
-  failure is indistinguishable from its noise. ⚠ **The other suspected instrument,
-  `cli._print_capped`, was investigated and is CORRECT** - the null is in `(ajk)`.
-  Body: [`research/backlog/ajm.md`](research/backlog/ajm.md).
-
 - **(ajh) TRUESTILL CANNOT TELL A REMOVABLE DRIVE FROM A FIXED ONE, AND ALREADY READS THE LINE
   THAT SAYS SO.** Filed 2026-09-01, split out of `(ajf)` when its wording half shipped. **Not a
   defect** - nothing is wrong today, because `(ajf)` put the condition in the sentence rather than

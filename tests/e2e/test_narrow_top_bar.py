@@ -107,10 +107,28 @@ def test_the_custody_line_is_readable_at_narrow_widths(ui: Page) -> None:
 
 
 def test_the_catalog_path_fits_rather_than_truncating_to_nothing(ui: Page) -> None:
-    """The fit logic measures and middle-ellipsises; a full-width strip gives it far more room.
+    """The fit logic measures and middle-ellipsises; asserted against the width it actually has.
 
-    The `...e` defect came from that code measuring mid-animation. With room to spare it must
-    show the path whole, and must never fall back to the `.too-narrow` hide.
+    The `...e` defect came from that code measuring mid-animation, and this test is what caught
+    it. It must never fall back to the `.too-narrow` hide with room available.
+
+    ⚠ **IT USED TO ASSERT `shown == full` UNCONDITIONALLY, AND THAT ASSERTED A PRECONDITION IT
+    DID NOT ESTABLISH** - `(ajm)`. Its own docstring said *"with room to spare"* while the room
+    came from the viewport and the path came from `tmp_path`, so it was testing the length of the
+    directory pytest happened to hand it. **Two triggers, one cause**: a machine with a `/data`
+    volume (95 characters against CI's 77), and `pytest-xdist` inserting `popen-gwN/`, which
+    failed both `-n auto` dispatches of `(ajx)`. The product was correct on every one of those
+    runs.
+
+    **The contract is in `app.js:fitCatalogPath` and it is conditional**, so the test is too:
+
+        el.textContent = full;
+        if (el.clientWidth <= 0 || el.scrollWidth <= el.clientWidth) return;
+
+    Whole when it fits, middle-ellipsised when it does not. Asking the element whether the full
+    string fits - rather than assuming it does - tests the fit logic in **both** directions and is
+    independent of how long the path happens to be. A fit test whose input length is incidental is
+    not testing fit.
     """
     _narrow(ui)
     ui.wait_for_timeout(400)  # let the ResizeObserver settle after the width change
@@ -122,8 +140,66 @@ def test_the_catalog_path_fits_rather_than_truncating_to_nothing(ui: Page) -> No
     shown = ui.eval_on_selector("#custody-catalog", "el => el.textContent.trim()")
     full = ui.eval_on_selector("#custody-catalog", "el => el.dataset.full || ''")
     assert len(shown) > 3, f"the path collapsed to {shown!r}"
-    if full:
+    if not full:
+        return
+
+    # Does the WHOLE path fit in the box it has? Measured the way the code measures it, and
+    # restored in the same evaluation so the page is left exactly as it was found.
+    fits = ui.eval_on_selector(
+        "#custody-catalog",
+        "el => { const was = el.textContent; el.textContent = el.dataset.full;"
+        " const ok = el.clientWidth > 0 && el.scrollWidth <= el.clientWidth;"
+        " el.textContent = was; return ok; }",
+    )
+    if fits:
         assert shown == full, f"the path is still being ellipsised with room to spare: {shown!r}"
+    else:
+        assert "\u2026" in shown, f"the path does not fit and was not ellipsised: {shown!r}"
+        assert shown.endswith(full.rsplit("/", 1)[-1]), (
+            f"the filename did not survive the ellipsis: {shown!r}"
+        )
+
+
+def test_the_fit_logic_shows_a_short_path_whole_and_ellipsises_a_long_one(ui: Page) -> None:
+    """Both branches, driven with paths the test owns - so neither depends on the environment.
+
+    ⚠ **THE CONDITIONAL TEST ABOVE IS CORRECT AND ITS COVERAGE IS NOT PORTABLE**, which is why
+    this exists beside it. Whichever branch runs there is decided by how long `tmp_path` happens
+    to be: on this machine the `/data` root makes it long, so only the ellipsis branch runs, and
+    a mutation removing `fitCatalogPath`'s fits-early-return was **not caught** by it. In CI the
+    path is shorter and the other branch runs. A test whose branch coverage moves with the
+    filesystem is the same defect `(ajm)` is about, one level in.
+
+    So this drives `fitCatalogPath` directly with two paths it constructs, and asserts both
+    outcomes. `app.js` is a classic script (`<script src="/static/app.js">`), so its top-level
+    functions are globals and are callable - the same seam `main.tsx` documents for
+    `organizeCompletion` and `solveResultGrid`.
+    """
+    _narrow(ui)
+    ui.wait_for_timeout(400)
+    if ui.locator("#custody-catalog").count() == 0:
+        return
+
+    outcomes = ui.eval_on_selector(
+        "#custody-catalog",
+        "el => { const keep = el.dataset.full;"
+        " const run = (p) => { el.dataset.full = p; window.fitCatalogPath(el);"
+        "                      return el.textContent; };"
+        " const short = run('/a/b.sqlite');"
+        " const long = run('/' + 'verylongdirectory/'.repeat(24) + 'catalog.sqlite');"
+        " el.dataset.full = keep; window.fitCatalogPath(el);"
+        " return {short, long}; }",
+    )
+
+    assert outcomes["short"] == "/a/b.sqlite", (
+        f"a path with room to spare was still ellipsised: {outcomes['short']!r}"
+    )
+    assert "\u2026" in outcomes["long"], (
+        f"a path far too long for the box was not ellipsised: {outcomes['long']!r}"
+    )
+    assert outcomes["long"].endswith("catalog.sqlite"), (
+        f"the filename did not survive the ellipsis: {outcomes['long']!r}"
+    )
 
 
 def test_the_bar_still_scrolls_away(ui: Page) -> None:

@@ -22,6 +22,24 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ajm) A BROWSER TEST MEASURED THE MACHINE'S TEMP PATH, NOT THE PRODUCT.**
+  ✅ **CLOSED 2026-09-04 (P217).** The product was correct on every run that ever failed this.
+  `app.js:fitCatalogPath` states its contract in one line -
+  `if (el.clientWidth <= 0 || el.scrollWidth <= el.clientWidth) return;` - **whole when it fits,
+  middle-ellipsised when it does not**. The test asserted `shown == full` unconditionally while
+  taking its width from the viewport and its path from `tmp_path`, so it asserted a precondition
+  it never established. Two triggers, one cause: a `/data` volume (95 chars against CI's 77) and
+  `pytest-xdist`'s `popen-gwN`, which failed both `-n auto` dispatches of `(ajx)`.
+  **Fixed in the test, not the fixture and not the product** - it now asks the element whether
+  the full string fits and asserts the branch that applies. ⚠ **And a second test was added
+  because the first one's COVERAGE is not portable**: whichever branch runs is decided by the
+  filesystem, and a mutation removing the fits-early-return was **not caught** on this machine,
+  where the path is long. The new test drives `fitCatalogPath` with a short and a long path it
+  constructs, asserts both outcomes, and **does catch that mutation** (`'/a/…b.sqlite'`).
+  ⚠ **Only this one test had the dependency** - swept: `test_custody_strip.py` asserts
+  `len(painted) > 6`, `test_large_viewports.py` carries an `or` fallback; both are
+  length-tolerant. Body: [`research/backlog/ajm.md`](research/backlog/ajm.md).
+
 - **(ajw) EVERY PUBLISHED BUILD CALLS ITSELF "truestill unknown (not installed)" ON ITS OWN SETTINGS SCREEN.**
   ✅ **CLOSED 2026-09-04 (P208)**, filed 2026-09-03 from an installed 0.1.1. The root is one flag:
   `--collect-data` copies a package's DATA FILES and PyInstaller *"does not collect these metadata

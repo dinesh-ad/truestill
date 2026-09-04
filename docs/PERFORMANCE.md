@@ -541,6 +541,35 @@ actually occupies: **1169-1391 s (19.5-23.2 min) across eight consecutive CI run
 **1475 s (24.6 min)** for `make e2e` locally. A lane with a `(ado)`-shaped tail varies by 19%
 run to run, so one number reads as precision it does not have. The range is the honest form.
 
+### The browser lane on THIS machine, and why it is not the same measurement (2026-09-04, P217)
+
+**Four runs, sequential so they could not contend**, after `(ajm)` was fixed - which is what made
+`-n auto` measurable at all, since it failed on its own worker layout before.
+
+| config | sample 1 | sample 2 | swing | longest single wait |
+|---|---|---|---|---|
+| serial (`make e2e`) | **1587 s** (26:21) | **1598 s** (26:33) | **0.7%** | 5.55 s / 5.81 s |
+| `-n auto` | **338 s** (5:35) | **343 s** (5:41) | **1.5%** | 19.61 s / 19.17 s |
+
+**993 passed, 3 skipped in all four.** `nproc = 16`, 30.2 GiB, AMD Ryzen 7 4800H.
+
+🔑 **THE SPEEDUP IS PARALLELISM, NOT THE MACHINE, AND THE SERIAL NUMBER PROVES IT.** Local serial
+is **slower** than the hosted runner - 1587 s against a measured **1319-1500 s** for CI's `E2E`
+step (runs `33884964602`, `33888585264`) - because a serial run uses one core and this CPU's
+single-core throughput is behind the EPYC 9V74's. Sixteen cores buy nothing until something uses
+them. **Quoting "26 min -> 5:35" as "local is faster than CI" would be wrong.**
+
+⚠ **AND LOCAL IS AN ORDER OF MAGNITUDE MORE STABLE THAN THE HOSTED RUNNER**, which is the reason
+two samples are affordable here and were essential there. The note below records a **28%** swing
+and one test moving **14.85 s -> 330.08 s**; the same lane on this machine swings **0.7% and
+1.5%**, and its tail moves 4.7% and 2.2%. The tail *grows* under workers - 5.6 s to 19.6 s, as
+contention predicts - and stays four times inside any timeout, so it is not the constraint.
+
+**Network is not a factor in either.** `IMPLEMENTATION_STANDARDS.md` records that nothing is
+transmitted, and `app.js`'s two `fetch` calls take a relative path to the local server. CI's
+network cost is **setup only** - job minus `E2E` step is **63-98 s** for checkout, apt, `uv sync`
+and the Playwright cache.
+
 ⚠ **TAKE TWO SAMPLES OF THIS LANE, NEVER ONE - AND THE ARGUMENT IS 22x, NOT 19%** (2026-09-03,
 P207, `(ajx)`). Two dispatches of the **same suite on the same hardware**, fifty minutes apart,
 gave **1207.4 s and 1544.8 s** end to end (+28%) and, per engine, chromium 415.1 s -> 550.7 s

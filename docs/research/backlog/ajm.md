@@ -1,8 +1,8 @@
 # (ajm) A BROWSER TEST MEASURES THE MACHINE'S TEMP PATH, NOT THE PRODUCT
 
-*Body of backlog entry `(ajm)`, under **Internal / tooling**. The index is
-[`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with
-[`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(ajm)`, in [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
+
+✅ **CLOSED 2026-09-04 (P217).** The filing below is left as written; the record of the fix is at the bottom.
 
 ⚠ **AND IT IS NOW A GATE, NOT ONLY AN INSTRUMENT DEFECT (2026-09-03, P207, from `(ajx)`).**
 It failed in **both** `-n auto` dispatches of the webkit half - `33802113061` and `33803207647` -
@@ -133,3 +133,48 @@ input length is incidental is not testing fit.
 
 `(ait)`, `(aiu)` (the instrument-defects-rank-first ruling), `(ajk)` (the null on the other
 instrument), `suite_scratch.py` (the split, documented in its own docstring).
+
+---
+
+## ✅ SHIPPED 2026-09-04 (P217)
+
+**Fix shape (1) was taken - the root cause - and (2) was not.** The entry offered *"make the test
+control its own input"* against *"pin `basetemp`"*, and called the second a workaround that would
+pass. It would have: it makes the lane agree by making the machine agree, leaving the test still
+measuring the environment.
+
+**The product is correct and always was.** `app.js:fitCatalogPath`:
+
+```js
+el.textContent = full;
+if (el.clientWidth <= 0 || el.scrollWidth <= el.clientWidth) return;
+```
+
+Whole when it fits; middle-ellipsised when it does not. The test asserted only the first half.
+
+### One test, and the sweep that establishes it
+
+*"Whether any other `tests/e2e/` test has the same dependency"* was listed as not established.
+Swept: three files read `#custody-catalog`'s `data-full`, and the other two are length-tolerant -
+`test_custody_strip.py` asserts `len(painted) > 6` and `endswith(".sqlite")`,
+`test_large_viewports.py` asserts `wide == full or len(wide) >= len(narrow)`. **Only
+`test_narrow_top_bar.py`'s bare equality had no tolerance.**
+
+### ⚠ The fixed test is correct and its coverage is NOT portable, so a second one was added
+
+The conditional test takes whichever branch the filesystem gives it. On this machine that is the
+ellipsis branch, and **a mutation removing the fits-early-return was not caught by it** - green
+against a broken renderer. That is `(ajm)`'s own defect one level in: a test whose behaviour
+depends on `tmp_path`'s length.
+
+`test_the_fit_logic_shows_a_short_path_whole_and_ellipsises_a_long_one` drives `fitCatalogPath`
+with `/a/b.sqlite` and a 24-fold repeated directory, asserts both outcomes, and **kills the
+mutation**: `AssertionError: a path with room to spare was still ellipsised: '/a/…b.sqlite'`.
+`app.js` is a classic script, so its top-level functions are globals - the seam `main.tsx`
+already documents for `organizeCompletion`.
+
+### What this unblocks
+
+`(ajx)`'s ruling that *"any future attempt to parallelise the browser lane has to fix this first"*
+is discharged. The lane can now be run with `-n auto` without a known-irrelevant failure.
+

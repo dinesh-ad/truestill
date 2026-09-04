@@ -155,6 +155,17 @@ than the plan was.** Recorded so the step is not re-attempted from the plan text
    and meaning. Collapsing them into one class would merge three meanings, which is the opposite
    of *"one vocabulary, one home"*.
 
+⚠ **THE ARC'S LOOP CHANGED 2026-09-04 (P217): THE REMAINING SCREENS VERIFY LOCALLY.** `(ajm)` is
+fixed, so `-n auto` runs clean, and the browser lane is **338 s / 343 s on this machine against
+1587 s / 1598 s serial** - two samples each, **993 passed** in all four, swings of 1.5% and 0.7%.
+`ci.yml` calls `make e2e` itself, so the local command and the CI command are the same target with
+the same browsers; only `--junitxml` and the ceiling differ. **So each remaining screen is verified
+here in under six minutes and CI confirms nightly - no dispatch per screen.**
+
+⚠ **The nightly is not optional and local is not a substitute**: this is one machine, the three
+`check` lanes remain the only thing that sees Windows, and local serial is measurably *slower*
+than the hosted runner (1587 s against 1319-1500 s) - the gain is parallelism, not hardware.
+
 **What survives**: the target itself, and steps 1, 3 and 4-10. Step 1 shipped (`280478a`, the
 WCAG 2.2 24x24 floor). **The arc resumes at the rail**, whose active state today is a background
 fill plus a colour change (`.nav-item[aria-current="page"]`) against the spike's layered bordered
