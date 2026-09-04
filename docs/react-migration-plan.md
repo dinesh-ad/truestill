@@ -155,6 +155,44 @@ than the plan was.** Recorded so the step is not re-attempted from the plan text
    and meaning. Collapsing them into one class would merge three meanings, which is the opposite
    of *"one vocabulary, one home"*.
 
+## What Organize establishes, and what each remaining screen still needs decided
+
+**Written 2026-09-04 (P219)**, because `docs/design-system.md` §7 says plainly what it does not
+cover: it fixes the **canvas, the surfaces and the floors**, and **per-screen composition is not
+covered**. The preview designs one screen; the other six are `PlaceholderMain`. This is the list
+that stops a specification becoming a reference again.
+
+**Organize establishes, and every screen inherits without re-deciding:**
+
+| established | inherited as |
+|---|---|
+| the canvas | `--canvas` on `body`, colour under image, fixed attachment |
+| the content card | `.card` - `--glass-bg`, `--glass-border`, `--glass-shadow`, **no blur** |
+| a control that is a card | `.org-mode`'s treatment: glass look, hairline, no blur |
+| the one in-page blurred layer | `.panel` - and it is **the** one, so no screen adds another |
+| the scrim | `.modal-backdrop`, shared |
+| solid, always | fields, selects, tables, notices |
+| the floors | AA against the **composite**, and the 24x24 target size on every screen |
+
+**What each screen still needs decided, and none of it is in the specification:**
+
+- **Stats** - it is the metric screen, and `--type-3xl` is reserved for `.metric-value` by
+  `test_shared_pattern.py`. Where the numbers sit against the glass, and whether the second tier
+  (`.metrics.compact`) keeps its rank, is a composition question.
+- **Find** - a results list over the canvas. How a long, scrolling result reads on glass is
+  untested; the specification refuses glass for **tables** and a results list is close to one.
+- **Backups** and **Trips & events** - both carry per-item cards inside a card. **Nested glass is
+  refused**, so the inner level needs a solid or borderless treatment that has no precedent yet.
+- **Import** - the densest form after Settings, and the screen with the most inputs. §6 refuses
+  blur behind fields; whether the *card* should be glass at all when it is almost entirely fields
+  is a judgement nobody has made.
+- **Settings** - a shelf of six independent cards. Six glass cards stacked may read as noise where
+  one reads as a surface; that is a composition question the single-screen preview cannot answer.
+
+⚠ **The honest gap: the preview shows one screen at rest with one card. Five of the six above are
+denser than that, and density is exactly what glass punishes.** Each is judged on screen, one
+commit at a time, against `docs/design-system.md` - not against the preview's CSS.
+
 ⚠ **THE ARC'S LOOP CHANGED 2026-09-04 (P217): THE REMAINING SCREENS VERIFY LOCALLY.** `(ajm)` is
 fixed, so `-n auto` runs clean, and the browser lane is **338 s / 343 s on this machine against
 1587 s / 1598 s serial** - two samples each, **993 passed** in all four, swings of 1.5% and 0.7%.

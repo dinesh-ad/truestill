@@ -55,7 +55,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akd). Next free: (ake).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ake). Next free: (akf).**
 **Retired 2026-09-02 (P190), and named here because a retired letter is not a free one:** `(abz)`
 (*"Organize shows one population three ways and connects none of them"*). False before it was
 filed: `app.js:rearrangeNote` (`93635af`, 2026-08-06) prints *"N of M files here are already in
@@ -952,6 +952,19 @@ like approved work.
 **A decision was made and recorded so it is not re-litigated.** There is nothing to build. They
 keep their letters because `IMPLEMENTATION_STANDARDS.md` and other documents cite letters, and a
 cited letter must resolve.
+
+- **(ake) WEBKIT REPORTS `backdrop-filter` AS SUPPORTED AND PAINTS NOTHING.** ⚠ **Measured
+  2026-09-04 (P219)** on a high-frequency checkerboard, where a blur must flatten the extremes:
+  `webkit` reports `CSS.supports -> true`, computes `blur(14px)`, and leaves the spread at
+  **229 -> 229**; `chromium` collapses it **229 -> 1**. Headed and headless identical; Playwright
+  WebKit 26.5. 🔑 **So `@supports (backdrop-filter: ...)` is a guard that cannot fire** - it
+  answers true on the engine that renders nothing - and `ci.yml` records the stake: *"WebKit is
+  what the Tauri shell renders in on Linux and macOS"*. A glass design guarded that way would have
+  passed every test and shipped flat to Linux. The consequence is already taken:
+  `docs/design-system.md` is **solid-first**, so the gap costs nothing and the lane's webkit half
+  becomes the fallback's test. ⚠ **Indicative, not proof** about shipped WebKitGTK - Playwright's
+  WebKit is a custom build - but proof about our lane.
+  [Full entry](research/backlog/ake.md)
 
 - **(akc) NO BINDING RULE GOVERNS REACT, TYPESCRIPT, TAILWIND OR THE GENERATED CONTRACT.** ⚠
   **Ruled 2026-09-04 (P211): the gap is recorded and is NOT to be filled speculatively.** Counted

@@ -26,6 +26,29 @@ def _rgb(value: str) -> tuple[int, int, int]:
     return (parts[0], parts[1], parts[2])
 
 
+def _alpha(value: str) -> float:
+    """The alpha channel, or 1.0. `_rgb` drops it, which is right for a colour and wrong for a
+    surface."""
+    inner = value.split("(")[1].split(")", maxsplit=1)[0].split(",")
+    return float(inner[3]) if len(inner) > 3 else 1.0
+
+
+def _composited(surface: str, behind: str) -> str:
+    """A translucent surface as it is actually SEEN, over what sits behind it.
+
+    ⚠ **Added 2026-09-04 with the glass surfaces, and it is a correctness fix rather than an
+    accommodation.** `_rgb` slices `[:3]`, so `rgba(255,255,255,0.62)` read as opaque white and the
+    ratios below came out flattering and wrong - the test would have stayed **green while measuring
+    something that is not on the screen**. `docs/design-system.md` §2 states the rule this
+    implements: *"contrast is computed against the COMPOSITE, never against the glass colour"*.
+    """
+    a = _alpha(surface)
+    if a >= 1.0:
+        return surface
+    top, bottom = _rgb(surface), _rgb(behind)
+    return "rgb({}, {}, {})".format(*(round(a * top[i] + (1 - a) * bottom[i]) for i in range(3)))
+
+
 def _luminance(rgb: tuple[int, int, int]) -> float:
     out = []
     for channel in rgb:
@@ -75,7 +98,10 @@ def test_body_text_and_the_secondary_tier_clear_aa_in_both_themes(ui: Page) -> N
     for scheme in ("light", "dark"):
         ui.emulate_media(color_scheme=scheme)
         ui.wait_for_timeout(120)
-        surface = ui.eval_on_selector(".card", "el => getComputedStyle(el).backgroundColor")
+        ground = ui.eval_on_selector("body", "el => getComputedStyle(el).backgroundColor")
+        surface = _composited(
+            ui.eval_on_selector(".card", "el => getComputedStyle(el).backgroundColor"), ground
+        )
         for token in ("--fg", "--fg-secondary", "--fg-muted"):
             ratio = _contrast(_token(ui, token), surface)
             assert ratio >= AA_TEXT, f"{token} is {ratio:.2f}:1 on {scheme} surface"
@@ -87,7 +113,10 @@ def test_the_status_colours_clear_aa_as_text(ui: Page) -> None:
     for scheme in ("light", "dark"):
         ui.emulate_media(color_scheme=scheme)
         ui.wait_for_timeout(120)
-        surface = ui.eval_on_selector(".card", "el => getComputedStyle(el).backgroundColor")
+        ground = ui.eval_on_selector("body", "el => getComputedStyle(el).backgroundColor")
+        surface = _composited(
+            ui.eval_on_selector(".card", "el => getComputedStyle(el).backgroundColor"), ground
+        )
         for token in ("--warning", "--success"):
             ratio = _contrast(_token(ui, token), surface)
             assert ratio >= AA_TEXT, f"{token} is {ratio:.2f}:1 on {scheme} surface"

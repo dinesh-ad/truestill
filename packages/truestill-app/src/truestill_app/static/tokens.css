@@ -79,6 +79,27 @@
 
   /* surfaces / text (light = default) */
   --bg: var(--gray-50);
+
+  /* THE CANVAS - a prerequisite, not decoration. `docs/design-system.md` §1: glass is invisible
+     on flat white, so the ground gains tonal range for a translucent surface to be translucent
+     AGAINST. `--canvas-from` IS today's `--bg`, so the top-left is the app people already know,
+     and the third stop is the existing `--accent` hue desaturated to a whisper - no second
+     accent. Every text token clears AA against the WORST stop; the weakest, `--fg-muted`, is
+     4.68:1 there. */
+  --canvas-from: #faf8f5;
+  --canvas-mid: #f1ebe1;
+  --canvas-to: #e8e9f3;
+  --canvas: linear-gradient(135deg, var(--canvas-from), var(--canvas-mid) 45%, var(--canvas-to));
+
+  /* GLASS. ⚠ The look is translucency, a hairline and a shadow - it does NOT depend on
+     `backdrop-filter`, which WebKit reports as supported and does not paint (`(ake)`), and which
+     over a smooth gradient contributes almost nothing anyway. Contrast is computed against the
+     COMPOSITE: white at 0.62 over `--canvas-to` is `#f6f6fb`, where `--fg-muted` is 5.30:1.
+     0.45 is the floor; 0.62 is chosen. */
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.72);
+  --glass-shadow: 0 8px 32px rgba(28, 26, 23, 0.08);
+  --glass-blur: 14px;
   --surface: var(--gray-0);
   --surface-sunken: var(--gray-100);
   --surface-raised: var(--gray-0);
@@ -285,6 +306,14 @@
     --warning-subtle: #241d10;
 
     --bg: #0e0d0b;
+    /* The dark canvas, same three roles. Weakest text against the worst stop is 6.24:1, and
+       against the composited glass 5.30:1. */
+    --canvas-from: #0e0d0b;
+    --canvas-mid: #14120f;
+    --canvas-to: #101218;
+    --glass-bg: rgba(46, 43, 39, 0.62);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
     --surface: #242220;
     --surface-sunken: #171614;
     --surface-raised: #2e2b27;
@@ -328,6 +357,16 @@
   /* Must mirror the @media (prefers-color-scheme: dark) palette above in full -- any token
      omitted here falls back to the light :root default under the toggle (that is how the amber
      warning banners once rendered light-on-light). Audited for WCAG AA in both themes. */
+  /* The canvas and glass, mirrored. ⚠ Omitting these is exactly the failure the comment above
+     describes: `test_dark_theme_toggle_defines_every_media_dark_token` caught them missing here
+     on the commit that added them to the media block, so a reader who CHOSE dark would have got
+     the light gradient under dark text. */
+  --canvas-from: #0e0d0b;
+  --canvas-mid: #14120f;
+  --canvas-to: #101218;
+  --glass-bg: rgba(46, 43, 39, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
   --accent: #a9b6f0;
   --accent-hover: #bcc6f5;
   --accent-subtle: #1c2030;

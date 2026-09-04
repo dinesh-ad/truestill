@@ -15,7 +15,13 @@ body {
   font-size: var(--type-base);
   line-height: var(--line-body);
   color: var(--fg);
-  background: var(--bg);
+  /* ⚠ COLOUR **and** IMAGE, and the colour is not redundant. A gradient is `background-image`,
+     so `getComputedStyle(body).backgroundColor` would report `rgba(0,0,0,0)` and
+     `test_palette_and_resting_panel.py`'s warmth and heading-contrast assertions would be reading
+     nothing. The colour is also the honest fallback under the image. `docs/design-system.md` §1. */
+  background-color: var(--canvas-from);
+  background-image: var(--canvas);
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
 }
 /* data speaks in monospace - the type signature */
@@ -572,12 +578,17 @@ svg.ico {
 }
 
 /* ---------- cards ---------- */
+/* ⚠ THE GLASS LOOK, AND DELIBERATELY NO BLUR. `docs/design-system.md` §6: this card holds the
+   form, and a blurred backdrop under an input is the one case this project would regret - a path
+   is checked character by character and a wrong one moves the wrong files. The preview applies
+   `backdrop-blur-2xl` here; the look is kept and the blur is dropped, which over this canvas is a
+   measured difference of nearly nothing. */
 .card {
-  background: var(--surface);
-  border: var(--border-width) solid var(--border);
+  background: var(--glass-bg);
+  border: var(--border-width) solid var(--glass-border);
   border-radius: var(--corner-lg);
   padding: var(--space-4) var(--space-5);
-  box-shadow: var(--elevation-sm);
+  box-shadow: var(--glass-shadow);
   margin-bottom: var(--space-3);
 }
 /* A CARD'S LEDE CARRIES THE RHYTHM, and it used to be asked for twice by hand.
@@ -731,14 +742,15 @@ select.input {
   display: grid;
   gap: var(--space-1);
 }
+/* A control, so the look and no blur - `docs/design-system.md` §3. */
 .org-mode {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-3);
-  border: var(--border-width) solid var(--border);
+  border: var(--border-width) solid var(--glass-border);
   border-radius: var(--corner-md);
-  background: var(--surface-raised);
+  background: var(--glass-bg);
   font-size: var(--type-sm);
 }
 .org-mode input {
@@ -1156,10 +1168,13 @@ details.more.inline {
 }
 
 /* ---------- folder picker modal ---------- */
+/* The second and last blurred layer - an overlay, the canonical case. */
 .modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(16, 18, 22, 0.45);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1591,9 +1606,18 @@ details.more.inline {
    that read as the right column being detached from the middle one. The padding-top here is that
    distance, so the two line up; it is a layout constant beside the layout constants that produce
    it, and `test_the_panel_starts_level_with_the_first_content_card` fails if either moves. */
+/* ⚠ ONE OF EXACTLY TWO BLURRED LAYERS IN THE PRODUCT - this and `.modal-backdrop`. They are
+   never nested, because the scrim COVERS the panel rather than containing it, which is how
+   `docs/design-system.md` §3's "at most two, never nested" holds by construction rather than by
+   discipline. A highlight surface: nothing is typed into it, and it sits over the canvas, so the
+   backdrop is known and its contrast is computable. */
 .panel {
   /* padding-top is set by `alignPanelWithContent` - see app.js. The value here is the resting
      one, used before the first measurement and below the breakpoint where the panel is absent. */
+  background: var(--glass-bg);
+  border-radius: var(--corner-lg);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
   padding: var(--space-6) var(--space-4) var(--space-5);
   overflow-y: auto;
   min-width: 0;
