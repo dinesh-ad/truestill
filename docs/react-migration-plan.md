@@ -116,6 +116,30 @@ Organize carrying a third of the suite is the second reason it goes last, after 
 
 ## Order
 
+⚠ **AND RULED 2026-09-04 (P214): THE RESTYLE COMES FIRST, BEFORE ANY REACT SCREEN.** The
+maintainer's reason is this repo's own finding, from `organize-preview-record.md`: the design
+direction *"None of these needs the stack below. They are layout and weight decisions, expressible
+in `tokens.css` plus Tailwind utilities."* **Building the rail first means rebuilding a UI he does
+not like, in a new framework, and then restyling it - two passes.**
+
+🔑 **And it makes the cutover SAFER rather than later.** P194's oracle is the unchanged e2e suite,
+which asserts appearance in 19 files; a cutover that also restyled could not tell a migration bug
+from an intended change. Restyling first means **the appearance is not moving during the cutover**,
+so the oracle holds exactly as P194 requires - and the cutover then preserves the *good* look
+instead of the current one.
+
+**The restyle arc, staged so each commit is judgeable**: tokens and the hit-target floor (no
+visual delta), then the shared pattern, then the rail, then one screen per commit in the risk
+order below. It changes `app.css` and `tokens.css` only, deletes nothing, and **leaves `(akb)`
+untouched** - `app.js` stays, so all nine §9 rules keep the enforcement they have and are still
+re-pointed per screen during the cutover.
+
+⚠ **The target is "trustworthy, not friendly"**, which for a tool holding someone's only copy of
+their photographs is a correctness property rather than a taste: a screen that looks playful while
+it is about to move irreplaceable files misstates its own stakes. No glass, no motion, no
+illustration - matching refusals this repo already holds. The spike's *"liquid-glass"* surface is
+**dropped, not ported**; its structure is the target.
+
 ⚠ **RULED 2026-09-03 (P194): ONE CUTOVER, BUILT IN PARALLEL, FLIPPED BY ONE TEMPLATE - NOT ISLAND
 BY ISLAND.** The paragraphs below are the plan as recorded on 2026-08-14 and are kept as the record.
 What P194 measured, and the mechanism that replaces them:
