@@ -536,6 +536,20 @@ warning the page predicted accurately is evidence the product is what it says it
 **Status:** Settled. **This unblocks `(aad)`**: the bundler decision can be made for Windows and
 Linux alone, with no signing step in the pipeline.
 
+> ⚠ **The premise "cheap" expires when the repo goes private - measured 2026-09-04 (P212), and
+> recorded here rather than in a new decision because it is this one's own stated reason.** The
+> ruling above keeps the macOS lane on the argument that *"building without publishing keeps it
+> honest **and cheap**"*, decided 2026-08-01 while Actions was free on a public repo. Measured over
+> 493 runs and 1,954 jobs in 30 days, the macOS `check` lane is **$71.30 of a $128.98 month - 55%
+> of the bill and 52% of the Linux-equivalent minutes - for a platform that ships to nobody**, and
+> **15% of the whole bill is per-job round-up**, of which 2,480 equivalent minutes are macOS alone
+> (1.91 min run, 2.43 min billed, at a 10x multiplier).
+>
+> **The ruling still stands and the lane is not dropped.** What this note records is that its
+> *frequency* was never part of the decision: D9's concern is stated as macOS **"broken for
+> months"**, and a nightly lane answers that in a day at roughly 6% of the cost. `(akd)` carries
+> the measurement, the priced alternatives and what else breaks at the flip.
+
 ---
 
 ## D10. Python 3.14 is deferred, and the CI leg is evidence rather than a target

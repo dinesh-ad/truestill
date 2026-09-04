@@ -55,7 +55,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akc). Next free: (akd).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akd). Next free: (ake).**
 **Retired 2026-09-02 (P190), and named here because a retired letter is not a free one:** `(abz)`
 (*"Organize shows one population three ways and connects none of them"*). False before it was
 filed: `app.js:rearrangeNote` (`93635af`, 2026-08-06) prints *"N of M files here are already in
@@ -357,6 +357,18 @@ zero and moved to *Records* with the measurement and the source the condition wo
 Four cannot be counted on one machine and say why. Four had no condition at all and moved to
 *Build next* or *Ideas / deferred*. P186 had found 8 of 43 with any measurement; the label said
 conditional, and ten rows were absent rather than conditional.
+
+- **(akd) GOING PRIVATE TURNS CI FROM FREE INTO $128.98/MONTH, AND 55% OF IT IS A PLATFORM THAT
+  SHIPS TO NOBODY.** 📏 **Measured 2026-09-04 (P212) over 493 runs / 1,954 jobs / 30 days**:
+  **22,213 Linux-equivalent minutes**, against 2,000 included on Free and 3,000 on Pro. macOS
+  `check` is **55% of the dollars** on a platform D9 never publishes; the browser lane is **12%**,
+  not the largest consumer as assumed. **15% of the bill is per-job round-up alone**, 2,480
+  equivalent minutes of it macOS, which runs 1.91 min and bills 2.43. The condition is the flip -
+  nothing costs anything while the repo is public. Recommended shape narrows macOS and Windows to
+  nightly + pre-tag and self-hosts Linux: **$9.41 list, 1,654 equivalent minutes, which fits the
+  Free allowance, so $0 cash** - a 93% cut with no lane deleted. ⚠ Self-hosting is **only safe once
+  private**, and it repays the 4 vCPU -> 2 vCPU drop the flip otherwise imposes.
+  [Full entry](research/backlog/akd.md)
 
 - **(akb) NINE §9 RULES ARE ENFORCED ONLY BY THE FILE THE REACT REWRITE DELETES.** 📏 **Counted
   2026-09-04 (P211): 9 rows of 48**, and 20 of 48 cite `app.js` at all
