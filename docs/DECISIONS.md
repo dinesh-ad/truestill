@@ -550,6 +550,42 @@ Linux alone, with no signing step in the pipeline.
 > months"**, and a nightly lane answers that in a day at roughly 6% of the cost. `(akd)` carries
 > the measurement, the priced alternatives and what else breaks at the flip.
 
+> ⚠ **RULED 2026-09-04 (P213): the macOS `check` lane is REMOVED AT THE FLIP, not before.** The
+> question D9 never asked is what the lane has *caught*. Measured from the run history over 463
+> runs where all three lanes reported: **macOS went solo-red 7 times, Windows 22, Ubuntu 6.** Each
+> of the seven was read from its job log, and **all seven are harness defects** - BSD `make`
+> parsing a gate recipe, BSD `df` refusing `--output` in a dev script, two `Thread.join` races, a
+> kill-timing race, a CI trace upload. **None is a defect in code a user runs.**
+>
+> 🔑 **And the lane creates most of what it catches**: `scripts/ci_bounded.sh` and
+> `scripts/golden_corpus.py` run on BSD *only because the macOS lane runs them*. Remove it and
+> those two defects do not go latent - nothing runs that code on BSD any more. Windows is the
+> opposite, because Windows ships.
+>
+> ⚠ **One contribution is NOT a solo-red and was missed by a first census that only looked for
+> red** - recorded because the method error matters as much as the finding.
+> `thumbnails.py:_TRANSPOSING_CONTAINER_ROTATIONS` documents `(aeu)`: *"Found by the three-OS
+> matrix: **macOS and Windows** install a current exiftool through brew and choco and **passed**,
+> ubuntu did not."* macOS was a green **control** in a differential that found a **shipped** defect.
+> **The ruling survives it because Windows was an equivalent control in the same sentence**, and no
+> second instance of the class exists in the tree.
+>
+> **What the lane uniquely covers is one line.** Nine platform-conditional sites exist in shipped
+> source and every branch is `win32` or `linux`; the only macOS-only line is
+> `binaries.py`'s `{"darwin": "open"}`. `exif.py` puts macOS on **Windows's** branch and
+> `filesystem.py` falls macOS through to *"unknown"* by design. Case-insensitivity - the property
+> a macOS lane would be expected to cover - has **no test at all** (`SHIPPED.md`: *"❌ unguarded"*)
+> and is shared with NTFS anyway.
+>
+> **NOT removed today, and the reason is the same one that kept the triggers unchanged in P212:**
+> the repo is still public, the lane still costs nothing, and cutting coverage before the bill
+> exists buys nothing. It goes in the flip commit.
+>
+> 🔑 **What brings it back**: D9 itself changing - someone pays the $99 and macOS becomes a
+> published platform. At that moment the lane returns *and* earns a release job, because there is
+> finally a user on the other end. Whoever pays that $99 should read this paragraph first: macOS
+> support will have rotted in the interim, exactly as D9 predicted.
+
 ---
 
 ## D10. Python 3.14 is deferred, and the CI leg is evidence rather than a target

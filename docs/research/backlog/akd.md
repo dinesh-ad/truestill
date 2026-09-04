@@ -40,12 +40,49 @@
   which **2,480 are macOS**: a macOS `check` runs **1.91 min and bills 2.43**, and a short job at a
   10x multiplier is the exact shape per-job rounding punishes hardest.
 
-  ## WHAT macOS HAS CAUGHT, TRAWLED RATHER THAN ASSUMED
+  ## WHAT macOS HAS CAUGHT - COUNTED FROM THE RUN HISTORY (P213, 2026-09-04)
 
-  `timeout(1)` not existing on BSD (2026-08-20), BSD `df` and GNU `--output` (2026-08-24).
-  ⚠ **Every one is a HARNESS defect - a CI script true locally and false where it ran - not a
-  defect in shipped product behaviour**, which is consistent with a platform the product never
-  ships to. It is not a zero, and it is not product coverage either.
+  ⚠ **This section originally listed three findings trawled from prose, and one of them was
+  wrong.** P212 displayed `catalog_backup.py`'s fsync comment under a heading reading *"defects
+  the macOS lane caught"*; the code says *"It also **broke Windows** ... **green on Linux and
+  macOS**"*. macOS passed. Attribution now comes from the API, not from grep headings.
+
+  Every run in the same 30-day window where **one** `check` lane failed and the other two passed:
+
+  ```
+  runs with all three check lanes reporting: 463
+    macos-latest     RED ALONE in   7 runs
+    windows-latest   RED ALONE in  22 runs
+    ubuntu-latest    RED ALONE in   6 runs
+  ```
+
+  All seven, with the failing test read from each job's log: BSD `make` parsing a gate recipe
+  (`33630088694`, `33629382162`), the `Thread.join` race (`32279378834`, `33010957536` - the test
+  documents it), a kill-timing race in `test_archive_extract.py` (`32701030596`), BSD `df`
+  refusing `--output` (`32662217322`), and a CI trace upload (`31173538629`).
+
+  **7 of 7 are harness defects. None is a defect in code a user runs.** Three are not about macOS
+  being a different OS at all - they are timing races found because it is a differently *scheduled*
+  machine, which a self-hosted Linux runner also provides.
+
+  🔑 **The lane creates most of what it catches.** `ci_bounded.sh` and `golden_corpus.py` run on
+  BSD only because the macOS lane runs them; remove it and those defects cease to exist rather
+  than going latent. Windows is the opposite - it ships.
+
+  ⚠ **ONE CONTRIBUTION IS NOT A SOLO-RED, AND A CENSUS THAT ONLY LOOKED FOR RED MISSED IT.**
+  `thumbnails.py:_TRANSPOSING_CONTAINER_ROTATIONS` on `(aeu)`: *"Found by the three-OS matrix:
+  **macOS and Windows** install a current exiftool through brew and choco and **passed**, ubuntu
+  did not."* macOS was a green **control** in a differential that found a **shipped** defect - a
+  class the red-only census could not see. **The ruling survives because Windows was an equivalent
+  control in the same sentence**, and the tree holds no second instance.
+
+  ## WHAT THE LANE UNIQUELY COVERS: ONE LINE
+
+  Nine platform-conditional sites exist in shipped source, and every branch is `win32` or `linux`.
+  The only macOS-only line is `binaries.py`'s `{"darwin": "open"}`; `exif.py` puts macOS on
+  **Windows's** branch, and `filesystem.py` falls it through to *"unknown"* deliberately. Case
+  insensitivity - the property a macOS lane is assumed to cover - has **no test at all** and is
+  shared with NTFS. **Ruling and sequencing: `DECISIONS.md` beside D9.**
 
   ## THE PRICED ALTERNATIVES
 
