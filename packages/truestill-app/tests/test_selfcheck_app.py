@@ -21,6 +21,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+from truestill_app import __version__
 from truestill_app.selfcheck import (
     BUNDLE,
     FACES,
@@ -175,9 +176,21 @@ def test_app_findings_is_core_plus_the_assets_only_the_app_can_see() -> None:
     app adds its own findings to core's rather than core reaching for the static tree."""
     names = [f.name for f in app_findings()]
 
-    assert names[:6] == ["install", "exiftool", "trash", "catalog", "cache", "session url"]
+    # `(ajw)`: both version findings joined on 2026-09-04 - core's from `core_findings`, the
+    # app's added here because the settings screen renders `truestill_app.__version__` and core
+    # cannot read it.
+    assert names[:8] == [
+        "install",
+        "version truestill-core",
+        "exiftool",
+        "trash",
+        "catalog",
+        "cache",
+        "session url",
+        "version truestill-app",
+    ]
     # `(ajv)`: the bundle joined the assets on 2026-09-03; a shipped v0.1.0 without it is why.
-    assert names[6:] == [
+    assert names[8:] == [
         f"font {FACES[0]}",
         f"font {FACES[1]}",
         "font licence",
@@ -244,3 +257,12 @@ def test_the_comparison_refuses_a_checkout_that_never_built_rather_than_expectin
     _bundle_copy(static)
     expected = compare._repository_digests()
     assert {"main.js", "main.css"} <= set(expected)
+
+
+def test_the_app_reports_the_version_its_own_settings_screen_renders() -> None:
+    """`templates/index.html`'s `id="app-version"` renders `truestill_app.__version__`, and core
+    cannot read it (`IMPLEMENTATION_STANDARDS.md` §2). `(ajw)`: nothing covered that line for two
+    releases, so `compare_selfcheck.py` had nothing to match against the tag. Asserted on the
+    same attribute the template interpolates, not on a re-derived lookup."""
+    finding = _named(app_findings(), "version truestill-app")
+    assert finding.evidence["version"] == __version__

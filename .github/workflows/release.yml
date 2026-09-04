@@ -103,12 +103,34 @@ jobs:
       # `--collect-data truestill_app` is REQUIRED, not decorative: without it the bundle carries
       # none of the app's data - no fonts, no notice, no templates, no app.js, no CSS - because
       # bundlers follow imports and a data file is imported by nothing. Measured 2026-08-12.
+      # ⚠ `--copy-metadata` IS SEPARATE FROM `--collect-data` AND NEITHER IMPLIES THE OTHER.
+      # `--collect-data` copies a package's DATA FILES; metadata is a `.dist-info` directory and
+      # PyInstaller states plainly that it "does not collect these metadata files by default".
+      # Without them `importlib.metadata` raises `PackageNotFoundError` inside the bundle,
+      # `distribution_version` returns its fallback, and the settings screen reads
+      # **"truestill unknown (not installed)"** on a working installed copy - which v0.1.0 and
+      # v0.1.1 both shipped. `(ajw)`, measured on a local freeze 2026-09-04: control tree carried
+      # `numpy` and `click` metadata (PyInstaller's own hooks put those there) and no
+      # `truestill_*.dist-info` at all; with these two flags it carries both, at +4,946 bytes on
+      # a 220.3 MiB tree.
+      #
+      # ⚠ **TWO DISTRIBUTIONS, NOT THREE, AND THAT IS MEASURED.** `truestill-cli` has ZERO
+      # entries in this build's `Analysis-00.toc` and `PYZ-00.toc` - the frozen entry point is
+      # `truestill_app/__main__.py` and nothing it imports reaches the CLI. Copying metadata for
+      # code that is not in the bundle would ship a claim about something that is not there.
+      #
+      # ⚠ **NOT `--recursive-copy-metadata`**: it pulls in every dependency's metadata to serve
+      # `importlib.metadata.requires`, which nothing here calls. `direct_url.json` inside a
+      # `.dist-info` records the ABSOLUTE BUILD PATH of an editable install, so each one added is
+      # a build-machine path shipped to users; two is the whole need.
       - name: Build (PyInstaller, Linux)
         if: runner.os == 'Linux'
         run: |
           uv run pyinstaller --noconfirm --clean --noconsole \
             --name truestill \
             --collect-data truestill_app \
+            --copy-metadata truestill-app \
+            --copy-metadata truestill-core \
             --add-data "exiftool-src/bin:bin" \
             packages/truestill-app/src/truestill_app/__main__.py
 
@@ -128,41 +150,10 @@ jobs:
             --name truestill `
             --icon brand/favicon.ico `
             --collect-data truestill_app `
+            --copy-metadata truestill-app `
+            --copy-metadata truestill-core `
             --add-data "exiftool-src/bin;bin" `
             packages/truestill-app/src/truestill_app/__main__.py
-
-      # THE GATE. Not `continue-on-error`: an artifact that cannot say what it contains is not
-      # one this project publishes.
-      - name: Self-check the artifact
-        shell: bash
-        env:
-          TRUESTILL_DATA_DIR: ${{ github.workspace }}/release-data
-          TRUESTILL_CACHE_DIR: ${{ github.workspace }}/release-cache
-        run: |
-          mkdir -p findings
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            exe="dist/truestill/truestill.exe"
-          else
-            exe="dist/truestill/truestill"
-          fi
-          set +e
-          "$exe" --self-check "findings/selfcheck-${RUNNER_OS}.json"
-          code=$?
-          set -e
-          echo "--- what the artifact reported (exit $code) ---"
-          cat "findings/selfcheck-${RUNNER_OS}.json" || echo "no findings file was written"
-          exit $code
-
-      # The half the artifact cannot do: are those the bytes this repository built?
-      - name: Compare the self-check against the repository
-        shell: bash
-        run: uv run python packaging/compare_selfcheck.py findings/selfcheck-${RUNNER_OS}.json
-
-      # THE MARK, ASSERTED ON THE BUILT EXECUTABLE rather than on the flag that was passed or on
-      # the file in `brand/`. Both are one step short of the property - see verify_icon.py.
-      - name: Verify the executable carries the mark
-        if: runner.os == 'Windows'
-        run: uv run python packaging/verify_icon.py --exe dist/truestill/truestill.exe
 
       # ═════════════════════════════════════════════════════════════════════════════════════
       # THE VERSION, DERIVED ONCE, FOR BOTH PLATFORMS. `(aex)`
@@ -221,7 +212,54 @@ jobs:
           fi
 
           echo "value=${version}" >> "$GITHUB_OUTPUT"
+
+          # ⚠ THE TAG COMPARISON'S FLAG, DERIVED HERE AND NOWHERE ELSE. `compare_selfcheck.py`
+          # always checks the artifact's version against the checkout's `pyproject.toml`; this
+          # adds "and it must equal the tag", which only exists on a tag - a dispatch build is
+          # `0.0.0-dev.<run id>` and could never equal the version in `pyproject.toml`. Three
+          # steps interpolate this one string, because this file already learned what two
+          # derivations of one answer cost: they came to disagree, and both were wrong. `(ajw)`
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "expect=--expect-version ${version}" >> "$GITHUB_OUTPUT"
+          else
+            echo "expect=" >> "$GITHUB_OUTPUT"
+          fi
           echo "version resolved to ${version} (ref_type=${GITHUB_REF_TYPE}, ref_name=${GITHUB_REF_NAME})"
+
+      # THE GATE. Not `continue-on-error`: an artifact that cannot say what it contains is not
+      # one this project publishes.
+      - name: Self-check the artifact
+        shell: bash
+        env:
+          TRUESTILL_DATA_DIR: ${{ github.workspace }}/release-data
+          TRUESTILL_CACHE_DIR: ${{ github.workspace }}/release-cache
+        run: |
+          mkdir -p findings
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            exe="dist/truestill/truestill.exe"
+          else
+            exe="dist/truestill/truestill"
+          fi
+          set +e
+          "$exe" --self-check "findings/selfcheck-${RUNNER_OS}.json"
+          code=$?
+          set -e
+          echo "--- what the artifact reported (exit $code) ---"
+          cat "findings/selfcheck-${RUNNER_OS}.json" || echo "no findings file was written"
+          exit $code
+
+      # The half the artifact cannot do: are those the bytes this repository built?
+      - name: Compare the self-check against the repository
+        shell: bash
+        run: >-
+          uv run python packaging/compare_selfcheck.py
+          ${{ steps.version.outputs.expect }} findings/selfcheck-${RUNNER_OS}.json
+
+      # THE MARK, ASSERTED ON THE BUILT EXECUTABLE rather than on the flag that was passed or on
+      # the file in `brand/`. Both are one step short of the property - see verify_icon.py.
+      - name: Verify the executable carries the mark
+        if: runner.os == 'Windows'
+        run: uv run python packaging/verify_icon.py --exe dist/truestill/truestill.exe
 
       # THE INSTALLER. The Linux half is the `.deb` step below; both are built here now.
       - name: Build the installer (Inno Setup)
@@ -281,7 +319,7 @@ jobs:
 
           mkdir -p findings
           /usr/bin/truestill --self-check findings/selfcheck-installed.json
-          uv run python packaging/compare_selfcheck.py findings/selfcheck-installed.json
+          uv run python packaging/compare_selfcheck.py ${{ steps.version.outputs.expect }} findings/selfcheck-installed.json
 
           sudo dpkg -r truestill
           test ! -e /usr/lib/truestill || { echo '::error::the package left files behind'; exit 1; }
@@ -328,7 +366,7 @@ jobs:
           # The frozen exe is `--noconsole`, a GUI-subsystem program too; same mechanism.
           $run = Start-Process -FilePath $app -ArgumentList '--self-check','findings/selfcheck-installed.json' -Wait -PassThru
           if ($run.ExitCode -ne 0) { throw "the INSTALLED copy failed its own self-check (exit $($run.ExitCode))" }
-          uv run python packaging/compare_selfcheck.py findings/selfcheck-installed.json
+          uv run python packaging/compare_selfcheck.py ${{ steps.version.outputs.expect }} findings/selfcheck-installed.json
           # ⚠ pwsh does not stop on a native command's exit code, and the runner exits on the LAST
           # $LASTEXITCODE only - so without this line a mismatch here was overwritten by the next
           # native call and could not fail the release (P188, 2026-09-02).

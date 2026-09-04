@@ -11,15 +11,17 @@ the source of truth - decides whether the reported bytes are the right bytes. Th
 produced minutes earlier by a different executable on a different filesystem layout, which is a
 thing no test lane can produce. Its output is a verdict a packaging job exits on.
 
-Usage: ``python packaging/compare_selfcheck.py <findings.json> [more.json ...]``
+Usage: ``python packaging/compare_selfcheck.py [--expect-version X.Y.Z] <findings.json> ...``
 Exit code 0 when every artifact's self-check passed **and** matched the repository; 1 otherwise.
 """
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import sys
+import tomllib
 from pathlib import Path
 
 #: The checkout this script lives in. `parents[1]` is the repository root - `packaging/` is one
@@ -37,6 +39,25 @@ _BUNDLE = ("dist/main.js", "dist/main.css")
 
 class UnbuiltBundleError(RuntimeError):
     """The checkout has no built bundle to compare against - the comparison cannot run."""
+
+
+class UndeclaredVersionError(RuntimeError):
+    """The checkout declares no version for a distribution the artifact carries."""
+
+
+#: The distributions the frozen app actually contains, and therefore the versions it must be able
+#: to report. **`truestill-cli` is deliberately absent and that is a measurement, not an
+#: oversight**: PyInstaller's `Analysis-00.toc` and `PYZ-00.toc` for this artifact hold **zero**
+#: `truestill_cli` entries (2026-09-04), because the frozen entry point is
+#: `truestill_app/__main__.py` and nothing it imports reaches the CLI. Copying metadata for code
+#: that is not in the bundle would ship a claim about something that is not there - the same
+#: shape as a guard that cannot fire.
+_DISTRIBUTIONS = ("truestill-app", "truestill-core")
+
+#: The one whose version **is** the artifact's identity: `truestill_app.__version__` is what
+#: `templates/index.html`'s `id="app-version"` renders, so it is the string a tag is compared
+#: against. `(ajw)`.
+_IDENTITY = "truestill-app"
 
 
 def _repository_digests() -> dict[str, tuple[int, str]]:
@@ -60,6 +81,53 @@ def _repository_digests() -> dict[str, tuple[int, str]]:
         payload = path.read_bytes()
         expected[path.name] = (len(payload), hashlib.sha256(payload).hexdigest())
     return expected
+
+
+def _declared_versions() -> dict[str, str]:
+    """The version each distribution declares in **this checkout**, from its `pyproject.toml`.
+
+    The same move `_repository_digests` makes for the assets: the expectation comes from the
+    source of truth beside this script, never from the artifact. A directory name and a
+    distribution name are the same string here (`packages/truestill-app` declares
+    `truestill-app`), which is what lets one loop serve both.
+
+    ⚠ Raises rather than skipping a distribution it cannot find. A comparison that quietly drops
+    an expectation it could not read is how the bundle went unchecked for nineteen days - the
+    reason already written above this function's neighbour.
+    """
+    declared: dict[str, str] = {}
+    for distribution in _DISTRIBUTIONS:
+        path = _ROOT / "packages" / distribution / "pyproject.toml"
+        try:
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+        except (OSError, tomllib.TOMLDecodeError) as exc:
+            msg = f"{path} could not be read ({exc}); the version cannot be compared"
+            raise UndeclaredVersionError(msg) from exc
+        project = data.get("project")
+        version = project.get("version") if isinstance(project, dict) else None
+        if not isinstance(version, str) or not version:
+            msg = f"{path} declares no [project] version; the version cannot be compared"
+            raise UndeclaredVersionError(msg)
+        declared[distribution] = version
+    return declared
+
+
+def _reported_versions(findings: list[dict[str, object]]) -> dict[str, str]:
+    """Every ``version <distribution>`` finding, by distribution.
+
+    Keyed on the **evidence**, not on the human sentence: `truestill_core.selfcheck.Finding`
+    exists precisely so a job never has to regex prose. A finding whose evidence carries no
+    distribution is not indexed, and therefore reads as *never reported* below - which is the
+    honest answer, because nothing identifiable was.
+    """
+    reported: dict[str, str] = {}
+    for finding in findings:
+        evidence = _evidence(finding)
+        distribution = evidence.get("distribution")
+        version = evidence.get("version")
+        if isinstance(distribution, str) and isinstance(version, str):
+            reported[distribution] = version
+    return reported
 
 
 def _findings_in(payload: dict[str, object]) -> list[dict[str, object]] | None:
@@ -116,7 +184,7 @@ def _reported_assets(findings: list[dict[str, object]]) -> dict[str, dict[str, o
     return reported
 
 
-def _compare(findings_path: Path) -> list[str]:
+def _compare(findings_path: Path, expect_version: str | None = None) -> list[str]:
     """Every way this artifact disagrees with the repository, as sentences. Empty means agreed.
 
     **Three outcomes, kept apart, because collapsing them is the fault this file already
@@ -199,24 +267,86 @@ def _compare(findings_path: Path) -> list[str]:
                 f"repository {size} bytes / {digest[:12]}, artifact "
                 f"{evidence.get('bytes')} bytes / {str(evidence.get('sha256'))[:12]}"
             )
+    return [*problems, *_version_problems(findings_path, findings, expect_version)]
+
+
+def _version_problems(
+    findings_path: Path, findings: list[dict[str, object]], expect_version: str | None
+) -> list[str]:
+    """Does the artifact know what it is, and is that what this checkout and the tag say?
+
+    **Two questions, and only the first one runs on every path - which is the point.** The
+    artifact's version is compared against the checkout's `pyproject.toml` **always**, so a
+    `workflow_dispatch` dry run exercises this exactly as a tag push does. The tag comparison
+    needs a tag and is therefore passed in only when there is one; if it were the only check,
+    `(ajw)` would have survived the rehearsal a third time, because a rehearsal has no tag.
+
+    ⚠ **A version that is merely PRESENT is not a pass, and neither is one this script could not
+    read.** The `unknown (not installed)` case is caught upstream by the artifact's own finding
+    (`DEGRADED`, so the self-check exits non-zero before this runs), and it is caught again here
+    because that string equals no declared version. Two independent failures for the defect that
+    shipped twice.
+    """
+    problems: list[str] = []
+    try:
+        declared = _declared_versions()
+    except UndeclaredVersionError as exc:
+        return [f"{findings_path.name}: THE CHECKOUT CANNOT COMPARE - {exc}"]
+    reported = _reported_versions(findings)
+    for distribution, expected in declared.items():
+        actual = reported.get(distribution)
+        if actual is None:
+            problems.append(
+                f"{findings_path.name}: THE ARTIFACT NEVER REPORTED ITS VERSION for "
+                f"'{distribution}' - this repository declares {expected} and nothing in the "
+                f"findings says what the artifact thinks it is"
+            )
+            continue
+        if actual != expected:
+            problems.append(
+                f"{findings_path.name}: {distribution} is not the version this repository "
+                f"declares - repository {expected}, artifact {actual}"
+            )
+    if expect_version is not None:
+        identity = reported.get(_IDENTITY)
+        if identity != expect_version:
+            problems.append(
+                f"{findings_path.name}: THE ARTIFACT DISAGREES WITH THE TAG - the tag says "
+                f"{expect_version} and the artifact calls itself {identity}. These bytes were "
+                f"not built from the checkout this tag names"
+            )
     return problems
 
 
 def main(argv: list[str]) -> int:
-    if not argv:
-        print("usage: compare_selfcheck.py <findings.json> [...]", file=sys.stderr)
-        return 2
+    parser = argparse.ArgumentParser(
+        prog="compare_selfcheck.py",
+        description="Compare an artifact's self-check against the repository it was built from.",
+    )
+    parser.add_argument("findings", nargs="+", help="findings JSON written by --self-check")
+    parser.add_argument(
+        "--expect-version",
+        default=None,
+        metavar="X.Y.Z",
+        # Passed by `release.yml` ONLY on a tag, because a dispatch build's version is
+        # `0.0.0-dev.<run id>` and the artifact's metadata comes from `pyproject.toml`; requiring
+        # them to agree would fail every dry run for a reason that is not a defect. The
+        # checkout comparison above runs on both paths and is what the rehearsal exercises.
+        help="the version this artifact must call itself - the tag, without its leading v",
+    )
+    args = parser.parse_args(argv)
     problems: list[str] = []
-    for name in argv:
-        problems.extend(_compare(Path(name)))
+    for name in args.findings:
+        problems.extend(_compare(Path(name), args.expect_version))
     for problem in problems:
         print(f"::error::{problem}")
     if problems:
         return 1
-    considered = [n for n in argv if _is_selfcheck(Path(n))]
-    skipped = len(argv) - len(considered)
+    considered = [n for n in args.findings if _is_selfcheck(Path(n))]
+    skipped = len(args.findings) - len(considered)
     note = f" ({skipped} other report(s) skipped)" if skipped else ""
-    print(f"self-check matched the repository for {len(considered)} artifact(s)" + note)
+    against = f" against {args.expect_version}" if args.expect_version else ""
+    print(f"self-check matched the repository{against} for {len(considered)} artifact(s)" + note)
     return 0
 
 

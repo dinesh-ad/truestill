@@ -31,8 +31,9 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from truestill_core.selfcheck import Finding, Status, core_findings
+from truestill_core.selfcheck import Finding, Status, core_findings, version_finding
 
+from truestill_app import __version__
 from truestill_app.server import _STATIC
 
 #: The faces the app declares in `tokens.css`. Book and Bold only - 600 resolves to Bold by CSS
@@ -160,5 +161,17 @@ def _bundle_finding(path: Path) -> Finding:
 
 
 def app_findings(root: Path | None = None) -> list[Finding]:
-    """Everything a packaged truestill can say about itself: core's answers plus the assets."""
-    return [*core_findings(), *font_findings(root), *bundle_findings(root)]
+    """Everything a packaged truestill can say about itself: core's answers plus the assets.
+
+    **The app's own version is here rather than in core because it is the string the SCREEN
+    shows.** `templates/index.html`'s `id="app-version"` renders `truestill_app.__version__`, and
+    core cannot read it (`IMPLEMENTATION_STANDARDS.md` §2). `(ajw)`: for two releases that line
+    read *"truestill unknown (not installed)"* on an installed copy and no finding covered it, so
+    the release gate had nothing to compare against the tag.
+    """
+    return [
+        *core_findings(),
+        version_finding("truestill-app", __version__),
+        *font_findings(root),
+        *bundle_findings(root),
+    ]

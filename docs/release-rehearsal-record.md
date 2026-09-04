@@ -110,3 +110,34 @@ bundle findings `ok`; `compare_selfcheck.py` matched on both platforms. The same
 attempt failed on Windows at *Install, verify, uninstall* with `the installer exited ` - an empty
 code - and `9ab3f93` is the fix. **A real tag has not run since; the next one owes nothing new here.**
 
+## Added 2026-09-04 (P208, `(ajw)`) - the rehearsal passed a build that could not name itself, twice
+
+**A record, not rewritten.** The run above proved the publish *mechanism*: five never-executed
+steps, six assets, checksums, `cosign verify-blob` by hand. It asserted nothing about what the
+artifact **says about itself**, and the version was the second thing to get through on that gap -
+`(ajv)`'s bundle was the first. v0.1.0 and v0.1.1 both published a settings screen reading
+*"truestill unknown (not installed)"* on an installed, working copy.
+
+**What the rehearsal must assert now, and does from this date**: `compare_selfcheck.py` matches the
+artifact's reported version against the checkout's `pyproject.toml`. ⚠ **That half deliberately
+needs no tag** - a rehearsal has none, and a guard that only fired on a tag would have missed this
+a third time in exactly the run meant to catch it. The tag comparison is the second half and runs
+only on a tag. **The next run must list, from the artifact itself**: `version truestill-app` and
+`version truestill-core` `ok` with the version string, and the comparison matched on both
+platforms.
+
+🔑 **The pattern under both defects, which is worth more than either fix.** A rehearsal that
+exercises MECHANISMS cannot catch a CONTENT defect. Every step ran, every gate was green, and the
+artifact was missing something a user would see. So the rule is: **for each thing the product
+tells a person about itself, the artifact is READ and compared against the source of truth** -
+never inferred from a build step having run.
+
+⚠ **And the gap that remains, stated rather than left implied.** `release.yml` **never serves the
+artifact**: it runs `--self-check` and nothing starts the app or fetches a page - `grep -c
+"no-browser\|curl \|session-url" .github/workflows/release.yml` answers **0**. Both `(ajv)` and
+`(ajw)` were found by a person serving the installed copy and reading the HTML, which is precisely
+what no step does. A step that starts the installed copy with `--no-browser`, fetches the page it
+serves, and asserts against the checkout would have caught both **before publication rather than
+after**. Not built here and not filed as a letter; recorded where the next rehearsal is planned,
+which is where it will be read.
+

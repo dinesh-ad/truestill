@@ -43,11 +43,12 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
-from truestill_core import app_paths, binaries
+from truestill_core import __version__, app_paths, binaries
 from truestill_core.binaries import bundled_bin_dirs, is_bundled_install
 from truestill_core.cleanup import trash_backend
 from truestill_core.exif import ExiftoolMissingError, ensure_exiftool
 from truestill_core.safe_copy import staging_path
+from truestill_core.version import UNKNOWN_VERSION
 
 #: The backend `cleanup` is *declared* to use. Asserted by **identity**, never as "something
 #: non-empty": `gio` answers on a Linux desktop while telling you nothing about Windows or macOS,
@@ -316,6 +317,43 @@ def install_finding() -> Finding:
     )
 
 
+def version_finding(distribution: str, reported: str) -> Finding:
+    """What this install believes its own version to be - and `DEGRADED` when it cannot say.
+
+    **`reported` is the RUNNING module's `__version__`, never a fresh lookup, and that is the
+    whole point of the argument.** `truestill_app.__version__` is computed once at import and is
+    the exact string the settings screen renders and `--version` prints; a lookup performed here
+    would answer a different question and could agree while the screen disagreed. This module's
+    one rule is that a finding resolves through the running code, and passing the attribute in is
+    how that rule reaches a value core cannot import for itself (`IMPLEMENTATION_STANDARDS.md`
+    §2 - core never imports the app).
+
+    **`UNKNOWN_VERSION` IS `DEGRADED`, NOT `INFO`, AND THAT IS THE ENTIRE GUARD.** `(ajw)`:
+    v0.1.0 and v0.1.1 both shipped a settings screen reading *"truestill unknown (not
+    installed)"* on an installed copy, because `release.yml` collected the package's data and
+    never its metadata, so `importlib.metadata` found no `.dist-info` in the frozen tree. Nothing
+    noticed for two releases - the self-check reported `install: packaged` and said nothing about
+    the version at all. A finding that reported the unknown value and passed would reproduce
+    exactly that: `worst` would stay `OK`, the release gate would stay green, and the artifact
+    would go on being unable to name itself. `DEGRADED` makes it an artifact this project does
+    not publish.
+
+    Complexity: O(1) - a string comparison.
+    """
+    name = f"version {distribution}"
+    evidence: dict[str, str | int] = {"distribution": distribution, "version": reported}
+    if reported == UNKNOWN_VERSION:
+        return Finding(
+            name,
+            Status.DEGRADED,
+            f"this install cannot say what version it is - no metadata for '{distribution}' is "
+            f"reachable here, so every screen, every --version and every bug report reads "
+            f"'{UNKNOWN_VERSION}'",
+            evidence,
+        )
+    return Finding(name, Status.OK, reported, evidence)
+
+
 def core_findings() -> list[Finding]:
     """Everything `truestill-core` can answer for on its own.
 
@@ -323,7 +361,13 @@ def core_findings() -> list[Finding]:
     `truestill-app`, and core importing the app is forbidden (`IMPLEMENTATION_STANDARDS.md` §2).
     A caller that cannot reach them must say so with `not_checked_finding`, never by omission.
     """
-    return [install_finding(), exiftool_finding(), trash_finding(), *location_findings()]
+    return [
+        install_finding(),
+        version_finding("truestill-core", __version__),
+        exiftool_finding(),
+        trash_finding(),
+        *location_findings(),
+    ]
 
 
 def not_checked_finding(name: str, run_instead: str) -> Finding:

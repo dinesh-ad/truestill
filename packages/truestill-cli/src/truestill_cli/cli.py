@@ -256,6 +256,7 @@ from truestill_core.selfcheck import (
     is_complete,
     not_checked_finding,
     render,
+    version_finding,
 )
 from truestill_core.source_repoint import RepointPlan, plan_repoint
 from truestill_core.takeout import (
@@ -2006,6 +2007,9 @@ def _cmd_self_check(_args: argparse.Namespace) -> int:
     """
     findings = [
         *core_findings(),
+        # The CLI's own version, for the same reason the app reports its own: `--version` prints
+        # `truestill_cli.__version__`, and core can only speak for `truestill-core`. `(ajw)`.
+        version_finding("truestill-cli", __version__),
         not_checked_finding("app fonts", _APP_ASSETS_CHECKER),
     ]
     for line in render(findings):

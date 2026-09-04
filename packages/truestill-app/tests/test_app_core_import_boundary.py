@@ -147,6 +147,14 @@ ALLOWED: dict[str, dict[str, str]] = {
             "other way round: core cannot import the app, so the app is what composes core's "
             "findings with the static-asset ones only it can see"
         ),
+        "version_finding": (
+            "a pure function over two strings - a distribution name and the version the RUNNING "
+            "module already holds - returning one `Finding`. It opens nothing and looks nothing "
+            "up; the lookup happened at import in `truestill_app/__init__.py`, whose "
+            "`distribution_version` is allowed above for the same reason. Here rather than in "
+            "core because the string it reports is `truestill_app.__version__`, the one the "
+            "settings screen renders, and core cannot read it. `(ajw)`"
+        ),
     },
     # ⚠ ONE block per module - a second "server.py" key is a duplicate dict literal and the
     # LAST one silently wins, which is how the first draft of `(agp)`'s entries vanished while

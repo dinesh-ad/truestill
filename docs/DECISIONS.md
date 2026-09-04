@@ -625,7 +625,22 @@ promoted to a gate until that entry closes.
 
 **Status:** Settled until one of the conditions above fires. **No tag was cut**: the release lane
 is exercised with `workflow_dispatch` + `dry_run=true`, and a `v*` tag is the *publish* trigger,
-not a dry run (`release.yml:283`).
+not a dry run (`release.yml`).
+
+> ⚠ **Corrected 2026-09-04 (P208), beside rather than in the frozen text above.** Two things.
+>
+> **The claim is overtaken**: `v0.1.0` (2026-08-30) and `v0.1.1` (2026-09-03) were both tagged and
+> published. `git ls-remote --tags origin` and `gh release list` are the check. The sentence was
+> true when D10 was written and the trigger it describes is unchanged - what expired is *"no tag
+> was cut"*. This is a **fifth** copy of the class P204 swept for and closed; that sweep matched
+> the wording *"the publish job has never run"* and this says it differently, which is `(aka)`'s
+> point about a pathspec exactly one level up - a sweep is only as wide as the phrasing it guesses.
+>
+> **The citation was repointed** to the file alone, from a line number in `release.yml` - and it
+> was wrong before it was stale: that line held the `.deb` step's `compare_selfcheck.py` call,
+> which has nothing to do with which trigger publishes. It resolved, so `test_live_documents_cite_code_that_exists.py`
+> passed it for as long as it existed - the measured `(ago)` failure, in this document. A `.yml`
+> has no citable symbol (`cite_symbols.py:symbols`), so the file alone is the durable form.
 
 ---
 

@@ -229,25 +229,14 @@ is invisible here is retired, not free.**
 ## Build next
 
 **The list to read.** Every entry here has a symptom an ordinary person meets in ordinary use -
-no unusual drive, no second process, no interrupted run. Sixteen on 2026-09-01 - `(aiy)` shipped that day and `(ajo)`, the remainder it named, took its place.
+no unusual drive, no second process, no interrupted run. Sixteen on 2026-09-01 - `(aiy)` shipped that day and `(ajo)`, the remainder it named, took its
+place. **Fifteen on 2026-09-04**, `(ajw)` having shipped with nothing left behind.
 
 ⚠ **THIS IS A TRIAGE, NOT A PROOF, AND THE HEADING MUST NOT BE READ AS ONE.** Each entry below was
 confirmed against today's code by **one decisive check**, named in its body - not by a full read.
 That is enough to say *still plausible*; it is not enough to say *confirmed*. **Nothing was deleted
 on the strength of it**, and an entry that turns out already built should be closed with its commit
 rather than treated as a triage failure.
-
-- **(ajw) EVERY PUBLISHED BUILD CALLS ITSELF "truestill unknown (not installed)" ON ITS OWN SETTINGS SCREEN.**
-  Filed 2026-09-03 (P202), found by installing the published 0.1.1 `.deb` and reading the page it
-  serves: `id="app-version">truestill unknown (not installed)`, while `dpkg -s truestill` says
-  `Version: 0.1.1`. `truestill_app.__version__` is `distribution_version("truestill-app")`, which
-  reads `importlib.metadata`, and the frozen tree holds **no** `truestill_*.dist-info` at all:
-  `release.yml` passes `--collect-data truestill_app`, which copies data files, never metadata
-  (`--copy-metadata` is the PyInstaller flag that does). 0.1.0 has the same words. The self-check
-  reports `install: packaged` and nothing about the version, so nothing compared the artifact's
-  version to the tag. Fix: `--copy-metadata` for the three packages, a self-check finding that the
-  version is a semver and never the unknown value, and `compare_selfcheck.py` matching it to the
-  tag. [Full entry](research/backlog/ajw.md)
 
 - **(r) Analyze mode - the hash cache half is SHIPPED.** ⚠ **Build next, 2026-09-02 (P187)**: no condition - tier 2b and the app screen are absent for everyone; scoped work, not a conditional defect. [Full entry](research/backlog/r.md)
 

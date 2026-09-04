@@ -38,6 +38,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -66,8 +67,14 @@ def _version_step() -> dict[str, Any]:
     return steps[0]
 
 
-def _resolve(ref_type: str, ref_name: str, tmp_path: Path) -> tuple[int, str]:
-    """Run the workflow's own version script. Returns `(exit code, resolved value)`."""
+def _outputs(ref_type: str, ref_name: str, tmp_path: Path) -> tuple[int, dict[str, str]]:
+    """Run the workflow's own version script. Returns `(exit code, every step output)`.
+
+    Parsed as the `key=value` lines `$GITHUB_OUTPUT` actually is, rather than by slicing the
+    whole file after the first `value=`. That shortcut read the file as though it held one
+    output, so `(ajw)` adding a second silently folded both into the version string - the tests
+    caught it, and this is the parse that cannot make that mistake again.
+    """
     output = tmp_path / "gh_output"
     output.touch()
     result = subprocess.run(
@@ -86,9 +93,18 @@ def _resolve(ref_type: str, ref_name: str, tmp_path: Path) -> tuple[int, str]:
         timeout=60,
         check=False,
     )
-    written = output.read_text(encoding="utf-8").strip()
-    value = written.split("=", 1)[1] if written.startswith("value=") else ""
-    return result.returncode, value
+    outputs: dict[str, str] = {}
+    for line in output.read_text(encoding="utf-8").splitlines():
+        key, sep, value = line.partition("=")
+        if sep:
+            outputs[key] = value
+    return result.returncode, outputs
+
+
+def _resolve(ref_type: str, ref_name: str, tmp_path: Path) -> tuple[int, str]:
+    """Just the resolved version - what most of these tests are about."""
+    code, outputs = _outputs(ref_type, ref_name, tmp_path)
+    return code, outputs.get("value", "")
 
 
 def test_the_step_is_actually_found_and_runs() -> None:
@@ -221,3 +237,30 @@ def test_no_build_step_names_an_artefact_after_the_ref() -> None:
         f"branch name in a filename; on a tag it puts a `v` prefix on one artefact and not its "
         f"siblings. Read `steps.version.outputs.value` instead."
     )
+
+
+@_POSIX_ONLY
+def test_a_tag_asks_the_comparison_to_match_the_artifact_against_it() -> None:
+    """`(ajw)`: two releases published a build that could not name itself, because nothing
+    compared the artifact's version to the tag. The flag that asks for that comparison is derived
+    HERE, in the one step both platforms share - the same rule the version itself follows, for
+    the same reason: two derivations of one answer came to disagree, and both were wrong."""
+    with tempfile.TemporaryDirectory() as scratch:
+        code, outputs = _outputs("tag", "v1.2.3", Path(scratch))
+
+    assert code == 0
+    assert outputs["expect"] == "--expect-version 1.2.3"
+
+
+@_POSIX_ONLY
+@pytest.mark.parametrize("ref_name", ["main", "feature/anything"])
+def test_a_dispatch_asks_for_no_tag_comparison_because_there_is_no_tag(ref_name: str) -> None:
+    """The other half, and it is not a hole. A dispatch build is `0.0.0-dev.<run id>` and the
+    artifact's metadata comes from `pyproject.toml`, so demanding they agree would fail every dry
+    run for something that is not a defect. The comparison against the CHECKOUT still runs on
+    this path, which is what makes a rehearsal able to catch `(ajw)`'s class at all."""
+    with tempfile.TemporaryDirectory() as scratch:
+        code, outputs = _outputs("branch", ref_name, Path(scratch))
+
+    assert code == 0
+    assert outputs["expect"] == ""

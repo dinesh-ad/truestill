@@ -36,9 +36,11 @@ from truestill_core.selfcheck import (
     not_checked_finding,
     render,
     trash_finding,
+    version_finding,
     worst,
     write_findings,
 )
+from truestill_core.version import UNKNOWN_VERSION
 
 
 def _named(findings: list[Finding], name: str) -> Finding:
@@ -375,4 +377,44 @@ def test_core_findings_covers_every_check_core_can_answer_for() -> None:
     failure mode being a findings file that looks clean because it stopped asking."""
     names = [f.name for f in core_findings()]
 
-    assert names == ["install", "exiftool", "trash", "catalog", "cache", "session url"]
+    # `(ajw)`: the version joined core's findings on 2026-09-04. Two published releases that
+    # could not name themselves is why - and this list is what makes adding one a decision.
+    assert names == [
+        "install",
+        "version truestill-core",
+        "exiftool",
+        "trash",
+        "catalog",
+        "cache",
+        "session url",
+    ]
+
+
+def test_an_install_that_cannot_name_its_version_is_degraded_not_information() -> None:
+    """`(ajw)`: v0.1.0 and v0.1.1 both shipped a settings screen reading "truestill unknown (not
+    installed)" on an installed copy, and the release gate stayed green through both because
+    nothing reported the version at all. `INFO` here would reproduce that exactly - `worst` would
+    stay `OK`, the artifact would still publish, and the one line telling a bug reporter which
+    build they have would still be wrong. The severity IS the guard."""
+    finding = version_finding("truestill-app", UNKNOWN_VERSION)
+    assert finding.status is Status.DEGRADED
+    assert not is_complete([finding])
+    assert finding.evidence["version"] == UNKNOWN_VERSION
+    assert finding.evidence["distribution"] == "truestill-app"
+
+
+def test_a_real_version_passes_and_carries_the_string_a_job_can_read() -> None:
+    """The cry-wolf half: without it the finding could be made unconditionally degraded and the
+    test above would still pass. The version goes in `evidence` rather than only in the sentence
+    because `compare_selfcheck.py` matches on it and must never regex prose."""
+    finding = version_finding("truestill-app", "0.1.1")
+    assert finding.status is Status.OK
+    assert finding.evidence["version"] == "0.1.1"
+    assert is_complete([finding])
+
+
+def test_core_reports_its_own_version_so_no_entry_point_is_silent_about_it() -> None:
+    """Silence and "ok" are the same thing to a reader - this module's own rule. Every entry
+    point inherits this one through `core_findings`."""
+    names = [f.name for f in core_findings()]
+    assert "version truestill-core" in names

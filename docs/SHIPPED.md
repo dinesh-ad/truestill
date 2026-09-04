@@ -22,6 +22,25 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ajw) EVERY PUBLISHED BUILD CALLS ITSELF "truestill unknown (not installed)" ON ITS OWN SETTINGS SCREEN.**
+  ✅ **CLOSED 2026-09-04 (P208)**, filed 2026-09-03 from an installed 0.1.1. The root is one flag:
+  `--collect-data` copies a package's DATA FILES and PyInstaller *"does not collect these metadata
+  files by default"*, so the frozen tree held no `truestill_*.dist-info`, `importlib.metadata`
+  raised, and `distribution_version` returned its fallback onto the settings screen. `release.yml`
+  now passes `--copy-metadata truestill-app --copy-metadata truestill-core` on both platforms;
+  `selfcheck.py:version_finding` reports what the running module thinks it is and is **DEGRADED**
+  on the unknown value, so the artifact's own gate refuses it; `compare_selfcheck.py` matches the
+  reported version against the checkout's `pyproject.toml` on **every** path and against the
+  **tag** when there is one, the flag for which is derived in the single step both platforms share.
+  ⚠ **TWO distributions, not the three the entry proposed** - `truestill-cli` has zero entries in
+  the build's `Analysis-00.toc` and `PYZ-00.toc`, so its metadata would describe code that is not
+  in the bundle. **Proved on real frozen builds, both directions**: reverted, the artifact's own
+  `--self-check` exits **1** and the comparison exits 1 independently; fixed, the `.deb` payload's
+  count of `truestill_*` metadata files goes **0 → 19** and the page it serves reads
+  `id="app-version">truestill 0.1.1`. Cost **+4,946 bytes on a 220.3 MiB tree**. **0.1.2 is NOT
+  recommended for this alone** - see the body; it rides the next release that carries something
+  else, and the guard is what stops a third one. Body: [`research/backlog/ajw.md`](research/backlog/ajw.md).
+
 - **(ajv) THE PUBLISHED v0.1.0 CARRIES NO REACT BUNDLE, SO ITS ORGANIZE RESULT REGION NEVER RENDERS.**
   ✅ **CLOSED 2026-09-03 (P200)**, filed the same day from the artifact rather than the tree. The
   root: the test and the release built different things - `make e2e` depends on `make frontend`
