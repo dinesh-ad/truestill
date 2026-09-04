@@ -372,7 +372,7 @@
              the answer is changed. `(abx)`. -->
         <div class="card" id="settings-library-root">
           <h2>Where your library lives</h2>
-          <p class="lede" style="margin-bottom:var(--space-4)">The folder Truestill sorts into.
+          <p class="lede">The folder Truestill sorts into.
             Current: <code id="library-root-current"></code></p>
           <div class="field">
             <label for="set-library-root">Library folder</label>
@@ -389,10 +389,10 @@
         </div>
         <div class="card">
           <h2>Folder layout</h2>
-          <p class="lede" style="margin-bottom:var(--space-4)">How organized copies are named on disk.
-            Current: <code id="layout-current"></code> <span id="layout-default" style="color:var(--fg-muted)"></span></p>
+          <p class="lede">How organized copies are named on disk.
+            Current: <code id="layout-current"></code> <span class="muted" id="layout-default"></span></p>
           <div class="field"><label for="layout-preset">Start from a saved folder pattern</label>
-            <select class="input" id="layout-preset" style="font-family:var(--family-sans)"><option value="">- choose a saved folder pattern -</option></select></div>
+            <select class="input sans" id="layout-preset"><option value="">- choose a saved folder pattern -</option></select></div>
           <div class="field"><label for="layout-template">Folder pattern</label>
             <input class="input" id="layout-template" placeholder="{yyyy}/{yyyy}-{mm}"></div>
           <p class="hint">Photos are placed by date. Screenshots, WhatsApp and other
@@ -401,7 +401,7 @@
           <div class="hint warn" id="layout-error"></div>
           <div class="actions"><button class="btn btn-primary" id="layout-save" disabled>Save layout</button>
             <span class="why">Changing this only affects files you organize from now on. Files already sorted stay put.</span></div>
-          <hr style="border:0;border-top:1px solid var(--border);margin:var(--space-5) 0">
+          <hr>
           <div class="field"><label for="everyday-day-threshold">Heavy-day folder threshold</label>
             <input class="input" id="everyday-day-threshold" type="number" min="1" step="1"></div>
           <p class="hint">Un-evented days with more photos than this get their own day folder.

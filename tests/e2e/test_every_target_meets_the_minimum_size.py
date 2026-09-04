@@ -31,6 +31,7 @@ import math
 from dataclasses import dataclass
 
 import pytest
+from e2e_support import open_screen
 from playwright.sync_api import Page
 
 #: Shell-scoped: it belongs to no screen, so no screen's commit carries it. Same reasoning as
@@ -123,6 +124,13 @@ def _targets(ui: Page) -> list[Target]:
     return [Target(name=t["name"], x=t["x"], y=t["y"], w=t["w"], h=t["h"]) for t in raw]
 
 
+#: Every screen the rail can reach. **The shell as it loads is one screen out of seven**, and it
+#: is not the dense one: Settings carries four save buttons, a select, six text inputs and a
+#: pattern table, and Organize carries the radio cards. A floor asserted on the default screen
+#: alone is a floor asserted where the controls are fewest.
+SCREENS = ("organize", "events", "import", "backups", "find", "stats", "settings")
+
+
 def test_every_target_is_large_enough_or_far_enough(ui: Page) -> None:
     """The floor, on the shell as it loads."""
     failures = offenders(_targets(ui))
@@ -130,6 +138,25 @@ def test_every_target_is_large_enough_or_far_enough(ui: Page) -> None:
     assert not failures, (
         "these controls are under 24x24 CSS pixels and are not spaced far enough to be "
         "excused by SC 2.5.8:\n    " + "\n    ".join(failures)
+    )
+
+
+@pytest.mark.parametrize("screen", SCREENS)
+def test_every_screens_targets_are_large_enough_or_far_enough(ui: Page, screen: str) -> None:
+    """The same floor, on every screen rather than on whichever one loads first.
+
+    ⚠ **The first version of this guard measured the default screen and nothing else** - it
+    passed, and that pass said nothing about the six screens a person actually spends time on.
+    A guard that is complete for what happens to be in front of it is `ENGINEERING_STANDARD.md`
+    §4's *"complete for everything that exists and silently partial for what does not"*, one
+    screen wide.
+    """
+    open_screen(ui, screen)
+    failures = offenders(_targets(ui))
+
+    assert not failures, (
+        f"on the {screen} screen, these controls are under 24x24 CSS pixels and are not spaced "
+        "far enough to be excused by SC 2.5.8:\n    " + "\n    ".join(failures)
     )
 
 

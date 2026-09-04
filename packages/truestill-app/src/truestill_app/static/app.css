@@ -26,6 +26,19 @@ code,
   font-family: var(--family-mono);
   font-variant-numeric: tabular-nums;
 }
+/* ...and a NAME is not data. `.input` is monospace because it usually holds a path; a control
+   holding a human-readable name says so rather than inheriting the type signature for bytes.
+   The counterpart to `.mono` above, and the reason it exists as a class: it was an inline
+   `style="font-family:var(--family-sans)"` on one `<select>`, which states the same intent
+   somewhere nothing else can find it. */
+.sans {
+  font-family: var(--family-sans);
+}
+/* De-emphasised inline text - a parenthetical beside a fact, never the fact. Also promoted from
+   an inline style, for the same reason. */
+.muted {
+  color: var(--fg-muted);
+}
 
 /* ---------- app shell ---------- */
 /* ---------- the rail's own tokens ----------
@@ -566,6 +579,23 @@ svg.ico {
   padding: var(--space-4) var(--space-5);
   box-shadow: var(--elevation-sm);
   margin-bottom: var(--space-3);
+}
+/* A CARD'S LEDE CARRIES THE RHYTHM, and it used to be asked for twice by hand.
+   `.screen .lede` is `margin: 0` because a screen's lede sits under the h1 and the header owns
+   the gap; inside a card there is no header, so two cards carried
+   `style="margin-bottom:var(--space-4)"` and the four that did not were spaced by whatever
+   followed them. One rule, one rhythm - the target `organize-preview-record.md` states as
+   *"content filling its space"* applied to the gap rather than the width. */
+.card .lede {
+  margin-bottom: var(--space-4);
+}
+/* A SEPARATOR IS A TOKEN, NOT A HAND-DRAWN LINE. This was
+   `style="border:0;border-top:1px solid var(--border);margin:var(--space-5) 0"` - a hard-coded
+   1px beside a `--border-width` token that exists precisely so a hairline has one definition. */
+.card hr {
+  border: 0;
+  border-top: var(--border-width) solid var(--border);
+  margin: var(--space-5) 0;
 }
 .card h2 {
   font-size: var(--type-lg);
