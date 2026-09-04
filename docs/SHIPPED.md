@@ -685,6 +685,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
 
   Related: `(aic)`, `(aid)`, `(aif)`, `(aim)`, `(ain)`, `(ago)`.
 
+  [Full entry](research/backlog/ais.md)
+
 - **(aid) A FILENAME LONG ENOUGH TO BREAK THE COPY IS NOW REFUSED BY NAME, BEFORE ANYTHING IS
   WRITTEN.** Shipped 2026-08-30 (P146). The length half; **the character half is unchanged and
   deliberately so** - see the bottom of this entry.
@@ -777,6 +779,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
 
   Related: `(aic)`, `(aie)`, `(aif)`, `(ais)`, `(aey)`, `(aac)`.
 
+  [Full entry](research/backlog/aid.md)
+
 - **(aim) THE SUMMARY PRINTED A PLAN-DERIVED COUNT IN OUTCOME TENSE, AND ON TWO ROUTES IT WAS THE
   ONLY COUNT ON SCREEN.** Shipped 2026-08-30 (P145). Filed the day before as a **shape, not a bug
   list**, deliberately ahead of `(aie)`'s fix so that closing the instance could not close the
@@ -859,6 +863,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
 
   Related: `(aac)`, `(abl)`, `(acx)`, `(aer)`, `(afe)`, `(afl)`, `(afm)`, `(agi)`, `(agj)`,
   `(aie)`, `(ain)`.
+
+  [Full entry](research/backlog/aim.md)
 
 - **(ain) A REFUSED TIMESTAMP AFTER A COMMITTED RENAME LEFT AN ORPHAN ON THE DRIVE.** Shipped
   2026-08-29 (P143). Filed the day before as a **source reading** and reproduced before it was
@@ -993,6 +999,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
   reverting the create loses the names, dropping `set_event_id` returns a name with no
   photographs under it, which is this entry's own warning.
 
+  [Full entry](research/backlog/ahv.md)
+
 - **(aif) A NON-ASCII FILENAME MAY NOT SURVIVE ARGV TO EXIFTOOL ON WINDOWS.** Shipped 2026-08-29
   (P121), one day after being filed reasoned and measured broken the same day: the instrument
   filed with it came back **XFAIL on the Windows lane (run 33242186610)** with the reply decode
@@ -1015,6 +1023,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
   candidate was falsified by measurement** - the `?` is exiftool's JSON writer refusing invalid
   UTF-8, charset flag or no - and `(aig)`, corrected in place, is parked with reachability
   measured at zero.
+
+  [Full entry](research/backlog/aif.md)
 
 - **(aic) EXIFTOOL'S OUTPUT IS DECODED WITH THE MACHINE'S CODE PAGE, SO A NON-ASCII FILENAME LANDS IN `Undated/`.**
   Shipped 2026-08-29 (P120). One fix at the one door: `binaries.run`/`binaries.popen` now pin
@@ -1045,6 +1055,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
   The one platform conditional in the batch is deliberate and is an *instrument*: the
   filename-keying test is `xfail(strict=False)` on Windows because its verdict there is
   `(aif)`'s open measurement, not `(aic)`'s.
+
+  [Full entry](research/backlog/aic.md)
 
 - **(ahq) A HASH THAT CARRIES NO SIGNAL IS NOT COMPARED.** Shipped 2026-08-26, the last of the
   six. A photograph of a flat surface produces an **honest** all-zero dHash, and everything within
@@ -1958,6 +1970,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
   Seven mutations, all caught, three cry-wolf.
   [Full entry](research/backlog/afw.md)
 
+  Design and closure record for stage 3: [`afw-record.md`](research/backlog/afw-record.md)
+
 - **(agk) THE IN-PLACE JOURNAL NOW RECORDS INTENT, BEFORE THE IRREVERSIBLE STEP.** Shipped
   2026-08-23, schema **v21**. ⚠ **A RELEASE BLOCKER, and the most serious thing in this arc**: an
   `--in-place` rename was covered by nothing until after it had happened, so a crash left a
@@ -2631,6 +2645,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
     three-component rule so `v2` is coerced instead of refused, and re-naming the archive after
     the ref.
 
+  [Full entry](research/backlog/aex.md)
+
 - **(afc) A DRIVE THAT IS MERELY UNMOUNTED IS NO LONGER OFFERED REGISTRATION.**
   - ✅ **CLOSED 2026-08-21.** `verify` on a cleanly unmounted mountpoint said *"isn't a Truestill
     drive yet - register it with `drives --init`"*. Following the product's own advice minted a
@@ -2685,6 +2701,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
     > compare `(aey)`, where a surviving mutant was resolved by changing the **code** instead,
     > because the branch it removed carried no weight.*
 
+  [Full entry](research/backlog/afc.md)
+
 - **(afb) THE THIRD BARE PREDICATE IN A DELETE PATH, FOUND BY SWEEPING RATHER THAN BY A FAILURE.**
   - ✅ **CLOSED 2026-08-21.** `cleanup.plan_cleanup` gated on a bare `folder.is_dir()`. With the
     folder's **parent** refused it **raised `PermissionError` on 3.13** - inside a function whose
@@ -2702,6 +2720,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
     verifies by checksum, not by a predicate, and catches around both steps - and the remaining
     `unlink`/`replace` calls touch only Truestill's own temp files and journals. **Two of the
     three delete-adjacent modules carried the defect.**
+
+  [Full entry](research/backlog/afb.md)
 
 - **(aey) ABSENT AND REFUSED ARE DIFFERENT ANSWERS, DECIDED ONCE, FROM ONE STAT.**
   ⚠ *Corrected 2026-08-24: closed at FIVE sites, and there were SEVEN - verify (`verify.py`,
@@ -2762,6 +2782,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
     the subject does not share. Verified end to end: `probe_dir(refused)` is `unreadable` on
     **both** interpreters, and the suite now reports an identical **2,681 passed, 1 skipped** on
     each - the version-conditional skip is gone.
+
+  [Full entry](research/backlog/aey.md)
 
 - **(aez) RECLAIM ABORTED WITH A TRACEBACK WHEN A BACKUP COPY REFUSED TO BE READ.**
   - ✅ **CLOSED 2026-08-21**, found by writing `(aey)`'s pin and fixed in the same commit.
@@ -2846,6 +2868,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
     naming no file were removed*. Both are now said; neither was before.
   - **Verified on both pools**: thread and process report an identical **787 = 189 + 598**.
 
+  [Full entry](research/backlog/aev.md)
+
 - **(aew) ONE REMEDY PER READ FAILURE, WHICH IS WHY THE REASONS EXIST.**
   - ✅ **CLOSED 2026-08-21**, found while measuring `(aev)` and fixed in the same commit.
   - The block printed *"fix the permission or check the disk, then run again"* under **all five**
@@ -2927,6 +2951,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
     the wording `analyze` has shown all along, so the surfaces now agree rather than one being
     restyled; it asserts the promise its own docstring names instead of the heading.
 
+  [Full entry](research/backlog/aer.md)
+
 - **(aes) "NEVER CHECKED" NOW MEANS NOBODY LOOKED, NOT "WE LOOKED AND FOUND GAPS".**
   - ✅ **CLOSED 2026-08-21.** Measured on the soak catalog: five files deleted by hand, `verify`
     reporting `MISSING: 5`, and `status` in the same minute naming that drive as never checked.
@@ -2959,6 +2985,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
     lane, by the maintainer's decision, so the four surfaces agree in one commit.
   - **Three mutations, all caught**: back to the stamp alone, `missing_count` dropped, and a row
     without the aggregates claiming a look.
+
+  [Full entry](research/backlog/aes.md)
 
 - **(aet) ONE UNDECODABLE FILE NO LONGER ABORTS A RUN, AND THE BOUNDARY IS NOT A LIST.**
   - ✅ **CLOSED 2026-08-21.** `organize` over 1,428 format-corpus files exited **1 with a traceback
@@ -2995,6 +3023,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
     claim - plus the real corpus files when they are present, skipping rather than fabricating.
   - **Three mutations, all caught**: narrowed back to an enumeration, caught-and-swallowed, and
     widened to `BaseException`.
+
+  [Full entry](research/backlog/aet.md)
 
 - **(aeu) HEIF RECORDS A ROTATION TWICE, AND EACH CONSUMER SAW ONLY ONE OF THEM.**
   - ✅ **CLOSED 2026-08-21.** Both halves, same session, because they are **one fact from opposite
@@ -3058,6 +3088,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
     line the run would have gone green while the fix did nothing - the outcome assertion cannot
     tell "correctly not transposed" from "never consulted". It is kept and documented as the
     control against a third encoding.
+
+  [Full entry](research/backlog/aeu.md)
 
 - **(aeq) EVERY exiftool INSTALL NOW PROVES THE BINARY RUNS, AND WINDOWS RETRIES A FEED 503.**
   - ✅ **CLOSED 2026-08-21**, the same day it was filed, because it stopped being a prediction:

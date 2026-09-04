@@ -22,6 +22,28 @@ decision context that produced them.
 
 ## Item letters
 
+🔑 **THESE ARE ADRs, AND SAYING SO IS THE POINT OF THIS PARAGRAPH.** The scheme below is the
+**architecture decision record** convention - the letter is the number and
+[`research/backlog/<letter>.md`](research/backlog) is the record - and until 2026-09-04 (P209)
+nothing in this repository said the word, so every arriving session reconstructed it from four
+scattered rules. It is named, not changed: no renumbering, no renaming, no move. The canonical
+statement (opendatahub) is *"numbered sequentially and monotonically, numbers will not be reused.
+If a decision is reversed we keep the old one around, but mark it as superseded"*, and this file
+already says all of it:
+
+| the convention | what this file already says |
+|---|---|
+| numbers are never reused | *"Letters are **permanent identifiers, not an ordering**"* |
+| because reuse breaks citations | *"reusing or renumbering one silently redirects a citation"* |
+| a reversed decision is kept and marked | *"**a retired letter is not a free one**"* - `(abz)` and `(ss)` below, bodies kept as records |
+| the list is never shortened | *"A record is never deleted to shorten the list"* (`CLAUDE.md`, `(ait)`/`(aiu)`) |
+
+⚠ **The one place we differ from the convention, stated so nobody 'fixes' it**: ADRs are numbered
+*sequentially*, and letters are allocated sequentially but carry **no ordering meaning at all** -
+`(aaa)` is not earlier than `(bbb)` in any sense that matters, because the two files share one
+namespace and an entry moves between them. Sequence here is an allocation mechanism, never a
+chronology.
+
 Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDARDS.md` cites
 `(aad)` and `(ii)` by letter and `PROJECT_STATUS.md` cites `(gg)`, so reusing or renumbering one
 silently redirects a citation. Since the split those citations reach across **two** files: a

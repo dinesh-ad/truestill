@@ -262,6 +262,146 @@ memory dressed as one.
 > adding one: name what it was written for, and show that the failure can no longer happen or no
 > longer matters.
 
+### The members at a glance - an INDEX, and the reason it exists
+
+⚠ **EVERY LINE IS A MEMBER'S OWN OPENING SENTENCE, VERBATIM, AND A GUARD HOLDS IT THERE.**
+`test_the_code_standard_index_matches_its_members.py` fails when a member is added, removed,
+reworded or reordered without this list following, so it is a second copy that **cannot** rot
+rather than one that will. **Read the list, open the member that applies, take the rule from the
+member** - a line here is a handle, never the rule itself.
+
+🔑 **Why, measured 2026-09-04 (P209).** This section is **201,872 of this document's 217,631
+bytes - 93%** - and `CLAUDE.md` names the whole file *"Read first, every session"*. That
+instruction plus its three companions costs **~132K tokens** before any work starts; adding what
+the same file says to check before building anything (`BACKLOG.md`, `SHIPPED.md`, the handoff)
+reaches **~287K**, which does not fit in a context window. **The instruction could not be
+followed as written.** Nothing was deleted to fix that, and nothing here says anything new: §4 is
+a lookup table and is now indexed like one, so a session reads ~9 KB and opens what applies.
+
+⚠ **DELIBERATELY UNNUMBERED, and that is this section's own warning applied to itself.** The
+members' prose ordinals (*"the sixty-second member"*) are already a second, smaller count that
+does not agree with the `grep` above **and should not**. A numbered index would be a **third**,
+and counts are the one thing this section has drifted on repeatedly. Search the sentence instead.
+
+- Idioms (Python 3.14, standard build).
+- Absolute imports only (standing, 2026-07-30).
+- Typing.
+- Dependencies.
+- Performance.
+- Tests (enrichment over count).
+- A regression fixture must be validated by running it against the bug it guards.
+- A guard test must be proven not to cry wolf: assert it ignores legitimate look-alikes.
+- A guard must still be AIMED at the thing it guards. A monkeypatch targets the module that
+  *owns* the name, never a re-export of it.
+- A guard must assert what the promise is, not what happens to have survived.
+- A guard can be complete for everything that exists and silently partial for what does not
+  exist yet.
+- A guard must prove its subject is non-empty before it proves anything about it.
+- A CHANGE CAN MAKE A TEST'S BRANCH UNREACHABLE WITHOUT MAKING ANYTHING RED. THE FIXTURE, NOT
+  THE ASSERTION, DECIDES WHICH BRANCH RUNS.
+- A CHANGE THAT MAKES A DEFECT REPRODUCIBLE IS NOT THE CHANGE THAT INTRODUCED IT, AND A CLEAN
+  DIFFERENTIAL WILL NOT TELL YOU WHICH IT IS.
+- A CHANGE LANDS IN THE DOCUMENT YOU HAPPEN TO BE LOOKING AT, NOT THE ONE THAT GOVERNS.
+- A TYPE CHECKER READS ONE PLATFORM'S BRANCH. THE LOCAL GATE IS BLIND TO THE OTHER TWO, AND THEY
+  ARE WHERE THE PLATFORM CODE IS.
+- A COMMENT THAT QUOTES THE DEFECT'S ARTEFACT NAMES BECOMES NOISE IN EVERY TEXT SEARCH OVER THAT
+  RUN. ASK THE FILESYSTEM, NOT THE NARRATIVE.
+- A WRITTEN CLAIM CAN BE FALSIFIED; AN UNWRITTEN ONE CANNOT. ONLY ONE OF THEM SHOWS UP IN AN
+  AUDIT.
+- A TEST WHOSE PRECONDITION IS PROBED THROUGH THE CALL IT IS TESTING CANNOT SEE THAT CALL
+  CHANGE.
+- A RULE APPLIED TO TWO OF THREE SURFACES READS AS SETTLED, AND THE THIRD DISAGREES SILENTLY.
+- AN INSTRUMENT WHOSE PREMISE HOLDS IN THE NORMAL CASE AND QUIETLY FAILS IN THE ABNORMAL ONE IS
+  UNAVAILABLE IN THE ONLY CASE IT EXISTS FOR.
+- A mutation proof needs a control, because "it failed" and "it failed for the reason I think"
+  are different claims.
+- A guard that agrees with its subject's own DECLARATION has proved nothing.
+- When a census measures a PROXY, ask what the proxy cannot distinguish.
+- When a fix lands on one surface, ask where else the rule is written down - not whether the
+  other surface has a test.
+- If it is 200 lines and it could be 50, rewrite it.
+- A warning that names one direction of a hazard does not cover its reverse.
+- A mutation proof must show that the mutant is the code under test.
+- When something's status changes, grep for every reference to it before reporting.
+- A test's precondition must be proven to hold at the moment it is asserted, not merely to have
+  been set.
+- Where two defences catch the same case, assert PROVENANCE, not the outcome.
+- A test must not be able to write to a real user location - make it impossible, not forbidden.
+- Run the browser lane when browser-exercised *behaviour* changes, not when browser *files*
+  change.
+- When the thing under test SHARES A NAME with a system-provided equivalent, assert the DELIVERY
+  MECHANISM, not the rendered result.
+- A CHECK THAT MEASURES THE CHEAPER PROXY PASSES THE ARTIFACT IT WAS WRITTEN FOR.
+- AN UNBOUNDED STEP DESTROYS THE EVIDENCE AT THE MOMENT IT BECOMES VALUABLE.
+- A STEP THAT REPORTS SUCCESS BECAUSE ITS ERROR HANDLING WORKED IS NOT A MEASUREMENT.
+- AN APPROVED PLAN NARROWED DURING IMPLEMENTATION IS INVISIBLE UNLESS THE REPORT SAYS WHAT WAS
+  NOT BUILT.
+- A test whose subject is an OS-PRODUCED STRING is a test of that OS.
+- Assert that a stylesheet token RESOLVES, not that its text looks right.
+- A stub that never matched is indistinguishable from a stub that matched and returned nothing.
+- A fixture whose SUBJECT never entered the code path produces the same observable as a
+  successful run.
+- A step that reports success is not evidence that it did anything.
+- A pipeline discards the exit status of everything but its last command.
+- Match a process by `/proc/PID/exe`, or by a pid you captured when you spawned it - never by a
+  pattern over the command line.
+- A timing test on `tmpfs` cannot observe an interruption.
+- A measurement is of a subject at a moment. Change the subject while it runs and the result
+  describes nothing.
+- Credentials never enter a tool call, and a step needing `sudo` stops and asks.
+- Wait for a signal that only the post-condition can produce - never one that is already true.
+- A mutation must be asserted PRESENT and UNIQUE, or its scope stated.
+- When you PROBE an external system, its answer and your instrument's fault arrive as the same
+  string.
+- A design is not checked against the contract until somebody QUOTES the clause it touches.
+- CARRYING AN AGE TO A CLAIM WITHOUT AUDITING WHAT ADVANCES THE AGE MAKES THE CLAIM WORSE.
+- A CORRECTIVE STATE NEEDS A TEST FOR HOW IT IS CLEARED, NOT ONLY FOR HOW IT IS SET.
+- A BROKEN HARNESS MAKES A CORRECT CHANGE LOOK WRONG, AND SENDS YOU READING WORKING CODE.
+- A PARTIAL REFRESH IS WORSE THAN NO REFRESH: THE HALF SOMEBODY CHECKED VOUCHES FOR THE HALF
+  THEY DID NOT.
+- A GUARD THAT ITERATES ITS OWN DECLARATION TABLE IS VACUOUS THE DAY THE TABLE EMPTIES. ITERATE
+  THE DERIVED INVENTORY AND ASSERT INTO THE TABLE.
+- AN ENTRY THAT ASSERTS AN ABSENCE MUST CARRY THE CHECK THAT WOULD FALSIFY IT.
+- A TRUE ANSWER FROM THE FIRST FUNCTION IS NOT THE ANSWER. READ TO THE LAST FUNCTION THAT CAN
+  CHANGE IT.
+- A CHECK WHOSE INPUT IS CREATED BY THE ACT IT VALIDATES CANNOT GATE THAT ACT.
+- A CLASSIFIER THAT READS ONLY THE OUTERMOST EXCEPTION IS INERT THE MOMENT ANYONE WRAPS ONE.
+- A SURVIVING MUTATION IS A CLAIM ABOUT THE TEST *AND* ABOUT THE MUTANT, AND THE MUTANT IS THE
+  CHEAPER ONE TO CHECK.
+- A FENCED CODE BLOCK IN A DOCUMENT IS A QUOTATION TO A READER AND AN INPUT TO A FORMATTER, AND
+  THE FORMATTER WINS.
+- A RULE CITED BY ITS SECTION NUMBER RATHER THAN ITS DOCUMENT INHERITS THE AUTHORITY OF
+  WHICHEVER DOCUMENT THE READER ASSUMES.
+- A PHRASE REPEATED BETWEEN DOCUMENTS ACQUIRES THE AUTHORITY OF A RULE WITHOUT EVER BEING ONE.
+- A binding clause that asserts a MACHINE STATE expires silently.
+- A single mutation only ever proves the tests aimed one way.
+- A test proves nothing about code that could not have changed the thing it asserts.
+- A mutation harness that dies leaves the mutant on disk, and `finally` does not run when the
+  process is killed.
+- Restoring the source is not restoring the module: Python revalidates a `.pyc` on mtime SECONDS
+  and byte size, and a mutation cycle defeats both.
+- A mock that renders "0" is telling you a field became load-bearing.
+- A fixture modelled on the current library inherits its blind spots.
+- A test written in terms of the constant it guards cannot falsify the constant.
+- A guard proven by the problem it hunts dies at the moment it succeeds.
+- A rule that depends on somebody remembering to read it is not a control.
+- Never retry a failing test to get a green build - and never let "most red lanes are flaky"
+  become the reason you stopped looking.
+- For an intermittent failure, repetition is evidence. For a mechanism that could lie, only a
+  differential is.
+- A signal tests wait on must be derived from the writes it claims to cover, never asserted
+  beside them.
+- A branch the common case masks is the one nothing exercises.
+- A report about state must say what it does not cover.
+- One library is a test bed, never a specification.
+- The fair comparison for a storage change is two clean databases, never one database before and
+  after.
+- A test that pins "the newest version" breaks on the next version by construction.
+- A guard that is silently cancelled is worse than one never scheduled, because the calendar
+  says it ran.
+- Three points is not a trend, and a live metric is not a constant.
+- Errors.
+
 - **Idioms (Python 3.14, standard build).** `pathlib.Path` for all path manipulation - never
   `os.path.*` in source (an audit on 2026-07-29 found zero call sites; this codifies that
   practice, it is not a migration). Use `os` only for operations pathlib does not expose:

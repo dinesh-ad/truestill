@@ -19,10 +19,26 @@ is what resolves the pointer.
 0. [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) - **start here.** Where the project
    stands, what ships next, and the standing rules. Read it before doing anything else.
 1. [`docs/ENGINEERING_STANDARD.md`](docs/ENGINEERING_STANDARD.md) - the portable canon.
+   ⚠ **§4 IS A LOOKUP TABLE - READ ITS INDEX, NOT ALL OF IT.** *The members at a glance* is 86
+   lines at the top of §4 and each is a member's own opening sentence, held there by
+   `test_the_code_standard_index_matches_its_members.py`. Read the index, open the member that
+   applies, take the rule from the member. §1-3 and §5 are short and are read in full.
 2. [`docs/IMPLEMENTATION_STANDARDS.md`](docs/IMPLEMENTATION_STANDARDS.md) - the binding,
    repo-specific contract.
 
 **`IMPLEMENTATION_STANDARDS.md` wins on any conflict.**
+
+⚠ **THIS LIST COULD NOT BE FOLLOWED AS WRITTEN, AND THAT IS WHY THE INDEX EXISTS** (measured
+2026-09-04, P209). These three plus this file were **526,577 bytes, ~132K tokens** before any work
+started; adding what the next paragraph tells you to check - `BACKLOG.md` and `SHIPPED.md` - reached
+**~287K, more than a context window**. §4 alone was **93%** of `ENGINEERING_STANDARD.md`. **Nothing
+was deleted**: a third prune was refused because the two before it were right, and the census found
+**0 of 82 mapped documents unreferenced**. The cost was never the number of documents - it was that
+a lookup table was being read end to end. Re-measure rather than trusting these figures:
+
+```sh
+wc -c CLAUDE.md docs/PROJECT_STATUS.md docs/ENGINEERING_STANDARD.md docs/IMPLEMENTATION_STANDARDS.md
+```
 
 **Before building anything from `BACKLOG.md`, check `SHIPPED.md`.** ⚠ **And start from
 `## Build next`** - the file is sectioned by what an entry *is* since P175, and the other sections
