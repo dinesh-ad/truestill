@@ -55,7 +55,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aka). Next free: (akb).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akc). Next free: (akd).**
 **Retired 2026-09-02 (P190), and named here because a retired letter is not a free one:** `(abz)`
 (*"Organize shows one population three ways and connects none of them"*). False before it was
 filed: `app.js:rearrangeNote` (`93635af`, 2026-08-06) prints *"N of M files here are already in
@@ -357,6 +357,15 @@ zero and moved to *Records* with the measurement and the source the condition wo
 Four cannot be counted on one machine and say why. Four had no condition at all and moved to
 *Build next* or *Ideas / deferred*. P186 had found 8 of 43 with any measurement; the label said
 conditional, and ten rows were absent rather than conditional.
+
+- **(akb) NINE §9 RULES ARE ENFORCED ONLY BY THE FILE THE REACT REWRITE DELETES.** 📏 **Counted
+  2026-09-04 (P211): 9 rows of 48**, and 20 of 48 cite `app.js` at all
+  (`awk '/^## 9\. User-facing/,0' docs/IMPLEMENTATION_STANDARDS.md | grep -c '^| \*\*.*app\.js'`).
+  The condition is the `(adi)` cutover: on the one commit that deletes `app.js`, nine binding §9
+  rules stop having a named guard and stay binding - they do not become false, they become
+  unwatched. Nothing is wrong today. Closing it is re-pointing citations at the `tests/e2e/` files
+  that assert on rendered words and survive a renderer swap, not inventing coverage.
+  [Full entry](research/backlog/akb.md)
 
 - **(aih) A PHOTOGRAPH WHOSE EXIF WAS STRIPPED IS FILED A YEAR FROM ITS OWN TWIN, AND THE PRODUCT ALREADY KNOWS THEY ARE THE SAME.** 📏 **Counted 2026-09-02 (P187): real library 4 mixed groups, 3 split across folders** (0.03% of hashed files); manufactured corpus **435 of 435** split. Hamming 0 only, so a floor.
   Filed 2026-08-29 (P131, soak eight), **measured on 500 pairs**: 500 of 500 EXIF-stripped copies
@@ -955,6 +964,16 @@ like approved work.
 keep their letters because `IMPLEMENTATION_STANDARDS.md` and other documents cite letters, and a
 cited letter must resolve.
 
+- **(akc) NO BINDING RULE GOVERNS REACT, TYPESCRIPT, TAILWIND OR THE GENERATED CONTRACT.** ⚠
+  **Ruled 2026-09-04 (P211): the gap is recorded and is NOT to be filled speculatively.** Counted
+  the same day - `grep -ciE "react|typescript|tailwind"` reads **2** in
+  `IMPLEMENTATION_STANDARDS.md` and **0** in `ENGINEERING_STANDARD.md`; the generated contract
+  reads **1** and **0** - while `CLAUDE.md`'s map routes the question to a document it labels *"a
+  **record**, not the canon"*. Every §4 member earned its place by naming a real failure, so
+  writing frontend rules before the work has produced one would put text in the canon that has
+  never caught anything. The asymmetry is a record of failures survived, not of attention paid.
+  The first real frontend failure writes the first rule. [Full entry](research/backlog/akc.md)
+
 - **(ajx) THE ~8 MINUTE BROWSER-LANE CONDITION IS RETIRED - IT ASKED THE WRONG QUESTION.**
   ⚠ **Ruled 2026-09-03 (P207)**; filed the same day (P206) as a block, and retiring it is the
   better answer than pursuing it. **Measured, not argued**, on the hardware the lane now prints
@@ -964,7 +983,7 @@ cited letter must resolve.
   the assertion budget was exhausted twice (*"Expect to_contain_text with timeout 30000ms"*) and
   `(ajm)` fired because xdist lengthens `tmp_path` with `popen-gwN`.
   🔑 **The replacement is TWO STAGES**, binding in `IMPLEMENTATION_STANDARDS.md`: **FAST every
-  push** - `make check`, **40 s over 3,543 tests**, plus contract guards that catch browser
+  push** - `make check`, **~40 s over the whole suite**, plus contract guards that catch browser
   classes with no browser, the worked example being
   `test_the_json_client_is_only_used_on_json_routes.py` at **0.07 s**; **SLOW on a narrower
   trigger** - the full suite, both engines, unchanged, nightly and on dispatch. **This is the

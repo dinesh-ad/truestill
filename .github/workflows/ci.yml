@@ -463,7 +463,7 @@ jobs:
   # because xdist lengthens `tmp_path` with a `popen-gwN` component.
   #
   # The replacement is TWO STAGES, and `IMPLEMENTATION_STANDARDS.md` 6.1 is the binding form:
-  # FAST every push (`make check`, 40 s over 3,543 tests, plus contract guards that catch browser
+  # FAST every push (`make check`, ~40 s over the whole suite, plus contract guards that catch browser
   # classes with no browser - `test_the_json_client_is_only_used_on_json_routes.py` does it in
   # 0.07 s); SLOW on a narrower trigger, this job, both engines, unchanged. That is DORA's own
   # remedy - "split out longer-running tests into a separate build" - not a lowered bar.

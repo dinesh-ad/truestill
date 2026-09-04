@@ -879,7 +879,15 @@ question.
 
 1. **FAST - every push.** `make check`, plus the **contract guards that catch browser classes
    without a browser**. This stage is already best-in-class and is the one a ten-minute rule is
-   about: **40 s over 3,543 tests**. The worked example is
+   about: **~40 s over the whole suite**. ⚠ **The suite's SIZE is a command, never a number
+   here** - it read *"3,543 tests"* from 2026-09-03 until 2026-09-04 and was wrong in **five**
+   files at once by then, `ci.yml`'s banner among them:
+
+   ```sh
+   uv run pytest --collect-only -q | tail -1
+   ```
+
+   The worked example is
    `test_the_json_client_is_only_used_on_json_routes.py` - it catches the JSON-client-on-a-bodiless-route
    class in **0.07 s**, the class that cost a nightly red and shipped a broken cancel to users.
    **Growing this stage is the standing work**; every browser-only class converted to a contract

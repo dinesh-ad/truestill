@@ -82,7 +82,7 @@
 
   ## THE RULING - TWO STAGES, WHICH IS WHERE THE FIELD PUTS THEM
 
-  1. **FAST, every push.** `make check` - **40 s over 3,543 tests**, inside best-in-class - plus
+  1. **FAST, every push.** `make check` - **~40 s over the whole suite**, inside best-in-class - plus
      the **contract guards that catch browser classes without a browser**. The worked example is
      `test_the_json_client_is_only_used_on_json_routes.py`: it catches the
      JSON-client-on-a-bodiless-route class in **0.07 s**, the class that cost a nightly red and

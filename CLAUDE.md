@@ -329,7 +329,7 @@ exists to prevent.
   Measured on `nproc = 4`: `-n auto` on the webkit half gave **1.43x and 1.79x** against a
   baseline needing **>=1.88x**, so the best configuration is 10.2 min and it was **red** - the
   assertion budget blew twice. **The replacement is two stages**, binding in
-  `IMPLEMENTATION_STANDARDS.md`: **FAST every push** (`make check`, 40 s over 3,543 tests, plus
+  `IMPLEMENTATION_STANDARDS.md`: **FAST every push** (`make check`, ~40 s over the whole suite, plus
   contract guards that catch browser classes with no browser -
   `test_the_json_client_is_only_used_on_json_routes.py` in 0.07 s) and **SLOW on a narrower
   trigger** (this lane, both engines, unchanged). That is DORA's own remedy, *"split out
