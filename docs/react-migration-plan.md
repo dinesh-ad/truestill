@@ -155,6 +155,35 @@ than the plan was.** Recorded so the step is not re-attempted from the plan text
    and meaning. Collapsing them into one class would merge three meanings, which is the opposite
    of *"one vocabulary, one home"*.
 
+## ⚠ The six gaps between Organize and the preview - CSS, markup, or data (2026-09-04, P220)
+
+Organize was built against `docs/design-system.md` and the verdict was *"the old app with a warm
+background"*. The specification covers material, not composition - `design-system.md` §0 now says
+so. **This is what each gap actually costs, and where it belongs.**
+
+| # | gap, measured | needs | where |
+|---|---|---|---|
+| 1 | mode options are native radio dots; the preview has full-width cards with circular icon badges and a tinted active card | **markup + icon data** | **cutover** |
+| 2 | **0 `<svg>` across all seven screens** against 8 in the rail | **markup + icon data** | **cutover** (the data is reusable now) |
+| 3 | the rail's mark exists and is hidden - `.brand-monogram { display: none; }` - so only the wordmark shows expanded; the preview shows mark **and** wordmark | **CSS** | **now** |
+| 4 | the heading is `--type-2xl` (24->27px) in `--accent-strong` #2a3b8c; the preview is ~40px near-black | **CSS** | **now**, but see the guard below |
+| 5 | the panel is `.panel-title` + `.panel-fact` + `.panel-k`, a text list; the preview is a dashboard with large numerals, a pill and an amber count | **JS** - `app.js:renderRestingPanel` builds those strings | **cutover** |
+| 6 | the rail's alert is `▫ ▫ ▫` pips and a text line; the preview is a card with a warning triangle | **markup + icon data** | **cutover** |
+
+⚠ **CORRECTION to one item as it was described**: the rail is **not light**. `--rail-bg: #17150f`
+and `test_rail_shell.py` asserts it is dark in both themes. It is *warm* dark against the preview's
+neutral `bg-zinc-950`, and the visible difference is the **missing mark**, not the ground.
+
+⚠ **Item 4 is blocked by a guard, not by the cutover.**
+`test_shared_pattern.py::test_only_the_metric_uses_the_metric_size` asserts
+`users == [".metric-value"]`, so `--type-3xl` cannot go on a heading. **That guard's argument is
+good** - it keeps the metric the loudest thing on a data screen - and the preview disagrees with
+it. **This is a ruling Ad owes**, not something to route around.
+
+🔑 **So four of six are cutover work, and doing them now means writing markup the flip deletes.**
+The two exceptions are worth doing: item 3 is one CSS line, and item 2's **icon data survives the
+cutover** - SVG path data plus licence rows are reusable in React unchanged.
+
 ## What Organize establishes, and what each remaining screen still needs decided
 
 **Written 2026-09-04 (P219)**, because `docs/design-system.md` §7 says plainly what it does not

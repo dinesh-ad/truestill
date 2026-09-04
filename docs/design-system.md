@@ -9,6 +9,32 @@ specification.** Where the two differ, this wins, and section 6 is the one place
 `backdrop-filter`**, which WebKit reports as supported and does not paint - `(ake)`. Read that
 entry before adding blur to anything.
 
+## 0. ⚠ WHAT THIS DOCUMENT DOES NOT COVER - read before building a screen against it
+
+**This specification covers MATERIAL, not COMPOSITION**, and a screen built against it alone will
+have the material and not the design. That is not a prediction: **Organize was built against it on
+2026-09-04 and the maintainer's verdict was "the old app with a warm background."** He was right.
+
+**Covered**: the canvas, the surface treatments, the contrast floors, where blur may and may not
+go. **Not covered, and each is load-bearing**:
+
+| absent | what the preview does that this document never asks for |
+|---|---|
+| **composition** | one full-width card per section, not several stacked bordered boxes |
+| **hierarchy** | a ~40px near-black headline over a large lede; ours is ~24px indigo |
+| **iconography** | an icon in every mode option and beside the rail alert. **Measured: 8 `<svg>` in the rail, 0 across all seven screens** |
+| **control treatment** | mode options as full-width selectable cards with circular icon badges; ours are native radio dots |
+| **the panel as a dashboard** | large numerals, a pill chip, an amber count; ours is `.panel-title` + `.panel-fact` + `.panel-k`, a text list |
+| **the rail's identity** | mark **and** wordmark together. Ours has a mark - `.brand-monogram` - and `display: none` hides it unless the rail is collapsed |
+
+🔑 **The gap is in the specification, not in the build.** Naming it is worth more than guessing at
+the missing half, because the missing half is a design and this document is not one. **The next
+session must not build another screen against sections 1-7 and expect the preview.**
+
+⚠ **And most of it needs MARKUP, which the `(adi)` cutover replaces.** `docs/react-migration-plan.md`
+carries which items are reachable now and which are the cutover's work; the short answer is that
+only CSS-only items and the icon *data* are worth doing before the flip.
+
 ## 1. The canvas is a prerequisite, not decoration
 
 Glass is invisible on flat white and `--bg` is `#faf8f5`, so the canvas gains tonal range for a
