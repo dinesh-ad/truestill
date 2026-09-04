@@ -130,7 +130,38 @@ instead of the current one.
 
 **The restyle arc, staged so each commit is judgeable**: tokens and the hit-target floor (no
 visual delta), then the shared pattern, then the rail, then one screen per commit in the risk
-order below. It changes `app.css` and `tokens.css` only, deletes nothing, and **leaves `(akb)`
+order below.
+
+⚠ **STEP 2 - "the shared pattern" - WAS ATTEMPTED 2026-09-04 (P215) AND HAS NO WORK IN IT. All
+three of its items were refused by rules that already exist, and each refusal is better argued
+than the plan was.** Recorded so the step is not re-attempted from the plan text.
+
+1. **`--type-3xl` on page headlines: refused by a guard.**
+   `tests/e2e/test_shared_pattern.py::test_only_the_metric_uses_the_metric_size` asserts
+   `users == [".metric-value"]`, and says why: *"If a heading or a hero number quietly takes
+   `--type-3xl`, the metric stops being the biggest element on the screen and the whole hierarchy
+   argument goes with it."* 🔑 **That rule is MORE aligned with "trustworthy, not friendly" than
+   the plan was**: a 45px *"Settings"* above a small number is homepage styling; a loud metric
+   under a modest heading is a control panel. The plan's biggest single change was its worst one.
+2. **"Exactly one primary per screen": refused by `IMPLEMENTATION_STANDARDS.md` §9** - *"Settings
+   is a shelf, not a task screen"*, holding *"five cards with five unrelated"* jobs. Measured:
+   Settings 4 saves, events 3, backups 2, organize/import/find 1, stats 0. Four independent saves
+   on a shelf are four independent actions, not a weighting defect. (`pk-use` is the shared folder
+   dialog's footer - ghost + primary - already the correct pattern, and a first count wrongly
+   attributed it to Settings.)
+3. **The uppercase micro-label: it exists three times and the three are not duplicates.**
+   `.nav-section-label` (`--type-xs`, sans, rail-muted), `.done-mark` (`--type-xs`, **mono**,
+   accent) and `.panel-title` (`--type-sm`, sans, fg-muted) share the idiom and differ by context
+   and meaning. Collapsing them into one class would merge three meanings, which is the opposite
+   of *"one vocabulary, one home"*.
+
+**What survives**: the target itself, and steps 1, 3 and 4-10. Step 1 shipped (`280478a`, the
+WCAG 2.2 24x24 floor). **The arc resumes at the rail**, whose active state today is a background
+fill plus a colour change (`.nav-item[aria-current="page"]`) against the spike's layered bordered
+pill - a real difference and a matter of taste, so it is the right place for the maintainer to
+judge the direction. ⚠ **And the honest reading of this step: the current UI is closer to the
+target than the plan assumed**, because six of the eight recorded targets are already implemented
+or already guarded. It changes `app.css` and `tokens.css` only, deletes nothing, and **leaves `(akb)`
 untouched** - `app.js` stays, so all nine §9 rules keep the enforcement they have and are still
 re-pointed per screen during the cutover.
 

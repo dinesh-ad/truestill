@@ -52,3 +52,11 @@ disk, which is still 144 MB, still gitignored, and still imported by nothing. Th
 `.scratch/organize-preview/` - `src/TruestillApp.tsx` is the unified layout; `src/Sidebar.tsx` and
 `src/OrganizePage.tsx` are earlier, unused iterations. It runs standalone on `127.0.0.1:8766` and
 is not wired into `truestill-app` in any way.
+
+> ⚠ **The choice this record left open was made 2026-09-04 (P215): the live source is now
+> COMMITTED, at [`research/organize-preview/`](research/organize-preview/).** This record's own
+> words were *"its `src/` is small and could be kept deliberately, and that is a choice someone
+> still has to make. If the folder is deleted before then, what is below is what remains."* Three
+> files are kept - `TruestillApp.tsx`, `main.tsx`, `index.css` - and **the four dead iterations
+> are not**, on this record's own finding that nothing imports them. The gitignored folder is
+> still the only place the spike *runs*; what is committed is the direction, not a build.
