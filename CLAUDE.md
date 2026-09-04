@@ -24,9 +24,25 @@ is what resolves the pointer.
    `test_the_code_standard_index_matches_its_members.py`. Read the index, open the member that
    applies, take the rule from the member. §1-3 and §5 are short and are read in full.
 2. [`docs/IMPLEMENTATION_STANDARDS.md`](docs/IMPLEMENTATION_STANDARDS.md) - the binding,
-   repo-specific contract.
+   repo-specific contract. ⚠ **§9 IS READ ON DEMAND - ITS INDEX, THEN THE ROW.** *The rules at a
+   glance* is 48 lines at the top of §9, held there by
+   `test_the_truth_contract_index_matches_its_rules.py`. Open the row when your change touches
+   what a user reads. **§9 is the ONLY section of this document read that way, and the licence is
+   measured**: 47 of its 48 rows name a test that resolves, so a row you did not open costs a red
+   run rather than a shipped defect. Everything else here is read in full - §1 Product invariants
+   and §6 Quality gates especially, which are not guard-backed to that standard.
 
 **`IMPLEMENTATION_STANDARDS.md` wins on any conflict.**
+
+⚠ **A SKILL WAS REFUSED FOR ALL OF THIS, ruled 2026-09-04 (P210), and the reason is one level
+up from token cost.** A skill's body loads when the **agent judges its description relevant**, so
+moving a binding rule into one makes consulting it voluntary - which `ENGINEERING_STANDARD.md`
+§4's twenty-seventh member already tested and rejected: instance 3 had the best placement
+available *"and it still failed, **because consulting it was voluntary**"*. **The criterion**: a
+rule may be read on demand exactly when something MECHANICAL, not the reading, enforces it. §9
+qualifies at 47/48; §4 does not at 27/86, which is why §4 keeps its index inside the mandated read
+and no rule anywhere moved out of a binding document. `AGENTS.md` was refused too - one agent, and
+Claude Code does not read it natively.
 
 ⚠ **THIS LIST COULD NOT BE FOLLOWED AS WRITTEN, AND THAT IS WHY THE INDEX EXISTS** (measured
 2026-09-04, P209). These three plus this file were **526,577 bytes, ~132K tokens** before any work

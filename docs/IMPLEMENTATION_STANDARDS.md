@@ -1418,6 +1418,109 @@ been added since by the feature work that needed them - path-component safety, t
 floor, and the trip/event duration wording each brought their own. The per-defect list from that
 first pass was not kept, and no rule here depends on it.
 
+### The rules at a glance - an INDEX, and why this section is read on demand
+
+⚠ **EVERY LINE IS A ROW'S OWN OPENING RULE, VERBATIM, AND A GUARD HOLDS IT THERE.**
+`test_the_truth_contract_index_matches_its_rules.py` fails when a row is added, removed, reworded
+or reordered without this list following. **Read the list; open the row when your change touches
+what a user reads.** The row is the rule - a line here is a handle, never the rule itself.
+
+🔑 **Why this section and no other, measured 2026-09-04 (P210).** §9 is **61,272 bytes, the
+largest single block** in what `CLAUDE.md` mandates every session, and it is the only section here
+that is genuinely **task-scoped**: every row fires when a user-facing string changes and none of
+them fires otherwise. **It is also the most guard-backed text in this repository - 47 of its 48
+rows name a `test_` that resolves, against 31% for `ENGINEERING_STANDARD.md` §4** - and the
+forty-eighth (*"Never-silent, restated for screens"*) delegates per-feature, each feature citing
+its own. It read **44** until 2026-09-04: three rows named their guard in prose or not at all
+while the test existed, and the citations were added here rather than the ratio being reported
+around them. Count rather than trusting the number:
+
+```sh
+awk '/^## 9\. User-facing/,0' docs/IMPLEMENTATION_STANDARDS.md | grep -c '^| \*\*.*test_'
+```
+
+That ratio is the entire argument, and it is the reason the change is safe:
+
+> **A rule may be read on demand exactly when something MECHANICAL, not the reading, is what
+> enforces it.** Failing to open a row here costs a red run, not a shipped defect. Where prose is
+> the only control, this move would be illegitimate - see `ENGINEERING_STANDARD.md` §4's
+> twenty-seventh member, *"consulting it was voluntary"*.
+
+⚠ **NOTHING HERE IS OPTIONAL, AND NOTHING MOVED.** §9 stays in this document, still binding, and
+`IMPLEMENTATION_STANDARDS.md` still wins on any conflict. A **skill was refused** for exactly this
+reason (P210): a skill loads when an agent judges it relevant, which converts a rule into a hint.
+What changed is how much of this section a session reads *before it knows the task* - not the
+standing of one word in it.
+
+⚠ **DELIBERATELY UNNUMBERED**, for the reason §4's index gives: a number here would be a count
+that can disagree with the table, and counts are what this repo's documents drift on. Search the
+sentence.
+
+- One source of outcome wording.
+- No backend vocabulary reaches a user.
+- A user-supplied name that becomes a directory is repaired, never trusted and never rejected.
+- Two events that would render one folder are disambiguated before anything is written, and the
+  folder the preview names is the folder that is used.
+- The Trips & events size floor is a per-catalog setting, default 8.
+- Trip/event proposals are largest-first, with one derived small-event disclosure.
+- Trip duration says active days; every result retains its TRIP/EVENT kind.
+- Counts are grammatical.
+- A terminal job event is normalized once, at the seam.
+- Errors are matched on an exception *name*, never on message text.
+- Truestill never creates a folder on a filesystem that is not the one the run started on.
+- A destination-relative path is checked for containment before any backend joins it onto a
+  root, and the check is lexical.
+- A catalog another process holds is a refusal on both surfaces, discriminated by SQLite's error
+  code and never by its message.
+- Setting a destination up is gated on being able to use it, and a setup write that fails says
+  so in a sentence and leaves nothing behind.
+- A migration that stopped says so, and one bad file never aborts it.
+- A cancelled run says cancelled.
+- Never-silent, restated for screens.
+- A run says what it DID, on every path that ends it, and the plan never wears the outcome's
+  tense.
+- A name this run cannot write is refused by name before anything is written, and the budget is
+  measured rather than written down.
+- A path turned into a string goes through `as_posix()`, never `str()`.
+- A source truestill could not read is named on both surfaces, and a preview that found one
+  exits `1`.
+- A duplicate count says *where the twin is*, on every surface that shows the count.
+- A move says which files it did not take, and where they still are.
+- A preview that finds almost everything already in the library says so, names WHICH library,
+  and points at rearranging.
+- Every long write watches the ground, and one builder decides whether it can.
+- A long run watches the ground under it, and `execute` is the one place that arranges it.
+- A watcher never treats an absence as its baseline.
+- Results go to stdout, progress goes to stderr, and a completed tier is flushed before the next
+  one starts.
+- A hidden file or folder is skipped, and also counted and named.
+- One vocabulary, one home: the skipped-census groups are produced once and rendered
+  generically.
+- An empty result states the bar it applied, and a feature is named for what it accepts, not for
+  what motivated it.
+- A summing block sums, on Import too.
+- The text-size preference ADJUSTS the reader's own default and never replaces it.
+- Settings is a shelf, not a task screen, and its card order is load-bearing.
+- A dropped CSS declaration is invisible to every non-browser gate.
+- The layout is keyed to CSS pixels, and the column is capped by what sits in it.
+- Fluid type stops at a fixed frame.
+- One byte count, one formatter, one unit.
+- An engineering annotation is never a user-facing string.
+- A tab older than the server says so.
+- One fact is stated once per moment.
+- A drawing constant is never the number in a claim.
+- Known values prefill; Browse is for overriding.
+- An OBSERVED path is a hint and is cleared when it goes; a DECLARED path is a stated intent and
+  is never auto-cleared.
+- A place the walk did not enter is NAMED, never counted, and the reason drives the remedy from
+  one place.
+- ABSENT AND REFUSED ARE DIFFERENT ANSWERS, AND THE DISTINCTION IS MADE IN ONE PLACE FROM ONE
+  `stat`.
+- A PATH THE CATALOG RECORDED AS A DRIVE'S HOME IS REFUSED, NEVER OFFERED REGISTRATION - AND THE
+  DISCRIMINATOR IS A RECORDED EXPECTATION, NOT DETECTION.
+- A LIBRARY'S DIAGNOSTIC IS NEVER THE PRODUCT'S OUTPUT, AND WHAT THE USER IS TOLD IS THE
+  CONSEQUENCE.
+
 | Rule | Enforced by |
 |---|---|
 | **One source of outcome wording.** An `ActionStatus` is never rendered from its raw enum value; `models.status_label` is the only place an outcome is worded, so the CLI and the app cannot drift. | `models._STATUS_LABELS` + `models.status_label`. Pinned by `test_organizer.py` importing `_STATUS_LABELS`. |
@@ -1428,14 +1531,14 @@ first pass was not kept, and no rule here depends on it.
 | **Trip/event proposals are largest-first, with one derived small-event disclosure.** "Small" is a threshold-adjacent standalone event below the first doubling of the configured floor (`count < 2 * min_files`), never a `TripProposal`; at the default 8 the exclusive limit is 16, leaving the OnePoll/Mixbook ~23-photo mean occasion (see `adaptive-day-folder-research.md`) visible above the collapsed band. One summary line names the hidden count, photo range and date span. There is no second collapsed tier. Split is the primary per-card correction; Merge remains available but visually secondary. | `trip_review.order_review_cards` / `is_small_event`; `service.collapsed_event_summary`; `static/app.js` `renderCards`; pinned by `test_review_order_and_small_set_are_derived_and_trips_never_collapse` and the app HTTP proposal fixtures. |
 | **Trip duration says active days; every result retains its TRIP/EVENT kind.** A Sep 13-16 proposal with photos on Sep 13, 15 and 16 spans four calendar dates but contains **3 active days**; the card must say exactly that, never the ambiguous "3 days". Proposal, naming, move-preview and completion copy use trip/event as a pair, and each completion row carries and renders its typed kind rather than putting events under a `trips` key. | `service.ReviewCardPayload.active_days` / `AppliedReviewGroupPayload.kind`; `static/app.js` `evCardHtml` / `reviewResultCards`; pinned by `test_bridged_trip_reports_active_days_not_calendar_span`, `test_trip_duration_names_active_days_not_calendar_span`, and the apply-to-disk HTTP fixtures. |
 | **Counts are grammatical.** `plural(n, word)` in `app.js` - "1 file", "2 files" - never "1 file(s)" and never a bare number glued to a noun. | `static/app.js` `plural`; pinned by `test_a_finished_copy_splits_photos_and_videos_without_form_letter_grammar`. |
-| **A terminal job event is normalized once, at the seam.** `streamJob` converts every SSE terminal event into `{ok, status, error, code, summary}` before any handler sees it. Handlers read `summary.*`; a *failed* job carries `message` at the top level and an empty summary. Handing raw events to handlers is what rendered `NaN verified · NaN missing · NaN changed`. | `static/app.js` `streamJob` vs `jobs.py`'s `done`/`error` events. Pinned by the Backups regression tests. |
-| **Errors are matched on an exception *name*, never on message text.** `FRIENDLY_ERRORS` keys off `type(exc).__name__` (surfaced as `code`), so rewording a message cannot silently disable its guidance. | `jobs.py` sets `code`; `app.js` `FRIENDLY_ERRORS`. |
+| **A terminal job event is normalized once, at the seam.** `streamJob` converts every SSE terminal event into `{ok, status, error, code, summary}` before any handler sees it. Handlers read `summary.*`; a *failed* job carries `message` at the top level and an empty summary. Handing raw events to handlers is what rendered `NaN verified · NaN missing · NaN changed`. | `static/app.js` `streamJob` vs `jobs.py`'s `done`/`error` events. Pinned by `test_job_summaries_are_read_where_they_are_delivered.py`, which asserts handlers read `summary.*` rather than the raw event. |
+| **Errors are matched on an exception *name*, never on message text.** `FRIENDLY_ERRORS` keys off `type(exc).__name__` (surfaced as `code`), so rewording a message cannot silently disable its guidance. | `jobs.py` sets `code`; `app.js` `FRIENDLY_ERRORS`. Pinned by `test_preview_gate_holds.py::test_the_failure_is_a_class_the_ui_already_answers`. |
 | **Truestill never creates a folder on a filesystem that is not the one the run started on.** A cloud FUSE mount that drops under load leaves its mountpoint as an ordinary empty directory: writes into it *succeed*, and because every write path calls `mkdir(parents=True, exist_ok=True)` first, Truestill would **rebuild the whole library tree on the local disk** and fill it. Observed on a real migration, 2026-08-03. The signal is the destination root's **`st_dev`**, latched on the first sighting - not the mount table, which the same migration found lying (a dead mount lingers with no process behind it and lists nothing), and not the drive marker, which a destination that was never a registered drive does not have. `None` counts as a *changed* answer, not as no opinion. The baseline latches on first sight rather than at construction, so organizing into a folder Truestill is about to create still works. **This closes `--move` too**: the delete is strictly downstream of the write, so blocking the write means `_move_source` is never reached - and a mount that drops *after* a good upload makes `checksum` raise, which already keeps the source. | `destinations/base.DestinationDevice`; `LocalDestination._make_parent`, the single door all three of its creating paths use; `service/backup.py`'s copy loop, which does its own `mkdir`. Pinned by `test_vanished_mountpoint.py`, including that the backup guard runs *before* the create. |
 | **A destination-relative path is checked for containment before any backend joins it onto a root, and the check is lexical.** `Path.__truediv__` **replaces** its left side when the right is absolute, and an f-string join carries `..` through untouched, so neither join defends its own root. The rule refuses three shapes - absolute, drive-qualified/anchored, and any `..` component - reading both POSIX and Windows flavours regardless of host, because a path built on Linux may be written to a drive read on Windows. **It deliberately does not use `resolve()` + `is_relative_to()`**, the usual remedy: `resolve()` follows symlinks, so a library with a year folder symlinked onto a second disk would resolve outside its own root and be falsely refused. The relative path is generated by truestill from a filesystem walk, never supplied by an untrusted caller, so the question is "could this string escape a join" and is answerable without touching the disk. | `destinations/base.check_contained`, called from `LocalDestination._full` - the one place that backend turns a relative path into a real one, so `exists`/`upload`/`set_timestamp`/`adopt`/`relocate`/`remove` are all covered by one guard. Pinned by `test_destination_containment.py`, including the symlinked-subfolder case that a `resolve()`-based check would break. |
 | **A catalog another process holds is a refusal on both surfaces, discriminated by SQLite's error code and never by its message.** Two truestill processes wanting the catalog is ordinary, not a fault: SQLite serialises writers, so nothing is corrupted, and the loser must say so in a sentence instead of a traceback. `SQLITE_BUSY`/`SQLITE_LOCKED` alone qualify - a disk I/O error or a corrupt schema keeps its traceback, because "wait for the other operation to finish" sends a user to wait out a fault that never clears. The CLI exits **`5`**, its own code, so a script can tell *retry* from `2` (a usage error, never valid later) and from `1` (the run finished and the library has a problem). The wording is **one string in core** - the CLI and the app cannot word it differently. | `truestill_core/catalog_busy.py` (`is_catalog_busy`, `CATALOG_BUSY_MESSAGE`, `CATALOG_BUSY_CODE`); `cli.main`'s single seam; `jobs.py`'s terminal-event branch. Pinned by `test_catalog_busy_refusal.py` (two real processes) and `test_catalog_busy_job_refusal.py`, both with a cry-wolf half. |
 | **Setting a destination up is gated on being able to use it, and a setup write that fails says so in a sentence and leaves nothing behind.** Registration writes the drive marker - the first thing truestill ever puts on a new drive - so it happens **after** the space check, never before: the product already words a full disk (*"Not enough room: this needs about X and the drive has Y free"*) and already exits `4` on it, and `(aek)` was that sentence being computed one step too late to be reached. **Ordering is necessary and not sufficient** - it cannot cover `EROFS`, `EACCES`, or a disk that fills between the check and the write, and quota-aware `statfs` is a per-filesystem feature so `disk_usage` may not see a quota at all - so `drive.write_marker` also **never raises**: it stages to a temp sibling, `fsync`s, `replace`s, removes the temp on failure, and returns a `MarkerWrite` whose wording comes from `drive_unwritable.explain_unwritable_drive`. **One wording for both drive writes**, because `decisions.write_decisions` had it first and two copies drift. **A quota is not a full drive** and gets its own sentence: `ENOSPC` means delete something, `EDQUOT` means the disk may have room and this account may not. `create_marker`/`upgrade_marker` are the raising end for callers that cannot continue without an identity. | `drive.write_marker` / `MarkerWrite` / `DriveWriteError`; `drive_unwritable.explain_unwritable_drive`; `cli._approve_registration` + `_registered_or_refused`; `service/organize._approve_registration` + `_refuse_if_it_cannot_hold`. Pinned by `test_marker_write.py`, `test_a_full_destination_is_refused_before_setup.py`, `test_dedup_scope_comes_from_the_marker.py`, `test_dedup_scope_survives_the_registration_move.py` and `test_marker_writes_are_handled.py`, which parses `packages/*/src` so a new mint site cannot quietly skip the rule. |
 | **A migration that stopped says so, and one bad file never aborts it.** `(agi)`'s policy reached four surfaces and not the fifth - the one that rewrites **every byte of the library**. `MigrationOutcome.stopped` was set by the ground watcher and **read by nobody**: the CLI printed *"Migrated N file(s)"* and returned **0**, the app summary carried only counts, so a run stopped by a filling disk reported success on both. ⚠ **THE ROOT CAUSE WAS A DISCARDED `__cause__`, not a missing handler**: `_matches` caught the `DestinationError` that `checksum` raises *with its `OSError` chained* and answered a bare `False`, so `persists_for_the_run` - which walks `__cause__` - said `False` for a **failing drive**. Measured before the fix: `__cause__` was `None`. The error now propagates and the loop classifies it; a per-file failure is named and the run continues, a persistent one stops. ⚠ **One failure has no cause to chain** - the destination read back cleanly and returned bytes it was not given - so `VerificationFailedError` carries a **name** rather than a message to match, and is persistent by classification: it is a statement about the destination, not about the file. A **strike counter was considered and refused** - a threshold would be a number invented for a condition already decidable on the first occurrence. | `migrate.MigrationStop` / `MigrationStopKind` / `VerificationFailedError`; `migrate._matches`; `service/migrate.MigrationApplySummary`; `cli._report_migration_shortfall`. Pinned by `test_migrate_survives_one_bad_file.py` and `test_migrate_reports_its_stop.py`. |
-| **A cancelled run says cancelled.** Never "nothing to organize here" - that is a false negative about the user's own library, and it shipped once for 6,000 photos. | `d.status === "cancelled"` handled on both the preview and run paths. |
+| **A cancelled run says cancelled.** Never "nothing to organize here" - that is a false negative about the user's own library, and it shipped once for 6,000 photos. | `d.status === "cancelled"` handled on both the preview and run paths. Pinned by `test_cancelled_says_cancelled.py::test_run_job_branches_on_cancelled_before_success`. |
 | **Never-silent, restated for screens.** A skipped, refused, degraded or unverifiable outcome is *counted and named*, never folded into a success total or dropped. Existing precedents: the Tier A / Tier B date lines (§1), the HEIC perceptual-skip notice (§7), the skipped-extension buckets, and an unconfirmed metadata bake (§8). | Per-feature; each cites its own test. |
 | **A run says what it DID, on every path that ends it, and the plan never wears the outcome's tense.** `organize` prints two documents: `cli._print_summary` from `models.partition_for_report` - the **plan**, computed before `execute` runs - and `cli._print_execution` from `ActionStatus`. Under `--apply` the first names itself as the plan and points at the second; **the second prints on every terminating path**, including `cli._stopped_run_exit`, which held `RunStoppedError.results` and printed none of it, so `(agi)`'s record-the-file-before-re-raising discipline reached `last-run.json` and never the screen. **Every analysed file is accounted for exactly once** - as an outcome, or as one `not attempted`, whose count comes from `run_record.stop_block` and **not** from a second subtraction. ⚠ **The divergence is named, never arithmetic on screen**: no *"planned N, did M"* line, because `(afm)` ruled a second copy of a number is free to disagree with the first. ⚠ **`will_organize` is a FIFTH row beside the four conserved ones, never a subtraction inside them** - taking undated out of `unique` would repair `(acx)`'s law by breaking `(aac)`'s. **No new exit code**: a stop is still `4`. | `cli._print_summary` (`skip_undated` and `apply` both required, neither defaulted), `cli._print_execution`, `cli._stopped_run_exit`; `models.ReportBuckets.will_organize`; `run_record.stop_block`. Pinned by `test_the_screen_accounts_for_every_file.py` and `test_summary_tally_is_disjoint.py` - **the two hold different axes and neither sees the other's**. `(aim)` |
 | **A name this run cannot write is refused by name before anything is written, and the budget is measured rather than written down.** `safe_copy` stages at `<name>.<token>.partial` with the suffix appended **LAST**, so the file a run creates is longer than the file it becomes: a name legal raw, legal after `naming.dated_filename`'s stamp and legal at the destination still failed. ⚠ **The budget is not a constant** - the token carries the pid in hex, so the overhead is 16-21 bytes and the threshold moves over 218-223 on one machine; `(aid)`'s recorded 219 is one reading of that range. **Decided at composition time**, before the `apply` branch, so a preview predicts the run and exits `1` with it. ⚠ **Skip and name, never truncate**: truncating to the budget is unstable because `_free_relative` appends `_1` *after* composition, and it manufactures the collisions that fire it. The sentence states the **shortfall in bytes**. **Not enforced in `naming.dated_filename`** - it knows the final name and nothing about staging, so a fix there yields a name legal as written and illegal as staged. | `safe_copy.staging_overhead_bytes`, `layout.name_shortfall_bytes` / `layout.explain_name_too_long`, `models.ActionResult.name_too_long` (**the fact, never the prose**), `organizer._organize_each`, `cli._print_unnameable`. Pinned by `test_a_name_too_long_is_refused_before_it_is_attempted.py`. The **character** half (`:` legal on ext4, refused by NTFS) is an `xfail` on the Windows lane in that file and is **not fixed**. `(aid)` |
