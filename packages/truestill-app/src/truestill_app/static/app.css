@@ -67,6 +67,15 @@ code,
   --rail-muted: #b0a89a; /* 7.75:1 - replaces --fg-muted, which is 3.91:1 here */
   --rail-success: #5cc47f; /* 8.39:1 - replaces --success, tuned for white at 5.30:1 */
   --rail-active-bg: #2e2a1d; /* 1.27:1 */
+  /* THE ACTIVE ITEM'S EDGE. `--rail-active-bg` alone is **1.27:1** against the rail - a fill
+     that has to be inferred rather than seen, which is `organize-preview-record.md`'s fourth
+     finding in as many words: *"the current screen is legible at a glance rather than
+     inferred"*. A state indicator is non-text UI, so **WCAG 2.2 1.4.11 wants 3:1**; this is
+     measured at 3.36:1 and is the rail accent's hue held back so it reads as an edge and not as
+     a second accent. It lives HERE rather than in `tokens.css` because the whole `--rail-*`
+     group does: `test_rail_shell.py` records that the rail is theme-independent, so its tokens
+     "sit outside the light/dark ladder" and splitting one off would break that grouping. */
+  --rail-active-border: #5f669b; /* 3.36:1 vs the rail */
   --rail-hover-bg: #211e15; /* 1.10:1 */
   /* Also paints the wordmark's accent dot and the pillar T, so it moves with them. */
   --rail-accent: #b3b8ee; /* 9.57:1 */
@@ -234,6 +243,13 @@ code,
 }
 .nav-item[aria-current="page"] {
   background: var(--rail-active-bg);
+  /* AN INSET RING, NOT A BORDER, and that is forced rather than preferred. A border - even a
+     transparent one reserved on every item - is layout: it took the nav row from 32px to 34px
+     and moved the label from x=54 to x=55, which `test_rail_shell.py` pins by measurement
+     (`assert max(box) <= 33`, `assert label == 54`). Those are the icon-inflation guards and
+     they are right; the edge is what was wanted, not the box. `box-shadow: inset` paints the
+     edge and occupies nothing, so every pinned dimension is untouched. */
+  box-shadow: inset 0 0 0 var(--border-width) var(--rail-active-border);
   color: var(--rail-accent);
 }
 
