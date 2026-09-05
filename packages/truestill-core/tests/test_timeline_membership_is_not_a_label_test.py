@@ -205,8 +205,11 @@ def test_the_two_twin_queries_select_the_same_population(tmp_path) -> None:
     assert len(events) == 2, "the by-device label or the camera label was dropped"
 
 
-_APP_JS = (
-    Path(__file__).resolve().parents[3] / "packages/truestill-app/src/truestill_app/static/app.js"
+#: The legend moved from `app.js` (`legendFor`) into the island on 2026-09-05 -
+#: `frontend/src/preview.tsx`, `Legend` - and this guard followed it. The assertion is unchanged:
+#: the lookup defaults through `catTip`, which stayed in `app.js` as the vocabulary's one home.
+_LEGEND_SOURCE = (
+    Path(__file__).resolve().parents[3] / "packages/truestill-app/frontend/src/preview.tsx"
 )
 
 
@@ -226,10 +229,10 @@ def test_the_category_legend_does_not_drop_folders_it_cannot_name() -> None:
     - the browser lane is off and these screens are being replaced, so a test that drove one would
     guard a liability.
     """
-    source = _APP_JS.read_text(encoding="utf-8")
-    assert len(source) > 100_000, "app.js was not actually read"
+    source = _LEGEND_SOURCE.read_text(encoding="utf-8")
+    assert len(source) > 5_000, "preview.tsx was not actually read"
 
-    start = source.index("function legendFor(")
+    start = source.index("function Legend(")
     # To the function's closing brace, not a fixed character count: the explanatory comment inside
     # it is longer than any window I would have guessed, and a short slice passed the first
     # assertion while silently missing the second.

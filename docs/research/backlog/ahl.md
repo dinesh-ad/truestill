@@ -80,7 +80,7 @@
   `matched_path`, `modes`, `operation`, `redundancy_floor`, `uuid`. (On three surfaces it is
   **one**: 20 -> 21.) Smaller than claimed, and still decisive: each is a field a naive grep
   certifies as live on the strength of a comment that names it. `matched_path`'s only `app.js`
-  occurrence is a comment at `app.js:willRemainNote` saying the field *cannot* answer the question.
+  occurrence is a comment at `app.js:previewView` (the decision; `AlreadyNote` in `frontend/src/preview.tsx` draws it, and both were `willRemainNote` in `app.js` until 2026-09-05) saying the field *cannot* answer the question.
 
   ⚠ **The lesson is the one the correction demonstrates**, not the number: a delta between two
   measurements that differ in more than one variable is not a delta. It is now pinned in
@@ -148,7 +148,7 @@
   | `source_hints` | `trips.py:InvalidEventProposalPayload` | the suggestion is shown, not its provenance |
   | `missing_sidecar` | `service/takeout.py:IngestPreviewEmpty`, `:68` | the ingest summary does not distinguish this cause |
   | `distance` | `organize.py:DuplicateSample` | the duplicate sample shows the match, not how near |
-  | `matched_path` | `organize.py:DuplicateSample` | ⚠ `app.js:willRemainNote` explains in a comment that this field **could never** answer the question the screen asks |
+  | `matched_path` | `organize.py:DuplicateSample` | ⚠ `app.js:previewView` (the decision; `AlreadyNote` in `frontend/src/preview.tsx` draws it, and both were `willRemainNote` in `app.js` until 2026-09-05) explains in a comment that this field **could never** answer the question the screen asks |
   | `operation` | `jobs.py:FINISHED_CLEAN` | the busy banner names the drive, not the job |
 
   ## ⚠ THIS DOCUMENT HAS AN EXPIRY DATE

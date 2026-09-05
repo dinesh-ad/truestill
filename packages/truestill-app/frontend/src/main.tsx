@@ -28,7 +28,22 @@ import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import type { components } from "./generated/api";
-import { InventoryCard, markup, type Inventory } from "./inventory";
+import { ByFormat, InventoryCard, toHtml, type ByFormatCounts, type Inventory } from "./inventory";
+import {
+  Chips,
+  DateQualityNotes,
+  InferredShiftNote,
+  Legend,
+  MatchList,
+  PreviewCard,
+  PreviewEmptyCard,
+  type DateQualityCounts,
+  type FolderCounts,
+  type InferredShifts,
+  type PreviewEmpty,
+  type PreviewSummary,
+  type PreviewView,
+} from "./preview";
 
 // Tailwind's entry. Imported HERE rather than linked from the template because Vite has one
 // entry and emits one stylesheet beside `main.js`; the template links that output. `tokens.css`
@@ -57,6 +72,10 @@ type ResultState =
   // The "Look inside" card, as DATA: the island draws it from `inventory.tsx` rather than
   // receiving a string. The first content here that React renders instead of injecting.
   | { kind: "inventory"; inventory: Inventory }
+  // The dedup preview, as DATA plus the decisions `app.js` made about it (`PreviewView`); and
+  // its empty outcome, chosen by `app.js` rather than by the island reading `files`.
+  | { kind: "preview"; preview: PreviewSummary; view: PreviewView }
+  | { kind: "preview-empty"; empty: PreviewEmpty }
   | { kind: "configured"; html: string }
   | { kind: "running"; html: string }
   // `complete` carries EITHER the summary - which is what gives the tests a props entry point
@@ -136,6 +155,24 @@ function OrganizeResult({ state }: { state: ResultState }): React.JSX.Element | 
       </div>
     );
   }
+  if (state.kind === "preview") {
+    return (
+      <div ref={host}>
+        <div>
+          <PreviewCard s={state.preview} view={state.view} />
+        </div>
+      </div>
+    );
+  }
+  if (state.kind === "preview-empty") {
+    return (
+      <div ref={host}>
+        <div>
+          <PreviewEmptyCard s={state.empty} />
+        </div>
+      </div>
+    );
+  }
   if (state.kind === "complete") {
     const app = appGlobals();
     const html =
@@ -178,9 +215,19 @@ function mount(node: HTMLElement): { set: (next: ResultState) => void } {
 
 document.documentElement.dataset.bundle = __BUNDLE_SOURCE_HASH__;
 
-// The reverse seam: the blocks `inventory.tsx` owns, as strings for the `app.js` builders that
-// still compose the dedup preview and Backups' drive list. Published before the island mounts so
-// no click can find it absent.
+// The reverse seam: the blocks the island owns, as strings for the `app.js` builders that still
+// compose HTML - the completion card (chips, legend), the Import preview (match lists, date
+// notes) and Backups' drive list (by-format). Published before the island mounts so no click can
+// find it absent. Each entry disappears when its last string consumer becomes a component.
+const markup = {
+  byFormat: (bf: ByFormatCounts | null | undefined): string => toHtml(<ByFormat bf={bf} />),
+  matchList: (report: Parameters<typeof MatchList>[0]["report"], label: string): string =>
+    toHtml(<MatchList report={report} label={label} />),
+  dateQuality: (s: DateQualityCounts): string => toHtml(<DateQualityNotes s={s} />),
+  inferredShifts: (s: InferredShifts): string => toHtml(<InferredShiftNote s={s} />),
+  chips: (folders: FolderCounts | null | undefined): string => toHtml(<Chips folders={folders} />),
+  legend: (folders: FolderCounts | null | undefined): string => toHtml(<Legend folders={folders} />),
+};
 (window as unknown as Record<string, unknown>).truestillMarkup = markup;
 
 const target = document.getElementById("org-result");

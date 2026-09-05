@@ -554,57 +554,6 @@ function mediaCount(s) {
   if (s.audio) parts.push(`${nfmt(s.audio)} audio`);
   return parts.length ? parts.join(" · ") : "0 photos";
 }
-// Two date-quality signals, each on its own line and never folded into the plain "no date"
-// count: a placeholder date we refused, and a date that may be a dead camera-clock default.
-// Both render only when non-zero -- a clean library says nothing rather than "0".
-function dateQualityNotes(s) {
-  const notes = [];
-  if (s.future_rejected) {
-    notes.push(`<div>${plural(s.future_rejected, "file")} claimed a date in the future, so it was
-      refused and they went to <span class="mono">Undated/</span>. That usually means a wrong
-      camera clock or edited details; the original date cannot be recovered.</div>`);
-  }
-  if (s.sentinel_rejected) {
-    notes.push(`<div>${plural(s.sentinel_rejected, "file")} carried only a placeholder date
-      (an all-zero “epoch” timestamp). It was refused, so they went to “Undated” rather than
-      being filed under 1904 or 1970.</div>`);
-  }
-  if (s.suspect_default) {
-    notes.push(`<div>${plural(s.suspect_default, "file")} dated exactly midnight on a day
-      cameras fall back to when their clock battery dies. They are filed by that date - it may
-      well be right - but they are worth a look.</div>`);
-  }
-  return notes.length ? `<div class="banner warn">${notes.join("")}</div>` : "";
-}
-
-// Informational: videos whose UTC CreateDate was shifted to local. Names + offsets, not a
-// count alone. not_proven_utc fallthrough is omitted (usually correct local digits).
-function inferredLocalShiftNotes(s) {
-  const shifts = s.inferred_local_shifts || [];
-  if (!shifts.length) return "";
-  const rows = shifts.map((x) => `<div class="mono">${esc(x.line || x.name)}</div>`).join("");
-  return `<div class="banner"><div>${plural(shifts.length, "video")} shifted from UTC CreateDate:
-    <div style="margin-top:var(--space-2)">${rows}</div></div></div>`;
-}
-
-// Folder chips + their first-timer legend. Shared by the preview and the completion card so
-// the same folders are always described the same way.
-function chipsFor(folders) {
-  return Object.entries(folders || {}).map(([k, v]) =>
-    `<span class="chip" title="${esc(catTip(k))}">${esc(k)} <span class="num">${nfmt(v)}</span></span>`).join("");
-}
-function legendFor(folders) {
-  // (ahw): this filtered on `CAT_INFO[n]`, so a folder the map does not name was DROPPED. Under
-  // `--by-device` the camera folder is the hardware name ("Samsung SM-A546B") and no key matched,
-  // so `names` was empty and the whole legend vanished - the one screen-visible half of that entry.
-  // This is a VOCABULARY lookup, not a population filter, so it wants a default and not the
-  // inversion the SQL sites took: `catTip` already has one, and every folder now gets a line.
-  const names = Object.keys(folders || {});
-  return names.length
-    ? `<div class="k" style="font-size:var(--type-xs);margin-top:var(--space-2);line-height:1.6">${
-        names.map((n) => `<b>${esc(n)}</b> - ${esc(catTip(n))}`).join("<br>")}</div>` : "";
-}
-
 // ---------- completion ----------
 // The payoff moment, shared by every long operation. Each field renders only when the run
 // actually produced it: an undated batch shows no year range, a run with no duplicates shows
@@ -687,10 +636,10 @@ const organizeResult = {
   },
 };
 
-// THE REVERSE SEAM. The unreadable, by-format and skipped blocks are components now
-// (`frontend/src/inventory.tsx`), and the dedup preview and Backups' drive list still compose
-// strings - so they take the same markup as a string from the island rather than from a second
-// copy here. Resolved on every call, like `organizeResult` above: the bundle is a module and loads
+// THE REVERSE SEAM. The blocks the island owns (`frontend/src/inventory.tsx`,
+// `frontend/src/preview.tsx`) are components now, and the completion card, the Import preview
+// and Backups' drive list still compose strings - so they take the same markup as a string from
+// the island rather than from a second copy here. Resolved on every call, like `organizeResult` above: the bundle is a module and loads
 // after this file. Absent is said, not rendered as nothing - a blank block where the unreadable
 // report should be is the silence `(aer)` exists to prevent.
 function orgMarkup() {
@@ -700,7 +649,7 @@ function orgMarkup() {
 }
 // What the island reads back. Published by name because `const` at the top of a classic script
 // is not a window property the way a `function` declaration is.
-window.truestillFormatters = { nfmt, plural, sentence, mediaCount, fmtBytes };
+window.truestillFormatters = { nfmt, plural, sentence, mediaCount, fmtBytes, fmtDuration, catTip };
 
 // ---------- the row solver ----------
 // Rows of photographs at a common height, each drawn at its true aspect. A row's height is
@@ -1160,8 +1109,8 @@ function organizeCompletion(r) {
         ? plural(Object.keys(r.folders).length, "folder")
         : "",
     ].filter(Boolean).join(" · "),
-    chips: chipsFor(r.folders || {}),
-    legend: legendFor(r.folders || {}),
+    chips: orgMarkup().chips(r.folders || {}),
+    legend: orgMarkup().legend(r.folders || {}),
     notes,
   });
 }
@@ -2549,79 +2498,6 @@ function renderPanel(s) {
 // (`unique + near_duplicates`), so as a fourth row it double-counted against the first two
 // while the real fourth bucket sat in a banner above. It is a property of what will be
 // organized, so it is stated as one.
-function organizeTally(s) {
-  const unreadable = (s.unreadable_files && s.unreadable_files.total) || 0;
-  const buckets = [
-    // NEITHER ROW CLAIMS THE ORGANIZED SET, because neither of them is it: the run organizes
-    // both. `(abl)`. The old first row said "will be organized" while the confirm control below
-    // rendered `new_unique + near_dup`, so the card and the button disagreed by `near_dup` on any
-    // folder with a look-alike - which is most folders of photos from one event.
-    // "listed below" rather than "flagged": the list is literally the next thing on this card
-    // (`matchListHtml(s.near_dup_matches, ...)`), so the word points at something the reader can
-    // open before confirming rather than at a state they are told they are in.
-    [s.new_unique, "new"],
-    [s.near_dup, "look-alikes - organized too, and listed below"],
-    [s.exact_dup, `duplicates - not copied again${dupOrigins(s.exact_dup_matches)}`],
-    // Only when there are any: a zero row here is noise, and the sum holds without it.
-    [unreadable, "could not be read - not organized"],
-  ].filter(([n]) => Number(n) > 0);
-
-  const metrics = buckets
-    .map(([n, label]) => `<div class="metric"><div class="metric-value">${nfmt(n)}</div>
-         <div class="metric-label">${label}</div></div>`)
-    .join("");
-
-  // Stated against the two rows it actually belongs to, so it reads as a property rather than
-  // as a fifth bucket competing with them.
-  // TWO SENTENCES, because the option inverts the fact. With skipping off these files ARE
-  // organized, into `Undated/`; with it on they are not organized at all, and the old wording
-  // said they would go to a folder the run will never put them in. A corrected count does not
-  // repair a sentence that asserts the opposite of what happens. `(acx)`.
-  const skipping = !!($("org-skip-undated") && $("org-skip-undated").checked);
-  const undatedCount = Number(s.undated) || 0;
-  const undated = undatedCount > 0
-    ? skipping
-      ? `<div class="k" data-testid="org-undated">${plural(undatedCount, "file")}
-         ${undatedCount === 1 ? "has" : "have"} no date and will be skipped, not organized.</div>`
-      : `<div class="k" data-testid="org-undated">Of those organized, ${plural(undatedCount, "file")}
-         ${undatedCount === 1 ? "has" : "have"} no date and will go to “Undated”.</div>`
-    : "";
-
-  // THE PROMISE, and it is the payload's number rather than a second local sum - the confirm
-  // control renders the same field, so the card and the button cannot disagree. `(abl)`, `(acx)`.
-  const promise = `<div class="k" data-testid="org-will-organize">${plural(Number(s.will_organize) || 0, "file")} will be organized.</div>`;
-
-  return `<div class="metrics" data-testid="org-tally" data-files="${Number(s.files) || 0}">
-            ${metrics}
-          </div>${promise}${undated}${willRemainNote(s)}`;
-}
-
-// WHAT THE PREVIEW SAYS ABOUT FILES IT ALREADY HAS. Two answers, and only ever ONE of them:
-// they open on the same count, so stacking them reads as the app repeating itself.
-//
-// Above the threshold the user is not really asking to organize. Someone re-pointing organize at
-// their own library is asking how it is ARRANGED, and re-copying cannot answer that - the
-// question Lightroom answers with a seven-step yearly procedure or a catalogue rebuild that
-// loses flags, virtual copies and develop history. `migrate-layout` is the answer and lives on
-// Settings, so the banner takes them there.
-//
-// Below it, the move line exactly as it shipped. Copy mode says nothing at all: originals always
-// stay, which is what the mode is called.
-//
-// Only the catalog origin counts anywhere here - a twin found earlier in this same batch WILL be
-// moved in by this run, so it is neither a file that stays behind nor evidence about the library.
-function willRemainNote(s) {
-  const n = (s.exact_dup_matches && s.exact_dup_matches.already_in_library) || 0;
-  if (!n) return "";
-  const moving = s.mode === "move" || s.mode === "inplace";
-  if (pointsAtRearranging(s, n)) return rearrangeNote(s, n, moving);
-  if (!moving) return "";
-  const subject = n === 1 ? "file here is" : "files here are";
-  const stays = n === 1 ? "It stays where it is." : "They stay where they are.";
-  return `<div class="k" data-testid="org-will-remain">${nfmt(n)} ${subject} already in your
-    library and will not be moved. ${stays}</div>`;
-}
-
 // THE THRESHOLD. Both must hold: a ratio alone fires on a three-file folder somebody is testing
 // with, a floor alone fires on a 5,000-file import that is 90% new.
 //
@@ -2642,88 +2518,40 @@ function pointsAtRearranging(s, alreadyInLibrary) {
     && alreadyInLibrary / files >= REARRANGE_RATIO;
 }
 
-// Where the matched files ACTUALLY are, which `matched_path` could never say - it names where
+// THE DECISIONS THE PREVIEW CARD IS HANDED, made here and never in the island
+// (`frontend/src/preview.tsx` draws what this says). Two of them:
+//
+// Whether undated files are being skipped is a FORM read, and the card's sentence inverts on it:
+// with skipping off those files ARE organized, into `Undated/`; with it on they are not organized
+// at all. `(acx)`.
+//
+// WHAT THE PREVIEW SAYS ABOUT FILES IT ALREADY HAS. Two answers, and only ever ONE of them: they
+// open on the same count, so stacking them reads as the app repeating itself. Above the threshold
+// the user is not really asking to organize - someone re-pointing organize at their own library
+// is asking how it is ARRANGED, and re-copying cannot answer that; `migrate-layout` is the answer
+// and lives on Settings, so the banner takes them there. Below it, the move line exactly as it
+// shipped. Copy mode says nothing at all: originals always stay, which is what the mode is
+// called. Only the catalog origin counts anywhere here - a twin found earlier in this same batch
+// WILL be moved in by this run, so it is neither a file that stays behind nor evidence about the
+// library. The one path the pointer may offer: ONE CONNECTED library is the only case it can be
+// filled in for - two would mean choosing one silently, which is the exact failure the payload
+// was added to prevent; an offline one has no path to give. Both still jump. `matched_drives` is
+// where the matched files ACTUALLY are, which `matched_path` could never say - it names where
 // content was first read from. Reach is three-valued and stays that way: "not plugged in" is not
 // "gone", and "never seen on this computer" is neither.
-function rearrangeWhere(drives) {
-  if (!drives.length) return "";
-  const named = drives.slice(0, 2).map((d) => d.label);
-  const rest = drives.length - named.length;
-  const list = named.join(" and ") + (rest > 0 ? `, and ${nfmt(rest)} more` : "");
-  const state = drives.length === 1 ? REACH_NOTE[drives[0].reach] || "" : "";
-  return ` on ${esc(list)}${state}`;
-}
-
-const REACH_NOTE = {
-  offline: " (not plugged in)",
-  unknown: " (location not known yet)",
-};
-
-function rearrangeNote(s, alreadyInLibrary, moving) {
-  const where = s.matched_drives || { drives: [] };
-  const drives = where.drives || [];
-  // One CONNECTED library is the only case we can fill the field in for. Two would mean
-  // choosing one silently, which is the exact failure the payload was added to prevent; an
-  // offline one has no path to give. Both still jump - the card is where they need to be.
-  const only = drives.length === 1 && drives[0].reach === "connected" ? drives[0].path : "";
-  const tail = moving ? " They stay where they are." : "";
-  const action = drives.length
-    ? `<div class="actions"><button class="btn btn-secondary" type="button"
-         data-rearrange-go data-path="${esc(only || "")}">Rearrange my library</button></div>`
-    : "";
-  return `<div class="banner" data-testid="org-rearrange"><div>
-    <div class="b-title">These are already organized</div>
-    <div>${nfmt(alreadyInLibrary)} of ${nfmt(Number(s.files) || 0)} files here are already in
-      your library${rearrangeWhere(drives)}. Organizing this folder again will not change how
-      they are arranged.${tail}</div>
-    <div>To arrange your library differently - by year, by month, by event - rearrange it where
-      it is, without re-copying anything.</div>
-    ${action}</div></div>`;
-}
-
-function renderOrganizeResult(s) {
-  if (!s.files) {
-    // The unreadable block goes FIRST here: when a folder could not be opened, "nothing to
-    // organize" is very likely the wrong answer, and the reason must be read before it.
-    organizeResult.set({ kind: "configured", html: card(
-      `${orgMarkup().unreadable(s)}
-       <div class="banner warn"><div><div class="b-title">Nothing to organize here</div>
-       <div>No photos or videos in this folder - is it the right one?</div></div></div>`
-    ) });
-    return;
+function previewView(s) {
+  const skippingUndated = !!($("org-skip-undated") && $("org-skip-undated").checked);
+  const n = (s.exact_dup_matches && s.exact_dup_matches.already_in_library) || 0;
+  const moving = s.mode === "move" || s.mode === "inplace";
+  let already = { kind: "none" };
+  if (n && pointsAtRearranging(s, n)) {
+    const drives = (s.matched_drives && s.matched_drives.drives) || [];
+    const only = drives.length === 1 && drives[0].reach === "connected" ? drives[0].path : "";
+    already = { kind: "rearrange", n, moving, path: only || "" };
+  } else if (n && moving) {
+    already = { kind: "stays", n };
   }
-  // ONE HOME. This was `new_unique + near_dup` computed here while the tally card rendered
-  // `new_unique` alone under "will be organized" - two answers to one question on one screen,
-  // neither citing the other. Both now render the payload's `will_organize`. `(abl)`, `(acx)`.
-  const kept = Number(s.will_organize) || 0;
-  const folders = chipsFor(s.folders);
-  const legend = legendFor(s.folders);
-  const details = orgMarkup().skippedDetails(s.skipped);
-  const heic = s.heic_perceptual_skipped ? `<div class="banner warn"><div>${plural(s.heic_perceptual_skipped, "HEIC file")} will be backed up, but near-duplicate detection is unavailable for them.</div></div>` : "";
-  const dateQuality = dateQualityNotes(s);
-  const inferredShifts = inferredLocalShiftNotes(s);
-  // Shown above the tallies, not below them: it decides whether the run can happen at all, so
-  // it must be read before the confirm control the preview puts on screen next.
-  const limit = s.destination_limit
-    ? `<div class="banner warn" data-testid="org-destination-limit"><div>
-       <div class="b-title">This drive cannot hold this run</div>
-       <div>${esc(s.destination_limit.detail)}</div></div></div>`
-    : "";
-  // Above the tallies too, and for the same reason: a count of what "will be organized" is
-  // only as true as the set of files Truestill managed to read.
-  const unreadable = orgMarkup().unreadable(s);
-  renderPanel(s);
-  organizeResult.set({ kind: "configured", html: card(
-    `<div class="headline">${mediaCount(s)} found</div>
-     ${s.elapsed_seconds ? `<div class="k">checked in ${fmtDuration(s.elapsed_seconds)}</div>` : ""}
-     ${limit}${unreadable}
-     ${organizeTally(s)}
-     ${matchListHtml(s.exact_dup_matches, "Show what each duplicate matched")}
-     ${matchListHtml(s.near_dup_matches, "Show what each look-alike resembles")}
-     ${folders ? `<h3>Into these folders <span style="font-weight:400;color:var(--fg-muted)">- hover a chip for what it means</span></h3><div class="chips">${folders}</div>${legend}` : ""}
-     ${orgMarkup().byFormat(s.by_format)}${dateQuality}${inferredShifts}${heic}${details}`
-  ) });
-  return kept;
+  return { skippingUndated, already };
 }
 
 // Shared by preview and run: both are cancellable jobs, and Cancel needs the current one.
@@ -2795,7 +2623,17 @@ $("org-dedup").onclick = guarded(async () => {
     },
     onSuccess: (d) => {
       const s = d.summary;
-      const kept = renderOrganizeResult(s);
+      // ONE HOME. `kept` is the payload's `will_organize` - the confirm control renders the same
+      // field, so the card and the button cannot disagree. `(abl)`, `(acx)`. The empty outcome
+      // goes to the island as its own state rather than as a read of `files` inside it.
+      let kept = 0;
+      if (!s.files) {
+        organizeResult.set({ kind: "preview-empty", empty: s });
+      } else {
+        kept = Number(s.will_organize) || 0;
+        renderPanel(s);
+        organizeResult.set({ kind: "preview", preview: s, view: previewView(s) });
+      }
       orgMechanism = s.mechanism || null;
       // `kept`, not `s.files`. A folder whose every file is already a duplicate has files to
       // FIND and nothing to ORGANIZE, and the gate used to render anyway and offer a typed word
@@ -3291,9 +3129,9 @@ function rcRenderSummary(d) {
        ${metrics}
      </div>
      ${dates.length ? `<div class="k" data-testid="rc-dates">Of those to import, ${dates.join("; ")}.</div>` : ""}
-     ${dateQualityNotes(r)}${inferredLocalShiftNotes(r)}
-     ${matchListHtml(r.duplicate_matches, "Show what each duplicate matched")}
-     ${matchListHtml(r.near_dup_matches, "Show what each look-alike resembles")}`
+     ${orgMarkup().dateQuality(r)}${orgMarkup().inferredShifts(r)}
+     ${orgMarkup().matchList(r.duplicate_matches, "Show what each duplicate matched")}
+     ${orgMarkup().matchList(r.near_dup_matches, "Show what each look-alike resembles")}`
   );
 }
 
@@ -3761,30 +3599,6 @@ const MOVE_PREVIEW_LIMIT = 200;
 // here - "identical to a kept file" - was worse than silent, because for a library match there is
 // no kept file in this batch to be identical to. Counts come from the payload, split over every
 // match rather than over the capped sample; the wording is the engine's, not a second copy.
-function dupOrigins(report) {
-  if (!report) return "";
-  const parts = [];
-  if (report.already_in_library) parts.push(`${nfmt(report.already_in_library)} already in your library`);
-  if (report.within_this_batch) parts.push(`${nfmt(report.within_this_batch)} earlier in this batch`);
-  if (report.unclassified) parts.push(`${nfmt(report.unclassified)} matched elsewhere`);
-  return parts.length ? `<br>${esc(parts.join(", "))}` : "";
-}
-
-function matchListHtml(report, label) {
-  if (!report || !report.total) return "";
-  const shown = report.shown || [];
-  const hidden = report.total - shown.length;
-  const heading = hidden
-    ? `${label} (first ${nfmt(shown.length)} of ${nfmt(report.total)})`
-    : `${label} (${nfmt(report.total)})`;
-  const rows = shown
-    .map((m) => `<div><span class="mono">${esc(m.name)}</span> - ${esc(m.detail)}</div>`)
-    .join("");
-  return `<details class="more"><summary>${heading}</summary>
-            <div class="k">${rows}</div>
-            ${hidden ? `<div class="k">…and ${nfmt(hidden)} more</div>` : ""}</details>`;
-}
-
 function moveListHtml(moves) {
   const shown = moves.slice(0, MOVE_PREVIEW_LIMIT);
   const hidden = moves.length - shown.length;

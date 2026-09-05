@@ -17,10 +17,11 @@
  * shared with the dedup preview and with Backups' drive list, which `app.js` still builds as
  * strings. Rather than keep a second copy there, `markup` renders these same components to a
  * string on demand; `app.js` reads it through `window.truestillMarkup`. One definition, two
- * consumers, until the preview moves too. Rendered through the client renderer into a detached
- * node and read back, not through `react-dom/server`: `renderToStaticMarkup` was measured first
- * and took the bundle from 191 KB to 383 KB for three fragments, and the client path yields the
- * exact DOM the island itself would draw.
+ * consumers, until the preview moves too. `toHtml` renders through the client renderer into a
+ * detached node and reads it back, not through `react-dom/server`: `renderToStaticMarkup` was
+ * measured first and took the bundle from 191 KB to 383 KB for three fragments, and the client
+ * path yields the exact DOM the island itself would draw. The `markup` object `app.js` reads is
+ * assembled in `main.tsx`, because the preview slice shares blocks from both files.
  */
 
 import { Fragment } from "react";
@@ -46,17 +47,20 @@ export interface Unreadables {
   suppressed_diagnostics?: SuppressedDiagnostics | null;
 }
 
-interface Formatters {
+export interface Formatters {
   nfmt: (n: number) => string;
   plural: (n: number, word: string, suffix?: string) => string;
   sentence: (text: string) => string;
   mediaCount: (s: { photos: number; videos: number; audio: number }) => string;
   fmtBytes: (n: number) => string;
+  fmtDuration: (seconds: number) => string;
+  /** The folder vocabulary, with its default. One home, in `app.js`. */
+  catTip: (name: string) => string;
 }
 
 /** `app.js` publishes these by name; `const` at the top of a classic script is not a window
  *  property the way a `function` is. Absent means `app.js` did not run, which is loud already. */
-function formatters(): Formatters {
+export function formatters(): Formatters {
   const f = (window as unknown as { truestillFormatters?: Formatters }).truestillFormatters;
   if (!f) throw new Error("app.js has not published its formatters");
   return f;
@@ -185,25 +189,28 @@ export function SkippedDetails({
   );
 }
 
+/** The empty outcome, shared by the cheap tier and the dedup preview. The unreadable block goes
+ *  FIRST: a walk that could not open a folder has not established that there is nothing in it,
+ *  so "Nothing to organize here" is very likely the wrong answer and the reason has to be read
+ *  before it. Which tier shows it is decided by `app.js`. */
+export function NothingHereCard({ s }: { s: Unreadables }): React.JSX.Element {
+  return (
+    <div className="card result">
+      <UnreadableBanner s={s} />
+      <div className="banner warn">
+        <div>
+          <div className="b-title">Nothing to organize here</div>
+          <div>No photos or videos in this folder - is it the right one?</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** The cheap tier's card. Knows none of the panel's facts (no dates, no duplicates), and says so. */
 export function InventoryCard({ s }: { s: Inventory }): React.JSX.Element {
   const { mediaCount, fmtBytes } = formatters();
-  if (!s.files) {
-    // The unreadable block goes FIRST: a walk that could not open a folder has not established
-    // that there is nothing in it, so "Nothing to organize here" is very likely the wrong answer
-    // and the reason has to be read before it.
-    return (
-      <div className="card result">
-        <UnreadableBanner s={s} />
-        <div className="banner warn">
-          <div>
-            <div className="b-title">Nothing to organize here</div>
-            <div>No photos or videos in this folder - is it the right one?</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!s.files) return <NothingHereCard s={s} />;
   return (
     <div className="card result">
       <div className="headline">{mediaCount(s)} found</div>
@@ -225,7 +232,7 @@ export function InventoryCard({ s }: { s: Inventory }): React.JSX.Element {
 
 /** Render an element into a detached node and hand back its HTML. `flushSync` makes the render
  *  land before `innerHTML` is read; the root is unmounted so nothing lingers. */
-function toHtml(element: React.ReactElement): string {
+export function toHtml(element: React.ReactElement): string {
   const host = document.createElement("div");
   const root = createRoot(host);
   flushSync(() => root.render(element));
@@ -234,10 +241,4 @@ function toHtml(element: React.ReactElement): string {
   return html;
 }
 
-/** The same three blocks as strings, for the `app.js` builders that still compose HTML. */
-export const markup = {
-  unreadable: (s: Unreadables): string => toHtml(<UnreadableBanner s={s} />),
-  byFormat: (bf: ByFormatCounts | null | undefined): string => toHtml(<ByFormat bf={bf} />),
-  skippedDetails: (sk: SkippedCounts | null | undefined): string =>
-    toHtml(<SkippedDetails sk={sk} />),
-};
+export type { ByFormatCounts };

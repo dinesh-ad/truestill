@@ -58,7 +58,7 @@ own text. Replaced with citations verified present on 2026-08-01.)*
 **Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akf). Next free: (akg).**
 **Retired 2026-09-02 (P190), and named here because a retired letter is not a free one:** `(abz)`
 (*"Organize shows one population three ways and connects none of them"*). False before it was
-filed: `app.js:rearrangeNote` (`93635af`, 2026-08-06) prints *"N of M files here are already in
+filed: `rearrangeNote` in `app.js` (`93635af`, 2026-08-06; `RearrangeNote` in `frontend/src/preview.tsx` since 2026-09-05) prints *"N of M files here are already in
 your library"*, which is the connection, and the entry was recorded on 2026-08-08. What survives -
 an identical headline in `renderInventoryResult` and `renderOrganizeResult` - is a different
 observation and gets its own letter if anyone wants it. Body kept as a record at
