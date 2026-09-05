@@ -19,7 +19,7 @@ is what resolves the pointer.
 0. [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) - **start here.** Where the project
    stands, what ships next, and the standing rules. Read it before doing anything else.
 1. [`docs/ENGINEERING_STANDARD.md`](docs/ENGINEERING_STANDARD.md) - the portable canon.
-   ⚠ **§4 IS A LOOKUP TABLE - READ ITS INDEX, NOT ALL OF IT.** *The members at a glance* is 87
+   ⚠ **§4 IS A LOOKUP TABLE - READ ITS INDEX, NOT ALL OF IT.** *The members at a glance* is 89
    lines at the top of §4 and each is a member's own opening sentence, held there by
    `test_the_code_standard_index_matches_its_members.py`. Read the index, open the member that
    applies, take the rule from the member. §1-3 and §5 are short and are read in full.
@@ -105,7 +105,7 @@ On 2026-08-22 those read **183** and **121**, leaving **62** mapped below. ⚠ T
 |---|---|
 | What is this project, and how do I install and run it? | [`README.md`](README.md) |
 | How do I report a vulnerability, and what is in scope? | [`SECURITY.md`](SECURITY.md) |
-| **Where does an arriving engineer start?** | [`docs/handoff-2026-09-04.md`](docs/handoff-2026-09-04.md) - the current dated state check: **the UI state first** (the restyle arc stopped, the preview is the specification, the six measured gaps and where each belongs), the backend, the CI ruling, what Ad must decide, and the icon answer. The earlier handoff below is a record | [`docs/handoff-2026-09-03.md`](docs/handoff-2026-09-03.md) - the current dated state check: this session's three defect classes with the DO for each, an **index of every earlier class** and where its record holds it, state as commands, §1b's conditions, the two releases and what no check has reached. ⚠ **The five earlier handoffs are RECORDS, listed under *The records* below, and the map names only this one as the start point** (ruled 2026-09-03, P203: their §1 defect classes and DOs are cited by closed entries, a soak record and three test docstrings as the source of named conventions, so they are evidence, not superseded working documents) |
+| **Where does an arriving engineer start?** | [`docs/handoff-2026-09-05.md`](docs/handoff-2026-09-05.md) - the current dated state check: state as a cited table, the nine commits of the day and what each did NOT do, the five defects found by using the product with D2's wrong fix recorded, the cutover piece by piece, what is open, what Ad decided, what is stale in the day before, and the first thing to do next. The earlier handoffs below are records | [`docs/handoff-2026-09-03.md`](docs/handoff-2026-09-03.md) - the current dated state check: this session's three defect classes with the DO for each, an **index of every earlier class** and where its record holds it, state as commands, §1b's conditions, the two releases and what no check has reached. ⚠ **The five earlier handoffs are RECORDS, listed under *The records* below, and the map names only this one as the start point** (ruled 2026-09-03, P203: their §1 defect classes and DOs are cited by closed entries, a soak record and three test docstrings as the source of named conventions, so they are evidence, not superseded working documents) |
 | How do I move libraries to another machine? | [`docs/moving-machines.md`](docs/moving-machines.md) |
 | What has Claude Code installed here, and what may each tool do? | [`docs/agent-tooling.md`](docs/agent-tooling.md) - the two MCP servers and two plugins that live **outside the repo**, and **the fence gap first**: an MCP tool is covered by neither enforcement layer, so a call that carries project facts is a decision each time |
 | **What is every screen built against?** (canvas, glass, contrast floors) | [`docs/design-system.md`](docs/design-system.md) - the specification, written 2026-09-04. **Solid-first**: the glass look never depends on `backdrop-filter`, which WebKit reports as supported and does not paint (`(ake)`). §6 is the strongest rule - no blur behind a form field, because a path is checked character by character |
@@ -178,7 +178,8 @@ record. **When a research doc and `IMPLEMENTATION_STANDARDS.md` disagree, the co
 - **Handoffs** - dated state checks, each a snapshot of its own day and never superseded by the
   next: [`handoff-2026-08-24.md`](docs/handoff-2026-08-24.md), [`handoff-2026-08-25.md`](docs/handoff-2026-08-25.md),
   [`handoff-2026-08-27.md`](docs/handoff-2026-08-27.md), [`handoff-2026-08-31.md`](docs/handoff-2026-08-31.md),
-  [`handoff-2026-09-01.md`](docs/handoff-2026-09-01.md), [`handoff-2026-09-03.md`](docs/handoff-2026-09-03.md). Their defect classes are indexed in the current handoff
+  [`handoff-2026-09-01.md`](docs/handoff-2026-09-01.md), [`handoff-2026-09-03.md`](docs/handoff-2026-09-03.md),
+  [`handoff-2026-09-04.md`](docs/handoff-2026-09-04.md). Their defect classes are indexed in the current handoff
 - **Measurement** - [`preview-performance-profile.md`](docs/preview-performance-profile.md),
   [`testing-new-corpus.md`](docs/testing-new-corpus.md),
   [`ado-webkit-tail.md`](docs/research/ado-webkit-tail.md) (the WebKit-tail investigation, closed

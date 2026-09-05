@@ -403,6 +403,9 @@ and counts are the one thing this section has drifted on repeatedly. Search the 
 - Errors.
 - A gate and an assertion are different jobs, and a phrase the screen shows before the awaited
   action can never be a gate.
+- A sweep for a user-facing string covers every value the string interpolates, not the literal
+  around them.
+- A `pkill` pattern that can match its own shell will, and it did.
 
 - **Idioms (Python 3.14, standard build).** `pathlib.Path` for all path manipulation - never
   `os.path.*` in source (an audit on 2026-07-29 found zero call sites; this codifies that
@@ -3214,6 +3217,46 @@ and counts are the one thing this section has drifted on repeatedly. Search the 
   An attribute on the region would not carry that coupling; it was not added because
   `#org-result` is owned by the React island, and that is a bundle change for a distinction the
   DOM already carried.
+
+- **A sweep for a user-facing string covers every value the string interpolates, not the literal
+  around them.** The eighty-eighth member, recorded 2026-09-05 from Q1417, and it cost a lane run.
+
+  **The tell.** A grep that returns nothing for a sentence four tests assert. `jobs.py`'s busy
+  refusal was *"A {operation} is already running on {drive}"*; the sweep before changing it
+  grepped *"already running on"* and *"is already running"* across every test tree and found
+  nothing, so the change was called free. `make check` then failed three tests and the browser
+  lane a fourth, each asserting `"backup"`, `"migrate preview"` or `"clean empty"` **in the error**
+  - the interpolated operation name, which the sentence's fixed words never contained.
+
+  > **The mechanism: a test pins the part of a sentence that carries information, and that is the
+  > interpolated part.** The fixed words are what a sweep finds and what nobody asserts; the values
+  > are what the assertions hold and what a sweep by literal cannot see.
+
+  *What to do instead:* enumerate every value each `{field}` can take - `grep -rhoE
+  'operation="[^"]+"'` gave nineteen in one line - and grep the trees for each value inside an
+  assertion, before calling the change free. Then read the CLI: `cli.py` has a docstring saying
+  *"each value completes a sentence its caller starts"*, which is the same rule from the other
+  side.
+
+- **A `pkill` pattern that can match its own shell will, and it did.** The eighty-ninth member,
+  recorded 2026-09-05, twice in one afternoon.
+
+  **The tell.** A tool call that exits 144 with no output, after the process it named is gone.
+  `pkill -f 'truestill-app --db /data/TruestillLibrary/look ...'` was run from a shell whose own
+  command line contained that string, because the pattern was written into it. `pkill` matched
+  the shell, the shell died mid-command, and everything after the kill in that command - the
+  `make check` it was meant to precede - never ran. The second time it took a `for pid in $(pgrep
+  -f ...)` loop, which listed the shell itself as a match and killed it from inside.
+
+  > **The mechanism: `-f` matches the full command line of every process, and the process running
+  > the `pkill` has the pattern on its own command line by construction.**
+
+  *What to do instead:* kill by the thing you know rather than by text - `fuser -k 7358/tcp` for a
+  server on a port, a pid file, or `kill $pid` on a pid captured when the process was started.
+  When a pattern is unavoidable, make it one the shell cannot contain: `pgrep -f '[t]ruestill-app'`
+  is the classic, because the bracket class matches the process and not the pattern's own text.
+  And read `pgrep -fa` output before trusting a count: the count of *"truestill-app processes: 2"*
+  seen today was the grep and its shell.
 
 ## 5. When to break a rule
 
