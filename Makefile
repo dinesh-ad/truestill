@@ -26,7 +26,7 @@ MYPY_TESTS := --config-file mypy-tests.toml
 # Checking win32 here costs about four seconds and moves that finding to the inner loop.
 MYPY_PLATFORMS := linux win32
 
-.PHONY: install lint format format-check typecheck dash-check name-check redirect-check test test-order check build dryrun e2e e2e-install e2e-fast e2e-loop
+.PHONY: install lint format format-check typecheck dash-check name-check redirect-check test test-order check build dryrun e2e e2e-install e2e-fast e2e-loop look
 
 install:
 	uv sync --all-packages --group dev
@@ -163,6 +163,20 @@ frontend-install:
 # release never had. The lane and the release now run the same script.
 frontend:
 	cd packages/truestill-app/frontend && npm run build
+
+# --- look at the product ---------------------------------------------------------------
+# A SCRATCH LIBRARY FOR LOOKING AT THE PRODUCT, NOT A FIXTURE. `/data/TruestillLibrary/look` is
+# 261 real files copied out of the maintainer's library on 2026-09-05 for variety - fourteen
+# years, portrait and landscape and square, six videos, thirteen undated, a truncated JPEG and an
+# unreadable one - organized once into `Library/` with the catalog beside it. Nothing here can
+# reach the dev catalog or a real library: the catalog, the data dir and the cache dir all live
+# under that one folder, and the port is not the dev default. One command, then open the URL it
+# prints. No test reads this folder and none may: it is a snapshot, never a premise.
+LOOK_ROOT ?= /data/TruestillLibrary/look
+look: frontend
+	@test -f $(LOOK_ROOT)/catalog.sqlite || { echo "no look library at $(LOOK_ROOT) (LOOK_ROOT=... to point elsewhere)"; exit 1; }
+	TRUESTILL_DATA_DIR=$(LOOK_ROOT)/data TRUESTILL_CACHE_DIR=$(LOOK_ROOT)/cache \
+		$(PYTHON) truestill-app --db $(LOOK_ROOT)/catalog.sqlite --port 7358 --no-browser
 
 # --- browser end-to-end ----------------------------------------------------------------
 # Deliberately outside `check` and outside pytest's testpaths: a fresh clone runs `make check`
