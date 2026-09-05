@@ -28,6 +28,7 @@ import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import type { components } from "./generated/api";
+import { InventoryCard, markup, type Inventory } from "./inventory";
 
 // Tailwind's entry. Imported HERE rather than linked from the template because Vite has one
 // entry and emits one stylesheet beside `main.js`; the template links that output. `tokens.css`
@@ -53,6 +54,9 @@ type OrganizeSummary =
  */
 type ResultState =
   | { kind: "resting" }
+  // The "Look inside" card, as DATA: the island draws it from `inventory.tsx` rather than
+  // receiving a string. The first content here that React renders instead of injecting.
+  | { kind: "inventory"; inventory: Inventory }
   | { kind: "configured"; html: string }
   | { kind: "running"; html: string }
   // `complete` carries EITHER the summary - which is what gives the tests a props entry point
@@ -122,6 +126,16 @@ function OrganizeResult({ state }: { state: ResultState }): React.JSX.Element | 
   useRowSolver(host);
 
   if (state.kind === "resting") return null;
+  if (state.kind === "inventory") {
+    // The same depth as `Card` - host, wrapper, then `.card.result` - so the DOM is unchanged.
+    return (
+      <div ref={host}>
+        <div>
+          <InventoryCard s={state.inventory} />
+        </div>
+      </div>
+    );
+  }
   if (state.kind === "complete") {
     const app = appGlobals();
     const html =
@@ -163,6 +177,11 @@ function mount(node: HTMLElement): { set: (next: ResultState) => void } {
 }
 
 document.documentElement.dataset.bundle = __BUNDLE_SOURCE_HASH__;
+
+// The reverse seam: the blocks `inventory.tsx` owns, as strings for the `app.js` builders that
+// still compose the dedup preview and Backups' drive list. Published before the island mounts so
+// no click can find it absent.
+(window as unknown as Record<string, unknown>).truestillMarkup = markup;
 
 const target = document.getElementById("org-result");
 if (target) {

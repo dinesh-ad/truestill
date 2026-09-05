@@ -29,12 +29,24 @@ from truestill_core.models import (
     uncompared_remedy,
 )
 
-_APP_JS = Path(__file__).resolve().parents[1] / "src" / "truestill_app" / "static" / "app.js"
+_APP = Path(__file__).resolve().parents[1]
+#: "The browser" is two files since 2026-09-05: `app.js`, and the island's `inventory.tsx`, which
+#: took `renderUnreadable` and the by-format and skipped blocks with it. Every assertion below is
+#: over the concatenation, so a copy of the wording in either file is caught and a renderer that
+#: moved is still found. `_APP_JS` was one file until then.
+_BROWSER = (
+    _APP / "src" / "truestill_app" / "static" / "app.js",
+    _APP / "frontend" / "src" / "inventory.tsx",
+)
+
+
+def _source() -> str:
+    return "\n".join(path.read_text(encoding="utf-8") for path in _BROWSER)
 
 
 def test_the_source_is_actually_read() -> None:
     """Non-emptiness first: a scan over a file that moved reports the same green as a clean one."""
-    source = _APP_JS.read_text(encoding="utf-8")
+    source = _source()
 
     assert len(source) > 10_000, f"app.js looks wrong or moved: {len(source)} bytes"
     assert "skipped_folders" in source, "the folder groups are not rendered at all"
@@ -42,7 +54,7 @@ def test_the_source_is_actually_read() -> None:
 
 def test_the_browser_prints_the_wording_it_is_given() -> None:
     """The label and the remedy come from the payload, not from a branch on `reason`."""
-    source = _APP_JS.read_text(encoding="utf-8")
+    source = _source()
 
     assert "g.label" in source, "the heading is not taken from the payload"
     assert "g.remedy" in source, "the remedy is not taken from the payload"
@@ -54,7 +66,7 @@ def test_the_browser_holds_no_copy_of_the_sentences() -> None:
     Asserted against `models`' real strings rather than a remembered phrase, so rewording the
     remedy cannot make this guard stop looking at the right thing.
     """
-    source = _APP_JS.read_text(encoding="utf-8")
+    source = _source()
 
     for reason in FolderSkip:
         remedy = folder_skip_remedy(reason)
@@ -68,7 +80,7 @@ def test_the_browser_holds_no_copy_of_the_sentences() -> None:
 
 def test_the_browser_does_not_branch_on_the_reason() -> None:
     """A `reason === "hidden"` branch is the map arriving one keystroke at a time."""
-    source = _APP_JS.read_text(encoding="utf-8")
+    source = _source()
 
     for reason in FolderSkip:
         for form in (f'"{reason.value}"', f"'{reason.value}'"):
@@ -89,7 +101,7 @@ def test_the_browser_holds_no_uncompared_wording() -> None:
     subjects one by one covers exactly the members somebody remembered to add it for.
     §4's seventy-second member - loop the derived inventory, assert into the declaration.
     """
-    source = _APP_JS.read_text(encoding="utf-8")
+    source = _source()
 
     for reason in UncomparedReason:
         label = uncompared_label(reason)
@@ -112,7 +124,7 @@ def test_the_browser_reads_both_new_fields() -> None:
     above only prove the browser does not hold the *words*; deleting the renderer entirely would
     satisfy them both.
     """
-    source = _APP_JS.read_text(encoding="utf-8")
+    source = _source()
 
     assert "uncompared" in source, "the payload's `uncompared` is read by nothing in the browser"
     assert "suppressed_diagnostics" in source, (
@@ -130,7 +142,7 @@ def test_the_browser_renders_every_uncompared_group_not_only_the_first() -> None
     the payload is treated as a collection, not that a person sees two headings. The browser lane
     proves the flow. What it does catch is the exact regression - reverting to `uncompared.label`.
     """
-    source = _APP_JS.read_text(encoding="utf-8")
+    source = _source()
 
     for indexed in (
         "uncompared.label",

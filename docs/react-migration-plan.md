@@ -20,6 +20,7 @@ how the screens look. Nothing in `truestill-core` or `service/` is in scope.
 | The browser lane covers the shipped engine | `(9cdd85d)`. WebKit is what the Tauri shell renders in on Linux and macOS. |
 | The migration's test cost | **3 of 55 e2e files** touch `app.js` internals: two reach into `organizeCompletion`, one calls `showScreen()`. The other 52 assert on rendered words, so they survive a renderer swap and become the acceptance test for each migrated screen. |
 | ⚠ **Corrected 2026-09-03 (P200)** - the row above is the 2026-08-14 record and is ten times off | Measured on the tree: **60 files, 510 tests**; **31 files reach into the page through `evaluate`**, none calls `organizeCompletion` or `showScreen`, and two call `fmtBytes` and `fmtDuration` as globals, which break the day the formatters move into a module. Selection is **84 unique `#id` selectors, 2 `data-testid`, 4 text or role calls** - ids, not words - and **19 files assert computed styles**. Plan the cutover against these, not the row above. |
+| ⚠ **Corrected 2026-09-05 (P223)** - the row above is right on the counts and wrong on two names | `showScreen` **is** called from a test: `tests/e2e/test_sidebar_stays_put.py:73`, `ui.evaluate("showScreen('settings')")`, and `window.fitCatalogPath` at `test_narrow_top_bar.py:186,190` is a third global the row does not name. The `fmtBytes` caller is `test_one_byte_formatter.py`, **not an Organize file**; `fmtDuration`'s is `test_a_fast_run_does_not_claim_it_took_no_time.py:35`, which is. Five files drive the island through `window.organizeResult.set`, and that bridge must survive every slice unchanged. Organize's own share, by ids driven: **15 files / 110 tests Organize-only, 10 mixed, ~174 / 25 first-order** on one engine. |
 
 That last row is the reason this is checkable at all, and it is a rule being cashed in rather than
 luck: *"§9 asserts on the words a person reads, never on element ids"*.
@@ -101,6 +102,13 @@ attribution swept them into "shell" and made the largest migration look like the
 Attribution is now by the element ids a file drives. It is still first-order - a file touching two
 screens is split evenly - so treat these as the shape, not a contract.
 
+⚠ **Re-measured 2026-09-05 (P223) on one engine: Organize is ~174 tests across 25 files, not
+154 / 22.** By distinct ids driven: **15 files drive Organize only (110 tests)**, 10 drive it and
+another screen (127 tests, halved above), 3 touch `#screen-organize` alone. Only two of the 28
+were added after 2026-08-14, so the growth is tests added inside existing files, and no per-file
+list from that day survives to attribute it further. The lane is 525 per engine. The row above
+stays as the 2026-08-14 record.
+
 **The shell's 96 do not move with any screen, and that makes them the early-warning system.**
 Rail, wordmark, fonts, type scale, harness, server retirement: they outlive every individual
 migration and are the thing that keeps the app coherent while half of it is React. They are also
@@ -131,6 +139,19 @@ instead of the current one.
 **The restyle arc, staged so each commit is judgeable**: tokens and the hit-target floor (no
 visual delta), then the shared pattern, then the rail, then one screen per commit in the risk
 order below.
+
+⚠ **RULED 2026-09-05: ORGANIZE GOES FIRST, NOT LAST.** The record below and the 2026-08-14
+paragraphs under *Which tests move* still say "Organize last"; they are kept as written. The
+maintainer's reason: Organize is the only screen with a design (`design-system.md`, the six gaps
+above), so converting any other screen first means building a look that gets rebuilt later. **The
+cutover is two commits per slice**: a pure renderer swap - same DOM, same ids, same `data-*`
+hooks, the unchanged e2e suite green - and then the appearance, because 19 e2e files assert
+computed styles and moving renderer and appearance together makes every style failure ambiguous.
+**The form goes last within Organize**: `app.js` binds `#org-preview`, `#org-dedup`, the radios
+and the library-root save at parse time, so React drawing the form breaks `app.js` before it wires
+anything; the work starts where `app.js` only writes. **First slice landed 2026-09-05**: the
+"Look inside" card, `frontend/src/inventory.tsx`, replacing `renderInventoryResult`,
+`renderUnreadable`, `byFormat` and `renderSkippedDetails` in `app.js`.
 
 ⚠ **STEP 2 - "the shared pattern" - WAS ATTEMPTED 2026-09-04 (P215) AND HAS NO WORK IN IT. All
 three of its items were refused by rules that already exist, and each refusal is better argued

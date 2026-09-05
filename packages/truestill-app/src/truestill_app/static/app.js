@@ -554,19 +554,6 @@ function mediaCount(s) {
   if (s.audio) parts.push(`${nfmt(s.audio)} audio`);
   return parts.length ? parts.join(" · ") : "0 photos";
 }
-// collapsible "By format ▾" - extension counts split by photos / videos / audio, monospace
-function byFormat(bf) {
-  if (!bf) return "";
-  const line = (grp, label) => {
-    const e = Object.entries(bf[grp] || {});
-    return e.length ? `${label}: ${e.map(([x, n]) => `${esc(x)} ${n}`).join(" · ")}` : "";
-  };
-  const rows = [line("photos", "photos"), line("videos", "videos"), line("audio", "audio")].filter(Boolean);
-  return rows.length
-    ? `<details class="more"><summary>By format ▾</summary><div class="k mono" style="line-height:1.8;margin-top:var(--space-2)">${rows.join("<br>")}</div></details>`
-    : "";
-}
-
 // Two date-quality signals, each on its own line and never folded into the plain "no date"
 // count: a placeholder date we refused, and a date that may be a dead camera-clock default.
 // Both render only when non-zero -- a clean library says nothing rather than "0".
@@ -699,6 +686,21 @@ const organizeResult = {
     if (island) island.set(state);
   },
 };
+
+// THE REVERSE SEAM. The unreadable, by-format and skipped blocks are components now
+// (`frontend/src/inventory.tsx`), and the dedup preview and Backups' drive list still compose
+// strings - so they take the same markup as a string from the island rather than from a second
+// copy here. Resolved on every call, like `organizeResult` above: the bundle is a module and loads
+// after this file. Absent is said, not rendered as nothing - a blank block where the unreadable
+// report should be is the silence `(aer)` exists to prevent.
+function orgMarkup() {
+  const m = window.truestillMarkup;
+  if (!m) throw new Error("The React bundle has not loaded, so this result cannot be drawn. Run `make frontend`.");
+  return m;
+}
+// What the island reads back. Published by name because `const` at the top of a classic script
+// is not a window property the way a `function` declaration is.
+window.truestillFormatters = { nfmt, plural, sentence, mediaCount, fmtBytes };
 
 // ---------- the row solver ----------
 // Rows of photographs at a common height, each drawn at its true aspect. A row's height is
@@ -2479,22 +2481,6 @@ async function startOrganizeUndoApply() {
 // `hidden` in core would have left the app silently short, which is precisely the "skipped but
 // never counted" defect the group exists to fix. The engine decides what the groups are; this
 // decides how they look. Keys are snake_case there and read as words here.
-function renderSkippedDetails(sk) {
-  const groups = Object.entries(sk || {})
-    .map(([name, counts]) => [name, Object.entries(counts || {})])
-    .filter(([, entries]) => entries.length);
-  const skTotal = groups.reduce((a, [, entries]) => a + entries.reduce((b, [, n]) => b + n, 0), 0);
-  if (!skTotal) return "";
-  const rows = groups
-    .map(([name, entries]) =>
-      `<tr><td>${esc(name.replace(/_/g, " "))}</td><td class="num">${entries
-        .map(([e, n]) => `${esc(e)} ×${n}`)
-        .join(", ")}</td></tr>`)
-    .join("");
-  return `<details class="more"><summary>${plural(skTotal, "file")} skipped (not photos or videos) ▾</summary>
-    <table class="table"><tbody>${rows}</tbody></table></details>`;
-}
-
 // What Truestill could not read, on the preview that is supposed to predict the run.
 //
 // Both halves render here because they are one question to a user - "did you see everything of
@@ -2518,107 +2504,6 @@ function renderSkippedDetails(sk) {
 // rewrote words here would be the per-surface copy the shared string exists to remove.
 function sentence(text) {
   return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
-function renderUnreadable(s) {
-  const files = s.unreadable_files || { total: 0, shown: [] };
-  // `(aer)`: ONE structure, whose `reason` is a value rather than a field. Hidden folders and
-  // unreadable ones are the same shape - a folder the walk did not enter, named without a count -
-  // and what differs is why and what to do, which the payload carries already worded.
-  const groups = s.skipped_folders || [];
-  // `(aev)`: photos that were organized but never compared for near-duplicates, and the tally of
-  // library chatter this run kept out of its own output. Both arrive already worded.
-  const uncompared = s.uncompared || [];
-  const noise = s.suppressed_diagnostics || null;
-  if (!files.total && !groups.length && !uncompared.length && !noise) return "";
-  const fileRows = files.shown
-    .map((f) => `<div class="mono">${esc(f.name)} - ${esc(f.reason)}</div>`)
-    .join("");
-  // Truncation is never silent: if the payload capped the list, say how many are not shown.
-  const more = files.total > files.shown.length
-    ? `<div class="k">… and ${nfmt(files.total - files.shown.length)} more.</div>` : "";
-  const filesBlock = files.total
-    ? `<div class="b-title">${plural(files.total, "file")} could not be read</div>
-       ${fileRows}${more}
-       <div class="k">Not organized. Fix the permission or check the disk, then preview again.</div>`
-    : "";
-  // ⚠ NO REASON-TO-SENTENCE MAP LIVES HERE, and that is the point of the payload's shape. The
-  // heading and the remedy are worded once in `models.folder_skip_label` / `folder_skip_remedy`
-  // and printed verbatim - the same rule `unreadable_files` already follows for its `reason`.
-  // A map in the browser would have moved `(aer)`'s duplication rather than removed it: this
-  // block used to hold a THIRD copy of the unreadable remedy, worded differently again.
-  const foldersBlock = groups
-    .map((g) => {
-      const rows = g.folders
-        .map((f) => `<div class="mono">${esc(f)} - contents unknown</div>`)
-        .join("");
-      // Truncation is never silent, and the number is of FOLDERS - never of the files inside
-      // them, which is exactly what the walk did not find out.
-      const more = g.total > g.folders.length
-        ? `<div class="k">… and ${nfmt(g.total - g.folders.length)} more.</div>` : "";
-      // ⚠ `sentence()` UPPER-CASES A LETTER; it does not word anything. The shared remedy is a
-      // clause because the CLI prints it inside brackets - `(check the folder's permissions...)` -
-      // and here it follows a full stop, where a lower-case start reads as a typo. Capitalising at
-      // render time is a typographic transform, not a second copy: the string still exists only in
-      // `models`, which is what `test_the_browser_holds_no_folder_wording.py` proves.
-      return `<div class="b-title">${esc(g.label)}: ${nfmt(g.total)}</div>
-       ${rows}${more}
-       <div class="k">Whatever is inside was not counted.</div>
-       <div class="k">${sentence(esc(g.remedy))}.</div>`;
-    })
-    .join("");
-  // ⚠ COUNTED HERE, UNLIKE THE FOLDERS ABOVE, and the two sit side by side on purpose. A folder
-  // the walk never entered has an unknown number of files inside; these files were held and read,
-  // so the number is known exactly. `(aev)`
-  // ⚠ N GROUPS, NOT ONE. `(ahq)` added a second reason a photo lands here - a hash carrying no
-  // distinguishing detail - and a renderer that read `.label` off the payload directly would
-  // have shown the first group and silently dropped the rest. `data-reason` carries the enum so
-  // a test can key on the group without matching its heading; the heading itself is never
-  // built here.
-  const uncomparedBlock = uncompared
-    .map((u) => `<div class="b-title" data-reason="${esc(u.reason)}">${esc(u.label)}: ${nfmt(u.total)}</div>
-       ${u.files.map((f) => `<div class="mono">${esc(f)}</div>`).join("")}
-       ${u.total > u.files.length
-         ? `<div class="k">… and ${nfmt(u.total - u.files.length)} more.</div>`
-         : ""}
-       <div class="k">${sentence(esc(u.remedy))}.</div>`)
-    .join("");
-  // ⚠ SAID RATHER THAN SWALLOWED. Discarding silently would make a run over damaged files look
-  // identical to a clean one - the instrument would be silent in the case it exists for. The two
-  // numbers stay apart because two different mechanisms remove them, and the decoder half is the
-  // larger. Counted rather than shown because the lines name no file: there is nothing to route.
-  const noiseBlock = noise
-    ? `<div class="k">${nfmt(noise.total)} diagnostic lines from the image libraries were not
-       shown: ${nfmt(noise.warnings)} warnings and ${nfmt(noise.decoder_lines)} from the
-       decoders. They name no file.</div>`
-    : "";
-  return `<div class="banner warn" data-testid="org-unreadable"><div>${filesBlock}${foldersBlock}${uncomparedBlock}${noiseBlock}</div></div>`;
-}
-
-function renderInventoryResult(s) {
-  // The cheap tier knows none of the panel's facts (no sizes, no dates), and a stale panel
-  // from a previous folder would be worse than none.
-  renderPanel({});
-  // The unreadable block belongs on THIS tier too, and first. A walk that could not open a
-  // folder has not established that there is nothing in it, so "Nothing to organize here" is
-  // very likely the wrong answer and the reason has to be read before it. The dedup tier has
-  // always done this; the cheap tier dropped the fact on the way out of the service.
-  const unreadable = renderUnreadable(s);
-  if (!s.files) {
-    organizeResult.set({ kind: "configured", html: card(
-      `${unreadable}
-       <div class="banner warn"><div><div class="b-title">Nothing to organize here</div>
-       <div>No photos or videos in this folder - is it the right one?</div></div></div>`
-    ) });
-    return;
-  }
-  organizeResult.set({ kind: "configured", html: card(
-    `<div class="headline">${mediaCount(s)} found</div>
-     <div class="k">${fmtBytes(s.total_bytes || 0)} of media - no dates or duplicates checked yet</div>
-     ${unreadable}${byFormat(s.by_format)}${renderSkippedDetails(s.skipped)}
-     <div class="banner"><div>Next: check for duplicates (reads each file for dates and look-alikes).
-       That is the slow step on a network drive.</div></div>`
-  ) });
 }
 
 // THE PANEL. Facts about the library, never a control: it is not rendered below 1336px, so
@@ -2801,7 +2686,7 @@ function renderOrganizeResult(s) {
     // The unreadable block goes FIRST here: when a folder could not be opened, "nothing to
     // organize" is very likely the wrong answer, and the reason must be read before it.
     organizeResult.set({ kind: "configured", html: card(
-      `${renderUnreadable(s)}
+      `${orgMarkup().unreadable(s)}
        <div class="banner warn"><div><div class="b-title">Nothing to organize here</div>
        <div>No photos or videos in this folder - is it the right one?</div></div></div>`
     ) });
@@ -2813,7 +2698,7 @@ function renderOrganizeResult(s) {
   const kept = Number(s.will_organize) || 0;
   const folders = chipsFor(s.folders);
   const legend = legendFor(s.folders);
-  const details = renderSkippedDetails(s.skipped);
+  const details = orgMarkup().skippedDetails(s.skipped);
   const heic = s.heic_perceptual_skipped ? `<div class="banner warn"><div>${plural(s.heic_perceptual_skipped, "HEIC file")} will be backed up, but near-duplicate detection is unavailable for them.</div></div>` : "";
   const dateQuality = dateQualityNotes(s);
   const inferredShifts = inferredLocalShiftNotes(s);
@@ -2826,7 +2711,7 @@ function renderOrganizeResult(s) {
     : "";
   // Above the tallies too, and for the same reason: a count of what "will be organized" is
   // only as true as the set of files Truestill managed to read.
-  const unreadable = renderUnreadable(s);
+  const unreadable = orgMarkup().unreadable(s);
   renderPanel(s);
   organizeResult.set({ kind: "configured", html: card(
     `<div class="headline">${mediaCount(s)} found</div>
@@ -2836,7 +2721,7 @@ function renderOrganizeResult(s) {
      ${matchListHtml(s.exact_dup_matches, "Show what each duplicate matched")}
      ${matchListHtml(s.near_dup_matches, "Show what each look-alike resembles")}
      ${folders ? `<h3>Into these folders <span style="font-weight:400;color:var(--fg-muted)">- hover a chip for what it means</span></h3><div class="chips">${folders}</div>${legend}` : ""}
-     ${byFormat(s.by_format)}${dateQuality}${inferredShifts}${heic}${details}`
+     ${orgMarkup().byFormat(s.by_format)}${dateQuality}${inferredShifts}${heic}${details}`
   ) });
   return kept;
 }
@@ -2858,7 +2743,11 @@ $("org-preview").onclick = guarded(async () => {
     organizeResult.set({ kind: "resting" });
     $("org-dedup").disabled = true;
     const s = await api("/api/organize/inventory", { source });
-    renderInventoryResult(s);
+    // The cheap tier knows none of the panel's facts (no sizes, no dates), and a stale panel
+    // from a previous folder would be worse than none.
+    renderPanel({});
+    // Drawn by the island from the payload - `frontend/src/inventory.tsx` - not built here.
+    organizeResult.set({ kind: "inventory", inventory: s });
     if (!s.files) {
       setWhy("Nothing to organize in this folder.");
       return;
@@ -3092,7 +2981,7 @@ async function loadDrives() {
   // of its own the moment the drives can disagree with it.
   const summary = drives.length > 1
     ? `<div class="card"><div class="headline" style="font-size:var(--type-lg)">Your library</div>
-    <div class="k mono">${mediaCount(lib)} · ${fmtBytes(lib.bytes)}</div>${byFormat(lib.by_format)}</div>`
+    <div class="k mono">${mediaCount(lib)} · ${fmtBytes(lib.bytes)}</div>${orgMarkup().byFormat(lib.by_format)}</div>`
     : "";
   // A stated risk with no way to act on it is a complaint. Stats offers a button for this
   // exact fact; Backups stated the count and stopped. The remedy lives on THIS screen, so the
