@@ -55,7 +55,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ake). Next free: (akf).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akf). Next free: (akg).**
 **Retired 2026-09-02 (P190), and named here because a retired letter is not a free one:** `(abz)`
 (*"Organize shows one population three ways and connects none of them"*). False before it was
 filed: `app.js:rearrangeNote` (`93635af`, 2026-08-06) prints *"N of M files here are already in
@@ -639,6 +639,18 @@ conditional, and ten rows were absent rather than conditional.
 scripts no gate runs, test corpora, payload typing, documentation keying. These are worth fixing
 and they are not product defects; keeping them in one drawer stops them competing with
 **Build next** for attention.
+
+- **(akf) THE LOCAL BROWSER LANE READS 26-28 MINUTES TODAY AND "5:38" IN THE RECORD, AND THE TWO
+  ARE NOT THE SAME COMMAND.** Filed 2026-09-05, **no work attached, not investigated**. `make e2e`,
+  both engines, serial, ran twice today: **1653 s** (27:33; `1649.04s` inside pytest, one red
+  test) and **1593 s** (26:33; `1588.91s`, green). Commit `0da8f88`'s subject says *"the local
+  lane runs in 5:38"* with no command named; its own table (`PERFORMANCE.md`, the four-run
+  measurement) gives **`-n auto` 338 s / 343 s** and **serial `make e2e` 1587 s / 1598 s**, so
+  today's serial figures sit inside the recorded serial band and the 5:38 is the `-n auto`
+  figure, which `make e2e` does not pass. `handoff-2026-09-04.md` says *"`make e2e -n auto` is
+  **5:15**"*, and no run in the record reads 5:15. **Which record is wrong is unestablished** -
+  the unqualified subject line, the handoff's 5:15, or a reader's assumption that "the lane" means
+  the serial target. [Full entry](research/backlog/akf.md)
 
 - **(ajy) THE 28.4 s WORST CASE THE ASSERTION BUDGET RESTS ON WAS MEASURED ON HARDWARE NOBODY CAN
   IDENTIFY.** Filed 2026-09-03 (P206). `tests/e2e/conftest.py` argues its 30 s budget from
