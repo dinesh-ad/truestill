@@ -308,7 +308,10 @@ exists to prevent.
 - ⚠ **AND WHEN IT IS ON: THE AFFECTED FILES FIRST, THE FULL LANE ONCE** (2026-08-21). Run the
   `tests/e2e/` files whose subject the diff touches - about **two minutes** - and iterate there;
   run the full lane **once, before the commit**, for what the affected files could not see. Never
-  iterate on the full lane. `(aer)` is why: one 28-minute run returned 6 red, and the finding in
+  iterate on the full lane. **Two targets make both halves cheap** (measured 2026-09-05, 16
+  cores): `make e2e-loop` is the whole lane on chromium in parallel, **95 s**, for iterating;
+  `make e2e-fast` is both engines in parallel, **289 s**, for the once-before-the-commit run.
+  `make e2e` itself stays serial (1593 s) because that is the shape CI runs on 4 cores. `(aer)` is why: one 28-minute run returned 6 red, and the finding in
   it - a wording collision two of the failing files assert against directly - was reachable in the
   first two minutes. The other fifty-eight were spent waiting rather than on the work it created.
 - **The CI e2e job runs NIGHTLY and on `workflow_dispatch`, not on push** (re-decided
@@ -342,7 +345,8 @@ exists to prevent.
   `check` lanes are deliberately kept because they are the only thing that sees Windows and macOS,
   and on 2026-08-20 alone they caught `timeout(1)` not existing on BSD and Windows being unable to
   execute a bash script.
-- `make gate` and `make e2e` still work locally and are unchanged; the browser lane stays out of a
+- `make gate` and `make e2e` still work locally and are unchanged, and `make e2e-fast` /
+  `make e2e-loop` are the same lane under `-n auto`; the browser lane stays out of a
   fresh clone's path, and `make check` is green with no browser installed.
   `IMPLEMENTATION_STANDARDS.md` §6.1 is the binding rule.
 - **Proving a guard bites is a separate step from writing it**, and there are two tools.

@@ -461,6 +461,12 @@ jobs:
   # >=1.88x - so the best configuration ever measured is 10.2 min, and it was RED: the assertion
   # budget was exhausted twice ("Expect to_contain_text with timeout 30000ms"), and `(ajm)` fired
   # because xdist lengthens `tmp_path` with a `popen-gwN` component.
+  # ⚠ 2026-09-05: NOT ESTABLISHED that the budget was the cause. The second sample's other
+  # failure was `test_the_confirm_word_names_the_run.py` at "already organized", and that was the
+  # gate defect fixed in `9c29c50` (the wait was satisfied by the preview card, and the second
+  # duplicate check was refused DriveBusy while the run still held the drive) - a failure that
+  # needs no budget to fire. Re-run the `-n auto` experiment before citing this record as the
+  # reason the lane stays serial. Nothing above is deleted; it is what was measured.
   #
   # The replacement is TWO STAGES, and `IMPLEMENTATION_STANDARDS.md` 6.1 is the binding form:
   # FAST every push (`make check`, ~40 s over the whole suite, plus contract guards that catch browser

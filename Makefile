@@ -26,7 +26,7 @@ MYPY_TESTS := --config-file mypy-tests.toml
 # Checking win32 here costs about four seconds and moves that finding to the inner loop.
 MYPY_PLATFORMS := linux win32
 
-.PHONY: install lint format format-check typecheck dash-check name-check redirect-check test test-order check build dryrun e2e e2e-install
+.PHONY: install lint format format-check typecheck dash-check name-check redirect-check test test-order check build dryrun e2e e2e-install e2e-fast e2e-loop
 
 install:
 	uv sync --all-packages --group dev
@@ -187,8 +187,21 @@ e2e: frontend
 		--tracing retain-on-failure --video retain-on-failure \
 		--output tests/e2e/.artifacts $(E2E_EXTRA),$(E2E_SECONDS_MAX),the browser lane,E2E_SECONDS_MAX)
 
+# The same lane under `-n auto`, both engines - run before a commit that reaches a screen.
+# Measured 2026-09-05 on 16 cores: 289 s against 1593 s serial, all green, longest call 14.16 s
+# under the 30 s assertion budget. `e2e` stays serial: that is the shape CI runs on 4 cores.
+e2e-fast:
+	@$(MAKE) --no-print-directory e2e E2E_EXTRA="-n auto $(E2E_EXTRA)"
+
+# The iterating loop: chromium only, under `-n auto`. Measured 2026-09-05 on 16 cores: 95 s.
+# `-k chromium` deselects the webkit cases, so `e2e-fast` before the commit is what sees them.
+e2e-loop:
+	@$(MAKE) --no-print-directory e2e E2E_EXTRA="-n auto -k chromium $(E2E_EXTRA)"
+
 # THE MIGRATION'S EARLY-WARNING SET, and the reason it is a target rather than a note.
-# These 96 tests belong to no screen, so no screen's commit carries them - and an island landing
+# The tests marked `shell` (`$(PYTHON) pytest tests/e2e -m shell --collect-only -q` counts them;
+# a number written here said 96 while it collected 111) belong to no screen, so no screen's
+# commit carries them - and an island landing
 # on a DIFFERENT screen changes the DOM around them without touching a line of their own. Run
 # after every island lands; the final gate is the run that cannot tell you which island broke
 # them. Chromium only on purpose: this is the fast loop, and `make gate` still runs both engines.
