@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 import uuid
 from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict, cast
 
@@ -56,6 +57,7 @@ from truestill_core.organizer import (
     Relocation,
     RunStoppedError,
     SourceScan,
+    _scope_to_destination,
     discover,
     execute,
     heavy_days_for_organize,
@@ -1042,7 +1044,18 @@ def organize_preview(
         # Inside the open catalog, because it asks the catalog. Two index seeks over the
         # matched hashes; the preview has just hashed every file, so this is not the cost.
         matched_drives = _matched_drives(catalog, resolutions)
-    core = _summarize(resolutions, skip_undated=skip_undated)
+        on_destination = _scope_to_marker(destination, catalog)
+    # ONE RESOLVE, TWO ANSWERS - `DECISIONS.md` D14. The pass above is catalog-global on purpose:
+    # `matched_drives` and `exact_dup_matches` are the LIBRARY's answer ("these are already in
+    # your library, on X"), which `IMPLEMENTATION_STANDARDS.md` §9 requires the preview to name.
+    # The PROMISE - what the run will write into THIS destination - is `(aei)`'s answer, and the
+    # run scopes it through `_scope_to_marker`. Until 2026-09-05 the preview gave only the first,
+    # so a fresh second destination was promised "0 files" and then received every one.
+    promise = _promise_view(resolutions, on_destination)
+    core = _summarize(promise, skip_undated=skip_undated)
+    # The duplicate report keeps the library's view: it is what names where the twins live and
+    # what the rearrange pointer counts. The tally and the promise above are the destination's.
+    core["exact_dup_matches"] = _duplicate_report(resolutions, near=False)
     # TypedDict ** spread cannot prove NotRequired keys; build then cast (mypy strict).
     summary = cast(
         OrganizePreviewSummary,
@@ -1060,10 +1073,35 @@ def organize_preview(
             "matched_drives": matched_drives,
         },
     )
-    limit = _destination_limit(resolutions, destination)
+    limit = _destination_limit(promise, destination)
     if limit is not None:
         summary["destination_limit"] = limit
     return summary
+
+
+def _promise_view(
+    resolutions: list[Resolution], on_destination: dict[str, str]
+) -> list[Resolution]:
+    """Re-judge each exact match against THIS destination, exactly as the run will.
+
+    Same function, same inputs, same order as `organizer.resolve`'s own loop, so the verdicts
+    are the run's verdicts: a catalog twin absent from this destination is not a duplicate for
+    the promise, a twin this run is already writing here (`landing_here`) still is, and a
+    within-batch twin is always honoured. Nothing is re-hashed and nothing is resolved twice;
+    the near-duplicate verdict is untouched because bytes that match exactly are simply not
+    here, which is not a look-alike.
+    """
+    landing_here: set[str] = set()
+    judged: list[Resolution] = []
+    for r in resolutions:
+        sha = r.hashes.sha256
+        exact = r.exact_duplicate
+        if exact is not None:
+            exact = _scope_to_destination(exact, sha, on_destination, landing_here)
+        if exact is None and sha is not None:
+            landing_here.add(sha)
+        judged.append(replace(r, exact_duplicate=exact))
+    return judged
 
 
 def organize_preview_run(

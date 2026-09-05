@@ -816,3 +816,47 @@ met before it was acted on.
 **Status:** Adopted. The next question is 3.15 (2026-10-01), and the machinery for judging it is
 already in place: an allowed-to-fail matrix leg, which is why it was kept rather than deleted.
 
+## D14. The organize preview resolves once, unscoped, and re-judges for the promise
+
+**Decided 2026-09-05**, from a defect found by using the product: a source already organized into
+one folder, previewed against a fresh second folder, was promised *"0 files will be organized ...
+259 of 260 files here are already in your library"*, and the run past the gate wrote every file.
+
+### Two rulings, both binding, that pulled the preview apart
+
+- `(aei)`: dedup is scoped **per destination**, never per catalog. A twin the library holds on X is
+  not a duplicate for a run into Y; it is the second copy the run exists to make. The run has
+  honoured this since `(aei)` shipped, through `service/organize._scope_to_marker`.
+- `IMPLEMENTATION_STANDARDS.md` §9, *"A preview that finds almost everything already in the
+  library says so, names WHICH library, and points at rearranging"*: the preview must report that
+  the library already holds these files, on which drive, and offer to rearrange rather than
+  re-copy. That report is derived from the catalog-global matches.
+
+Scoping the preview's single `resolve` to the destination - the one-argument fix, tried and
+measured 2026-09-05 - makes the promise true and empties the naming: `_matched_drives` reads the
+exact matches, and a scoped pass returns no match for a twin absent from this destination. Four
+tests in `test_the_preview_names_the_drive.py` go red. The two rulings cannot both hold on one
+answer.
+
+### The shape: one pass, two derived answers
+
+`organize_preview` resolves **once, catalog-global**. Those matches feed `matched_drives`,
+`exact_dup_matches` and the rearrange pointer, unchanged. Then `_promise_view` re-judges each
+exact match against this destination with the same function the run uses,
+`organizer._scope_to_destination`, over `_scope_to_marker(destination, catalog)`, in the run's
+order, with the run's `landing_here`. The tally and `will_organize` come from that view. The card
+can therefore say *"3 of 3 files here are already in your library on Library"* and *"3 files will
+be organized into Library2"* in one breath, because both are true.
+
+**Not two resolves.** The re-judgement is a pass over verdicts already made; nothing is hashed or
+matched again, so preview cost is unchanged and the two answers cannot drift from one another.
+
+### The direction of travel, not taken now
+
+restic implements `--dry-run` as an overlay backend that accepts writes without forwarding them:
+the dry run **is** the run, so the two cannot disagree, and its output reports both a file's known
+status and what would actually be written. Truestill's preview and run are two code paths that
+drifted once already. The overlay shape - the preview executing the run's own decision path
+against a destination that records instead of writes - is where this should go; it is a refactor
+of `organize_run`'s loop and is not attempted here.
+

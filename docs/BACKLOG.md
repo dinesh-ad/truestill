@@ -55,7 +55,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akf). Next free: (akg).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akg). Next free: (akh).**
 **Retired 2026-09-02 (P190), and named here because a retired letter is not a free one:** `(abz)`
 (*"Organize shows one population three ways and connects none of them"*). False before it was
 filed: `rearrangeNote` in `app.js` (`93635af`, 2026-08-06; `RearrangeNote` in `frontend/src/preview.tsx` since 2026-09-05) prints *"N of M files here are already in
@@ -1292,6 +1292,17 @@ here because a lost answer key corrupts every measurement taken against it, whic
 
 - **(xx) Absolute-path columns and hash-cache keys are not machine-portable.** [Full
   entry](research/backlog/xx.md)
+
+- **(akg) THE IMPORT SCREEN DEDUPS AGAINST THE WHOLE CATALOG, NOT THE DESTINATION, AND WHETHER
+  THAT IS A DEFECT IS UNESTABLISHED.** Filed 2026-09-05, **no work attached, not investigated**.
+  `service/takeout.py` resolves without `on_destination` in both `ingest_preview` and
+  `ingest_preview_run`, the only two `resolve` calls on that screen, so an import into a second
+  drive skips whatever the first drive already holds - the shape `(aei)` fixed for `organize`,
+  first on the run and, on 2026-09-05, on the preview. Preview and run agree with each other
+  there, so no promise breaks; the question is the semantics. `(aei)`'s tests cover `organize`
+  only. Whether Import means "into this destination" or "into the library" decides it, and
+  nothing here says which. [Full entry](research/backlog/akg.md)
+
 
 - **(aal) How often is the machine wrong about dates, and about what?** Recorded 2026-07-31. [Full
   entry](research/backlog/aal.md)

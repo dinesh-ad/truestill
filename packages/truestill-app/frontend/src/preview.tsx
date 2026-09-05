@@ -38,6 +38,10 @@ export interface PreviewView {
     | { kind: "none" }
     | { kind: "stays"; n: number }
     | { kind: "rearrange"; n: number; moving: boolean; path: string };
+  /** The destination folder's own name, so the promise says where; "" when unknown. */
+  destinationLabel: string;
+  /** The library already holds these files AND this run will write them here - both true. */
+  copiesAgain: boolean;
 }
 
 /** The fields the date-quality notes read; the Import preview carries the same three. */
@@ -204,11 +208,13 @@ function RearrangeNote({
   n,
   moving,
   path,
+  view,
 }: {
   s: PreviewSummary;
   n: number;
   moving: boolean;
   path: string;
+  view: PreviewView;
 }): React.JSX.Element {
   const { nfmt } = formatters();
   const drives = s.matched_drives?.drives ?? [];
@@ -220,6 +226,9 @@ function RearrangeNote({
           {nfmt(n)} of {nfmt(Number(s.files) || 0)} files here are already in your library
           {rearrangeWhere(drives)}. Organizing this folder again will not change how they are
           arranged.{moving ? " They stay where they are." : ""}
+          {view.copiesAgain
+            ? ` Organizing into ${view.destinationLabel || "this folder"} copies them again.`
+            : ""}
         </div>
         <div>
           To arrange your library differently - by year, by month, by event - rearrange it where it
@@ -240,7 +249,8 @@ function RearrangeNote({
 function AlreadyNote({ s, view }: { s: PreviewSummary; view: PreviewView }): React.JSX.Element | null {
   const a = view.already;
   if (a.kind === "none") return null;
-  if (a.kind === "rearrange") return <RearrangeNote s={s} n={a.n} moving={a.moving} path={a.path} />;
+  if (a.kind === "rearrange")
+    return <RearrangeNote s={s} n={a.n} moving={a.moving} path={a.path} view={view} />;
   const { nfmt } = formatters();
   const subject = a.n === 1 ? "file here is" : "files here are";
   const stays = a.n === 1 ? "It stays where it is." : "They stay where they are.";
@@ -288,7 +298,8 @@ function Tally({ s, view }: { s: PreviewSummary; view: PreviewView }): React.JSX
           ))}
       </div>
       <div className="k" data-testid="org-will-organize">
-        {plural(Number(s.will_organize) || 0, "file")} will be organized.
+        {plural(Number(s.will_organize) || 0, "file")} will be organized
+        {view.destinationLabel ? ` into ${view.destinationLabel}` : ""}.
       </div>
       {undatedCount > 0 ? (
         view.skippingUndated ? (

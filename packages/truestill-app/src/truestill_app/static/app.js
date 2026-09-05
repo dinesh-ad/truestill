@@ -2551,7 +2551,14 @@ function previewView(s) {
   } else if (n && moving) {
     already = { kind: "stays", n };
   }
-  return { skippingUndated, already };
+  // The card names the destination the promise is about, because the promise and the "already
+  // in your library" line can now both be true of one folder - the library holds these files
+  // on X, and organizing into Y writes them again. The label is the folder's own name, read
+  // from the form; the payload carries no destination path. `DECISIONS.md` D14.
+  const destPath = s.mode === "inplace" ? $("org-source").value.trim() : $("org-dest").value.trim();
+  const destinationLabel = destPath.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || destPath;
+  const copiesAgain = already.kind === "rearrange" && (Number(s.will_organize) || 0) > 0;
+  return { skippingUndated, already, destinationLabel, copiesAgain };
 }
 
 // Shared by preview and run: both are cancellable jobs, and Cancel needs the current one.
