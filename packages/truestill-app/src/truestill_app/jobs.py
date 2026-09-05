@@ -341,7 +341,7 @@ def _busy_payload(occupant: _Occupant, contested_label: str) -> DriveBusyPayload
     return {
         "ok": False,
         "error": (
-            f"A {occupant.operation} is already running on {occupant.drive_label}. "
+            f"{occupant.drive_label} is busy: {occupant.operation} is already running. "
             f"Wait for it to finish, or cancel it, before starting another operation "
             f"on {contested_label}."
         ),

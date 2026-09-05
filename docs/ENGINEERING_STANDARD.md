@@ -401,6 +401,8 @@ and counts are the one thing this section has drifted on repeatedly. Search the 
   says it ran.
 - Three points is not a trend, and a live metric is not a constant.
 - Errors.
+- A gate and an assertion are different jobs, and a phrase the screen shows before the awaited
+  action can never be a gate.
 
 - **Idioms (Python 3.14, standard build).** `pathlib.Path` for all path manipulation - never
   `os.path.*` in source (an audit on 2026-07-29 found zero call sites; this codifies that
@@ -3176,6 +3178,42 @@ and counts are the one thing this section has drifted on repeatedly. Search the 
   > duplicates the library on the next run. Such a failure is a **reported stop** - what landed,
   > what was recorded, the difference, and where to go - and it stops writing further bytes too.
   > This is the same promise applied to a different cost, not a weaker one. `(afe)`
+
+- **A gate and an assertion are different jobs, and a phrase the screen shows before the awaited
+  action can never be a gate.** The eighty-seventh member, recorded 2026-09-05 from run
+  33947262070, the first browser-lane run after two CSS commits - and the CSS was innocent.
+
+  **The tell.** A wait that passes in 10 ms. `test_the_confirm_word_names_the_run.py` clicked the
+  run and waited for *"organized"* in `#org-result` with a 60 s budget; the trace shows the wait
+  satisfied 10 ms after the click, because the preview card had already written *"3 files will be
+  organized."* into that region. The test went on to post a second duplicate check while the first
+  run still held the drive, the server refused it with `DriveBusy`, and the assertion that mattered
+  polled `#org-why` 123 times against text that could never change. Three gates had the shape -
+  two on Organize, one on Backups waiting for *"3 photos · 1 video"*, which the backup preview
+  writes before the run - and one of the three went red first, on WebKit, on a 4-core runner,
+  which is how a timing-only defect chooses its day.
+
+  > **The mechanism: prose is copy, and the copy is on screen before the run as well as after
+  > it.** A preview card and a completion card describe the same files in the same words, so a
+  > substring of one is very often a substring of the other. A wait on prose is then a wait on
+  > nothing, and a copy edit can turn a synchronisation point green without anyone touching a test.
+
+  *What to do instead:* a **gate** reads a state marker the completion renderer sets and the
+  preview does not - `.done-mark`, emitted only by `completionCard` in `app.js`, whose only callers
+  are the two completion renderers. An **assertion** keeps reading the prose the user sees, because
+  that prose is the thing under test. The two halves of the class are held apart on purpose:
+  `tests/e2e/test_the_preview_does_not_pre_satisfy_the_run_gate.py` shows the marker absent once
+  the preview has rendered and present once the run has finished, on a page, in the browser lane;
+  `test_run_gates_read_the_completion_marker.py` pins the three gates to the marker with no
+  browser, so a gate reverted to prose is red in `make check` on the push rather than at the next
+  nightly.
+
+  ⚠ **The marker is a class shared with a style hook.** `.done-mark` in `app.css` is also the
+  "DONE" kicker's styling, so a restyle that renames it takes the three gates with it - they time
+  out rather than passing early, which is the right failure, and the pin is what names the cause.
+  An attribute on the region would not carry that coupling; it was not added because
+  `#org-result` is owned by the React island, and that is a bundle change for a distinction the
+  DOM already carried.
 
 ## 5. When to break a rule
 

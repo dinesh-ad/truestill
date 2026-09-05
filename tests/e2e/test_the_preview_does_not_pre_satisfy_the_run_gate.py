@@ -10,9 +10,10 @@ in `#bk-result`, which the backup preview writes there before the run.
 
 The ruling: a gate reads a state marker the completion renderer sets and the preview does not;
 prose stays for assertions. The marker is `.done-mark`, emitted only by `completionCard` in
-`app.js`, whose only callers are `organizeCompletion` and `backupCompletion`. Two tests here show
-the marker is absent once the preview has rendered and present once the run has finished; the
-third pins the three gates to it, so a gate reverted to prose goes red without a browser.
+`app.js`, whose only callers are `organizeCompletion` and `backupCompletion`. The two tests here
+show the marker is absent once the preview has rendered and present once the run has finished.
+`packages/truestill-app/tests/test_run_gates_read_the_completion_marker.py` pins the three gates
+to the marker without a browser, so a gate reverted to prose is red in `make check`.
 """
 
 from __future__ import annotations
@@ -21,12 +22,6 @@ from pathlib import Path
 
 from e2e_support import open_backups
 from playwright.sync_api import Page, expect
-
-_GATES = (
-    ("test_the_confirm_word_names_the_run.py", "#org-result .done-mark"),
-    ("test_busy_state.py", "#org-result .done-mark"),
-    ("test_ui_regressions.py", "#bk-result .done-mark"),
-)
 
 
 def test_the_organize_gate_is_not_already_satisfied_by_the_preview(
@@ -79,12 +74,3 @@ def test_the_backup_gate_is_not_already_satisfied_by_the_preview(
 
     ui.click("#bk-run")
     expect(ui.locator("#bk-result .done-mark")).to_be_visible(timeout=60_000)
-
-
-def test_the_three_run_gates_read_the_marker() -> None:
-    here = Path(__file__).parent
-    for name, marker in _GATES:
-        text = (here / name).read_text(encoding="utf-8")
-        assert f'expect(ui.locator("{marker}"))' in text, (
-            f"{name}: the run gate no longer waits on {marker}"
-        )

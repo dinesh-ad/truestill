@@ -19,7 +19,7 @@ is what resolves the pointer.
 0. [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) - **start here.** Where the project
    stands, what ships next, and the standing rules. Read it before doing anything else.
 1. [`docs/ENGINEERING_STANDARD.md`](docs/ENGINEERING_STANDARD.md) - the portable canon.
-   ⚠ **§4 IS A LOOKUP TABLE - READ ITS INDEX, NOT ALL OF IT.** *The members at a glance* is 86
+   ⚠ **§4 IS A LOOKUP TABLE - READ ITS INDEX, NOT ALL OF IT.** *The members at a glance* is 87
    lines at the top of §4 and each is a member's own opening sentence, held there by
    `test_the_code_standard_index_matches_its_members.py`. Read the index, open the member that
    applies, take the rule from the member. §1-3 and §5 are short and are read in full.
