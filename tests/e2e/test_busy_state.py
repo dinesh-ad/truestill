@@ -241,7 +241,9 @@ def test_backup_preview_busy_re_enables(ui: Page, tmp_path: Path, library) -> No
     # flow is in the default copy mode. Changed with the fix that made the word mode-aware.
     ui.fill("#org-confirm [data-typed-confirm]", "copy")
     ui.click("#org-confirm [data-typed-go]")
-    expect(ui.locator("#org-result")).to_contain_text("organized", timeout=60_000)
+    # The marker, not the prose: the preview card already says "will be organized" into this
+    # region, so a wait on that word was satisfied before the run started (run 33947262070).
+    expect(ui.locator("#org-result .done-mark")).to_be_visible(timeout=60_000)
 
     # NOT a bare screen switch: `loadDrives` and `loadCustody` rewrite this screen on arrival
     # and the controls sit below what they write, so filling and clicking while that is in

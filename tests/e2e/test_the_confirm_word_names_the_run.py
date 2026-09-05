@@ -98,7 +98,9 @@ def test_a_run_with_nothing_to_organize_says_so_instead_of_asking_for_a_word(
     _preview_and_check(ui, source, dest)
     ui.fill("#org-confirm [data-typed-confirm]", "copy")
     ui.click("#org-confirm [data-typed-go]")
-    expect(ui.locator("#org-result")).to_contain_text("organized", timeout=60_000)
+    # The marker, not the prose: the preview card already says "will be organized" into this
+    # region, so a wait on that word was satisfied before the run started (run 33947262070).
+    expect(ui.locator("#org-result .done-mark")).to_be_visible(timeout=60_000)
 
     _preview_and_check(ui, source, dest)  # again: everything is now a duplicate
 

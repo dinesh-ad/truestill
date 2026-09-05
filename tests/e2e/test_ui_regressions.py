@@ -772,6 +772,9 @@ def test_a_finished_copy_splits_photos_and_videos_without_form_letter_grammar(
     ui.click("#bk-preview")
     expect(ui.locator("#bk-run")).to_be_visible()
     ui.click("#bk-run")
+    # The marker, not the prose: the backup preview already writes "3 photos · 1 video" into this
+    # region, so the wait below was satisfied before the run started.
+    expect(ui.locator("#bk-result .done-mark")).to_be_visible(timeout=60_000)
 
     result = ui.locator("#bk-result")
     expect(result).to_contain_text("3 photos · 1 video")
