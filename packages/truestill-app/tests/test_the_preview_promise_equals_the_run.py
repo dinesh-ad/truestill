@@ -134,3 +134,31 @@ def test_the_promise_is_one_number_not_two(tmp_path: Path) -> None:
         "with nothing skipped the promise is the organized set; if this ever needs a second "
         "expression to compute, the two surfaces have started deriving it again"
     )
+
+
+def test_the_promise_holds_for_a_fresh_second_destination(tmp_path: Path) -> None:
+    """`(aei)` on the preview: a destination the catalog has never seen is promised the files.
+
+    Found by using the product on 2026-09-05. The source had been organized into one folder;
+    previewed against a second, empty folder, the card said *"0 files will be organized ... 259 of
+    260 files here are already in your library"*, and the run, past the gate, wrote every file.
+    `organize_run` scopes dedup to the destination through `_scope_to_marker` - `(aei)`'s fix -
+    while `organize_preview` resolves with no scope and answers the catalog-global question that
+    fix retired. Two answers to one question, and the screen shows the wrong one.
+
+    The three cases above preview and run into the SAME destination, where the two scopes cannot
+    disagree, which is how this escaped the invariant that exists to forbid it.
+    """
+    source = _library_with_a_look_alike(tmp_path)
+    db = tmp_path / "c.sqlite"
+    first = _run(source, tmp_path / "one", db)
+    # The fixture must be in the catalog already, or the second destination is not "second".
+    assert first["organized"] == 3, f"the first destination did not take the fixture: {first}"
+
+    preview = _preview(source, tmp_path / "two", db)
+    done = _run(source, tmp_path / "two", db)
+    assert preview["will_organize"] == done["organized"], (
+        f"into a fresh second destination the preview promised {preview['will_organize']} and "
+        f"the run organized {done['organized']} - the preview judged against the whole catalog, "
+        f"the run against this destination"
+    )
