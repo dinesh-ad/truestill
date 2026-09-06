@@ -55,7 +55,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akh). Next free: (aki).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aki). Next free: (akj).**
 **Retired 2026-09-02 (P190), and named here because a retired letter is not a free one:** `(abz)`
 (*"Organize shows one population three ways and connects none of them"*). False before it was
 filed: `rearrangeNote` in `app.js` (`93635af`, 2026-08-06; `RearrangeNote` in `frontend/src/preview.tsx` since 2026-09-05) prints *"N of M files here are already in
@@ -661,6 +661,18 @@ and they are not product defects; keeping them in one drawer stops them competin
   React arc does not touch. ⚠ **ONE OCCURRENCE IS NOT A DISTRIBUTION**, so nothing is proposed
   here. **If it recurs the next step is a census of runs since the last red, not a fix** - §4's
   twenty-fifth and twenty-sixth members. [Full entry](research/backlog/akh.md)
+
+- **(aki) THE THREE REGIONS LEFT AROUND `#org-result` ARE ALL HELD BY SHARED MACHINERY.** Filed
+  2026-09-06 (P249), **slice refused rather than half-built**. The typed confirm, the undo panel
+  and the progress card were scoped as the next React slice; each is built from a helper six other
+  screens use. `<template id="tpl-run">` is cloned into **8 mounts** across org, ev, rc, verify,
+  bk, mig, bake and undo; `typedConfirm` has **6 callers** across Organize, Trips, Settings and
+  Bake; `startRefusedCard` has **11 uses** over 8 target fields. Porting any of them drags those
+  screens into an island scoped to Organize; leaving a host for `app.js` to mount into gives one
+  node two owners, which is what the folder-chips defect already cost a day. ⚠ **The next slice is
+  a DIFFERENT SHAPE from the last three** - convert by shared widget, or convert the other screens
+  first, or accept a two-owner node behind a guard nobody has written - **and choosing is a ruling,
+  not an implementation detail.** [Full entry](research/backlog/aki.md)
 
 - **(ajy) THE 28.4 s WORST CASE THE ASSERTION BUDGET RESTS ON WAS MEASURED ON HARDWARE NOBODY CAN
   IDENTIFY.** Filed 2026-09-03 (P206). `tests/e2e/conftest.py` argues its 30 s budget from
