@@ -78,7 +78,17 @@ code,
      --rail-success   8.27 ->  8.39:1
      --rail-accent    9.17 ->  9.57:1
    The three structural values carry no AA floor - they separate surfaces rather than paint text -
-   and are re-derived for the same family at the same separation. */
+   and are re-derived for the same family at the same separation.
+
+   ⚠ **AND THE TWO INDIGO ONES WENT ROSE ON 2026-09-06.** The mark and the active state had
+   already turned rose while the icons, the wordmark dot and the active edge stayed indigo, so
+   the rail carried two accent families at once - the mark saying one thing and the icons beside
+   it saying another. Both are re-measured against #101012 and both land where they were:
+     --rail-accent          #b3b8ee  9.96:1  ->  #fda4af  10.05:1
+     --rail-active-border   #5f669b  3.49:1  ->  #a8465c   3.34:1
+   `--rail-accent` takes the value the dark theme already uses for `--accent`, so the rail and
+   the dark palette stop disagreeing about what rose is. The edge keeps its relationship to the
+   accent - the same hue held back - and keeps clearing WCAG 2.2 1.4.11's 3:1 for non-text UI. */
 :root {
   /* NEAR-BLACK, ruled 2026-09-06. This was #17150f, a warm brown-grey that read as an
      undecided colour rather than as a decision - dark enough to be dark, warm enough to look
@@ -98,10 +108,10 @@ code,
      a second accent. It lives HERE rather than in `tokens.css` because the whole `--rail-*`
      group does: `test_rail_shell.py` records that the rail is theme-independent, so its tokens
      "sit outside the light/dark ladder" and splitting one off would break that grouping. */
-  --rail-active-border: #5f669b; /* 3.36:1 vs the rail */
+  --rail-active-border: #a8465c; /* 3.34:1 vs the rail - see the note above */
   --rail-hover-bg: #1a1a1f; /* 1.11:1 */
   /* Also paints the wordmark's accent dot and the pillar T, so it moves with them. */
-  --rail-accent: #b3b8ee; /* 9.57:1 */
+  --rail-accent: #fda4af; /* 10.05:1 on #101012 */
 }
 
 /* RULE 1 OF 2: above the breakpoint the shell is exactly the viewport, so `.main` scrolls and
