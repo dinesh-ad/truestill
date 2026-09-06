@@ -114,6 +114,25 @@ This is testable on the engine with the gap: **the WebKit half of the browser la
 solid-first design, so a screenshot assertion there is asserting the fallback.** That is the only
 arrangement where the fallback is not taken on trust.
 
+## 5b. ⚠ CHROME ONLY, and no library may supply it - `DECISIONS.md` D15
+
+**Ruled 2026-09-06 and not to be re-litigated.** Glass goes on the **rail, the top bar and
+floating panels**, over the controlled gradient. **Content that is read sits on a solid surface** -
+the grid card, the tally, the amber notices. Setproduct's 2026 guide rules the effect out as a
+layout foundation and in as an accent on chrome over a controlled gradient; Apple's Liquid Glass
+failed Apple's own usability testing and is still being reworked in the iOS 27 beta, which is what
+a foundation made of glass costs.
+
+**The technique is the pre-2022 one and uses no `backdrop-filter`**: layered translucency, a
+hairline gradient border via `background-clip`, an inner highlight, a soft shadow, and - where a
+real blur is wanted - a blurred copy of the gradient behind the panel, because `filter: blur()`
+paints in WebKit and the backdrop variant does not (`(ake)`, corroborated by block/buzz PR #3533
+and Tauri #2976/#2827).
+
+⚠ **No glassmorphism library, generator or component may be adopted.** shadcn.io's glass navbar,
+superdesign.dev's generator and every library checked emit `backdrop-filter`, which is the whole
+implementation rather than a detail to patch. D15 carries the ruling in full.
+
 ## 6. ⚠ Where glass is refused even if asked - and the one departure from the preview
 
 **Never behind a form field, and never behind text a person reads while typing.**

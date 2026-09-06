@@ -860,3 +860,57 @@ drifted once already. The overlay shape - the preview executing the run's own de
 against a destination that records instead of writes - is where this should go; it is a refactor
 of `organize_run`'s loop and is not attempted here.
 
+
+## D15. Glass is for CHROME ONLY, it is built without `backdrop-filter`, and no library may supply it
+
+**Decided 2026-09-06.** Recorded because it has been argued twice from taste and would be argued
+again the first time someone opens a component gallery. The ruling has three parts and each has a
+different reason, so they can be re-opened separately or not at all.
+
+### 1. Chrome only. Content that is read sits on a solid surface
+
+Glassmorphism is applied to the **rail, the top bar and floating panels**, over the controlled
+gradient this product owns. It is refused on **anything a person reads to make a decision** - the
+grid card, the tally, the amber notices - which sit on a solid surface.
+
+**Source**: Setproduct's 2026 glassmorphism guide rules the effect out as a layout foundation and
+in as an accent on chrome over a controlled gradient. The gradient being *controlled* is the whole
+condition: translucency is only computable when you own what is behind it. **Apple's Liquid Glass
+is the counter-example, not the precedent** - it failed Apple's own usability testing and is still
+being reworked through the iOS 27 beta, which is what a foundation made of glass costs.
+
+This is the same conclusion `design-system.md` §6 reached from a different direction - never
+behind a form field, because a path is checked character by character - and the two now agree in
+writing rather than by coincidence.
+
+### 2. Built WITHOUT `backdrop-filter`, because WebKit reports it and does not paint it
+
+`(ake)`, measured: WebKit answers `true` to `@supports (backdrop-filter: blur(1px))` and paints
+nothing, so the feature query is a guard that cannot fire. Corroborated outside this project by
+block/buzz PR #3533 and Tauri #2976 and #2827 - the same gap, found independently by three
+codebases. **`filter: blur()` DOES work in WebKit**; it is the *backdrop* variant that is missing.
+
+**The technique is the pre-2022 one**, and it is what `--glass-bg`, `--glass-border` and
+`--glass-shadow` already encode:
+
+- layered translucency, as a real colour rather than as a filter result;
+- a hairline gradient border, via `background-clip`;
+- an inner highlight;
+- a soft shadow;
+- and where a real blur is wanted, **a blurred copy of the gradient placed behind the panel**,
+  which is `filter: blur()` on an element and therefore paints everywhere, rather than a filter on
+  the backdrop.
+
+⚠ **`backdrop-filter` may remain as a progressive enhancement on chrome that is already complete
+without it, and nowhere else.** §5's rule is the binding form: *"every glass surface must be
+complete, legible and correct with `backdrop-filter` doing nothing."* Two declarations in
+`app.css` sit inside that licence today - `.modal-backdrop` and `.panel`, both chrome, both
+carrying a real `--glass-bg` that stands alone. A third would need this section re-opened.
+
+### 3. No glassmorphism library, generator or component may be adopted
+
+Checked 2026-09-06: **shadcn.io's glass navbar, superdesign.dev's generator and every
+glassmorphism library examined emit `backdrop-filter`.** That is not a detail to patch after
+installing - it is the whole implementation, and on the engine this product must support it
+renders nothing. **None may be adopted**, and the refusal is recorded here rather than left to be
+rediscovered, which is exactly what `D12` says about Aceternity.
