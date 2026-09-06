@@ -36,10 +36,18 @@ from playwright.sync_api import Page, expect
 pytestmark = pytest.mark.shell
 
 # Every element here is declared `var(--family-mono)` in app.css.
-#   .wordmark-text  - the mark itself
-#   .custody .line  - a real sentence, and where WARN_MARK (U+26A0) lands
-#   .custody .pips  - U+25AA / U+25AB, the glyphs that eliminated IBM Plex Mono
-MONO_SURFACES = (".wordmark-text", ".custody .line", ".custody .pips")
+#   .wordmark-text        - the mark itself
+#   .custody .catalog-path - a filesystem path, the one thing in the strip that earns monospace
+#   .custody .pips        - U+25AA / U+25AB, the glyphs that eliminated IBM Plex Mono
+#
+# ⚠ `.custody .line` WAS HERE and is not any more, 2026-09-06. It is a sentence - "412 files in
+# only one place have every copy on ONE device..." - and monospace turned it into six ragged
+# lines of code-looking text, which is why the strip was rebuilt. The rule this file asserts is
+# unchanged and so is every assertion: the bundled face must be what rasterises WHERE MONO IS
+# USED. The line stopped being one of those places, so it left the list; the path it contains is
+# still mono and takes its place, which keeps WARN_MARK's neighbourhood under test through
+# `.custody .pips`.
+MONO_SURFACES = (".wordmark-text", ".custody .catalog-path", ".custody .pips")
 
 EXPECTED_FAMILY = "DejaVu Sans Mono"
 

@@ -492,10 +492,15 @@ svg.ico {
 .custody .pips.none {
   color: var(--rail-muted);
 }
+/* SANS, NOT MONOSPACE. This is a SENTENCE - "412 files in only one place have every copy on ONE
+   device..." - and monospace turned it into six ragged lines of code-looking text in the corner
+   of the rail, which is what made it the ugliest thing in the product. Monospace stays where it
+   earns itself: the catalog path below, which is a path. The line-height opens up because a
+   sentence at 12px needs it and a column of counts did not. */
 .custody .line {
   margin-top: var(--space-3);
-  font-family: var(--family-mono);
   font-size: var(--type-xs);
+  line-height: 1.55;
   color: var(--rail-muted);
   min-width: 0;
   overflow: hidden;
@@ -521,6 +526,8 @@ svg.ico {
 }
 /* Risk tone on the rail. #e0a83f measures 8.48:1 there; --warning #c98a1a is 6.15:1 but was
    tuned against white, so it is re-derived here like the rest of the rail's colours. */
+/* The triangle is the first thing in the sentence and carries the tone; at the muted weight it
+   was a piece of punctuation. */
 .custody .at-risk {
   color: #e0a83f;
 }
@@ -534,15 +541,22 @@ svg.ico {
 }
 /* Absolute catalog path: full string in title / selection; visually middle-ellipsized so the
    sidebar never spills. Do not shorten the stored path - only the painted label. */
+/* THE PATH RECEDES. It is diagnostic, not custody: which catalog is open matters when something
+   is wrong and never while reading how safe the library is. It keeps its full value - selectable,
+   and in a `title` for hover - and stops competing with the sentence above it. */
 .custody .catalog-path {
   display: block;
+  margin-top: var(--space-2);
   max-width: 100%;
   overflow: hidden;
   white-space: nowrap;
   user-select: text;
   -webkit-user-select: text;
   cursor: text;
-  color: var(--fg-muted);
+  font-family: var(--family-mono);
+  font-size: var(--type-xs);
+  color: var(--rail-muted);
+  opacity: 0.62;
 }
 /* Collapsed: pips only - no line, no path that can overflow the narrow rail. */
 .sidebar[data-collapsed="true"] .custody {
@@ -816,12 +830,17 @@ select.input {
    is for - do not need it: the radio sits in the badge's place and is styled to belong there.
    Accent-coloured through `accent-color`, so the checked state is the brand's without a custom
    control that would have to reimplement focus, keyboard and announcement. */
+/* ONE CARRIER FOR SELECTION, ruled 2026-09-06: the BADGE is rose when the mode is chosen, and
+   the native control keeps its job without repeating the signal in the same colour six pixels
+   away. `accent-color` is neutral rather than the accent, so the dot still shows checked state -
+   a keyboard user must see it - but reads as a marker rather than as a second highlight. It stays
+   a real radio: clickable, focusable, arrow-key navigable and announced. */
 .org-mode input[type="radio"] {
   flex: none;
-  width: 18px;
-  height: 18px;
-  margin: 7px 0 0;
-  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  margin: 8px 0 0;
+  accent-color: var(--fg-muted);
   cursor: pointer;
 }
 /* SECTIONS, separated by a faint rule and the upper half of the scale rather than by boxing
@@ -1752,10 +1771,21 @@ details.more.inline {
 .panel {
   /* padding-top is set by `alignPanelWithContent` - see app.js. The value here is the resting
      one, used before the first measurement and below the breakpoint where the panel is absent. */
-  /* D15's chrome case, PAINTED. The blur is gone rather than kept as an enhancement: this
-     surface is one of the two the arc is redressing, and a material that half the users cannot
-     see is not the material. Layered translucency, a hairline gradient border through
-     `background-clip`, an inner highlight, and one soft wide shadow. */
+  /* ⚠ THE ASIDE CARRIES NO SURFACE, and putting one on it is the defect fixed on 2026-09-06.
+     This element IS the third grid track: a grid item stretches to the row's full height by
+     default, so any background on it paints a pale column the whole height of the window, wider
+     than the card inside it and with no boundary anywhere. It read as a stray panel behind the
+     panel, worst on Find, Import and Backups where the card is short. The MATERIAL belongs to
+     the card, which is a box of a knowable size; this is a transparent container for it. */
+  padding: var(--space-6) var(--space-5) var(--space-5);
+  overflow-y: auto;
+  min-width: 0;
+}
+/* D15's chrome case, PAINTED - and on the CARD, which is the thing with edges. Layered
+   translucency as a real colour, a hairline gradient border through `background-clip`, an inner
+   highlight and one soft wide shadow. No `backdrop-filter`: WebKit reports it and paints
+   nothing, so the look may not depend on it. */
+.panel-card {
   border-radius: var(--corner-lg);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.48)) padding-box,
@@ -1764,16 +1794,7 @@ details.more.inline {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.65),
     0 12px 32px rgba(28, 26, 23, 0.09);
-  padding: var(--space-6) var(--space-5) var(--space-5);
-  overflow-y: auto;
-  min-width: 0;
-}
-.panel-card {
-  background: var(--surface);
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--corner-lg);
   padding: var(--space-5);
-  box-shadow: var(--elevation-sm);
 }
 .panel:empty {
   display: none;
@@ -1853,6 +1874,17 @@ details.more.inline {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ITEM 5, 2026-09-06: the folder pattern is the VALUE THE USER IS BEING ASKED TO EDIT, and it
+   was clipped at "{yyyy}/{yyyy}-{mm}/{y". It is monospace because every brace and slash matters,
+   it is given the full width of its field, and it scrolls horizontally rather than hiding the
+   tail - `text-overflow` on an input hides characters from someone typing them. */
+#layout-template {
+  width: 100%;
+  font-family: var(--family-mono);
+  font-size: var(--type-sm);
+  text-overflow: clip;
 }
 
 /* Find's search field leads the screen: it is the only thing there until a query runs, and a

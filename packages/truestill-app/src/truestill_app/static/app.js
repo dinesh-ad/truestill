@@ -552,7 +552,11 @@ function mediaCount(s) {
   if (s.photos) parts.push(plural(s.photos, "photo"));
   if (s.videos) parts.push(plural(s.videos, "video"));
   if (s.audio) parts.push(`${nfmt(s.audio)} audio`);
-  return parts.length ? parts.join(" · ") : "0 photos";
+  // A NO-BREAK SPACE AFTER THE MIDDOT, so a wrap takes the separator down with the count it
+  // introduces instead of leaving it dangling at the end of a line - "410 photos ·" was the
+  // shape it made in the narrowed panel. The space BEFORE the middot stays breakable, which
+  // is where the line is allowed to end.
+  return parts.length ? parts.join(" \u00b7\u00a0") : "0 photos";
 }
 // ---------- completion ----------
 // The payoff moment, shared by every long operation. Each field renders only when the run
@@ -1737,10 +1741,23 @@ async function loadCustody() {
   // core's `LIBRARY_REDUNDANCY`, handed over in the payload and rendered as given - the shape
   // `eject_note` established. Shown for the two states that say something a user can act on;
   // `possibly_independent` adds nothing the count has not already said.
-  const independence = s.independence && s.independence !== "possibly_independent" && s.independence_note
-    ? `<span class="k"> ${esc(s.independence_note)}.</span>`
+  const note = s.independence && s.independence !== "possibly_independent" && s.independence_note
+    ? esc(s.independence_note)
     : "";
-  line.innerHTML = `<span class="${tone}">${esc(safe)}</span>${independence}<span class="k">${age}</span>${catalogPath}`;
+  // ⚠ ONE FULL STOP, AT THE END, AND THE CALLER OWNS IT. `(D5)`: this used to close the
+  // independence note with "." and then append `age`, which opens with ", " - so a library that
+  // was both not-independent AND never-checked read "...survive that device failing., never
+  // checked: X". `drive.LIBRARY_REDUNDANCY` is right to end unpunctuated; its own comment says
+  // each value completes a sentence ITS CALLER STARTS, and this is that caller. The CLI's
+  // consumer punctuates correctly and is untouched.
+  //
+  // The two joins are different on purpose and both are asserted elsewhere: the note CONTINUES
+  // the lead clause, so it joins with a space ("412 files in only one place have every copy..."),
+  // and the age is a separate clause, so it joins with a comma.
+  const tail =
+    (note ? ` ${note}` : "") + age + (note || age ? "." : "");
+  line.innerHTML =
+    `<span class="${tone}">${esc(safe)}</span><span class="k">${tail}</span>${catalogPath}`;
   refreshCatalogPathFit();
 }
 window.addEventListener("resize", debounce(() => { refreshCatalogPathFit(); alignPanelWithContent(); }, 50));
@@ -2363,7 +2380,11 @@ function renderPanel(s) {
       : "",
   ].filter(Boolean).join("");
 
-  panel.innerHTML = rows ? `<h3 class="panel-title">This folder</h3>${rows}` : "";
+  // Wrapped like the resting panel: `.panel-card` is what carries the surface now, so an
+  // unwrapped block would sit on the canvas with nothing behind it.
+  panel.innerHTML = rows
+    ? `<div class="panel-card"><h3 class="panel-title">This folder</h3>${rows}</div>`
+    : "";
 }
 
 // The four DISJOINT buckets, and only those. `partition_for_report` guarantees
