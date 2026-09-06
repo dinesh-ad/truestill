@@ -1428,12 +1428,20 @@ function renderCatalogNotice(s) {
     host.innerHTML = "";
     return;
   }
-  const alert = s.catalog_tone === "alert";
-  host.className = alert ? "banner warn" : "banner";
-  host.innerHTML = alert
-    ? `<div><div class="b-title">This may not be the catalog you expect</div>
-       <div>${esc(s.catalog_detail)}</div></div>`
-    : `<div class="k">${esc(s.catalog_detail)}</div>`;
+  // ⚠ ONLY THE ALERT REACHES A SCREEN, ruled 2026-09-06. The other tone is a STARTUP DIAGNOSTIC -
+  // "Opened empty catalog file at /path (from --db)." - and it was rendering as the first thing on
+  // the page above the h1, so a first run opened on a sentence about a command-line flag. That
+  // belongs in the terminal, where the CLI already prints it. The alert is different in kind and
+  // stays: "this may not be the catalog you expect" is a warning a person must act on, and
+  // `catalog_startup` keeps the two apart precisely so one can be demoted without the other.
+  if (s.catalog_tone !== "alert") {
+    host.className = "banner hidden";
+    host.innerHTML = "";
+    return;
+  }
+  host.className = "banner warn";
+  host.innerHTML = `<div><div class="b-title">This may not be the catalog you expect</div>
+       <div>${esc(s.catalog_detail)}</div></div>`;
 }
 
 function refreshCatalogPathFit() {

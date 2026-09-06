@@ -99,7 +99,7 @@ code,
   --rail-text: #e6e2d9; /* 14.12:1 on the rail */
   --rail-muted: #b0a89a; /* 7.75:1 - replaces --fg-muted, which is 3.91:1 here */
   --rail-success: #5cc47f; /* 8.39:1 - replaces --success, tuned for white at 5.30:1 */
-  --rail-active-bg: #24242c; /* 1.28:1 */
+  --rail-active-bg: #2a2a34; /* 1.42:1 - lifted with the canvas, see the note above */
   /* THE ACTIVE ITEM'S EDGE. `--rail-active-bg` alone is **1.27:1** against the rail - a fill
      that has to be inferred rather than seen, which is `organize-preview-record.md`'s fourth
      finding in as many words: *"the current screen is legible at a glance rather than
@@ -163,11 +163,17 @@ code,
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-4) var(--space-3);
-  /* D15's chrome case. Layered translucency as a real colour over the near-black, a lit right
-     edge that fades downward instead of a flat rule, and no `backdrop-filter` - the rail is
-     opaque by design and the material is painted, not sampled. */
+  /* D15's chrome case, and it has to work harder now the canvas is WHITE: this is the only dark
+     surface in the app, so a flat near-black block beside white reads as a hole rather than as
+     chrome. Three layers, none of them `backdrop-filter` - the rail is opaque by design and the
+     material is painted, not sampled:
+       a top-weighted highlight, so the head of the rail catches light;
+       a faint warm bloom behind the mark, which is where the eye lands first;
+       a floor shadow, so the custody card at the bottom sits ON something. */
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 42%),
+    radial-gradient(120% 42% at 0% 0%, rgba(253, 164, 175, 0.07), transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 38%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.35), transparent 22%),
     var(--rail-bg);
   border-right: var(--border-width) solid transparent;
   border-image: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.03) 55%) 1;
@@ -234,10 +240,10 @@ code,
    reads as a lockup; the collapsed rail still grows it to 26px as the only thing left. */
 .brand-monogram {
   display: block;
-  /* 32px, not 22. Ruled 2026-09-06 from what shipped: across 22 pixels the ramp's two stops
-     average to one colour and the mark reads as a plain red T, which is the whole gradient
-     wasted. 32 is where the rose foot and the orange head are separately visible. */
-  height: 32px;
+  /* 36px. It was 22, where the ramp's two stops average to one colour and the mark reads as a
+     plain red T; 32 separated them; 36 is where the rose foot and the orange head are each
+     legible at a glance, which is the point of having a gradient at all. */
+  height: 36px;
   /* BEFORE the word, by `order` rather than by moving the markup: the SVG carries its own
      `aria-label` and the text is the same word, so their DOM order is what a screen reader
      reads and only the painted order should change. Trailing the word, the mark read as a
@@ -247,7 +253,7 @@ code,
   flex: none;
 }
 .sidebar[data-collapsed="true"] .brand-monogram {
-  height: 32px;
+  height: 36px;
   margin-right: 0;
 }
 .sidebar[data-collapsed="true"] .wordmark {

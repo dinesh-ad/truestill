@@ -37,6 +37,19 @@ only CSS-only items and the icon *data* are worth doing before the flip.
 
 ## 1. The canvas is a prerequisite, not decoration
 
+⚠ **OVERRULED 2026-09-06 BY THE MAINTAINER: THE CANVAS IS WHITE.** He asked for it plainly and it
+is his call. This section's argument is kept below, unedited, because it was not wrong - glass IS
+nearly invisible on flat white, and that consequence is real. What changed is the conclusion drawn
+from it: the ground does not stay tinted in order to justify the surfaces, the surfaces that
+needed to be glass stop being glass. Organize's form card, result card and completion card are
+solid today for exactly that reason, and D15 already confines glass to chrome - the rail and
+floating panels - where the ground is still one this product controls.
+
+`--canvas-from`, `--canvas-mid` and `--canvas-to` are all `#ffffff` in the light theme; the tokens
+and the gradient machinery are unchanged, so this is three hex values to reverse rather than a
+rewrite, and the dark theme keeps its own ramp.
+
+
 Glass is invisible on flat white and `--bg` is `#faf8f5`, so the canvas gains tonal range for a
 translucent surface to be translucent *against*. It stays in the warm family
 `test_palette_and_resting_panel.py` pins - *"the neutrals are WARM"* - and adds **no second

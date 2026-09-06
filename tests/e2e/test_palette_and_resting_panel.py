@@ -75,13 +75,19 @@ def _token(ui: Page, name: str) -> str:
 # --------------------------------------------------------------------------- warm neutrals
 
 
-def test_the_light_ground_is_warm_not_cool(ui: Page) -> None:
-    """A cool-grey page is most of what reads as clinical, and the ground is the cheapest fix."""
+def test_the_light_ground_is_white_and_never_cool(ui: Page) -> None:
+    """The light ground is WHITE, ruled by the maintainer 2026-09-06.
+
+    ⚠ **Re-expected, and half of the old assertion is kept.** This demanded a WARM ground -
+    `r >= b + 3` - on the argument that a cool-grey page is most of what reads as clinical. That
+    argument still holds against COOL and it is still asserted: the ground may never be bluer than
+    it is red. What it may now be is neutral white, which the maintainer asked for and which
+    `design-system.md` §1 records as an overrule rather than a correction.
+    """
     ui.emulate_media(color_scheme="light")
     ground = _rgb(ui.eval_on_selector("body", "el => getComputedStyle(el).backgroundColor"))
-    assert ground[0] >= ground[2] + 3, (
-        f"the light ground is cool or neutral (r={ground[0]}, b={ground[2]}) - it must be warm"
-    )
+    assert ground == (255, 255, 255), f"the light ground is not white: {ground}"
+    assert ground[0] >= ground[2], f"the light ground is cool: r={ground[0]}, b={ground[2]}"
 
 
 def test_the_dark_ground_is_warm_too(ui: Page) -> None:
