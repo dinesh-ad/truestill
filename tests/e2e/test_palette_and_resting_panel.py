@@ -148,11 +148,30 @@ def test_a_primary_button_clears_aa_against_its_own_label(ui: Page) -> None:
 
 
 def test_indigo_is_visible_on_the_content_screens_not_only_the_rail(ui: Page) -> None:
-    """The lead colour has to appear where a person is working, or the app is black and white."""
+    """The lead colour has to appear where a person is working, or the app is black and white.
+
+    ⚠ **The CARRIER moved on 2026-09-06; the rule did not.** The page title used to be the lead
+    colour, and the redesign makes it near-black: a title in the accent competes with every
+    control that also carries it, which is the flat hierarchy the display role exists to end. So
+    the title is now asserted to BE near-black, and the rule this test is named for is asserted
+    separately and directly - the lead colour still appears on the working surface. Both halves
+    are specific; neither is a relaxation of the other.
+    """
     ui.emulate_media(color_scheme="light")
     accent = _rgb(_token(ui, "--accent-strong"))
+    fg = _rgb(_token(ui, "--fg"))
     heading = _rgb(ui.eval_on_selector(".screen.active h1", "el => getComputedStyle(el).color"))
-    assert heading == accent, f"the h1 is {heading}, not the lead colour {accent}"
+    assert heading == fg, f"the page title is {heading}, not the near-black display colour {fg}"
+
+    lead = _rgb(_token(ui, "--accent"))
+    painted = ui.eval_on_selector_all(
+        ".screen.active *",
+        "els => els.map(e => getComputedStyle(e)).flatMap(s => [s.color, s.backgroundColor,"
+        " s.borderTopColor, s.borderLeftColor])",
+    )
+    assert any(_rgb(v) in (accent, lead) for v in painted if v.startswith("rgb")), (
+        "nothing on the working surface carries the lead colour - the screen is black and white"
+    )
 
 
 def test_amber_and_green_stay_status_only(ui: Page) -> None:

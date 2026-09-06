@@ -192,6 +192,14 @@
      form, against the ruling at `app.css:583`. */
   --type-xl: clamp(1.25rem, 1.0712rem + 0.2094vw, 1.40625rem); /* 20 -> 22.5px */
   --type-2xl: clamp(1.5rem, 1.2855rem + 0.2513vw, 1.6875rem); /* 24 -> 27px */
+  /* THE DISPLAY ROLE - page titles, and a SEPARATE role rather than a bigger heading.
+     `--type-3xl` is the metric's, reserved by `test_only_the_metric_uses_the_metric_size`, and
+     the argument that guard makes is sound: if a title takes the metric's size the metric stops
+     being the biggest thing on the screen. So the title gets its own step BELOW it - 36px against
+     the metric's 45px - which buys the hierarchy the redesign needs without touching either
+     guard. Deliberately not added to `test_shared_pattern`'s probe list: 3xl stays the largest
+     step either way, and the probe asserts exactly that. */
+  --type-display: clamp(2rem, 1.7141rem + 0.335vw, 2.25rem); /* 32 -> 36px */
   /* Metric only. A metric has to outrank everything around it, and the h1 size does not - a
      metric set in it competes with the page title instead of leading. Nothing else may use this;
      `test_shared_pattern.py` fails if anything does, and now also fails if any step overtakes it.

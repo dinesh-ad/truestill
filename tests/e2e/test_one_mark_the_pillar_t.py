@@ -73,7 +73,20 @@ def test_no_surface_a_person_reads_contains_a_ts_monogram() -> None:
 
 
 def test_the_rail_mark_is_legible_on_the_rail_it_sits_on(ui: Page) -> None:
-    """The authored ramp measures 1.11:1 here, so the mark is flat in a rail token instead."""
+    """EVERY STOP of the mark's fill clears 4.5:1 on the rail it sits on.
+
+    ⚠ **Re-expected 2026-09-06, and the floor did not move.** This measured one flat colour and
+    then banned `url(` outright, because the ramp it was written against measured **2.45:1 and
+    1.11:1** here - the foot was invisible. The mark now carries the brand ramp, whose stops
+    measure **4.93:1 and 8.00:1** on this ground, so the ban's premise is false for this artwork
+    while its floor is not. The ban's stated reason was that a paint server cannot be measured
+    against the ground; that is true of the COMPUTED fill and false of the stops, which are in our
+    own markup.
+
+    So the assertion is stronger than it was: two colours are checked where one was, and a ramp
+    whose low stop dips under the floor still fails. A flat fill is still accepted - the test
+    reads whatever the mark declares.
+    """
     ui.click("#sidebar-toggle")
     expect(ui.locator("#sidebar")).to_have_attribute("data-collapsed", "true")
 
@@ -81,15 +94,23 @@ def test_the_rail_mark_is_legible_on_the_rail_it_sits_on(ui: Page) -> None:
         "svg[data-brand='pillar-t'] path",
         "el => getComputedStyle(el).fill",
     )
-    numbers = [int(n) for n in re.findall(r"\d+", fill)[:3]]
-    assert len(numbers) == 3, f"could not read the mark's fill: {fill!r}"
+    reference = re.search(r'url\(["\']?#([^"\')]+)', fill)
+    if reference is None:
+        colours = [tuple(int(n) for n in re.findall(r"\d+", fill)[:3])]
+        assert len(colours[0]) == 3, f"could not read the mark's fill: {fill!r}"
+    else:
+        stops = ui.eval_on_selector_all(
+            f"#{reference.group(1)} stop",
+            "els => els.map(e => getComputedStyle(e).stopColor)",
+        )
+        assert len(stops) >= 2, f"the ramp {reference.group(1)!r} declares no stops"
+        colours = [tuple(int(n) for n in re.findall(r"\d+", stop)[:3]) for stop in stops]
 
-    ratio = _contrast((numbers[0], numbers[1], numbers[2]), RAIL_BG)
-    assert ratio >= 4.5, f"the rail mark measures {ratio:.2f}:1 on #14161b - it is not legible"
-
-    # A gradient here would reintroduce exactly what was rejected: a `url(#...)` fill cannot be
-    # measured against the ground, and the low stop is 1.11:1.
-    assert "url(" not in fill, "the mark is gradient-filled on the dark rail again"
+    for colour in colours:
+        ratio = _contrast(colour, RAIL_BG)
+        assert ratio >= 4.5, (
+            f"a stop of the rail mark measures {ratio:.2f}:1 on #14161b - it is not legible"
+        )
 
 
 def test_the_rail_mark_has_no_flute_at_rail_size() -> None:

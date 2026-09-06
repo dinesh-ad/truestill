@@ -207,17 +207,29 @@ code,
   height: 22px;
   width: auto;
 }
+/* THE MARK IS ALWAYS VISIBLE. It was `display: none` until collapsed, so the expanded rail - the
+   state the product opens in - showed a wordmark and no mark at all. Beside the word at 22px it
+   reads as a lockup; the collapsed rail still grows it to 26px as the only thing left. */
 .brand-monogram {
-  display: none;
+  display: block;
+  height: 22px;
+  /* BEFORE the word, by `order` rather than by moving the markup: the SVG carries its own
+     `aria-label` and the text is the same word, so their DOM order is what a screen reader
+     reads and only the painted order should change. Trailing the word, the mark read as a
+     letter of it - "Truestill.T" - which is the opposite of a lockup. */
+  order: -1;
+  margin-right: var(--space-3);
+  flex: none;
+}
+.sidebar[data-collapsed="true"] .brand-monogram {
   height: 26px;
+  margin-right: 0;
 }
 .sidebar[data-collapsed="true"] .wordmark {
   justify-content: center;
   padding: var(--space-2) 0;
 }
-.sidebar[data-collapsed="true"] .brand-monogram {
-  display: block;
-}
+
 /* Grouping label. Not a control, not focusable, hidden from screen readers - the nav items
    below it already say what they are, and a second announcement is noise. */
 .nav-section-label {
@@ -427,12 +439,30 @@ svg.ico {
 }
 
 /* custody strip - always-true, catalog-driven; the signature */
+/* THE CUSTODY CARD, and the glass on it is D15's chrome case built without `backdrop-filter`.
+   The rail is chrome, the card sits on a ground this product owns, and nothing is typed into it -
+   the three conditions D15 sets. The look is the pre-2022 technique: layered translucency as a
+   real colour, a hairline gradient border through `background-clip`, an inner highlight, and a
+   soft shadow. It depends on no filter, so it is complete on WebKit, where `backdrop-filter`
+   reports as supported and paints nothing (`(ake)`).
+
+   The BORDER is a gradient hairline rather than a flat line because a flat border on a dark
+   ground reads as noise; a lit top edge fading to nothing reads as a raised surface. Two
+   backgrounds, `padding-box` then `border-box`, is how that is done without a pseudo-element.
+
+   SOFT, NOT HEAVY. `0 8px 24px` at 0.35 alpha over 24px of blur: a large soft shadow reads as
+   depth, a tight dark one reads as a sticker. */
 .custody {
   margin-top: auto;
-  padding: var(--space-3);
-  border-radius: var(--corner-md);
-  background: #1b1f27;
-  border: var(--border-width) solid var(--rail-border);
+  padding: var(--space-4);
+  border-radius: var(--corner-lg);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)) padding-box,
+    linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 60%) border-box;
+  border: var(--border-width) solid transparent;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.35);
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
@@ -448,7 +478,7 @@ svg.ico {
   color: var(--rail-muted);
 }
 .custody .line {
-  margin-top: var(--space-2);
+  margin-top: var(--space-3);
   font-family: var(--family-mono);
   font-size: var(--type-xs);
   color: var(--rail-muted);
@@ -564,12 +594,18 @@ svg.ico {
    the fill colour is 5.40:1 on white and fine behind a button, this is 9.99:1 and reads as
    ink. Amber and green are not used here - they mean `needs attention` and `safe`, and a
    heading in either would spend that meaning on decoration. */
+/* LEVEL ONE, the page title. Its own role (`--type-display`, 36px) rather than the metric's
+   `--type-3xl`, and NEAR-BLACK rather than the accent: a title in the accent colour competes with
+   every link and control that also carries it, which is the "democracy" the hierarchy is meant to
+   end. The accent survives where it means something - the active rail item, the dot in the
+   wordmark, the controls. */
 .screen h1 {
-  color: var(--accent-strong);
-  font-size: var(--type-2xl);
+  color: var(--fg);
+  font-size: var(--type-display);
   font-weight: var(--weight-semibold);
-  letter-spacing: -0.02em;
-  margin: 0 0 var(--space-2);
+  letter-spacing: -0.025em;
+  line-height: var(--line-tight);
+  margin: 0 0 var(--space-3);
 }
 .screen .lede {
   color: var(--fg-secondary);
@@ -637,13 +673,19 @@ fieldset.field {
   min-inline-size: 0;
 }
 .field > legend,
+/* LEVEL TWO, the section label. Small, uppercase and widely tracked, so it reads as a LABEL
+   rather than as another sentence. It was `--type-base` at medium weight, which is the body's
+   own size and weight - three levels rendered at one, which is why the screen read flat. The
+   space below it grows with the demotion: a smaller label needs more air, not less, or the
+   grouping it names disappears with it. */
 .field > label {
   display: block;
-  /* Control labels and their inputs are main-column CONTENT; the rail's chrome sizes stay
-     below them so the two surfaces stop reading at the same weight. */
-  font-size: var(--type-base);
-  font-weight: var(--weight-medium);
-  margin-bottom: var(--space-2);
+  font-size: var(--type-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-secondary);
+  margin-bottom: var(--space-3);
 }
 .field .row {
   display: flex;

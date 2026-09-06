@@ -98,10 +98,17 @@ def test_the_rail_mark_paints_when_the_rail_is_collapsed(ui: Page) -> None:
     )
 
 
-def test_collapsing_swaps_the_wordmark_for_the_pillar_t(ui: Page) -> None:
-    """The 64px rail gets the mark; the full wordmark does not fit and is not shrunk into it."""
+def test_collapsing_drops_the_word_and_keeps_the_mark(ui: Page) -> None:
+    """The 64px rail keeps the mark; the full wordmark does not fit and is not shrunk into it.
+
+    ⚠ **Renamed and re-expected 2026-09-06.** This asserted the mark was HIDDEN until collapse -
+    the rail opened with a word and no mark at all, which is the state the product spends its life
+    in. The mark is now part of the lockup at both widths, so collapsing drops the WORD and the
+    mark is the constant rather than the thing that appears. The property that matters is
+    unchanged and still asserted: at 64px there is a mark and no word.
+    """
     expect(ui.locator(".wordmark .wordmark-text")).to_be_visible()
-    expect(ui.locator(".wordmark svg[data-brand='pillar-t']")).to_be_hidden()
+    expect(ui.locator(".wordmark svg[data-brand='pillar-t']")).to_be_visible()
 
     ui.click("#sidebar-toggle")
     expect(ui.locator("#sidebar")).to_have_attribute("data-collapsed", "true")
