@@ -1562,6 +1562,7 @@ async function loadQuickPlaces() {
   host.innerHTML = roots
     .map((r) => `<button type="button" class="quick-place" data-path="${esc(r.path)}">${esc(r.label)}</button>`)
     .join("");
+  markCurrentQuickPlace();
   host.querySelectorAll(".quick-place").forEach((btn) => {
     btn.onclick = () => {
       const field = $("org-source");
@@ -1907,6 +1908,19 @@ document.querySelectorAll("[data-browse]").forEach((btn) => {
   input.addEventListener("change", run);
 });
 
+/** The chip whose folder is the one in the source field, marked so rose means "this is where you
+ *  are" rather than "these six things are all equally important". `aria-current` is the hook: it
+ *  is what the state means, and a screen reader gets it for free. */
+function markCurrentQuickPlace() {
+  const host = $("org-quick");
+  if (!host) return;
+  const current = ($("org-source")?.value || "").trim().replace(/\/+$/, "");
+  host.querySelectorAll(".quick-place").forEach((btn) => {
+    const path = (btn.dataset.path || "").replace(/\/+$/, "");
+    btn.setAttribute("aria-current", path && path === current ? "true" : "false");
+  });
+}
+
 // ---------- Organize ----------
 function setWhy(text) { $("org-why").textContent = text; }
 let orgMode = "copy";
@@ -1973,8 +1987,8 @@ for (const id of ["org-source", "org-dest"]) {
   if (!el) continue;
   // Undebounced on purpose: `validatePath` is debounced 400 ms because it costs a request, and
   // this costs nothing. A result that is wrong for 400 ms is a result that is wrong.
-  el.addEventListener("input", () => invalidateOrganizeResult());
-  el.addEventListener("change", () => invalidateOrganizeResult());
+  el.addEventListener("input", () => { invalidateOrganizeResult(); markCurrentQuickPlace(); });
+  el.addEventListener("change", () => { invalidateOrganizeResult(); markCurrentQuickPlace(); });
 }
 for (const id of ["org-skip-undated", "org-refresh-metadata"]) {
   const el = $(id);

@@ -644,7 +644,7 @@ svg.ico {
   font-weight: var(--weight-semibold);
   letter-spacing: -0.025em;
   line-height: var(--line-tight);
-  margin: 0 0 var(--space-3);
+  margin: 0 0 var(--space-2);
 }
 .screen .lede {
   color: var(--fg-secondary);
@@ -698,8 +698,18 @@ svg.ico {
 /* ---------- fields ---------- */
 /* BETWEEN groups, never within one: `.field > label` keeps its own gap to its input, which is
    what makes a label read as belonging to a control rather than floating between two. */
+/* The form card's own inset. Scoped to the DIRECT children of the screen so `#org-result`'s
+   result cards, which are nested, keep the shared `.card` padding untouched. The card edge is
+   drawn by its border and its shadow; 12px is enough for the first section label to sit off it. */
+#screen-organize > .card {
+  padding-block: var(--space-3);
+}
+
+/* The gap between a control and the hint under it. The SECTION gaps are what separate one
+   question from the next and they keep their full step; this one only has to stop the hint
+   touching the input. */
 .field {
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
 }
 /* A radio set is a <fieldset> so the question is announced with its options - see index.html.
    The browser's own fieldset chrome is undone here so the change is semantic and nothing moves:
@@ -813,15 +823,20 @@ select.input {
   gap: var(--space-2);
   font-size: var(--type-sm);
   color: var(--fg-secondary);
-  margin-bottom: var(--space-4);
+  /* Two checkboxes are one group and were 16px apart, the same distance the SECTIONS use. They
+     are the least of what is on this screen and they were taking a section's worth of air. */
+  margin-bottom: var(--space-2);
 }
+
 /* The mode picker is the tallest block on the busiest screen - three options, each two lines.
    Its height is INFORMATION (the second line explains what each mode does to your files) so the
    copy stays; what tightens is the box around it. `--space-1` vertical keeps each option ~50px,
    still a large click target, because the target is sized by its two lines and not by padding. */
 .org-modes {
   display: grid;
-  gap: var(--space-2);
+  /* One group, so the cards sit closer to each other than to anything else. The dividers above
+     and below are what separate them from the rest, and they kept their full step. */
+  gap: var(--space-1);
 }
 /* ⚠ THE RADIO IS VISIBLE, AND HIDING IT WAS REFUSED AFTER FOUR ATTEMPTS. The brief asked for
    `.sr-only`; every arrangement of it broke a behaviour that matters, and the evidence is worth
@@ -857,15 +872,15 @@ select.input {
    each one. `--space-6` and `--space-7` were unused before this slice. */
 #screen-organize .field + .field:not(fieldset),
 #screen-organize fieldset.field + .field:not(fieldset) {
-  margin-top: var(--space-6);
-  padding-top: var(--space-6);
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
   border-top: var(--border-width) solid var(--divider);
 }
 /* The fieldset takes the SPACE but never the rule: `test_radio_groups_announce_their_name`
    asserts it draws no border, and it is right to - a bordered fieldset is the browser chrome
    this markup already resets. A divider drawn on it would be that box coming back. */
 #screen-organize .field + fieldset.field {
-  margin-top: var(--space-6);
+  margin-top: var(--space-5);
 }
 /* THREE CARDS, and the selected one is stated by its badge rather than by a 13px dot. A control,
    so the look and no blur - `docs/design-system.md` §3. The native radio is still in the DOM,
@@ -880,11 +895,15 @@ select.input {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  /* Tightened 2026-09-06: the three cards were 216px of a 800px viewport and pushed the primary
+     button under the fold. The air between SECTIONS is what made the form legible and is kept;
+     the air inside a two-line card is not, and the badge no longer sets the height. */
+  padding: var(--space-2) var(--space-4);
   border: var(--border-width) solid var(--border);
   border-radius: var(--corner-md);
   background: var(--surface);
   font-size: var(--type-sm);
+  line-height: var(--line-tight);
   cursor: pointer;
 }
 .org-mode:hover {
@@ -903,8 +922,8 @@ select.input {
   flex: none;
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--corner-pill);
   background: var(--surface-sunken);
   color: var(--fg-muted);
@@ -939,9 +958,13 @@ select.input {
   /* A disabled button should read as inactive, not as a faded-but-clickable primary -- so a
      "not ready yet" CTA (e.g. Organize before a Preview) never looks broken when clicked. */
   cursor: not-allowed;
-  background: var(--surface-sunken);
+  /* GHOSTED, NOT FILLED. A filled grey block beside a rose primary reads as a second button that
+     is broken; an outline reads as one that is not ready. The border stays so the control keeps
+     its shape and its hit target - this is "not yet", and it becomes a real button the moment
+     Look inside has run. */
+  background: transparent;
   color: var(--fg-muted);
-  border-color: transparent;
+  border-color: var(--divider);
   box-shadow: none;
 }
 .btn-primary {
@@ -970,8 +993,10 @@ select.input {
    choices and named neither as the next step. The row also gets the upper half of the spacing
    scale above it - it is the end of the form, not another field. */
 .actions {
-  margin-top: var(--space-6);
-  padding-top: var(--space-5);
+  /* This margin COLLAPSES with the last checkline's, so it is the one that decides the gap and
+     trimming the checkline's did nothing. 16 plus the rule's own 12 is a clear end to the form. */
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
   border-top: var(--border-width) solid var(--divider);
   display: flex;
   align-items: center;
@@ -1937,12 +1962,25 @@ details.more.inline {
   border: var(--border-width) solid var(--border);
   border-radius: var(--corner-pill);
   background: var(--surface);
-  color: var(--accent-strong);
+  /* NEUTRAL BY DEFAULT. These are navigation shortcuts, not actions, and six rose pills in a row
+     above the form out-shouted the one button the screen wants pressed. Rose is earned here by
+     being hovered or by being the folder currently chosen - one primary action per screen at full
+     strength, everything else a step down. */
+  color: var(--fg-secondary);
   cursor: pointer;
 }
 .quick-place:hover {
   background: var(--accent-subtle);
   border-color: var(--accent);
+  color: var(--accent-strong);
+}
+/* The chip whose path is in the source field. `aria-current` rather than a class, because that
+   is what it means and a screen reader should hear it too. */
+.quick-place[aria-current="true"] {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  font-weight: var(--weight-semibold);
 }
 .quick-place:focus-visible {
   outline: 2px solid var(--accent-ring);
