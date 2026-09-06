@@ -1176,6 +1176,64 @@ select.input {
   color: var(--fg);
   font-weight: var(--weight-medium);
 }
+
+/* ---------- the completion card: the photographs are the result ---------- */
+/* SOLID, NOT GLASS. This card is READ - counts, folder names, two amber notices that carry the
+   product's promise - and `design-system.md` §6 refuses glass under anything read. `.card`'s
+   shared glass is overridden here rather than everywhere, because the other nine regions that
+   use `.card` are not this. */
+.card.result {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--elevation-sm);
+}
+/* The caption after the photographs: six FIGURES, not one run-on line. Each value is set in the
+   body colour and its label stays muted, so the numbers are findable without the block becoming
+   the two-column `.tally` the grid test forbids above the photos. */
+.result-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin-top: var(--space-4);
+}
+.result-fact b {
+  color: var(--fg);
+  font-weight: var(--weight-semibold);
+}
+/* "Where did my photos go" is the question this card exists to answer, so the folders are a block
+   with air around them rather than a footnote under the numbers. */
+.result-folders {
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: var(--border-width) solid var(--divider);
+}
+.result-folders h3 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--type-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-secondary);
+}
+.result-folders .chip {
+  font-size: var(--type-sm);
+  padding: var(--space-2) var(--space-4);
+}
+/* The videos, which are organized and cannot be drawn. A row, not a fake tile: it says they are
+   there and that no preview exists, and it does not imply one is coming. */
+.video-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  color: var(--fg-secondary);
+}
+.video-row svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--fg-muted);
+}
 details.more {
   margin-top: var(--space-3);
   border-top: var(--border-width) solid var(--border);

@@ -6,6 +6,7 @@ import threading
 import uuid
 from collections import Counter
 from dataclasses import replace
+from itertools import islice
 from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict, cast
 
@@ -1618,6 +1619,64 @@ def _write_the_record(
     return record_organize(db, payload)
 
 
+def _represent(photos: list[ActionResult], limit: int) -> list[ActionResult]:
+    """Up to ``limit`` photos that REPRESENT the run, in run order.
+
+    ⚠ **This was `photos[:48]` and the comment defending it said any other ordering "would be a
+    judgement about which of a user's photos matter".** That is true, and it is also true of
+    first-seen: a run spanning eight years handed back one afternoon, because the first 48 files a
+    walk meets are 48 neighbours. Both orderings are a judgement. The question is which one is
+    less wrong, and showing one folder out of forty is the worse answer to *"what did I just
+    organize"* - it is the same defect as a duplicate count that names no drive.
+
+    **The rule, and it makes no aesthetic choice.** One photo from each destination folder first,
+    in the order the folders were met, so every folder the run filled is on screen if there is
+    room for it. Then the remainder by an even stride across everything not already taken, so what
+    fills the rest is spread over the run rather than clustered at its start. Nothing is ranked:
+    no date, no size, no shape, no name. A folder is the run's own grouping, and a stride is the
+    absence of a preference rather than the exercise of one.
+
+    **Run order is preserved in the OUTPUT.** The selection decides which photos; the payload
+    still lists them first-seen, so the grid reads as the run and not as a shuffle.
+
+    **Complexity O(n + k log k)** for n photos and k = `limit`: two linear passes and a sort of
+    at most k chosen indices, so the run's size only ever costs a scan. Memory is O(n) for the
+    stride's index list, which is what lets the second pass be a stride rather than a shuffle.
+    `limit` is `GRID_SAMPLE_LIMIT` and is unchanged: this is about WHICH 48, never how many.
+    """
+    total = len(photos)
+    if total <= limit:
+        return photos
+
+    # PASS 1 - the first index of each destination folder, in the order the folders were met.
+    #
+    # ⚠ THE KEY IS `relative.parent`, THE FOLDER A FILE LANDS IN - not `category.label`, which was
+    # tried first and is wrong. The label is the CATEGORY (Camera, Saved, WhatsApp); the
+    # destination folder is what the layout template builds, `2014/2014-08`, and it is the thing a
+    # run spanning eight years has forty of. On a real 165-file run the label gave 3 groups and
+    # the destination gave 18, which is how the mistake was caught.
+    #
+    # `Path` is hashable, so it is the key directly - `str()` here would allocate one throwaway
+    # string per photo for nothing. `dict` preserves insertion order, so "first met" needs no sort.
+    first_of_folder: dict[Path, int] = {}
+    for index, r in enumerate(photos):
+        first_of_folder.setdefault(r.resolution.decision.relative.parent, index)
+    chosen: set[int] = set(islice(first_of_folder.values(), limit))
+
+    # PASS 2 - an even stride over everything not already taken, so the filler spans the run
+    # rather than trailing the folder heads. `total > limit >= len(chosen)` guarantees
+    # `len(rest) > room`, so the stride is greater than one and cannot repeat an index; the result
+    # is therefore exactly `limit` long and needs no second truncation.
+    room = limit - len(chosen)
+    if room:
+        rest = [i for i in range(total) if i not in chosen]
+        step = len(rest) / room
+        chosen.update(rest[int(i * step)] for i in range(room))
+
+    # Run order restored: the selection decided WHICH, never in what order they are shown.
+    return [photos[i] for i in sorted(chosen)]
+
+
 def _completion(
     results: list[ActionResult],
     destination: Path,
@@ -1688,12 +1747,9 @@ def _completion(
         "finished_clean": not any(
             r.status in {ActionStatus.FAILED, ActionStatus.MOVE_KEPT} for r in results
         ),
-        # Run order, not "the best 48": any other ordering would be a judgement about which of a
-        # user's photos matter, made with no evidence, on the screen that exists to show them
-        # what they have. First-seen is the only order the run actually knows.
         "organized_sample": {
             "total": len(photos),
-            "shown": [_tile(r, metadata) for r in photos[:GRID_SAMPLE_LIMIT]],
+            "shown": [_tile(r, metadata) for r in _represent(photos, GRID_SAMPLE_LIMIT)],
         },
     }
 

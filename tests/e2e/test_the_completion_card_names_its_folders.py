@@ -12,13 +12,13 @@ claimed folders existed and then showed none of them, and no test in this suite 
 chips. It was found by diffing the rendered card before and after the renderer moved to
 `completion.tsx`, not by a red run.
 
-The second test is the half that would have caught it earliest: the two numbers come from the same
-payload field, so a card that can print one and not the other is contradicting itself on screen.
+The second test is the half that would have caught it earliest: the chips are asserted against the
+payload's own folder list, so a card that receives folders and draws none fails on identities
+rather than on a total.
 """
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from playwright.sync_api import Page, expect
@@ -68,22 +68,22 @@ def test_a_finished_run_draws_a_chip_for_every_destination_folder(ui: Page) -> N
         expect(chip).to_contain_text(str(count))
 
 
-def test_the_folder_count_in_the_line_agrees_with_the_chips_drawn(ui: Page) -> None:
-    """Both numbers are `r.folders`, so a card that prints one and not the other lies on screen.
+def test_every_folder_in_the_payload_is_drawn_as_a_chip(ui: Page) -> None:
+    """The card draws one chip per folder the run filled, and no others.
 
-    This is the assertion the silent regression would have failed from its first day: the stats
-    line kept saying "3 folders" while the chips block was absent entirely.
+    ⚠ **Re-pointed 2026-09-06.** This used to read a folder COUNT out of the caption line and
+    compare it with the chips, because the silent regression it was written for printed "3
+    folders" over an empty chips block. The caption no longer states that count - it would be the
+    same number twice, six pixels above the chips that are now the card's answer to "where did my
+    photos go" - so the agreement is asserted against the PAYLOAD instead, which is stricter: it
+    checks the identities and not just the total.
     """
     _finished_run(ui)
 
-    line = ui.locator("#org-result .result-numbers").inner_text()
-    stated = re.search(r"(\d+) folders", line)
-    assert stated is not None, f"the stats line does not state a folder count at all: {line!r}"
-
-    drawn = ui.locator(CHIPS).count()
-    assert int(stated.group(1)) == drawn, (
-        f"the line claims {stated.group(1)} folders and the card draws {drawn} chips"
-    )
+    drawn = ui.locator(CHIPS).all_inner_texts()
+    assert len(drawn) == len(FOLDERS), f"expected {len(FOLDERS)} chips, drew {drawn}"
+    for name in FOLDERS:
+        assert any(name in chip for chip in drawn), f"{name} was organized into and has no chip"
 
 
 def test_a_run_that_filled_no_folders_says_nothing_rather_than_an_empty_heading(

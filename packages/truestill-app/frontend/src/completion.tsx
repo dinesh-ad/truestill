@@ -267,18 +267,22 @@ export function CompletionCard({
   ]
     .filter(Boolean)
     .join(" · ");
-  const statsLine = [
-    kinds,
-    spanStory(r),
-    r.bytes_organized ? `${fmtBytes(r.bytes_organized)} organized` : "",
-    r.duplicates
-      ? `${fmtBytes(r.bytes_saved)} saved by skipping ${plural(r.duplicates, "duplicate")}`
-      : "",
-    r.elapsed_seconds ? `${fmtDuration(r.elapsed_seconds)} taken` : "",
-    Object.keys(r.folders || {}).length ? plural(Object.keys(r.folders).length, "folder") : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  // SIX FACTS AS FIGURES, not one run-on line. Each is a value and a label, so the eye can find
+  // "how much" without reading a sentence - and the block stays the muted CAPTION the card's own
+  // test argues for, positioned after the photographs. It is deliberately NOT `.tally`, the
+  // two-column block `test_the_grid_is_the_result` forbids above the grid: the photographs are
+  // the result and these are what they cost.
+  const facts: [string, string][] = [
+    [String(r.organized || 0), plural(r.organized || 0, "file").replace(/^[\d,]+\s/, "")],
+    [kinds, ""],
+    [spanStory(r) ?? "", ""],
+    [r.bytes_organized ? fmtBytes(r.bytes_organized) : "", "organized"],
+    [
+      r.duplicates ? fmtBytes(r.bytes_saved) : "",
+      r.duplicates ? `saved, ${plural(r.duplicates, "duplicate")} skipped` : "",
+    ],
+    [r.elapsed_seconds ? fmtDuration(r.elapsed_seconds) : "", "taken"],
+  ].filter(([value]) => value) as [string, string][];
   const folders = (r.folders || {}) as FolderCounts;
   const hasFolders = Object.keys(folders).length > 0;
   const cleanup = r.leftover_empty_folders?.count
@@ -293,15 +297,53 @@ export function CompletionCard({
         {r.cancelled ? " before you stopped it" : ""}
       </div>
       <ResultGrid sample={r.organized_sample} />
-      {statsLine ? <div className="k result-numbers">{statsLine}</div> : null}
+      {facts.length ? (
+        <div className="k result-numbers">
+          {facts.map(([value, label], i) => (
+            <span className="result-fact" key={i}>
+              <b>{value}</b>
+              {label ? ` ${label}` : ""}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {/* ⚠ VIDEOS ARE ORGANIZED AND CANNOT BE DRAWN. `thumbnails.render` is PIL, so an MP4 has no
+          tile and the card used to say "42 videos" above a grid containing none of them - the
+          count promising something the picture then denied. This is not a thumbnail and does not
+          pretend to be: it is a counted row that says the videos are there and that no preview
+          exists yet. Building video thumbnailing is a different feature. */}
+      {r.videos ? (
+        <div className="k video-row" data-testid="org-videos">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <rect x="2" y="5" width="14" height="14" rx="2" />
+            <path d="m22 8-6 4 6 4V8Z" />
+          </svg>
+          <span>
+            {plural(r.videos, "video")} organized. Videos have no preview yet.
+          </span>
+        </div>
+      ) : null}
+      {/* WHERE DID MY PHOTOS GO. After a bulk move this is the question people actually ask, and
+          this card is the only place it is answered - so the chips carry weight rather than
+          trailing the card as a footnote. */}
       {hasFolders ? (
-        <>
+        <div className="result-folders">
           <h3>Into these folders</h3>
           <div className="chips">
             <Chips folders={folders} />
           </div>
           <Legend folders={folders} />
-        </>
+        </div>
       ) : null}
 
       {r.near_dup ? (
