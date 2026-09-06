@@ -63,11 +63,20 @@ def test_the_custody_strip_carries_no_startup_diagnostic(ui: Page) -> None:
     )
 
 
-def test_the_startup_notice_lands_in_the_page_notice_region(ui: Page) -> None:
-    _status(ui)
+def test_the_catalog_alert_lands_in_the_page_notice_region(ui: Page) -> None:
+    # ⚠ THE ALERT TONE, 2026-09-06. The other tone - "Opened empty catalog file at ... (from
+    # --db)" - is a STARTUP DIAGNOSTIC and no longer reaches the DOM at all: the maintainer
+    # ruled it belongs in the terminal, and `renderCatalogNotice` now renders only the alert.
+    # The PLACEMENT rule these two tests exist for is unchanged and still needs asserting,
+    # so they drive the banner that does render. Same host, same region, same narrow window.
+    _status(
+        ui,
+        catalog_tone="alert",
+        catalog_detail="Opened catalog file /tmp/x: 0 files but 2 drive(s) are registered.",
+    )
     notice = ui.locator("#catalog-notice")
     expect(notice).to_be_visible()
-    expect(notice).to_contain_text("Opened empty catalog file")
+    expect(notice).to_contain_text("This may not be the catalog you expect")
 
     # Beside the global error, not inside a screen: it is about the process, not the task.
     inside_screen = ui.eval_on_selector("#catalog-notice", "el => !!el.closest('.screen')")
@@ -101,7 +110,16 @@ def test_a_healthy_catalog_shows_no_notice_at_all(ui: Page) -> None:
 
 def test_the_notice_survives_a_narrow_window_instead_of_floating(ui: Page) -> None:
     """In the rail it detached and floated mid-page below the breakpoint."""
-    _status(ui)
+    # ⚠ THE ALERT TONE, 2026-09-06. The other tone - "Opened empty catalog file at ... (from
+    # --db)" - is a STARTUP DIAGNOSTIC and no longer reaches the DOM at all: the maintainer
+    # ruled it belongs in the terminal, and `renderCatalogNotice` now renders only the alert.
+    # The PLACEMENT rule these two tests exist for is unchanged and still needs asserting,
+    # so they drive the banner that does render. Same host, same region, same narrow window.
+    _status(
+        ui,
+        catalog_tone="alert",
+        catalog_detail="Opened catalog file /tmp/x: 0 files but 2 drive(s) are registered.",
+    )
     ui.set_viewport_size({"width": 680, "height": 900})
     ui.wait_for_timeout(200)
 

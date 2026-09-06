@@ -195,10 +195,15 @@ code,
 .wordmark {
   display: flex;
   align-items: center;
-  /* Vertical space here is deliberately small: the rail already pads 16px at the top, and the
-     first section label pads below. Three sources stacked to ~28px of band under a 28px word,
-     while the nav rows sat 2px apart. */
-  padding: var(--space-1) var(--space-3);
+  /* ⚠ NO VERTICAL PADDING, and the mark is why. Three sources stack into the band under the
+     wordmark - this padding, the rail's flex gap and the section label's own top padding - and
+     nothing owns the total, which is what `test_the_wordmark_band_is_not_larger_than_the_nav_rhythm`
+     measures. The mark grew 22px to 36px so its gradient reads, and a 36px flex item sets the
+     row's height, so the band went to 21px against that test's 20 and the narrow top bar to 127px
+     against `test_the_bar_is_a_bar_and_not_most_of_the_window`'s 120. The 4px here is the cheapest
+     of the three to give up: the rail already pads 16px above and the label pads below, so the
+     word is still not touching either. The mark keeps its size. */
+  padding: 0 var(--space-3);
   min-width: 0;
 }
 /* The wordmark: monospace text, the type signature `ui-v2-research` §2 argues for. Rail tokens,
