@@ -33,7 +33,11 @@ from truestill_core.models import (
     ActionStatus,
 )
 
-APP_JS = Path(__file__).resolve().parents[1] / "src" / "truestill_app" / "static" / "app.js"
+#: ⚠ The completion card moved from `app.js` to the React island on 2026-09-06, so these two
+#: renderer guards read the island's source instead. The ASSERTIONS are unchanged in intent - the
+#: field is read, the names are reachable, the truncation is stated - and only the file they read
+#: and the JSX spelling of one interpolation moved with the renderer.
+ISLAND = Path(__file__).resolve().parents[1] / "frontend" / "src" / "completion.tsx"
 
 
 class _Src:
@@ -98,10 +102,10 @@ def test_only_failures_are_named() -> None:
 
 def test_the_screen_renders_the_names_and_states_the_truncation() -> None:
     """⚠ The payload is not the screen. A field no renderer reads is `(ahl)`'s defect."""
-    js = APP_JS.read_text(encoding="utf-8")
+    js = ISLAND.read_text(encoding="utf-8")
     assert "r.failed_files" in js, "the renderer does not read the field the service ships"
     assert "Show which" in js, "the names are not reachable from the card"
-    assert "Showing ${nfmt(f.shown.length)} of" in js, (
+    assert "Showing {nfmt(shown.length)} of" in js, (
         "truncation is implied rather than stated - the rule the grid and duplicate lists obey"
     )
 
@@ -141,6 +145,6 @@ def test_the_metadata_list_shares_the_cap() -> None:
 
 def test_the_renderer_reads_the_field() -> None:
     """The payload key is only a fact if a pixel reads it; the string is the join."""
-    source = APP_JS.read_text(encoding="utf-8")
+    source = ISLAND.read_text(encoding="utf-8")
     assert "r.metadata_files" in source
     assert 'data-testid="org-metadata-not-set"' in source

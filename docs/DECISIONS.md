@@ -901,11 +901,17 @@ codebases. **`filter: blur()` DOES work in WebKit**; it is the *backdrop* varian
   which is `filter: blur()` on an element and therefore paints everywhere, rather than a filter on
   the backdrop.
 
-⚠ **`backdrop-filter` may remain as a progressive enhancement on chrome that is already complete
-without it, and nowhere else.** §5's rule is the binding form: *"every glass surface must be
-complete, legible and correct with `backdrop-filter` doing nothing."* Two declarations in
-`app.css` sit inside that licence today - `.modal-backdrop` and `.panel`, both chrome, both
-carrying a real `--glass-bg` that stands alone. A third would need this section re-opened.
+⚠ **THE ADDITIVE READING IS THE BINDING ONE, ruled 2026-09-06.** "Built without
+`backdrop-filter`" means the surface must be **complete, legible and correct with
+`backdrop-filter` doing nothing** - §5's sentence, unchanged - and NOT that the property may not
+appear. It may remain as a progressive enhancement on chrome that already stands without it.
+
+⚠ **THIS SECTION IS NOT RETROACTIVE. IT BINDS NEW SURFACES.** The two declarations in `app.css` -
+`.modal-backdrop` and `.panel`, both chrome - **comply and are not deleted**, because each carries
+a real `--glass-bg` that stands alone and the filter only adds to it. The literal reading would
+have put the tree in violation of a rule on the day that rule was written, which is not what was
+decided. A NEW surface is judged by the three tests above: chrome rather than content, complete
+without the filter, and not supplied by a library.
 
 ### 3. No glassmorphism library, generator or component may be adopted
 

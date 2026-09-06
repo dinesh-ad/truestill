@@ -28,17 +28,15 @@ import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import type { components } from "./generated/api";
+import { CompletionCard, type CompletionSeam, type OrganizeDone } from "./completion";
 import { ByFormat, InventoryCard, toHtml, type ByFormatCounts, type Inventory } from "./inventory";
 import {
-  Chips,
   DateQualityNotes,
   InferredShiftNote,
-  Legend,
   MatchList,
   PreviewCard,
   PreviewEmptyCard,
   type DateQualityCounts,
-  type FolderCounts,
   type InferredShifts,
   type PreviewEmpty,
   type PreviewSummary,
@@ -85,8 +83,14 @@ type ResultState =
   | { kind: "complete"; summary: OrganizeSummary; html?: undefined }
   | { kind: "complete"; html: string; summary?: undefined };
 
+/** What `app.js` still owns. `organizeCompletion` is gone - the card is a component now - and
+ *  the three that replaced it are each shared with a surface this island does not own:
+ *  `outcomeWord` also titles the Backups card, `cleanupOfferNote` renders on four other paths,
+ *  and `showScreen` is the shell's. */
 interface AppGlobals {
-  organizeCompletion: (summary: OrganizeSummary) => string;
+  outcomeWord: (summary: OrganizeSummary) => string;
+  cleanupOfferNote: (cleanup: unknown) => string;
+  showScreen: (name: string) => void;
   solveResultGrid: (grid: HTMLElement) => void;
 }
 
@@ -96,11 +100,22 @@ interface AppGlobals {
  *  would blind the guard to a real one in the file most likely to acquire it. */
 function appGlobals(): AppGlobals | null {
   const scope = window as unknown as Record<string, unknown>;
-  const completion = scope.organizeCompletion;
+  const word = scope.outcomeWord;
+  const cleanup = scope.cleanupOfferNote;
+  const screen = scope.showScreen;
   const solve = scope.solveResultGrid;
-  if (typeof completion !== "function" || typeof solve !== "function") return null;
+  if (
+    typeof word !== "function" ||
+    typeof cleanup !== "function" ||
+    typeof screen !== "function" ||
+    typeof solve !== "function"
+  ) {
+    return null;
+  }
   return {
-    organizeCompletion: completion as AppGlobals["organizeCompletion"],
+    outcomeWord: word as AppGlobals["outcomeWord"],
+    cleanupOfferNote: cleanup as AppGlobals["cleanupOfferNote"],
+    showScreen: screen as AppGlobals["showScreen"],
     solveResultGrid: solve as AppGlobals["solveResultGrid"],
   };
 }
@@ -174,12 +189,30 @@ function OrganizeResult({ state }: { state: ResultState }): React.JSX.Element | 
     );
   }
   if (state.kind === "complete") {
-    const app = appGlobals();
-    const html =
-      state.summary !== undefined ? (app ? app.organizeCompletion(state.summary) : "") : state.html;
+    if (state.summary !== undefined) {
+      const app = appGlobals();
+      // Absent is said, not rendered as nothing - a blank card where the receipt should be is
+      // the silence `(aer)` exists to prevent.
+      if (!app) {
+        throw new Error("app.js has not published its globals, so this run cannot be drawn.");
+      }
+      const seam: CompletionSeam = {
+        outcomeWord: app.outcomeWord,
+        cleanupOfferNote: app.cleanupOfferNote,
+        showScreen: app.showScreen,
+      };
+      // The same depth as `Card` - host, wrapper, then `.card.result` - so the DOM is unchanged.
+      return (
+        <div ref={host}>
+          <div>
+            <CompletionCard r={state.summary as OrganizeDone} seam={seam} />
+          </div>
+        </div>
+      );
+    }
     return (
       <div ref={host}>
-        <Card html={html} />
+        <Card html={state.html} />
       </div>
     );
   }
@@ -225,8 +258,6 @@ const markup = {
     toHtml(<MatchList report={report} label={label} />),
   dateQuality: (s: DateQualityCounts): string => toHtml(<DateQualityNotes s={s} />),
   inferredShifts: (s: InferredShifts): string => toHtml(<InferredShiftNote s={s} />),
-  chips: (folders: FolderCounts | null | undefined): string => toHtml(<Chips folders={folders} />),
-  legend: (folders: FolderCounts | null | undefined): string => toHtml(<Legend folders={folders} />),
 };
 (window as unknown as Record<string, unknown>).truestillMarkup = markup;
 

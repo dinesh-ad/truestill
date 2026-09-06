@@ -212,26 +212,34 @@ def test_a_photograph_is_never_cropped_to_fit_its_tile(ui: Page) -> None:
     )
 
 
-def test_a_content_id_is_escaped_into_its_url_by_the_function_that_builds_it(ui: Page) -> None:
-    """`resultGrid` is called with server-built payloads today, so no reachable input needs
-    encoding - which is exactly why a mutation deleting `encodeURIComponent` killed nothing.
+def test_a_hostile_content_id_reaches_the_tile_url_percent_encoded(ui: Page) -> None:
+    """A content id carrying URL syntax must arrive in `src` escaped, exactly once.
 
-    §4's thirty-first member says an unfired mutation is either a missing guard or dead code, and
-    which one it is decides between a test and a deletion. This is the first: the call is not
-    dead, it is the correct way to put a value into a URL, and the fix is to hold the FUNCTION to
-    that contract at its own boundary instead of relying on every future caller to be careful.
-    Tested by calling it directly, since the payload type cannot express a hostile id.
+    ⚠ **Rewritten 2026-09-06, and the rename is the point.** This called the global `resultGrid`
+    directly and was named after that function; the grid became a component in `completion.tsx`
+    and the global went with it, so a test named after the builder could only ever assert that the
+    builder still existed. The PROPERTY is what matters and it is unchanged: a value that reaches
+    a URL path is percent-encoded by the code that puts it there, not by every future caller
+    remembering to. It is now driven the way every other test in this file drives the card, so it
+    asserts the escaping a user would actually receive.
+
+    §4's thirty-first member is still why this exists: server-built payloads cannot express a
+    hostile id, so a mutation deleting `encodeURIComponent` killed nothing and the missing guard
+    was the finding. The exact expected string is asserted rather than "some escaping happened",
+    so encoding the id TWICE fails here too - `%2F` would arrive as `%252F`.
     """
-    src = ui.evaluate(
-        """() => {
-            const html = resultGrid({total: 1, shown: [{sha256: 'a/../b?x=1&y', name: 'n.jpg'}]});
-            const el = document.createElement('div');
-            el.innerHTML = html;
-            return el.querySelector('img.tile').getAttribute('src');
-        }"""
+    hostile = "a/../b?x=1&y"
+    _completion(
+        ui,
+        organized_sample={
+            "total": 1,
+            "shown": [{"sha256": hostile, "name": "n.jpg", "w": 4000, "h": 3000}],
+        },
     )
+    src = ui.locator(f"{TESTID} img.tile").first.get_attribute("src")
+    assert src is not None, "the tile never rendered, so nothing was escaped or not escaped"
     assert "a/../b" not in src, f"a separator went into the URL path unescaped: {src}"
-    assert "a%2F..%2Fb%3Fx%3D1%26y" in src, f"the content id was not percent-encoded: {src}"
+    assert "a%2F..%2Fb%3Fx%3D1%26y" in src, f"the content id was not percent-encoded once: {src}"
 
 
 #: The wall, and it is arithmetic rather than taste: a thumbnail is `THUMB_PX` = 320 on its long

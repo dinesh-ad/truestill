@@ -575,7 +575,7 @@ function outcomeWord(r) {
   return "Done";
 }
 
-function completionCard({ headline, sub, grid = "", statsLine = "", stats = [], chips = "", notes = [], legend = "", done = "Done" }) {
+function completionCard({ headline, sub, stats = [], notes = [], done = "Done" }) {
   const statRows = stats
     .filter((s) => s && s.value)
     .map((s) => `<div class="n">${s.value}</div><div class="k">${s.label}</div>`)
@@ -587,39 +587,11 @@ function completionCard({ headline, sub, grid = "", statsLine = "", stats = [], 
     `<div class="done-mark">${esc(done)}</div>
      <div class="headline">${headline}</div>
      ${sub ? `<div class="k">${sub}</div>` : ""}
-     ${grid}
-     ${statsLine ? `<div class="k result-numbers">${statsLine}</div>` : ""}
      ${statRows ? `<div class="tally">${statRows}</div>` : ""}
-     ${chips ? `<h3>Into these folders</h3><div class="chips">${chips}</div>${legend}` : ""}
      ${notes.filter(Boolean).join("")}`
   );
 }
 
-// ---------- the result grid ----------
-// Photos, addressed by content hash through `/api/thumb/{sha256}`.
-//
-// LAZY, NOT BATCHED, and that was decided before the grid was built rather than discovered
-// after. A browser opens at most 6 connections per host on HTTP/1.1 (8 in Firefox), and uvicorn
-// here is HTTP/1.1, so forty-eight tiles requested at once queue six at a time. Three ways out
-// were on the table:
-//
-//   * A BATCH endpoint returning many thumbnails in one response. Rejected: it defeats
-//     per-thumbnail HTTP caching, which is the thing that makes the second visit free, and it
-//     puts the whole grid behind the slowest decode in the batch.
-//   * Inlining the images as data: URIs in the summary payload. Rejected for the same reason
-//     plus a fourfold base64 cost on a payload that is otherwise counts.
-//   * NATIVE lazy loading. Chosen. `loading="lazy"` means the browser fetches only what is at
-//     or near the viewport, so the six-connection window is spent on tiles a person is actually
-//     looking at, and the rest arrive as they scroll. Measured cost: ~23 ms of decode per cold
-//     tile, six in flight, so a visible dozen resolves in well under half a second and a warm
-//     revisit is served from the browser cache without reaching the server at all.
-//
-// `decoding="async"` keeps the decode off the main thread. Explicit width/height give the tile
-// its aspect before the bytes land, so the grid does not reflow as images arrive.
-//: One row's worth of tiles at the widest panel the layout produces (936px inner / 148px + gap).
-//: Below this a grid physically cannot push the warnings off-screen, and a "show all 3" under
-//: three photos is the kind of noise that teaches people to stop reading controls.
-const GRID_COLLAPSE_ABOVE = 6;
 
 // THE ONE WRITER OF `#org-result`, and the reason this file no longer touches that node.
 //
@@ -719,46 +691,8 @@ function solveResultGrid(grid) {
   grid.style.setProperty("--first-row-height", `${firstRowHeight}px`);
 }
 
-function resultGrid(sample) {
-  const shown = (sample && sample.shown) || [];
-  if (!shown.length) return "";
-  const total = sample.total || shown.length;
-  const collapsible = shown.length > GRID_COLLAPSE_ABOVE;
-  const tiles = shown
-    .map(
-      (t) => `<img class="tile" loading="lazy" decoding="async" width="${t.w || 1}" height="${t.h || 1}"
-         src="/api/thumb/${encodeURIComponent(t.sha256)}?token=${encodeURIComponent(TOKEN)}"
-         alt="${esc(t.name)}" title="${esc(t.name)}">`
-    )
-    .join("");
-  // A real <button> with aria-expanded, not a styled div: this shows and hides content, which is
-  // exactly what that element and that attribute are for.
-  const toggle = collapsible
-    ? `<button type="button" class="btn grid-toggle" aria-expanded="false"
-         onclick="toggleResultGrid(this)">Show all ${nfmt(shown.length)} photos</button>`
-    : "";
-  // Truncation is stated, never implied - the same rule the duplicate and unreadable lists
-  // obey. A grid quietly showing 48 of 200 reads as "this is what you organized".
-  const more = total > shown.length
-    ? `<div class="k grid-more">Showing ${nfmt(shown.length)} of ${plural(total, "photo")}.</div>`
-    : "";
-  return `<div class="result-grid${collapsible ? " is-collapsed" : ""}" data-testid="org-grid"
-      data-total="${total}" data-shown="${shown.length}">${tiles}</div>${toggle}${more}`;
-}
 
-function toggleResultGrid(button) {
-  // Found through the card rather than through sibling order, so inserting anything between the
-  // grid and its control cannot quietly break the control.
-  const grid = button.closest(".card").querySelector(".result-grid");
-  const opening = grid.classList.contains("is-collapsed");
-  grid.classList.toggle("is-collapsed", !opening);
-  button.setAttribute("aria-expanded", String(opening));
-  button.textContent = opening
-    ? "Show fewer"
-    : `Show all ${nfmt(Number(grid.dataset.shown))} photos`;
-}
 
-const yearOf = (iso) => (iso ? String(new Date(iso).getFullYear()) : null);
 const dayOf = (iso) => (iso ? String(iso).slice(0, 10) : "never");
 // `(aes)`: a drive's `last_verified` is NULL both when nobody has looked AND when a verify
 // looked and found gaps - missing, unreadable, or cancelled part way through. `dayOf` renders
@@ -966,153 +900,6 @@ function renderStatsSummary(stats) {
        <div class="stats-formats">${statsFormatRows(shape.by_format || {})}</div>`
     ),
   ].join("");
-}
-
-function spanStory(r) {
-  const from = yearOf(r.oldest), to = yearOf(r.newest);
-  if (!from) return null;                       // undated batch: no range exists to tell
-  return from === to ? `all from ${from}` : `spanning ${from} – ${to}`;
-}
-
-// WHAT THE MOVE LEFT. A move skips a file already in the library and never touches its
-// original - right, and it was silent, so the source came back PARTIALLY emptied with no
-// explanation for the files still in it. The sentence names the folder because "3 files remain"
-// is weaker than "3 files remain in D/E", and the payload carries the folder.
-//
-// The wording mirrors `truestill_core.left_behind.describe_left_behind`, which the CLI prints;
-// `tests/e2e/test_the_move_says_what_it_left.py` pins these words, per §9.
-function leftInSourceNote(left) {
-  if (!left || !left.total) return "";
-  const folders = left.folders || [];
-  const named = (f) => f.folder || "the folder you selected";
-  const hidden = (left.folders_total || folders.length) - folders.length;
-  // The bare "in D/E" reads best, and is only honest when D/E is the whole story - one folder
-  // AND nothing cut by the cap. Otherwise the counted list, which admits what it left out.
-  const where = folders.length === 1 && hidden <= 0
-    ? `in ${esc(named(folders[0]))}`
-    : `in ${esc(folders.map((f) => `${named(f)} (${nfmt(f.files)})`).join(", "))}`
-      + (hidden > 0 ? `, and ${nfmt(hidden)} more folders` : "");
-  const head = `${plural(left.total, "file")} ${left.total === 1 ? "remains" : "remain"} ${where}`;
-  // With both reasons present no single "because" clause is true of every file, so the sentence
-  // stops claiming one and states the split instead - the same rule the CLI follows.
-  const reasons = [
-    [left.already_in_library, "they were already in your library",
-      `${nfmt(left.already_in_library)} already in your library`],
-    [left.within_this_batch, "an identical file from this batch was moved instead",
-      `${nfmt(left.within_this_batch)} matched another file earlier in this batch`],
-    [left.unclassified, "they matched a file recorded somewhere this build does not name",
-      `${nfmt(left.unclassified)} matched a file recorded somewhere this build does not name`],
-  ].filter(([n]) => Number(n) > 0);
-  const body = reasons.length === 1
-    ? `${head} because ${reasons[0][1]}.`
-    : `${head}. Of those, ${reasons.map((r) => r[2]).join("; ")}.`;
-  return `<div class="banner warn" data-testid="org-left-in-source"><div>
-    <div class="b-title">Not everything was moved</div>
-    <div>${body} Nothing of yours was deleted.</div></div></div>`;
-}
-
-function organizeCompletion(r) {
-  const moved = (r.moved_in_place || 0) + (r.moved_by_copy || 0);
-  const verb = moved && !r.organized ? "moved" : "organized";
-  const kinds = [
-    r.photos ? plural(r.photos, "photo") : "",
-    r.videos ? plural(r.videos, "video") : "",
-    r.audio ? `${nfmt(r.audio)} audio` : "",
-  ].filter(Boolean).join(" · ");
-  const span = spanStory(r);
-  const notes = [];
-  if (r.near_dup) {
-    notes.push(`<div class="banner warn"><div>${plural(r.near_dup, "look-alike")} flagged for
-      review - ${fmtBytes(r.bytes_near_dup)} if you decide to remove them. They were kept, not
-      dropped.</div></div>`);
-  }
-  if (r.moved_in_place) {
-    notes.push(`<div class="banner"><div>${nfmt(r.moved_in_place)} moved by rename on the drive
-      (no bytes copied). Undo with <code>truestill undo-organize</code>.</div></div>`);
-  }
-  if (r.single_copy) {
-    notes.push(`<div class="banner warn"><div>${plural(r.single_copy, "file")} now exist in only
-      one place. <a href="#" onclick="showScreen('backups');return false;">Make it safe in 2
-      places</a>.</div></div>`);
-  }
-  if (r.failed) {
-    // `(ajl)`. The count was the WHOLE message until 2026-09-01: a run that failed 1,130 of 1,324
-    // files said "1,130 files could not be organized." and named none of them, while the CLI has
-    // named up to `models.FAILURE_PREVIEW_LIMIT` of them since `(afd)`. The field's rule is the
-    // same one: never a flat failure that hides which files, never a flat success that hides them
-    // either.
-    //
-    // **Collapsed by default, and stated rather than implied.** Twenty filenames are detail, not
-    // the headline - the same `<details class="more">` the clean-empty preview uses, and the same
-    // "Showing N of M" truncation sentence the grid and the duplicate list already print. A list
-    // that quietly showed 20 of 1,130 would read as "these are the failures".
-    const f = r.failed_files;
-    const named = f && f.shown && f.shown.length
-      ? `<details class="more"><summary>Show which ▾</summary><div class="mono">`
-        + f.shown.map((x) => `${esc(x.name)} - ${esc(x.detail)}`).join("<br>")
-        + `</div>${f.total > f.shown.length
-            ? `<div class="k">Showing ${nfmt(f.shown.length)} of ${plural(f.total, "file")}.</div>`
-            : ""}</details>`
-      : "";
-    notes.push(`<div class="banner warn"><div>${plural(r.failed, "file")} could not be
-      ${verb}.${named}</div></div>`);
-  }
-  // `(ajn)`. Copied and safe, but the drive refused timestamps or permissions - the CLI has said
-  // this under METADATA NOT SET since `(aie)`, and the app said nothing: 2,519 files in one real run
-  // landed with today's date behind "organized". Same collapsed list as the failures above.
-  const m = r.metadata_files;
-  if (m && m.total) {
-    const which = m.shown && m.shown.length
-      ? `<details class="more"><summary>Show which ▾</summary><div class="mono">`
-        + m.shown.map((x) => `${esc(x.name)} - ${esc(x.detail)}`).join("<br>")
-        + `</div>${m.total > m.shown.length
-            ? `<div class="k">Showing ${nfmt(m.shown.length)} of ${plural(m.total, "file")}.</div>`
-            : ""}</details>`
-      : "";
-    notes.push(`<div class="banner warn" data-testid="org-metadata-not-set"><div>${plural(m.total, "file")}
-      ${m.total === 1 ? "was" : "were"} copied and ${m.total === 1 ? "is" : "are"} safe, but this drive did
-      not let Truestill set ${m.total === 1 ? "its" : "their"} timestamps or permissions - a file manager
-      will show today's date on ${m.total === 1 ? "it" : "them"}.${which}</div></div>`);
-  }
-  // ⚠ The run WORKED and its record did not. Said because the record is automatic, so a user
-  // never asked for it and would never know it was missing - which is what makes its absence the
-  // news rather than the file. The CLI prints the same fact; one wording, two surfaces. `(afu)`
-  if (r.record_error) {
-    notes.push(`<div class="banner warn"><div>This run is not written down:
-      ${esc(r.record_error)}</div></div>`);
-  }
-  // BEFORE the cleanup offer, deliberately. The offer names the folders the move emptied and
-  // is silent about the ones it did not (`plan_cleanup` drops anything OCCUPIED), so reading
-  // it first leaves a person thinking the source is now tidy while their photos sit in it.
-  const behind = leftInSourceNote(r.left_in_source);
-  if (behind) notes.push(behind);
-  if (r.leftover_empty_folders && r.leftover_empty_folders.count) {
-    notes.push(cleanupOfferNote(r.leftover_empty_folders));
-  }
-  return completionCard({
-    done: outcomeWord(r),
-    headline: `${plural(r.organized || 0, "file")} ${verb}`
-      + (r.cancelled ? " before you stopped it" : ""),
-    // NOTHING between the headline and the photos, and the numbers as a line beneath them. The
-    // grid was landing in the middle of a report - headline, prose, photos, a two-column number
-    // block, chips, warnings - which is a paragraph inside a document rather than a result. Every
-    // count still appears; `sub` moved down to join them rather than being dropped.
-    sub: "",
-    grid: resultGrid(r.organized_sample),
-    statsLine: [
-      kinds,
-      span,
-      r.bytes_organized ? `${fmtBytes(r.bytes_organized)} organized` : "",
-      r.duplicates ? `${fmtBytes(r.bytes_saved)} saved by skipping ${plural(r.duplicates, "duplicate")}` : "",
-      r.elapsed_seconds ? `${fmtDuration(r.elapsed_seconds)} taken` : "",
-      Object.keys(r.folders || {}).length
-        ? plural(Object.keys(r.folders).length, "folder")
-        : "",
-    ].filter(Boolean).join(" · "),
-    chips: orgMarkup().chips(r.folders || {}),
-    legend: orgMarkup().legend(r.folders || {}),
-    notes,
-  });
 }
 
 const orgProgress = createProgress("org");
@@ -3899,7 +3686,7 @@ $("bk-run").onclick = guarded(async () => {
     statusVerb: "Copying",
     beforeOutcome: () => { $("bk-run").classList.add("hidden"); },
     onCancelled: (d) => {
-      // Cancel leaves completed copies on the target - same honesty as organizeCompletion.
+      // Cancel leaves completed copies on the target - same honesty as the completion card.
       $("bk-result").innerHTML = backupCompletion({ ...d.summary, cancelled: true });
     },
     onError: (d) => { $("bk-result").innerHTML = jobErrorCard(d); },
