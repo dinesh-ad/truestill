@@ -366,6 +366,82 @@ export function PreviewCard({ s, view }: { s: PreviewSummary; view: PreviewView 
   );
 }
 
+/**
+ * WHAT THE LIBRARY WILL LOOK LIKE - the destination tree, one tile per top-level folder.
+ *
+ * **This is not the folder chips six inches above it, and the difference is the point.** The chips
+ * render `folders`, which is keyed by CATEGORY - Camera, Saved, WhatsApp - and answers *what kind
+ * of thing is this*. This renders `destination_tree`, keyed by the folder each file actually lands
+ * in, and answers *where will it be*. On a real 165-file run the first gave 3 groups and the
+ * second gave 18. `test_the_destination_tree_is_keyed_by_folder.py` holds them apart in the
+ * payload; this comment is why a reader should not "simplify" one into the other.
+ *
+ * **The payload is FLAT and the grouping happens here, deliberately.** A tree of years with months
+ * beneath is a layout decision, so it lives in the layer that draws layouts; nesting it in the
+ * response would freeze one presentation for every future consumer.
+ *
+ * ⚠ **It groups by PATH SEGMENT, not by year, and that is not laziness.** The default template is
+ * `{yyyy}/{yyyy}-{mm}/{yyyy}-{mm} - Everyday`, so segment 0 is the year and segment 1 the month -
+ * but the template is a user setting, and event and adaptive-day folders already produce shapes
+ * like `2014/2014-08/2014-08-17 - Sailing`. A year regex would render those correctly today and
+ * silently drop a custom layout's whole tree. Segment 0 is the top-level folder under ANY
+ * template, and `Undated`, which has no second segment, is a tile with nothing beneath it -
+ * which is the Undated card the design asks for, reached without a special case.
+ *
+ * One pass, `Map` for insertion order: the payload arrives sorted by path, so the tiles and the
+ * rows inside them come out in path order without a second sort. **O(k)** in the number of
+ * folders.
+ */
+export function DestinationTree({
+  tree,
+  label,
+}: {
+  tree: FolderCounts | null | undefined;
+  label: string;
+}): React.JSX.Element | null {
+  const { nfmt } = formatters();
+  const groups = new Map<string, { total: number; children: Map<string, number> }>();
+  for (const [path, count] of Object.entries(tree ?? {})) {
+    const [head = path, ...rest] = path.split("/");
+    let group = groups.get(head);
+    if (!group) {
+      group = { total: 0, children: new Map() };
+      groups.set(head, group);
+    }
+    group.total += count;
+    const child = rest[0];
+    if (child !== undefined) group.children.set(child, (group.children.get(child) ?? 0) + count);
+  }
+  if (!groups.size) return null;
+  return (
+    <div className="card dest-tree" data-testid="org-tree">
+      {/* The destination's own name, so the promise says WHICH folder will look like this - the
+          same label the tally's "will be organized into X" uses, from the same `PreviewView`. */}
+      <h3 data-testid="org-tree-heading">{label ? `${label} after this run` : "After this run"}</h3>
+      <div className="tree-groups">
+        {[...groups].map(([name, group]) => (
+          <div className="tree-group" data-testid="org-tree-group" data-folder={name} key={name}>
+            <div className="tree-group-head">
+              <span className="tree-group-name">{name}</span>
+              <span className="num">{nfmt(group.total)}</span>
+            </div>
+            {group.children.size ? (
+              <div className="tree-children">
+                {[...group.children].map(([child, n]) => (
+                  <div className="tree-child" data-child={child} key={child}>
+                    <span className="tree-child-name">{child}</span>
+                    <span className="num">{nfmt(n)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** The `!s.files` outcome, chosen by `app.js`: the same card the cheap tier shows. */
 export function PreviewEmptyCard({ s }: { s: PreviewEmpty }): React.JSX.Element {
   return <NothingHereCard s={s} />;

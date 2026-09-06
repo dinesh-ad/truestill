@@ -32,6 +32,7 @@ import { CompletionCard, type CompletionSeam, type OrganizeDone } from "./comple
 import { ByFormat, InventoryCard, toHtml, type ByFormatCounts, type Inventory } from "./inventory";
 import {
   DateQualityNotes,
+  DestinationTree,
   InferredShiftNote,
   MatchList,
   PreviewCard,
@@ -171,10 +172,17 @@ function OrganizeResult({ state }: { state: ResultState }): React.JSX.Element | 
     );
   }
   if (state.kind === "preview") {
+    // The tree is a SECOND card, beside the preview rather than inside it, because it answers a
+    // different question: the preview says what is in the folder, the tree says what the library
+    // will look like afterwards. `app.js` never built this one, so there is no DOM to preserve.
     return (
       <div ref={host}>
         <div>
           <PreviewCard s={state.preview} view={state.view} />
+          <DestinationTree
+            tree={state.preview.destination_tree}
+            label={state.view.destinationLabel}
+          />
         </div>
       </div>
     );

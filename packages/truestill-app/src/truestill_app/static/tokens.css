@@ -102,9 +102,13 @@
      over a smooth gradient contributes almost nothing anyway. Contrast is computed against the
      COMPOSITE: white at 0.62 over `--canvas-to` is `#f6f6fb`, where `--fg-muted` is 5.30:1.
      0.45 is the floor; 0.62 is chosen. */
-  --glass-bg: rgba(255, 255, 255, 0.62);
-  --glass-border: rgba(255, 255, 255, 0.72);
-  --glass-shadow: 0 8px 32px rgba(28, 26, 23, 0.08);
+  /* ⚠ THE ONLY GLASS TOKEN LEFT, 2026-09-06. `--glass-bg`, `--glass-border` and `--glass-shadow`
+     were deleted when the canvas went white: measured in a browser, every `.card` carrying them
+     composited to exactly rgb(255,255,255) on the white body - 1:1 against the ground and 1:1
+     border - so twelve cards across four screens were invisible but for a shadow. Cards are solid
+     now. This one survives because `.modal-backdrop` still uses it, and the rail, the panel and
+     the custody card paint their own layered translucency with literal values rather than a
+     shared token, because each is tuned against a different ground. */
   --glass-blur: 14px;
   --surface: var(--gray-0);
   --surface-sunken: var(--gray-100);
@@ -328,9 +332,6 @@
     --canvas-from: #0e0d0b;
     --canvas-mid: #14120f;
     --canvas-to: #101218;
-    --glass-bg: rgba(46, 43, 39, 0.62);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
     --surface: #242220;
     --surface-sunken: #171614;
     --surface-raised: #2e2b27;
@@ -382,9 +383,6 @@
   --canvas-from: #0e0d0b;
   --canvas-mid: #14120f;
   --canvas-to: #101218;
-  --glass-bg: rgba(46, 43, 39, 0.62);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
   --accent: #fda4af;
   --accent-hover: #ffb3c1;
   --accent-subtle: #2b1a1f;

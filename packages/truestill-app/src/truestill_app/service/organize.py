@@ -337,6 +337,17 @@ class OrganizeDedupCore(TypedDict):
     suspect_default: int
     inferred_local_shifts: list[InferredLocalShiftPayload]
     folders: dict[str, int]
+    #: The DESTINATION TREE: how many files land in each folder the run will create, keyed by the
+    #: folder's path within the destination - ``{"2014/2014-08/2014-08-17 - Everyday": 117}``.
+    #:
+    #: ⚠ NOT `folders`, which is keyed by CATEGORY (Camera, Saved, WhatsApp). On a real 165-file
+    #: run the category gave 3 keys and this gives 18. The two answer different questions: one is
+    #: what KIND of thing a file is, the other is where it will be.
+    #:
+    #: FLAT, and deliberately: the year/month grouping a screen draws from this is presentation,
+    #: so it is done in the island by splitting on "/". Nesting it here would put a layout
+    #: decision in the payload and freeze it for every future consumer.
+    destination_tree: dict[str, int]
     heic_perceptual_skipped: NotRequired[int]
     #: Panel facts. Supplementary by construction - the panel is not rendered on a narrow
     #: window, so nothing here may be needed to finish the task.
@@ -354,6 +365,15 @@ def _summarize(resolutions: list[Resolution], *, skip_undated: bool = False) -> 
     uploads = buckets.organized
     near = buckets.near_duplicates
     labels = Counter(r.decision.category.label for r in uploads)
+    # One pass over the same list, keyed on the folder each file lands in. `Decision.relative` is
+    # backend-independent - `Decision`'s own docstring says so - so THIS FIELD is the same tree
+    # under any destination.
+    #
+    # ⚠ That is a fact about this field, not a licence to keep the card up when the destination
+    # changes. The rest of the payload is destination-dependent (`destination_limit` sizes a
+    # specific drive, and the promise sentence names it), so a new destination invalidates the
+    # whole answer - `test_a_new_destination_clears_the_result_and_the_typed_confirm`.
+    tree = Counter(str(r.decision.relative.parent) for r in uploads)
     heic = sum(1 for r in resolutions if r.decision.source.suffix.lower() in HEIF_EXTENSIONS)
     breakdown = media_breakdown([r.decision.source.name for r in resolutions])
     quality = date_quality(uploads)
@@ -404,6 +424,9 @@ def _summarize(resolutions: list[Resolution], *, skip_undated: bool = False) -> 
             for s in shifts
         ],
         "folders": dict(labels.most_common()),
+        # Sorted by path, not by count: a tree is read in order, and `most_common` would put
+        # 2014 above 2010 for no reason a reader could see.
+        "destination_tree": dict(sorted(tree.items())),
     }
     if heic and not HEIF_AVAILABLE:
         # Never silent: HEIC was exact-deduped but not perceptually hashed.

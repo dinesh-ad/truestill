@@ -3113,6 +3113,12 @@
           "destination_limit": {
             "$ref": "#/components/schemas/DestinationLimit"
           },
+          "destination_tree": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
           "duplicate_bytes": {
             "$ref": "#/components/schemas/DuplicateBytesPayload"
           },
@@ -3237,6 +3243,7 @@
           "by_format",
           "capture_span",
           "destination_is_drive",
+          "destination_tree",
           "duplicate_bytes",
           "exact_dup",
           "exact_dup_matches",
