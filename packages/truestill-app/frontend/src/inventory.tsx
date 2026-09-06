@@ -230,13 +230,44 @@ export function InventoryCard({ s }: { s: Inventory }): React.JSX.Element {
   );
 }
 
-/** Render an element into a detached node and hand back its HTML. `flushSync` makes the render
- *  land before `innerHTML` is read; the root is unmounted so nothing lingers. */
+/**
+ * Render an element into a detached node and hand back its HTML. `flushSync` makes the render
+ * land before `innerHTML` is read; the root is unmounted so nothing lingers.
+ *
+ * ⚠ **THE TRAP THIS GUARDS, and it shipped undetected for a day.** `flushSync` DOES NOT FLUSH
+ * when React is already rendering. It logs a warning nothing reads and returns, so `innerHTML` is
+ * read before the commit and the caller gets `""` - a silently empty block, on a card that goes on
+ * describing the content it is no longer showing. That is exactly how the completion card lost its
+ * folder chips while its own stats line kept printing "N folders".
+ *
+ * **The detection, and why it is not a heuristic.** React exposes no supported way to ask "am I
+ * rendering": `ReactCurrentOwner` is removed in 19, and `captureOwnerStack` is development-only
+ * while this bundle is a production build. Testing `innerHTML === ""` would be wrong in both
+ * directions, because `Legend`, `UnreadableBanner` and `MatchList` all legitimately render
+ * nothing. So the element is rendered inside a SENTINEL WRAPPER: a node that cannot fail to produce
+ * output. If it is absent afterwards, the flush did not happen - a fact about this call, not an
+ * inference about the element - and the HTML is read from inside the wrapper, so the returned
+ * string is exactly what it was before this guard existed.
+ *
+ * The root is deliberately NOT unmounted on the throwing path: unmounting mid-render is its own
+ * error and would mask this one. A detached node is cheap; a laundered diagnosis is not.
+ */
 export function toHtml(element: React.ReactElement): string {
   const host = document.createElement("div");
   const root = createRoot(host);
-  flushSync(() => root.render(element));
-  const html = host.innerHTML;
+  flushSync(() => root.render(<div data-flush-probe="">{element}</div>));
+  const probe = host.querySelector("[data-flush-probe]");
+  if (!probe) {
+    throw new Error(
+      "truestillMarkup was asked for HTML during a React render. `flushSync` does not flush " +
+        "inside a render, so the string would come back EMPTY and the block would vanish with " +
+        "nothing failing. Render the component directly instead of asking for its markup.",
+    );
+  }
+  // Read THROUGH the wrapper, never by deleting it: taking a node out from under React and then
+  // unmounting the root is a second mutation on the same tree, and the caller's HTML is exactly
+  // this wrapper's children either way.
+  const html = probe.innerHTML;
   root.unmount();
   return html;
 }

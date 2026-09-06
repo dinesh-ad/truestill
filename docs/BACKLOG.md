@@ -55,7 +55,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akg). Next free: (akh).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akh). Next free: (aki).**
 **Retired 2026-09-02 (P190), and named here because a retired letter is not a free one:** `(abz)`
 (*"Organize shows one population three ways and connects none of them"*). False before it was
 filed: `rearrangeNote` in `app.js` (`93635af`, 2026-08-06; `RearrangeNote` in `frontend/src/preview.tsx` since 2026-09-05) prints *"N of M files here are already in
@@ -651,6 +651,16 @@ and they are not product defects; keeping them in one drawer stops them competin
   **5:15**"*, and no run in the record reads 5:15. **Which record is wrong is unestablished** -
   the unqualified subject line, the handoff's 5:15, or a reader's assumption that "the lane" means
   the serial target. [Full entry](research/backlog/akf.md)
+
+- **(akh) ONE WEBKIT LANE RUN LOST A CLICK ON `#rc-cancel` TO THE JOB FINISHING FIRST.** Filed
+  2026-09-06 (P248), **no work attached, not investigated**.
+  `test_archive_ingest_ui.py::test_cancelling_leaves_a_staging_tree_the_next_run_can_clear`
+  timed out clicking `#rc-cancel`: the locator **resolved** and was then **not visible**, because
+  the job finished before the cancel could land. It passed **3 of 3 in isolation on both engines**
+  and the next full lane run was green at 1029 passed. It is on Import, a screen the Organize
+  React arc does not touch. ⚠ **ONE OCCURRENCE IS NOT A DISTRIBUTION**, so nothing is proposed
+  here. **If it recurs the next step is a census of runs since the last red, not a fix** - §4's
+  twenty-fifth and twenty-sixth members. [Full entry](research/backlog/akh.md)
 
 - **(ajy) THE 28.4 s WORST CASE THE ASSERTION BUDGET RESTS ON WAS MEASURED ON HARDWARE NOBODY CAN
   IDENTIFY.** Filed 2026-09-03 (P206). `tests/e2e/conftest.py` argues its 30 s budget from
