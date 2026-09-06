@@ -234,13 +234,24 @@ memory dressed as one.
 > a live one**; run the command.
 >
 > ⚠ **AND THE ORDINALS ARE A SECOND, SMALLER COUNT - THEY DO NOT AGREE AND SHOULD NOT.** Members
-> name themselves in prose (*"the sixty-second member"*), and the highest such ordinal is **69**
-> while the command reads **83**. The gap is not drift: the ordinals number only the members
-> written as *named failures*, and the command counts every bullet here, including the eight that
-> were never numbered - Idioms, Absolute imports, Typing, Dependencies, Performance, Tests,
-> Errors, Credentials. **Quoting 62 as the size of this section is therefore wrong by fourteen**,
-> and it is the easier mistake to make because the ordinal is the number the text says out loud.
-> Neither figure is the one to cite; the command is.
+> name themselves in prose (*"the sixty-second member"*). The ordinals number only the members
+> written as *named failures*; the command counts every bullet here, including the ones that were
+> never numbered - Idioms, Absolute imports, Typing, Dependencies, Performance, Tests, Errors and
+> Credentials among them. The ordinal is the number the text says out loud, which is what makes it
+> the easier one to quote by mistake. **Neither figure is the one to cite; the command is.**
+>
+> ⚠ **AND ON 2026-09-06 THE TWO LAND ON THE SAME NUMBER, WHICH IS A COINCIDENCE AND NOT
+> AGREEMENT.** The command reads **89** and the highest ordinal is also **89** - because **16
+> members carry no ordinal** and **16 ordinal values in 1..89 are unused** (1, 2 and the run
+> 73-86). The two errors cancel. Read that as the section having 89 named failures and you are
+> wrong by sixteen in both directions at once.
+>
+> ⚠ **This paragraph said the highest ordinal was 69 while the command read 83, and that quoting
+> 62 was *"wrong by fourteen"*, until 2026-09-06** - three figures, all stale, in the paragraph
+> warning against quoting figures. It also said **eight** members were never numbered; sixteen
+> are, and the eight it names are the ones with a topic heading rather than a headline. The
+> ordinals were audited the same day and carried one collision - two members had both called
+> themselves the fifty-fourth since 2026-08-14; see the thirtieth member.
 >
 > **The standard is working when three things are true**, and none of them is "the list is long":
 > - diffs carry **fewer unnecessary changes** - the edit is the change and nothing rides along;
@@ -1061,10 +1072,22 @@ and counts are the one thing this section has drifted on repeatedly. Search the 
   comparison is not one. Measure against the truth - a payload, a fixture, a constant the subject
   cannot reach - never against a number the subject declares about itself.
 
-- **When a census measures a PROXY, ask what the proxy cannot distinguish.** The fifty-fourth
+- **When a census measures a PROXY, ask what the proxy cannot distinguish.** The thirtieth
   member, and the family it belongs to is the checks that stop one step short of the property
   they claim - except here the shortfall is in the *measurement*, so it under-reports the very
   defect it was run to size.
+
+  ⚠ **This said *"the fifty-fourth member"* from 2026-08-14 until 2026-09-06, and so does the
+  silent-instrument member above** - two members, one ordinal, for twenty-three days. This one
+  claimed it first and yielded it anyway, because the corpus had already decided. Of the **32**
+  references to *"fifty-fourth"* outside these two bullets, **31 describe the silent instrument**
+  - *"an instrument silent in the case it exists for"* - across 25 files including `ci.yml`,
+  `IMPLEMENTATION_STANDARDS.md`, three source files and five tests
+  (`git grep -oI 'fifty-fourth' -- . | wc -l` read 34 before this edit). Renumbering that one to
+  save a single edit here would have touched all of them. **Thirty was never used**
+  (`git log -S 'thirtieth member' -- docs/ENGINEERING_STANDARD.md` is empty) and is the only free
+  ordinal below fifty-four, which is where a member added on 2026-08-14 belongs. The one
+  cross-reference that meant *this* member rather than that one moved with it.
 
   *Worked example - the orientation census, 2026-08-14.* `render` never applied EXIF orientation,
   and the census that sized the damage counted **aspect**: photographs whose stored width and
@@ -2241,7 +2264,7 @@ and counts are the one thing this section has drifted on repeatedly. Search the 
 
 - **A TRUE ANSWER FROM THE FIRST FUNCTION IS NOT THE ANSWER. READ TO THE LAST FUNCTION THAT CAN
   CHANGE IT.** The sixty-ninth member, about how an investigation reads rather than how a guard
-  checks - the siblings that stop one step short (the fifty-fourth's proxy census, the
+  checks - the siblings that stop one step short (the thirtieth's proxy census, the
   sixty-seventh's outermost exception) are about code; this one is about the reading that files
   and closes entries. The seventieth above is its other half: this one is what to do while
   reading, that one is what the reading must leave on the page.

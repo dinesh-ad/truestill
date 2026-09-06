@@ -40,9 +40,26 @@ moving a binding rule into one makes consulting it voluntary - which `ENGINEERIN
 §4's twenty-seventh member already tested and rejected: instance 3 had the best placement
 available *"and it still failed, **because consulting it was voluntary**"*. **The criterion**: a
 rule may be read on demand exactly when something MECHANICAL, not the reading, enforces it. §9
-qualifies at 47/48; §4 does not at 27/86, which is why §4 keeps its index inside the mandated read
-and no rule anywhere moved out of a binding document. `AGENTS.md` was refused too - one agent, and
-Claude Code does not read it natively.
+qualifies at 47 of 48 (`IMPLEMENTATION_STANDARDS.md:1439` states that ratio); §4 does not, which
+is why §4 keeps its index inside the mandated read and no rule anywhere moved out of a binding
+document. `AGENTS.md` was refused too - one agent, and Claude Code does not read it natively.
+
+⚠ **This read *"§4 does not at 27/86"* until 2026-09-06, and BOTH halves were unsound.** The
+denominator was 86 when §4 had **89** members - and the same commit that added the last two,
+`6ac8141`, moved the count twenty lines above this one from 87 to 89 and left this one at 86,
+which is §4's own seventy-first member, the partial refresh. Count it, never quote it:
+
+```sh
+awk '/^## 4\. Code standard/,/^## 5\./' docs/ENGINEERING_STANDARD.md | grep -cE '^- \*\*'
+```
+
+⚠ **The numerator has no recorded derivation anywhere in the tree** - `27` appears in this
+sentence and nowhere else, and no command reproduces it. The nearest measure that does: **18 of
+89** members name a `test_*.py` or `check_*.py` that resolves in the tree, against §9's 47 of 48
+which `test_the_truth_contract_index_matches_its_rules.py` backs. The two may not be counting the
+same thing, so 18 is not offered as a corrected 27 - it is the reading that exists. **The ruling
+does not turn on the exact ratio**: §9 is guard-backed and §4 is not, by an order of magnitude
+either way, and that is what the criterion above is decided on.
 
 ⚠ **THIS LIST COULD NOT BE FOLLOWED AS WRITTEN, AND THAT IS WHY THE INDEX EXISTS** (measured
 2026-09-04, P209). These three plus this file were **526,577 bytes, ~132K tokens** before any work

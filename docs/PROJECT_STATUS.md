@@ -231,8 +231,23 @@ worse than a wrong line - `MISSING` drives `mark_copy_missing`, so it also wrote
 `single_copy_shas` and `custody_floor` read. **The library reported itself less redundant than it
 was**, which is the number `(aiy)` had just fixed.
 
-⚠ **The browser lane has not run since `d7ba4d8`.** `app.js` changed again in `f92c232`. Run it
-before a release; `docs/handoff-2026-09-03.md` carries the rest of what is owed.
+⚠ **LANE FRESHNESS IS A COMMAND HERE, NEVER A SHA.** The lane runs on `schedule` and
+`workflow_dispatch` only (`ci.yml:509`), so a green push run says nothing about it, and a sha
+written into this file cannot report what has landed since. Ask:
+
+```sh
+gh run list --workflow ci.yml --event schedule --event workflow_dispatch --limit 5
+git log --oneline <lane sha>..HEAD -- packages/truestill-app/src packages/truestill-app/frontend/src \
+  packages/truestill-core/src tests/e2e   # what the lane has not seen
+```
+
+⚠ **This said *"The browser lane has not run since `d7ba4d8`. `app.js` changed again in
+`f92c232`"* until 2026-09-06, and by then it was false by 92 commits**
+(`git rev-list --count d7ba4d8..HEAD`). `d7ba4d8` is 2026-09-01; in the seventy-two hours to
+2026-09-06 the lane ran **thirteen times over ten shas, nine green and four red**, most recently
+run `33955792599` on `08a73b4`, both engines, success. Replacing it with a newer sha would have
+rotted the same way, which is why the commands above stand in its place. Run it before a release;
+`docs/handoff-2026-09-03.md` carries the rest of what is owed.
 
 ## 1b. The build order - engine, then contract, then UI
 
