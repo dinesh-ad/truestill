@@ -1770,10 +1770,19 @@ details.more.inline {
   background: var(--surface-sunken);
   overflow: hidden;
 }
+/* DATA IS NEUTRAL, ruled 2026-09-06. A bar chart of the library by year in the same colour as the
+   primary button reads as something to press. `--fg-secondary`, an existing token in both themes,
+   rather than a fourth accent family: 6.19:1 against the light track and 7.00:1 against the dark
+   one, both clear of the 3:1 WCAG 2.2 1.4.11 asks of non-text UI.
+
+   The `.at-risk` and `.safe` variants below keep their colours and their meaning: a bar that has
+   become a CUSTODY statement is no longer plain data, and amber and green are the roles that say
+   so. Nothing currently applies either class to a `.proportion`, which is recorded rather than
+   fixed - the only caller is `statsBars`. */
 .proportion > i {
   display: block;
   height: 100%;
-  background: var(--accent);
+  background: var(--fg-secondary);
   transition: width var(--dur) var(--ease);
 }
 .proportion > i.at-risk {
@@ -1888,14 +1897,19 @@ details.more.inline {
   color: var(--fg);
 }
 /* The total size as a chip, because it is a quantity of a different kind from a count and
-   stacking two mono lines made them read as one wrapped value. */
+   stacking two mono lines made them read as one wrapped value.
+
+   NEUTRAL, by the same ruling as the bars: it states a fact about the library and there is
+   nothing to press. It was rose, which made the one decorative spot of colour in the panel the
+   same colour as the primary button on the form beside it. `--surface-sunken` behind
+   `--fg-secondary` is 7.11:1, well past the 4.5:1 this needs as text. */
 .panel-chip {
   display: inline-block;
   margin-top: var(--space-2);
   padding: var(--space-1) var(--space-3);
   border-radius: var(--corner-pill);
-  background: var(--accent-subtle);
-  color: var(--accent-strong);
+  background: var(--surface-sunken);
+  color: var(--fg-secondary);
   font-size: var(--type-xs);
   font-weight: var(--weight-semibold);
 }
