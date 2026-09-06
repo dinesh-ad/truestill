@@ -1662,6 +1662,11 @@ function refreshCatalogPathFit() {
 // NOT SHOWN, because the data does not exist and inventing it would be worse than omitting it:
 // biggest folders (no per-folder query in the catalog) and the capture span (computed only by
 // the Stats query, which is not fetched at startup and should not be added to it).
+//: The last `/api/library/status` payload. Held so the panel has a resting state to return to
+//: when an Organize answer is invalidated - declared beside its renderer rather than beside the
+//: invalidation, so no top-level caller can reach it before the binding exists.
+let lastLibraryStatus = null;
+
 function renderRestingPanel(s) {
   const panel = $("panel");
   if (!panel) return;
@@ -1827,18 +1832,30 @@ async function saveLibraryRoot() {
   // Refill the destination from the answer rather than waiting for a run to observe it, then let
   // the reload hide the card - the server decides that, not this function.
   const dest = $("org-dest");
-  if (dest && !dest.value) dest.value = result.library_root;
+  // A scripted write fires no event, so the listeners on the invalidating set cannot see it.
+  // Dispatched rather than calling the invalidation directly: one code path instead of two, and
+  // the hint gets to describe the value now in the box, which it never did before.
+  if (dest && !dest.value) {
+    dest.value = result.library_root;
+    dest.dispatchEvent(new Event("change"));
+  }
   await loadCustody();
 }
 
 async function loadCustody() {
   const s = await get("/api/library/status");
+  // Kept so `invalidateOrganizeResult` can put the column BACK to rest rather than blanking it.
+  lastLibraryStatus = s;
   renderRestingPanel(s);
   // Organize and Trips work on the library; Backups copies *from* it to somewhere else.
   // `org-dest` falls back to the DECLARED root when no run has been observed yet - that is the
   // whole point of `(abx)`, and it is the only one of these five that does: the other four want a
   // path that is reachable NOW, which is exactly what `library_path` means and `library_root`
   // deliberately does not.
+  // ⚠ NOT dispatched, unlike the scripted write in `saveLibraryRoot`. This runs on every status
+  // load and writes only into an EMPTY field, so it cannot leave a result describing a folder the
+  // form no longer names - and an invalidation here would fire on every screen open, after
+  // `renderRestingPanel` above has already drawn the column.
   prefill("org-dest", s.library_path || s.library_root);
   renderFirstRunLibrary(s);
   prefill("ev-source", s.library_path);
@@ -2093,6 +2110,74 @@ let organizeModeLoadGeneration = 0;
 let orgMechanism = null;
 let orgUndoJob = null;
 let cleanupOffer = null;
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// A RESULT DESCRIBES THE FIELDS THAT PRODUCED IT. TWO MECHANISMS, AND THEY ARE NOT ONE THING.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+//
+// (1) SYNCHRONOUS INVALIDATION clears what is on screen the instant an input changes. Without it
+//     the previous folder's tally and its typed-confirm control stay up, and `startOrganizeRun`
+//     reads the fields FRESH at click time - so the button offers a count belonging to a folder
+//     the form no longer names.
+//
+// (2) A GENERATION COUNTER stops a slow reply from the PREVIOUS folder landing on the new one.
+//     Clearing alone cannot do this: the request for folder A is already in flight when the
+//     source becomes B, and its response arrives afterwards with nothing to say it is stale.
+//
+// Every organize response carries the generation it was issued under and writes nothing unless
+// that generation is still current - not the result, not the why-text, not the confirm, not the
+// panel. `#org-undo-panel` is deliberately NOT cleared: it is about a run that already happened,
+// not a claim about the fields.
+const RESTING_WHY = "Look inside first to see what is in the folder.";
+
+let organizeGeneration = 0;
+
+// MECHANISM 1, and it takes a new generation with it - one increment site, so a cleared screen
+// and a stale-response check can never disagree about which answer is current.
+function invalidateOrganizeResult() {
+  organizeGeneration += 1;
+  organizeResult.set({ kind: "resting" });
+  // `#org-confirm` is cleared HERE and not only in the dedup handler. Look inside cleared the
+  // result and the panel and left the confirm standing, so the one reset that already existed
+  // still left a run on offer for the previous folder.
+  $("org-confirm").innerHTML = "";
+  $("org-dedup").disabled = true;
+  // The panel goes back to REST, not to nothing. `#panel` has two tenants - the library facts
+  // this app opens on, and the "This folder" facts a preview adds - and only the second belongs
+  // to the answer being invalidated. Blanking it took the whole third column away, which is what
+  // `renderPanel({})` on the old Look-inside path had been quietly doing.
+  if (lastLibraryStatus) renderRestingPanel(lastLibraryStatus);
+  else renderPanel({});
+  setWhy(RESTING_WHY);
+  orgMechanism = null;
+  cleanupOffer = null;
+  return organizeGeneration;
+}
+
+// MECHANISM 2's only question. Read at every write site that follows an `await`.
+function organizeAnswerIsCurrent(generation) {
+  return generation === organizeGeneration;
+}
+
+// THE INVALIDATING SET: the two path fields, the three mode radios, the two checkboxes.
+// Bound on BOTH `input` and `change` - `input` for typing, `change` because the quick-place
+// chips, the folder picker and the carried-value restore write the value and dispatch `change`
+// and nothing else. The path fields are named rather than taken from `[data-browse]`, which
+// covers twelve fields across six screens.
+for (const id of ["org-source", "org-dest"]) {
+  const el = $(id);
+  if (!el) continue;
+  // Undebounced on purpose: `validatePath` is debounced 400 ms because it costs a request, and
+  // this costs nothing. A result that is wrong for 400 ms is a result that is wrong.
+  el.addEventListener("input", () => invalidateOrganizeResult());
+  el.addEventListener("change", () => invalidateOrganizeResult());
+}
+for (const id of ["org-skip-undated", "org-refresh-metadata"]) {
+  const el = $(id);
+  if (!el) continue;
+  // Both are sent with the preview (`/api/organize/preview`) and both change the promised count.
+  el.addEventListener("change", () => invalidateOrganizeResult());
+}
 
 function currentOrganizeMode() {
   const picked = document.querySelector('input[name="org-mode"]:checked');
@@ -2566,21 +2651,19 @@ let orgJob = null;
 
 $("org-preview").onclick = guarded(async () => {
   const source = $("org-source").value.trim();
-  const mode = currentOrganizeMode();
-  const destination = mode === "inplace" ? source : $("org-dest").value.trim();
   if (!source) { setWhy("Pick a folder to organize first."); return; }
-  if (organizeNeedsDestination(mode) && !destination) {
-    setWhy("Pick the organized destination folder first.");
-    return;
-  }
-  // Cheap inventory only (walk + size). Full dedup is an explicit second step.
+  // NO DESTINATION CHECK. This posts `{ source }` alone and the route reads `body["source"]`
+  // and nothing else, so the destination is not an input to this answer and refusing on it
+  // asked for something the question did not need. The DEDUP step genuinely does need one and
+  // keeps its gate. The refusal was written by `setWhy` into the help-text span, where it read
+  // as a hint rather than as a refusal.
   await withBusy($("org-preview"), "Looking inside…", async () => {
-    organizeResult.set({ kind: "resting" });
-    $("org-dedup").disabled = true;
+    // Clears the result, the panel, the why-text AND the confirm - the last of which the old
+    // reset here did not - and takes the generation with it.
+    const generation = invalidateOrganizeResult();
     const s = await api("/api/organize/inventory", { source });
-    // The cheap tier knows none of the panel's facts (no sizes, no dates), and a stale panel
-    // from a previous folder would be worse than none.
-    renderPanel({});
+    // The source may have changed while this walk was running. Nothing from the old folder.
+    if (!organizeAnswerIsCurrent(generation)) return;
     // Drawn by the island from the payload - `frontend/src/inventory.tsx` - not built here.
     organizeResult.set({ kind: "inventory", inventory: s });
     if (!s.files) {
@@ -2606,6 +2689,9 @@ $("org-dedup").onclick = guarded(async () => {
     return;
   }
   $("org-confirm").innerHTML = "";
+  // The generation this answer belongs to. Every callback below writes only if it is still
+  // current: the preview is a job, so its reply can arrive long after the fields moved on.
+  const generation = organizeGeneration;
   await runJob({
     button: $("org-dedup"),
     busyLabel: "Checking for duplicates…",
@@ -2615,20 +2701,27 @@ $("org-dedup").onclick = guarded(async () => {
     progressLabel: "starting",
     progressBeforeStart: true,
     onRefuse: (started) => {
+      if (!organizeAnswerIsCurrent(generation)) return;
       organizeResult.set({ kind: "running", html: startRefusedCard(started, "org-dest") });
     },
     statusForProgress: (p, setStatus) => {
+      if (!organizeAnswerIsCurrent(generation)) return;
       if (p.phase === "scanning") setStatus(scaleStatus("Reading photos", p.done, p.total, "files"));
       else if (p.phase === "hashing") setStatus(scaleStatus("Checking for duplicates", p.done, p.total, "files"));
       else if (p.total) setStatus(scaleStatus("Checking folder", p.done, p.total, "files"));
     },
-    onError: (d) => { organizeResult.set({ kind: "complete", html: jobErrorCard(d) }); },
+    onError: (d) => {
+      if (!organizeAnswerIsCurrent(generation)) return;
+      organizeResult.set({ kind: "complete", html: jobErrorCard(d) });
+    },
     onCancelled: () => {
+      if (!organizeAnswerIsCurrent(generation)) return;
       organizeResult.set({ kind: "complete", html: card(
         `<div class="headline">Check cancelled</div><div class="k">Nothing was changed. Check again when you are ready.</div>`) });
       setWhy("Check for duplicates again to see what would happen.");
     },
     onSuccess: (d) => {
+      if (!organizeAnswerIsCurrent(generation)) return;
       const s = d.summary;
       // ONE HOME. `kept` is the payload's `will_organize` - the confirm control renders the same
       // field, so the card and the button cannot disagree. `(abl)`, `(acx)`. The empty outcome
@@ -2714,8 +2807,10 @@ document.querySelectorAll('input[name="org-mode"]').forEach((item) => {
   item.addEventListener("change", guarded(async () => {
     organizeModeLoadGeneration += 1; // invalidate any in-flight settings load
     renderOrganizeMode();
+    // `mode` is sent with the preview and decides the confirm word, so a mode change is a
+    // different answer. This also sets the why-text, which used to be set literally here.
+    invalidateOrganizeResult();
     await saveOrganizeMode(currentOrganizeMode());
-    setWhy("Look inside first to see what is in the folder.");
   }));
 });
 

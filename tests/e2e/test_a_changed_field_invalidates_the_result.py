@@ -25,18 +25,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
+from e2e_support import hold_route, release_held
 from playwright.sync_api import Page, expect
 
-#: `strict=True` so the fix cannot land quietly: the moment Stage 2 wires the invalidation
-#: these XPASS, the lane goes red, and the marker has to come off in the fix's own commit.
-#: Committed marked rather than red, because a red `main` is not a to-do list.
 
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="Stage 1: no listener clears #org-result on a source change (app.js:2080-2088)",
-)
 def test_a_new_source_clears_the_result_that_described_the_old_one(
     ui: Page, tmp_path: Path, library
 ) -> None:
@@ -59,10 +51,6 @@ def test_a_new_source_clears_the_result_that_described_the_old_one(
     expect(ui.locator('#org-result [data-testid="org-tally"]')).to_have_count(0, timeout=10_000)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Stage 1: nothing clears #org-confirm on a source change; app.js:2608 is the dedup path only",
-)
 def test_a_new_source_clears_the_typed_confirm_that_offered_the_old_run(
     ui: Page, tmp_path: Path, library
 ) -> None:
@@ -84,10 +72,6 @@ def test_a_new_source_clears_the_typed_confirm_that_offered_the_old_run(
     expect(ui.locator("#org-confirm [data-typed-confirm]")).to_have_count(0, timeout=10_000)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Stage 1: the destination field is wired to validatePath alone (app.js:2080-2088)",
-)
 def test_a_new_destination_clears_the_result_and_the_typed_confirm(
     ui: Page, tmp_path: Path, library
 ) -> None:
@@ -111,10 +95,6 @@ def test_a_new_destination_clears_the_result_and_the_typed_confirm(
     expect(ui.locator("#org-confirm [data-typed-confirm]")).to_have_count(0, timeout=10_000)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Stage 1: the mode radios rebuild the form (app.js:2156) and leave the result standing",
-)
 def test_a_new_mode_clears_the_result_and_the_typed_confirm(
     ui: Page, tmp_path: Path, library
 ) -> None:
@@ -138,10 +118,6 @@ def test_a_new_mode_clears_the_result_and_the_typed_confirm(
     expect(ui.locator("#org-confirm [data-typed-confirm]")).to_have_count(0, timeout=10_000)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Stage 1: the gate at app.js:2572-2575 refuses, though the call it guards posts { source } alone",
-)
 def test_look_inside_reports_the_folder_without_a_destination(ui: Page, library) -> None:
     alpha = library(6, name="Alpha")
     ui.check('input[name="org-mode"][value="copy"]')
@@ -157,3 +133,46 @@ def test_look_inside_reports_the_folder_without_a_destination(ui: Page, library)
 
     expect(ui.locator("#org-result .card.result")).to_be_visible(timeout=30_000)
     expect(ui.locator("#org-dedup")).to_be_enabled(timeout=10_000)
+
+
+def test_a_reply_for_the_old_folder_does_not_land_on_the_new_one(
+    ui: Page, tmp_path: Path, library
+) -> None:
+    """The generation counter, which the five above cannot reach.
+
+    They assert SYNCHRONOUS clearing, and would pass with no counter at all: the screen is empty
+    at the moment they look. This is the other half - the request for Alpha is already in flight
+    when the source becomes Bravo, and its reply arrives afterwards with nothing in it to say it
+    is stale. Held open rather than raced, so the ordering is decided by the test and not by the
+    machine it runs on.
+    """
+    alpha = library(6, name="Alpha")
+    bravo = library(3, name="Bravo")
+    ui.check('input[name="org-mode"][value="copy"]')
+    ui.fill("#org-source", str(alpha))
+    ui.fill("#org-dest", str(tmp_path / "Out"))
+
+    held = hold_route(ui, "**/api/organize/inventory")
+    ui.click("#org-preview")
+    # In flight, and this auto-retrying assertion is what pumps the driver so the route handler
+    # actually fires - `withBusy` disables the button for the duration.
+    expect(ui.locator("#org-preview")).to_be_disabled()
+
+    ui.fill("#org-source", str(bravo))
+    expect(ui.locator("#org-dedup")).to_be_disabled()
+
+    # Alpha's walk answers now, after the field has moved on.
+    release_held(held)
+    expect(ui.locator("#org-preview")).to_be_enabled()
+
+    # Nothing from Alpha reached the page. Both are contract, not prose: the card is the thing
+    # the reply would have drawn, and the duplicate button is the state the reply would have set.
+    expect(ui.locator("#org-result .card.result")).to_have_count(0)
+    expect(ui.locator("#org-dedup")).to_be_disabled()
+
+    # ...and the screen is not merely broken: Bravo still answers. The route has to come off
+    # first - it is registered for the pattern, not for one request, and would hold this one too.
+    ui.unroute("**/api/organize/inventory")
+    ui.click("#org-preview")
+    expect(ui.locator("#org-result .card.result")).to_have_count(1, timeout=30_000)
+    expect(ui.locator("#org-dedup")).to_be_enabled()
