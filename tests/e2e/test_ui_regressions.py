@@ -139,7 +139,12 @@ def test_cancel_actually_stops_an_organize(ui: Page, tmp_path: Path) -> None:
 def test_organize_mode_persists_and_inplace_hides_destination(ui: Page) -> None:
     # Settle the async settings load so it cannot race a later radio pick.
     expect(ui.locator('input[name="org-mode"][value="copy"]')).to_be_checked()
-    expect(ui.locator("#org-mode-hint")).to_contain_text("Originals stay where they are.")
+    # ⚠ Re-expected 2026-09-06. This hint repeated the sentence already printed under the Copy
+    # card, so copy now renders nothing here and the card is the one home for it. The
+    # settled-state check the line was doing is kept by asserting the hint is EMPTY, which
+    # is just as decisive about the async settings load having landed.
+    expect(ui.locator("#org-mode-hint")).to_have_text("")
+    expect(ui.locator(".org-mode").first).to_contain_text("Originals stay where they are.")
 
     with ui.expect_response(
         lambda r: "/api/organize/settings" in r.url and r.request.method == "POST" and r.ok

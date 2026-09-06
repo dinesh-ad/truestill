@@ -187,7 +187,11 @@ def test_the_panel_still_says_what_only_it_says(ui: Page) -> None:
 
     assert "1,997" in panel, panel
     assert "GB" in panel, panel
-    assert "In at least" in panel, panel
+    # ⚠ Case-folded 2026-09-06. The panel became a dashboard and its labels are uppercased by
+    # CSS, so the rendered text is "IN AT LEAST" while the markup still says "In at least".
+    # The assertion is about the FACT being present, not about its casing, and folding is
+    # what keeps it about that rather than about a text-transform.
+    assert "in at least" in panel.lower(), panel
     assert "1 place" in panel, panel
 
 

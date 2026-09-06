@@ -1466,8 +1466,8 @@ function renderRestingPanel(s) {
     // No label on the first fact: the panel title already says "Your library", and repeating
     // it put the same three words twice at the top of the column.
     `<div class="panel-fact">
-      <div class="mono">${mediaCount(s)}</div>
-      <div class="mono">${fmtBytes(s.bytes || 0)}</div></div>`,
+      <div class="mono panel-metric">${mediaCount(s)}</div>
+      <div class="mono panel-chip">${fmtBytes(s.bytes || 0)}</div></div>`,
     // `held_floor`, NOT `places`. `places` counts DRIVES; this sentence is about FILES, and
     // `service/drives.py:632-634` already forbids writing one against the other. On the
     // maintainer's catalog the two read 3 and 1 - three drives, and 395 files on one of them.
@@ -1484,7 +1484,7 @@ function renderRestingPanel(s) {
     // is the maintainer's wording.
     s.held_floor
       ? `<div class="panel-fact"><div class="panel-k">In at least</div>
-         <div class="mono">${plural(s.held_floor, "place")}</div></div>`
+         <div class="mono panel-metric">${plural(s.held_floor, "place")}</div></div>`
       : "",
     // "In one place only" USED TO BE HERE and is deliberately gone: the rail's custody line
     // states the same number, in different words, at the same moment. The RAIL keeps it - it is
@@ -1976,7 +1976,11 @@ function organizeNeedsDestination(mode) {
 }
 
 function modeLine(mode) {
-  if (mode === "copy") return "Originals stay where they are.";
+  // ⚠ COPY SAYS NOTHING HERE, and the silence is the point. "Originals stay where they are." is
+  // already under the Copy card, three lines above this hint, so the screen said it twice - the
+  // duplication the redesign was asked to remove. The other two modes add something their card
+  // does not: what the mechanism costs, and what it refuses to do.
+  if (mode === "copy") return "";
   if (mode === "move") return "Originals are removed only after copy verification.";
   return "This mode reorganizes in this same folder by renaming files, never by copying them. Nothing leaves the folder.";
 }

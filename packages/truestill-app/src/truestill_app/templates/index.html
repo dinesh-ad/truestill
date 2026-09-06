@@ -194,13 +194,21 @@
           <fieldset class="field">
             <legend>How to organize</legend>
             <div class="org-modes" id="org-modes">
+              <!-- THE RADIO STAYS, AND STAYS VISIBLE - see `app.css`'s note on the four ways
+                   hiding it broke. It keeps its name, its value, its checked state, its focus
+                   and every binding in `app.js`, which reads `input[name="org-mode"]`. The badge
+                   beside it carries the mode's glyph, inlined - provenance in
+                   `static/LICENSE-icons.txt`. -->
               <label class="org-mode"><input type="radio" name="org-mode" value="copy" checked>
+                <span class="mode-badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></span>
                 <span><b>Copy into an organized folder</b><br><span class="k">Originals stay where they are.</span></span>
               </label>
               <label class="org-mode"><input type="radio" name="org-mode" value="move">
+                <span class="mode-badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12h14"/><path d="m13 6 6 6-6 6"/></svg></span>
                 <span><b>Move into an organized folder</b><br><span class="k">Same-drive: rename. Cross-drive: copy, verify, then delete source.</span></span>
               </label>
               <label class="org-mode"><input type="radio" name="org-mode" value="inplace">
+                <span class="mode-badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 10a8 8 0 0 1 13.7-5.6L20 7"/><path d="M20 4v3h-3"/><path d="M20 14a8 8 0 0 1-13.7 5.6L4 17"/><path d="M4 20v-3h3"/></svg></span>
                 <span><b>Reorganize in this same folder</b><br><span class="k">Moves by rename only; never falls back to copy.</span></span>
               </label>
             </div>
@@ -225,7 +233,7 @@
             <span style="color:var(--fg-muted)">(bypass cache if another tool edited tags without changing the file date)</span></label>
 
           <div class="actions">
-            <button class="btn btn-secondary" id="org-preview">Look inside</button>
+            <button class="btn btn-primary" id="org-preview">Look inside</button>
             <button class="btn btn-secondary" id="org-dedup" disabled>Check for duplicates</button>
             <span class="why" id="org-why">Look inside first to see what is in the folder.</span>
           </div>

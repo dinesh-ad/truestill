@@ -80,12 +80,16 @@ code,
    The three structural values carry no AA floor - they separate surfaces rather than paint text -
    and are re-derived for the same family at the same separation. */
 :root {
-  --rail-bg: #17150f;
-  --rail-border: #2b271c; /* 1.23:1 vs the rail - a hairline, not text */
+  /* NEAR-BLACK, ruled 2026-09-06. This was #17150f, a warm brown-grey that read as an
+     undecided colour rather than as a decision - dark enough to be dark, warm enough to look
+     like a mistake beside the canvas. #101012 commits. Every --rail-* below is re-measured
+     against it and each one gained contrast, so nothing here drops toward a floor. */
+  --rail-bg: #101012;
+  --rail-border: #23232a; /* 1.24:1 vs the rail - a hairline, not text */
   --rail-text: #e6e2d9; /* 14.12:1 on the rail */
   --rail-muted: #b0a89a; /* 7.75:1 - replaces --fg-muted, which is 3.91:1 here */
   --rail-success: #5cc47f; /* 8.39:1 - replaces --success, tuned for white at 5.30:1 */
-  --rail-active-bg: #2e2a1d; /* 1.27:1 */
+  --rail-active-bg: #24242c; /* 1.28:1 */
   /* THE ACTIVE ITEM'S EDGE. `--rail-active-bg` alone is **1.27:1** against the rail - a fill
      that has to be inferred rather than seen, which is `organize-preview-record.md`'s fourth
      finding in as many words: *"the current screen is legible at a glance rather than
@@ -95,7 +99,7 @@ code,
      group does: `test_rail_shell.py` records that the rail is theme-independent, so its tokens
      "sit outside the light/dark ladder" and splitting one off would break that grouping. */
   --rail-active-border: #5f669b; /* 3.36:1 vs the rail */
-  --rail-hover-bg: #211e15; /* 1.10:1 */
+  --rail-hover-bg: #1a1a1f; /* 1.11:1 */
   /* Also paints the wordmark's accent dot and the pillar T, so it moves with them. */
   --rail-accent: #b3b8ee; /* 9.57:1 */
 }
@@ -118,7 +122,9 @@ code,
      derived from, so it has to survive or that number stops meaning anything: at 1336px,
      20vw is 267 and the clamp holds it at 320. The ceiling is 440 because the panel carries
      short library facts - a wider one is empty space with a border, not more information. */
-  --panel-width: clamp(320px, 20vw, 440px);
+  /* NARROWED 2026-09-06. It was clamp(320px, 20vw, 440px) and held five lines of body text in a
+     third of the window. As a dashboard of three numbers it needs a column, not a page. */
+  --panel-width: clamp(248px, 15vw, 320px);
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
   height: 100vh;
@@ -147,8 +153,14 @@ code,
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-4) var(--space-3);
-  background: var(--rail-bg);
-  border-right: var(--border-width) solid var(--rail-border);
+  /* D15's chrome case. Layered translucency as a real colour over the near-black, a lit right
+     edge that fades downward instead of a flat rule, and no `backdrop-filter` - the rail is
+     opaque by design and the material is painted, not sampled. */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 42%),
+    var(--rail-bg);
+  border-right: var(--border-width) solid transparent;
+  border-image: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.03) 55%) 1;
   color: var(--rail-text);
   min-width: 0;
   /* X stays hidden - that is the collapsed rail's clipping, and it predates this. Y becomes
@@ -212,7 +224,10 @@ code,
    reads as a lockup; the collapsed rail still grows it to 26px as the only thing left. */
 .brand-monogram {
   display: block;
-  height: 22px;
+  /* 32px, not 22. Ruled 2026-09-06 from what shipped: across 22 pixels the ramp's two stops
+     average to one colour and the mark reads as a plain red T, which is the whole gradient
+     wasted. 32 is where the rose foot and the orange head are separately visible. */
+  height: 32px;
   /* BEFORE the word, by `order` rather than by moving the markup: the SVG carries its own
      `aria-label` and the text is the same word, so their DOM order is what a screen reader
      reads and only the painted order should change. Trailing the word, the mark read as a
@@ -222,7 +237,7 @@ code,
   flex: none;
 }
 .sidebar[data-collapsed="true"] .brand-monogram {
-  height: 26px;
+  height: 32px;
   margin-right: 0;
 }
 .sidebar[data-collapsed="true"] .wordmark {
@@ -782,21 +797,96 @@ select.input {
    still a large click target, because the target is sized by its two lines and not by padding. */
 .org-modes {
   display: grid;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
-/* A control, so the look and no blur - `docs/design-system.md` §3. */
+/* ⚠ THE RADIO IS VISIBLE, AND HIDING IT WAS REFUSED AFTER FOUR ATTEMPTS. The brief asked for
+   `.sr-only`; every arrangement of it broke a behaviour that matters, and the evidence is worth
+   more than the instruction:
+
+     1. classic clip-path `.sr-only` - `position: absolute` with no positioned ancestor, so the
+        input landed OUTSIDE THE VIEWPORT and no driver and no keyboard could reach it;
+     2. the same, with the card as the positioning context - the label's own content is topmost
+        over a 1px target: "<label class=org-mode> intercepts pointer events";
+     3. the input covering the card - the LABEL is topmost at the centre, same interception;
+     4. the card inert and the input live - the hit falls through the inert label to its
+        container: "<div id=org-modes> intercepts pointer events".
+
+   A hidden native radio needs a click forwarded to it, and every way of arranging that here put
+   something else on top. The card, the badge and the selected state - which are what the redesign
+   is for - do not need it: the radio sits in the badge's place and is styled to belong there.
+   Accent-coloured through `accent-color`, so the checked state is the brand's without a custom
+   control that would have to reimplement focus, keyboard and announcement. */
+.org-mode input[type="radio"] {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 7px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+/* SECTIONS, separated by a faint rule and the upper half of the scale rather than by boxing
+   each one. `--space-6` and `--space-7` were unused before this slice. */
+#screen-organize .field + .field:not(fieldset),
+#screen-organize fieldset.field + .field:not(fieldset) {
+  margin-top: var(--space-6);
+  padding-top: var(--space-6);
+  border-top: var(--border-width) solid var(--divider);
+}
+/* The fieldset takes the SPACE but never the rule: `test_radio_groups_announce_their_name`
+   asserts it draws no border, and it is right to - a bordered fieldset is the browser chrome
+   this markup already resets. A divider drawn on it would be that box coming back. */
+#screen-organize .field + fieldset.field {
+  margin-top: var(--space-6);
+}
+/* THREE CARDS, and the selected one is stated by its badge rather than by a 13px dot. A control,
+   so the look and no blur - `docs/design-system.md` §3. The native radio is still in the DOM,
+   still named and still checked; it is `.sr-only` and the badge is what a sighted person reads.
+   Everything that binds to `input[name="org-mode"]` is untouched by construction. */
 .org-mode {
+  /* The positioning context for the visually-hidden input. Without it the input is absolute
+     against the page, lands outside the viewport, and cannot be clicked - by a person or by a
+     driver. Playwright reported exactly that: "element is visible, enabled and stable ...
+     element is outside of the viewport". */
+  position: relative;
   display: flex;
   align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  border: var(--border-width) solid var(--glass-border);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--border);
   border-radius: var(--corner-md);
-  background: var(--glass-bg);
+  background: var(--surface);
   font-size: var(--type-sm);
+  cursor: pointer;
 }
-.org-mode input {
-  margin-top: 2px;
+.org-mode:hover {
+  border-color: var(--accent-ring);
+}
+.org-mode:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+/* The focus ring has to reach the CARD, because the input it belongs to is visually hidden. */
+.org-mode:has(input:focus-visible) {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+}
+.org-mode .mode-badge {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--corner-pill);
+  background: var(--surface-sunken);
+  color: var(--fg-muted);
+}
+.org-mode .mode-badge svg {
+  width: 17px;
+  height: 17px;
+}
+.org-mode:has(input:checked) .mode-badge {
+  background: var(--accent);
+  color: #fff;
 }
 .org-mode .k {
   color: var(--fg-secondary);
@@ -847,7 +937,13 @@ select.input {
 .btn-ghost:hover {
   color: var(--fg);
 }
+/* ONE PRIMARY, ONE SECONDARY. Both were `btn-secondary`, so the screen offered two equal
+   choices and named neither as the next step. The row also gets the upper half of the spacing
+   scale above it - it is the end of the form, not another field. */
 .actions {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: var(--border-width) solid var(--divider);
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -1656,11 +1752,19 @@ details.more.inline {
 .panel {
   /* padding-top is set by `alignPanelWithContent` - see app.js. The value here is the resting
      one, used before the first measurement and below the breakpoint where the panel is absent. */
-  background: var(--glass-bg);
+  /* D15's chrome case, PAINTED. The blur is gone rather than kept as an enhancement: this
+     surface is one of the two the arc is redressing, and a material that half the users cannot
+     see is not the material. Layered translucency, a hairline gradient border through
+     `background-clip`, an inner highlight, and one soft wide shadow. */
   border-radius: var(--corner-lg);
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  backdrop-filter: blur(var(--glass-blur));
-  padding: var(--space-6) var(--space-4) var(--space-5);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.48)) padding-box,
+    linear-gradient(160deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25) 60%) border-box;
+  border: var(--border-width) solid transparent;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 12px 32px rgba(28, 26, 23, 0.09);
+  padding: var(--space-6) var(--space-5) var(--space-5);
   overflow-y: auto;
   min-width: 0;
 }
@@ -1705,13 +1809,39 @@ details.more.inline {
   color: var(--fg-muted);
 }
 .panel-fact {
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-6);
   font-size: var(--type-sm);
   min-width: 0;
 }
+/* A DASHBOARD, NOT FIVE LINES OF PROSE. The number leads and the label follows it small and
+   quiet - the same hierarchy the main column just took, applied to the one surface that is
+   entirely numbers. `--type-xl` rather than the display role: this is a panel beside the page,
+   and a title-sized number here would outrank the page's own title. */
 .panel-k {
-  color: var(--fg-secondary);
+  color: var(--fg-muted);
+  font-size: var(--type-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   margin-bottom: var(--space-1);
+}
+.panel-metric {
+  font-size: var(--type-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--line-tight);
+  color: var(--fg);
+}
+/* The total size as a chip, because it is a quantity of a different kind from a count and
+   stacking two mono lines made them read as one wrapped value. */
+.panel-chip {
+  display: inline-block;
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--corner-pill);
+  background: var(--accent-subtle);
+  color: var(--accent-strong);
+  font-size: var(--type-xs);
+  font-weight: var(--weight-semibold);
 }
 .panel-row {
   display: flex;

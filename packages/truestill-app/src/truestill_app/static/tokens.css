@@ -47,13 +47,13 @@
 
 :root {
   /* accent - the one chromatic hue (act) */
-  --accent: #4c63c4;
-  --accent-hover: #4257ad;
-  --accent-subtle: #eef0fb;
+  --accent: #e11d48;
+  --accent-hover: #be123c;
+  --accent-subtle: #fff1f2;
   /* The lead colour where it must carry text weight - headings and card titles. #4C63C4 is
      5.40:1 on white and fine for a button fill; this is 9.99:1 and reads as ink. */
-  --accent-strong: #2a3b8c;
-  --accent-ring: rgba(76, 99, 196, 0.45);
+  --accent-strong: #9f1239;
+  --accent-ring: rgba(225, 29, 72, 0.45);
 
   /* NEUTRAL SCALE - WARM, not cool. Every step carries more red than blue, which is the
      whole change: a blue-tinted grey page reads clinical however good the layout is. The
@@ -105,6 +105,9 @@
   --surface-raised: var(--gray-0);
   --border: var(--gray-200);
   --border-strong: var(--gray-300);
+  /* A DIVIDER IS NOT A BORDER. Research finding, recorded 2026-09-06: borders on everything read
+     as noise, and a section is better separated by a faint rule plus space than by boxing it. */
+  --divider: rgba(28, 26, 23, 0.08);
   --fg: var(--gray-900);
   --fg-secondary: var(--gray-500);
   --fg-muted: #6e665a; /* 5.66:1 on white; warm, and gray-400 is 2.6:1 */
@@ -304,10 +307,10 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --accent: #a9b6f0;
-    --accent-hover: #bcc6f5;
-    --accent-subtle: #1c2030;
-    --accent-ring: rgba(169, 182, 240, 0.45);
+    --accent: #fda4af;
+    --accent-hover: #ffb3c1;
+    --accent-subtle: #2b1a1f;
+    --accent-ring: rgba(253, 164, 175, 0.45);
 
     --success: #46b46a;
     --warning: #d69a3a;
@@ -327,10 +330,11 @@
     --surface-raised: #2e2b27;
     --border: #3a352e;
     --border-strong: #4a443b;
+    --divider: rgba(255, 255, 255, 0.09);
     --fg: #ece8e1;
     --fg-secondary: #a8a096;
     --fg-muted: #938b80; /* 5.2:1 on the dark surface */
-    --accent-strong: #a9b6f0;
+    --accent-strong: #fda4af;
     --on-accent: #12110f;
 
     --elevation-sm: none;
@@ -340,13 +344,13 @@
 
 /* explicit theme override (Settings toggle stamps data-theme on <html>) */
 :root[data-theme="light"] {
-  --accent: #4c63c4;
-  --accent-hover: #4257ad;
-  --accent-subtle: #eef0fb;
+  --accent: #e11d48;
+  --accent-hover: #be123c;
+  --accent-subtle: #fff1f2;
   /* The lead colour where it must carry text weight - headings and card titles. #4C63C4 is
      5.40:1 on white and fine for a button fill; this is 9.99:1 and reads as ink. */
-  --accent-strong: #2a3b8c;
-  --accent-ring: rgba(76, 99, 196, 0.45);
+  --accent-strong: #9f1239;
+  --accent-ring: rgba(225, 29, 72, 0.45);
   --success: #1f7a41;
   --warning: #8a5f0a;
   --bg: #faf8f5;
@@ -375,10 +379,10 @@
   --glass-bg: rgba(46, 43, 39, 0.62);
   --glass-border: rgba(255, 255, 255, 0.08);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
-  --accent: #a9b6f0;
-  --accent-hover: #bcc6f5;
-  --accent-subtle: #1c2030;
-  --accent-ring: rgba(169, 182, 240, 0.45);
+  --accent: #fda4af;
+  --accent-hover: #ffb3c1;
+  --accent-subtle: #2b1a1f;
+  --accent-ring: rgba(253, 164, 175, 0.45);
   --success: #46b46a;
   --warning: #d69a3a;
   --warning-subtle: #241d10;
@@ -388,10 +392,11 @@
   --surface-raised: #2e2b27;
   --border: #3a352e;
   --border-strong: #4a443b;
+  --divider: rgba(255, 255, 255, 0.09);
   --fg: #ece8e1;
   --fg-secondary: #a8a096;
   --fg-muted: #938b80;
-  --accent-strong: #a9b6f0;
+  --accent-strong: #fda4af;
   --on-accent: #12110f;
   --elevation-sm: none;
   --elevation-md: 0 8px 24px rgba(0, 0, 0, 0.5);

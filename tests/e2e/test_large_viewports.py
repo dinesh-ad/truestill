@@ -221,9 +221,15 @@ def test_the_panel_grows_on_a_wide_screen_but_stays_bounded(ui: Page) -> None:
     wide = _layout(ui)
     narrow = _at(ui, {"width": 1400, "height": 900})
 
-    assert wide["panel"] >= 380, f"the panel stayed at {wide['panel']:.0f}px on a 3072 screen"
+    # ⚠ 380 until 2026-09-06, when the panel was narrowed by ruling: it became a dashboard of
+    # three numbers and was taking a third of the window for five lines of prose. The cap is
+    # now 320px, so the floor this asserts is the cap. The PROPERTY is unchanged and is what
+    # the test is named for - the panel grows with the screen and then stops.
+    assert wide["panel"] >= 320, f"the panel stayed at {wide['panel']:.0f}px on a 3072 screen"
     assert wide["panel"] <= 460, f"the panel grew to {wide['panel']:.0f}px"
-    assert narrow["panel"] >= 320, f"the panel fell to {narrow['panel']:.0f}px below its floor"
+    # The clamp's own floor, 248px, for the same 2026-09-06 ruling. At 1400px the fluid middle
+    # (15vw) is 210px, so this is the floor doing its job rather than the panel collapsing.
+    assert narrow["panel"] >= 248, f"the panel fell to {narrow['panel']:.0f}px below its floor"
 
 
 def test_the_column_and_the_panel_share_a_wide_screen_sensibly(ui: Page) -> None:
