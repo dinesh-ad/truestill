@@ -24,12 +24,19 @@
 
 declare const __BUNDLE_SOURCE_HASH__: string;
 
-import { StrictMode, useEffect, useRef, useState } from "react";
+import { StrictMode, useEffect, useRef, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 
 import type { components } from "./generated/api";
 import { CompletionCard, type CompletionSeam, type OrganizeDone } from "./completion";
-import { ByFormat, InventoryCard, toHtml, type ByFormatCounts, type Inventory } from "./inventory";
+import {
+  ByFormat,
+  InventoryCard,
+  formatters,
+  toHtml,
+  type ByFormatCounts,
+  type Inventory,
+} from "./inventory";
 import {
   DateQualityNotes,
   DestinationTree,
@@ -231,27 +238,243 @@ function OrganizeResult({ state }: { state: ResultState }): React.JSX.Element | 
   );
 }
 
-/** The one writer of `#org-result`. `app.js` calls `set(...)`; nothing else touches the node. */
-function mount(node: HTMLElement): { set: (next: ResultState) => void } {
-  let publish: ((next: ResultState) => void) | null = null;
+/**
+ * WHAT THE FORM SAYS, published by `app.js`.
+ *
+ * The action bar's summary has to name the mode and the destination, and no payload carries
+ * either: they are the state of two controls `app.js` owns and reads at run time. So they are
+ * pushed in rather than read out - `window.organizeResult.setForm(...)` - and the island stays
+ * the one thing that renders. It never touches the DOM to find them, which is the rule that
+ * stopped `#org-result` having twelve writers.
+ */
+export interface FormFacts {
+  /** `copy` | `move` | `inplace`, the radio's own value. */
+  mode: string;
+  /** The destination path as typed. `""` until it has one. */
+  destination: string;
+}
 
-  function Island(): React.JSX.Element | null {
-    const [state, setState] = useState<ResultState>({ kind: "resting" });
-    publish = setState;
-    return <OrganizeResult state={state} />;
-  }
+interface IslandState {
+  result: ResultState;
+  form: FormFacts;
+}
 
-  const root = createRoot(node);
-  root.render(
-    <StrictMode>
-      <Island />
-    </StrictMode>,
-  );
+/**
+ * ONE state, three roots.
+ *
+ * `#org-result`, `#org-stepper`, `#org-source-counts` and `#org-summary` are four separate nodes
+ * in three separate parts of the page, and every one of them is a view of the SAME answer. A
+ * second `useState` per root would be four states that can disagree - which is the defect this
+ * island was created to remove, reintroduced at a larger scale. An external store with
+ * `useSyncExternalStore` is the supported way to have one source and many subscribers, and it
+ * also retires the `publish` capture below, which StrictMode's double render made fragile.
+ */
+function createStore(): {
+  get: () => IslandState;
+  subscribe: (listener: () => void) => () => void;
+  setResult: (next: ResultState) => void;
+  setForm: (next: FormFacts) => void;
+} {
+  let state: IslandState = { result: { kind: "resting" }, form: { mode: "copy", destination: "" } };
+  const listeners = new Set<() => void>();
+  const emit = (): void => {
+    for (const listener of [...listeners]) listener();
+  };
   return {
-    set: (next: ResultState) => {
-      if (publish) publish(next);
+    get: () => state,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    setResult: (next) => {
+      state = { ...state, result: next };
+      emit();
+    },
+    setForm: (next) => {
+      state = { ...state, form: next };
+      emit();
     },
   };
+}
+
+const store = createStore();
+
+function useIsland(): IslandState {
+  return useSyncExternalStore(store.subscribe, store.get, store.get);
+}
+
+// --------------------------------------------------------------------------------- the stepper
+
+/** The four steps, in order. The labels are the maintainer's. */
+const STEPS = ["Configure", "Preview", "Apply", "Done"] as const;
+
+/**
+ * WHICH STEP A RESULT STATE IS, and this is the whole of the stepper's logic.
+ *
+ * A PROJECTION, not a second state machine: every kind of `ResultState` maps onto exactly one
+ * step, so the row cannot say "Preview" while the screen shows a finished run. `configured` has
+ * no writer in `app.js` today and is mapped anyway - a kind that exists in the type and is
+ * missing from this table would fall through to Configure and read as the screen going backwards.
+ */
+function stepFor(state: ResultState): number {
+  switch (state.kind) {
+    case "resting":
+      return 0;
+    case "inventory":
+    case "preview":
+    case "preview-empty":
+      return 1;
+    case "configured":
+    case "running":
+      return 2;
+    case "complete":
+      return 3;
+  }
+}
+
+function Stepper(): React.JSX.Element {
+  const current = stepFor(useIsland().result);
+  return (
+    <ol className="stepper" data-testid="org-stepper">
+      {STEPS.map((name, i) => {
+        const state = i === current ? "current" : i < current ? "done" : "todo";
+        return (
+          <li
+            className="step"
+            data-step={name.toLowerCase()}
+            data-state={state}
+            aria-current={i === current ? "step" : undefined}
+            key={name}
+          >
+            <span className="step-dot" aria-hidden="true">
+              {i + 1}
+            </span>
+            <span className="step-name">{name}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+// ------------------------------------------------------------------ the source field's counts
+
+/** What Look inside found, from whichever state carries it. `null` before it has run. */
+function foundInFolder(state: ResultState): { photos: number; videos: number; bytes: number } | null {
+  const s =
+    state.kind === "inventory"
+      ? state.inventory
+      : state.kind === "preview"
+        ? state.preview
+        : null;
+  if (!s) return null;
+  return {
+    photos: Number(s.photos) || 0,
+    videos: Number(s.videos) || 0,
+    bytes: Number((s as { bytes?: number }).bytes) || 0,
+  };
+}
+
+/**
+ * Photos, videos and size beside the folder field.
+ *
+ * ⚠ NOTHING AT REST, and that is the requirement rather than a nicety. Zeros here would be three
+ * confident figures about a folder nothing has opened, which is the class
+ * `test_the_resting_screen_invents_no_metrics` exists to refuse - and it asserts on `.metric`,
+ * which is what this renders, so that test is this one's guard too.
+ */
+function SourceCounts(): React.JSX.Element | null {
+  const found = foundInFolder(useIsland().result);
+  if (!found) return null;
+  const { nfmt, fmtBytes } = formatters();
+  const figures: [number | string, string][] = [
+    [nfmt(found.photos), found.photos === 1 ? "photo" : "photos"],
+    [nfmt(found.videos), found.videos === 1 ? "video" : "videos"],
+  ];
+  if (found.bytes) figures.push([fmtBytes(found.bytes), "on disk"]);
+  return (
+    <div className="source-counts" data-testid="org-source-counts">
+      {figures.map(([value, label]) => (
+        <div className="metric" key={label}>
+          <div className="metric-value">{value}</div>
+          <div className="metric-label">{label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------------------ the action bar
+
+const MODE_WORD: { [mode: string]: string } = {
+  copy: "Copy",
+  move: "Move",
+  inplace: "Reorganize in place",
+};
+
+/** The folder's own name, the same reading `previewView`'s `destinationLabel` takes. */
+function folderName(path: string): string {
+  const trimmed = path.replace(/[\\/]+$/, "");
+  if (!trimmed) return "";
+  const parts = trimmed.split(/[\\/]/);
+  return parts[parts.length - 1] || trimmed;
+}
+
+/**
+ * ONE LINE SAYING WHAT IS ABOUT TO HAPPEN: `Copy · 412 files · 3.1 GB → Truestill`.
+ *
+ * **It fills in as the form fills in, and it never states a part it does not have.** A summary
+ * that printed "0 files" before Look inside, or the word "destination" where a folder name goes,
+ * would be the screen making a promise out of a blank field - the same defect as the counts
+ * above, one line to the right. The mode is always known, so the line always has a first clause;
+ * everything after it appears when it is true.
+ */
+function ActionSummary(): React.JSX.Element | null {
+  const { result, form } = useIsland();
+  const { nfmt, fmtBytes, plural } = formatters();
+  const found = foundInFolder(result);
+  const destination = form.mode === "inplace" ? "" : folderName(form.destination);
+  const parts: React.ReactNode[] = [<b key="mode">{MODE_WORD[form.mode] ?? MODE_WORD.copy}</b>];
+  if (result.kind === "preview") {
+    // The number the run will actually take, not the number in the folder: this line sits beside
+    // the button that starts it, and `(abl)` is what happens when two surfaces derive that
+    // separately. `will_organize` is the field both the tally and the confirm already render.
+    parts.push(<span key="n">{plural(Number(result.preview.will_organize) || 0, "file")}</span>);
+  } else if (found) {
+    parts.push(<span key="n">{nfmt(found.photos + found.videos)} files</span>);
+  }
+  if (found?.bytes) parts.push(<span key="b">{fmtBytes(found.bytes)}</span>);
+  return (
+    <div className="org-summary" data-testid="org-summary">
+      {parts.map((part, i) => (
+        <span key={i}>
+          {i ? <span className="sep">·</span> : null}
+          {part}
+        </span>
+      ))}
+      {destination ? (
+        <span>
+          <span className="sep">→</span>
+          <b>{destination}</b>
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------------------- mount
+
+/** Render one projection into its node, when the page has that node. */
+function mountAt(id: string, view: React.JSX.Element): void {
+  const node = document.getElementById(id);
+  if (!node) return;
+  createRoot(node).render(<StrictMode>{view}</StrictMode>);
+}
+
+function OrganizeResultIsland(): React.JSX.Element | null {
+  return <OrganizeResult state={useIsland().result} />;
 }
 
 document.documentElement.dataset.bundle = __BUNDLE_SOURCE_HASH__;
@@ -269,10 +492,15 @@ const markup = {
 };
 (window as unknown as Record<string, unknown>).truestillMarkup = markup;
 
-const target = document.getElementById("org-result");
-if (target) {
-  const island = mount(target);
-  // The seam `app.js` and the e2e suite drive. Named on `window` because `app.js` is a classic
-  // script and cannot import a module.
-  (window as unknown as Record<string, unknown>).organizeResult = island;
-}
+mountAt("org-result", <OrganizeResultIsland />);
+mountAt("org-stepper", <Stepper />);
+mountAt("org-source-counts", <SourceCounts />);
+mountAt("org-summary", <ActionSummary />);
+
+// The seam `app.js` and the e2e suite drive. Named on `window` because `app.js` is a classic
+// script and cannot import a module. `set` is unchanged and is still the only way the result
+// region is written; `setForm` is the second, smaller channel the action bar's summary needs.
+(window as unknown as Record<string, unknown>).organizeResult = {
+  set: store.setResult,
+  setForm: store.setForm,
+};

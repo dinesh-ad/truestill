@@ -610,7 +610,24 @@ const organizeResult = {
     const island = window.organizeResult;
     if (island) island.set(state);
   },
+  // THE FORM'S OWN FACTS, for the action bar's summary. The mode and the destination are the
+  // state of two controls this file owns and no payload carries them, so they are PUSHED to the
+  // island rather than read back out of the DOM by it. One call site (`publishOrganizeForm`
+  // below), so the summary cannot be told two different things.
+  setForm(facts) {
+    const island = window.organizeResult;
+    if (island && island.setForm) island.setForm(facts);
+  },
 };
+
+// Called from every place that can change either fact: the mode radios (through
+// `renderOrganizeMode`, which the settings load also reaches) and the two path fields' shared
+// listener. Cheap enough to be unconditional - it is two DOM reads and a state write.
+function publishOrganizeForm() {
+  const mode = currentOrganizeMode();
+  const dest = mode === "inplace" ? $("org-source") : $("org-dest");
+  organizeResult.setForm({ mode, destination: (dest && dest.value.trim()) || "" });
+}
 
 // THE REVERSE SEAM. The blocks the island owns (`frontend/src/inventory.tsx`,
 // `frontend/src/preview.tsx`) are components now, and the completion card, the Import preview
@@ -1212,6 +1229,20 @@ function alignPanelWithContent() {
   panel.style.paddingTop = `${Math.round(top + head)}px`;
 }
 
+// ⚠ AND AGAIN WHENEVER A HEADER CHANGES SIZE, because one of them no longer has its final height
+// when `showScreen` runs. Organize's header carries `#org-stepper`, which React fills after the
+// module bundle loads - so the measurement above ran against a header that was a step row short,
+// and the panel sat 36px high. Chromium happened to render in an order that hid it; webkit did
+// not, and `test_the_panel_starts_level_with_the_first_content_card` caught it there.
+//
+// A ResizeObserver rather than a second call at a chosen moment: "when has the header finished
+// changing" has no answer a caller can know, and the same class returns for any header content
+// that ever arrives late. Every screen's header is observed, not just the active one - a
+// background screen's header can settle while another is on show, and the cost is one callback
+// that reads two numbers.
+const headerSizes = new ResizeObserver(() => alignPanelWithContent());
+for (const header of document.querySelectorAll(".screen > header")) headerSizes.observe(header);
+
 // ---------- screen readiness ----------
 // WHAT A SCREEN OWES BEFORE IT IS READY, in one table rather than in a branch chain inside
 // showScreen. The table is the point: after this, showScreen contains NO per-screen call at
@@ -1657,6 +1688,10 @@ async function loadCustody() {
   // form no longer names - and an invalidation here would fire on every screen open, after
   // `renderRestingPanel` above has already drawn the column.
   prefill("org-dest", s.library_path || s.library_root);
+  // `prefill` deliberately dispatches nothing (see above), so the summary would never see the
+  // destination this app opens with. Published here instead of teaching `prefill` to fire events,
+  // which would drag the invalidation listener in with it.
+  publishOrganizeForm();
   renderFirstRunLibrary(s);
   prefill("ev-source", s.library_path);
   prefill("bk-source", s.library_path);
@@ -1995,8 +2030,8 @@ for (const id of ["org-source", "org-dest"]) {
   if (!el) continue;
   // Undebounced on purpose: `validatePath` is debounced 400 ms because it costs a request, and
   // this costs nothing. A result that is wrong for 400 ms is a result that is wrong.
-  el.addEventListener("input", () => { invalidateOrganizeResult(); markCurrentQuickPlace(); });
-  el.addEventListener("change", () => { invalidateOrganizeResult(); markCurrentQuickPlace(); });
+  el.addEventListener("input", () => { invalidateOrganizeResult(); markCurrentQuickPlace(); publishOrganizeForm(); });
+  el.addEventListener("change", () => { invalidateOrganizeResult(); markCurrentQuickPlace(); publishOrganizeForm(); });
 }
 for (const id of ["org-skip-undated", "org-refresh-metadata"]) {
   const el = $(id);
@@ -2067,6 +2102,7 @@ async function loadOrganizeMode() {
 
 function renderOrganizeMode() {
   orgMode = currentOrganizeMode();
+  publishOrganizeForm();
   const needsDest = organizeNeedsDestination(orgMode);
   $("org-dest-field").classList.toggle("hidden", !needsDest);
   $("org-mode-hint").textContent = modeLine(orgMode);

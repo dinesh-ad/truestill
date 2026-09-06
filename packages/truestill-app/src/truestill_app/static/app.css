@@ -241,13 +241,15 @@ code,
   width: auto;
 }
 /* THE MARK IS ALWAYS VISIBLE. It was `display: none` until collapsed, so the expanded rail - the
-   state the product opens in - showed a wordmark and no mark at all. Beside the word at 22px it
-   reads as a lockup; the collapsed rail still grows it to 26px as the only thing left. */
+   state the product opens in - showed a wordmark and no mark at all. Beside the word it reads as
+   a lockup; the collapsed rail keeps it as the only thing left. */
 .brand-monogram {
   display: block;
-  /* 36px. It was 22, where the ramp's two stops average to one colour and the mark reads as a
-     plain red T; 32 separated them; 36 is where the rose foot and the orange head are each
-     legible at a glance, which is the point of having a gradient at all. */
+  /* 36px SQUARE - the plate's viewBox is 1100x1100, so `width: auto` gives 36 as well. It was 22
+     when this was a bare gradient T, where the ramp's two stops average to one colour and the
+     mark read as a plain red letter; the plate needs the size for a different reason, which is
+     that its corner radius and the knocked-out stem both stop resolving below ~28px. It still
+     clears the collapsed rail: 64 - 24 of rail padding leaves 40. */
   height: 36px;
   /* BEFORE the word, by `order` rather than by moving the markup: the SVG carries its own
      `aria-label` and the text is the same word, so their DOM order is what a screen reader
@@ -851,15 +853,17 @@ select.input {
   margin-bottom: var(--space-2);
 }
 
-/* The mode picker is the tallest block on the busiest screen - three options, each two lines.
-   Its height is INFORMATION (the second line explains what each mode does to your files) so the
-   copy stays; what tightens is the box around it. `--space-1` vertical keeps each option ~50px,
-   still a large click target, because the target is sized by its two lines and not by padding. */
+/* THREE ACROSS. The picker was three full-width rows, each two lines, and the thing being
+   chosen - copy, move, or in place - was the first three words of a sentence that ran to the far
+   side of the column. Horizontal cards put the choice in a title and the sentence under it, and
+   turn ~150px of stacked rows into one row.
+   `auto-fit` is deliberately NOT used here, for the reason `.metrics` records above: with three
+   items there is always a width band where two fit and the third wraps alone. Three fixed tracks
+   collapse to one at the breakpoint below and never sit 2+1. */
 .org-modes {
   display: grid;
-  /* One group, so the cards sit closer to each other than to anything else. The dividers above
-     and below are what separate them from the rest, and they kept their full step. */
-  gap: var(--space-1);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
 }
 /* ⚠ THE RADIO IS VISIBLE, AND HIDING IT WAS REFUSED AFTER FOUR ATTEMPTS. The brief asked for
    `.sr-only`; every arrangement of it broke a behaviour that matters, and the evidence is worth
@@ -875,19 +879,18 @@ select.input {
 
    A hidden native radio needs a click forwarded to it, and every way of arranging that here put
    something else on top. The card, the badge and the selected state - which are what the redesign
-   is for - do not need it: the radio sits in the badge's place and is styled to belong there.
-   Accent-coloured through `accent-color`, so the checked state is the brand's without a custom
-   control that would have to reimplement focus, keyboard and announcement. */
-/* ONE CARRIER FOR SELECTION, ruled 2026-09-06: the BADGE is rose when the mode is chosen, and
-   the native control keeps its job without repeating the signal in the same colour six pixels
-   away. `accent-color` is neutral rather than the accent, so the dot still shows checked state -
-   a keyboard user must see it - but reads as a marker rather than as a second highlight. It stays
-   a real radio: clickable, focusable, arrow-key navigable and announced. */
+   is for - do not need it: it sits top-right, opposite the badge, where a card that is being
+   chosen between puts its selection control.
+   ONE CARRIER FOR SELECTION, ruled 2026-09-06: the BADGE is rose when the mode is chosen, and the
+   native control keeps its job without repeating the signal in the same colour. `accent-color` is
+   neutral rather than the accent, so the dot still shows checked state - a keyboard user must see
+   it - but reads as a marker rather than as a second highlight. It stays a real radio: clickable,
+   focusable, arrow-key navigable and announced. */
 .org-mode input[type="radio"] {
   flex: none;
   width: 15px;
   height: 15px;
-  margin: 8px 0 0;
+  margin: 0;
   accent-color: var(--fg-muted);
   cursor: pointer;
 }
@@ -905,29 +908,70 @@ select.input {
 #screen-organize .field + fieldset.field {
   margin-top: var(--space-5);
 }
-/* THREE CARDS, and the selected one is stated by its badge rather than by a 13px dot. A control,
-   so the look and no blur - `docs/design-system.md` §3. The native radio is still in the DOM,
-   still named and still checked; it is `.sr-only` and the badge is what a sighted person reads.
-   Everything that binds to `input[name="org-mode"]` is untouched by construction. */
+/* THE FIRST-RUN QUESTION AND THE FIELD IT IS ABOUT ARE ONE SECTION, so exactly one rule is drawn
+   above the pair - above the question when it is open, above the field when it is not. Adjacent
+   siblings cannot express that on their own: `display: none` does not remove an element from
+   `+`, so `fieldset + .field` stopped matching `#org-dest-field` the moment the question was
+   folded in above it, hidden or not. `:has()` on the card asks the question that actually
+   decides it, and this file already uses it for the panel track and the checked mode. */
+#screen-organize .first-run:not(.hidden),
+#screen-organize .card:has(#org-first-run.hidden) #org-dest-field {
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: var(--border-width) solid var(--divider);
+}
+.first-run h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--type-base);
+  font-weight: var(--weight-semibold);
+  color: var(--fg);
+}
+.first-run > label {
+  display: block;
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--type-sm);
+  font-weight: var(--weight-medium);
+  color: var(--fg-secondary);
+}
+.first-run .k {
+  font-size: var(--type-sm);
+  color: var(--fg-secondary);
+  margin: 0;
+}
+.first-run .hint:not(:empty) + .k,
+.first-run .row + .hint:empty + .k {
+  margin-top: var(--space-2);
+}
+/* A CARD, and the selected one is stated by its badge. A control, so the look and no blur -
+   `docs/design-system.md` §3. */
 .org-mode {
-  /* The positioning context for the visually-hidden input. Without it the input is absolute
-     against the page, lands outside the viewport, and cannot be clicked - by a person or by a
-     driver. Playwright reported exactly that: "element is visible, enabled and stable ...
-     element is outside of the viewport". */
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  /* Tightened 2026-09-06: the three cards were 216px of a 800px viewport and pushed the primary
-     button under the fold. The air between SECTIONS is what made the form legible and is kept;
-     the air inside a two-line card is not, and the badge no longer sets the height. */
-  padding: var(--space-2) var(--space-4);
+  display: grid;
+  /* The head row sizes itself; the title and the description take what is left, so three cards
+     of unequal description length still line their titles up. */
+  grid-template-rows: auto auto 1fr;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
   border: var(--border-width) solid var(--border);
   border-radius: var(--corner-md);
   background: var(--surface);
   font-size: var(--type-sm);
   line-height: var(--line-tight);
   cursor: pointer;
+  min-width: 0;
+}
+/* Icon top-left, radio top-right: the glyph says what the mode does and the control says whether
+   it is chosen, and putting them at opposite ends stops the two being read as one widget. */
+.org-mode .mode-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.org-mode .mode-title {
+  font-weight: var(--weight-semibold);
+  color: var(--fg);
+  /* A title is one word or three; it must never wrap into the description's space. */
+  overflow-wrap: anywhere;
 }
 .org-mode:hover {
   border-color: var(--accent-ring);
@@ -936,7 +980,7 @@ select.input {
   border-color: var(--accent);
   background: var(--accent-subtle);
 }
-/* The focus ring has to reach the CARD, because the input it belongs to is visually hidden. */
+/* The focus ring reaches the CARD as well as the input, because the card is the target. */
 .org-mode:has(input:focus-visible) {
   outline: 2px solid var(--accent-ring);
   outline-offset: 2px;
@@ -962,6 +1006,161 @@ select.input {
 .org-mode .k {
   color: var(--fg-secondary);
   font-size: var(--type-xs);
+}
+/* ONE COLUMN where three would be three words per line. The threshold is the CONTENT column,
+   not the window: the rail takes 232px and `.main` 48px of padding, so a 1024px window leaves
+   ~744 and three cards are ~230 each - the last width at which a title and a one-line
+   description still read. A raised browser default reaches this the same way. */
+@media (max-width: 1023px) {
+  .org-modes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- the Organize stepper ---------- */
+/* FOUR STEPS, and the state comes from the island rather than from anything here. A projection:
+   `#org-stepper` is written by React reading `organizeResult`, so the row cannot disagree with
+   the screen the way a second state machine would.
+   AN <ol>, because the steps are ordered and a screen reader should say so; `aria-current="step"`
+   is what names the one you are on, and the numbers are content rather than `::before` counters
+   so they are read out with it. */
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-xs);
+  color: var(--fg-muted);
+  min-width: 0;
+}
+/* The connector is drawn by the step, not by a separate element: a `<li>` between the steps
+   would be announced as a fifth item. */
+.step + .step::before {
+  content: "";
+  width: var(--space-5);
+  height: var(--border-width);
+  background: var(--divider);
+  flex: none;
+}
+.step-dot {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: var(--corner-pill);
+  border: var(--border-width) solid var(--border);
+  background: var(--surface);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+/* MEANING, NOT DECORATION. Rose is the accent and marks where you ARE; a step already taken is
+   stated in the body colour and not in green, which means "safe" everywhere else in this app. */
+.step[data-state="current"] {
+  color: var(--fg);
+  font-weight: var(--weight-semibold);
+}
+.step[data-state="current"] .step-dot {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.step[data-state="done"] {
+  color: var(--fg-secondary);
+}
+.step[data-state="done"] .step-dot {
+  border-color: var(--accent-ring);
+  color: var(--accent-strong);
+}
+
+/* ---------- the source field's inline counts ---------- */
+/* The field takes the width it needs and the counts take what they need; when the column is too
+   narrow for both the counts drop under the field rather than squeezing the path input, because
+   a path you cannot read is worse than a figure on the next line. */
+.source-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3) var(--space-5);
+  align-items: center;
+}
+@media (max-width: 1023px) {
+  .source-line {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* EMPTY IS EMPTY. Before Look inside there is no number to state, and a row of zeros is a claim
+   about a folder nothing has read. `:empty` is exact here: the island renders nothing at all in
+   that state, not a wrapper with nothing in it. */
+.source-counts {
+  display: flex;
+  gap: var(--space-5);
+}
+.source-counts .metric-value {
+  /* A figure beside a 36px input, not a headline: the display size belongs to a result. */
+  font-size: var(--type-xl);
+}
+.source-counts .metric-label {
+  font-size: var(--type-xs);
+}
+
+/* ---------- the Organize action bar ---------- */
+/* STICKY TO THE SCROLLPORT, which is `.main` (`overflow-y: auto`) and not the viewport - so the
+   bar belongs to this screen, cannot cover the rail, and disappears with the screen. It is the
+   last child of the section, so at rest it simply follows the card.
+   `bottom: 0` puts it against the scrollport edge, inside `.main`'s bottom padding; the bar
+   carries its own surface and shadow so the content scrolling under it stays legible. */
+.actionbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-top: var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--corner-lg);
+  background: var(--surface);
+  box-shadow: var(--elevation-md);
+}
+.actionbar-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.actionbar .why {
+  font-size: var(--type-xs);
+  color: var(--fg-muted);
+}
+/* WHAT IS ABOUT TO HAPPEN, in one line, on the right. It fills in as the form fills in, so the
+   half-answered state says so rather than showing a confident sentence about a blank field. */
+.org-summary {
+  font-size: var(--type-sm);
+  color: var(--fg-secondary);
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.org-summary b {
+  color: var(--fg);
+  font-weight: var(--weight-medium);
+}
+.org-summary .sep {
+  color: var(--fg-muted);
+  margin: 0 var(--space-2);
 }
 
 /* ---------- buttons ---------- */

@@ -6,9 +6,11 @@ from the Libre Caslon font, so the geometric mark was committed and reached noth
 
 Two measured constraints shape how it appears:
 
-* **The rail is dark**, and the mark's authored ramp measures 2.45:1 and 1.11:1 there - the foot
-  is invisible. It is drawn flat in `--rail-accent` (9.17:1), which is the treatment the wordmark
-  already got when the same gradient was rejected on the same ground.
+* **The rail is dark**, and the mark's authored ramp measures 2.45:1 and 1.11:1 directly on it -
+  the foot is invisible. That is why the rail carries the PLATE (`brand/pillar-t-plate.svg`): the
+  letter is knocked out of a square the ramp fills, so the artwork brings its own ground and the
+  rail's colour stops being an input. The wordmark beside it still takes the flat treatment, which
+  is the same gradient rejected on the same ground.
 * **The tab is small**, and the hairline flute is sub-pixel below ~61px. The 16 and 24 entries
   carry the flute-less variant.
 """
@@ -72,44 +74,46 @@ def test_no_surface_a_person_reads_contains_a_ts_monogram() -> None:
     assert ">TS<" not in markup
 
 
-def test_the_rail_mark_is_legible_on_the_rail_it_sits_on(ui: Page) -> None:
-    """EVERY STOP of the mark's fill clears 4.5:1 on the rail it sits on.
+def test_the_rail_mark_carries_its_own_contrast(ui: Page) -> None:
+    """The mark is legible **without depending on the rail behind it**.
 
-    ⚠ **Re-expected 2026-09-06, and the floor did not move.** This measured one flat colour and
-    then banned `url(` outright, because the ramp it was written against measured **2.45:1 and
-    1.11:1** here - the foot was invisible. The mark now carries the brand ramp, whose stops
-    measure **4.93:1 and 8.00:1** on this ground, so the ban's premise is false for this artwork
-    while its floor is not. The ban's stated reason was that a paint server cannot be measured
-    against the ground; that is true of the COMPUTED fill and false of the stops, which are in our
-    own markup.
+    ⚠ **Re-expected and renamed 2026-09-06, and the question changed rather than the floor.** This
+    read the fill of `svg[data-brand='pillar-t'] path` and measured it against the rail's `#14161b`
+    - correct while the mark was a bare ramp-filled T sitting directly on that ground. It is the
+    PLATE now: a rounded square the ramp fills, with the letter knocked out of a dark ground, so
+    the two `<path>`s this used to read are inside a `<mask>` at `fill: #000` and painting nothing.
+    Measured against the rail they read ~1.0:1 and this test would have failed on artwork that is
+    perfectly legible.
 
-    So the assertion is stronger than it was: two colours are checked where one was, and a ramp
-    whose low stop dips under the floor still fails. A flat fill is still accepted - the test
-    reads whatever the mark declares.
+    So the pair that decides legibility is now the ramp against the PLATE'S OWN GROUND, and both
+    are declared in our markup where they can be read. That is a stronger claim than the old one:
+    it holds on the rail, on the narrow top bar, and anywhere else the plate is ever put, which is
+    the reason for choosing a plate.
+
+    The floor is unchanged at 4.5:1, and a ramp whose low stop dips under it still fails.
     """
     ui.click("#sidebar-toggle")
     expect(ui.locator("#sidebar")).to_have_attribute("data-collapsed", "true")
 
-    fill = ui.eval_on_selector(
-        "svg[data-brand='pillar-t'] path",
-        "el => getComputedStyle(el).fill",
+    ground, ramp = ui.eval_on_selector(
+        "svg[data-brand='pillar-t']",
+        "el => { const rects = [...el.querySelectorAll('rect')].filter(r => !r.closest('mask'));"
+        " const plate = rects[0];"
+        " const ref = (rects[1].getAttribute('fill').match(/#([\\w-]+)/) || [])[1];"
+        " const stops = [...el.querySelectorAll('#' + ref + ' stop')]"
+        "   .map(e => getComputedStyle(e).stopColor);"
+        " return [getComputedStyle(plate).fill, stops]; }",
     )
-    reference = re.search(r'url\(["\']?#([^"\')]+)', fill)
-    if reference is None:
-        colours = [tuple(int(n) for n in re.findall(r"\d+", fill)[:3])]
-        assert len(colours[0]) == 3, f"could not read the mark's fill: {fill!r}"
-    else:
-        stops = ui.eval_on_selector_all(
-            f"#{reference.group(1)} stop",
-            "els => els.map(e => getComputedStyle(e).stopColor)",
-        )
-        assert len(stops) >= 2, f"the ramp {reference.group(1)!r} declares no stops"
-        colours = [tuple(int(n) for n in re.findall(r"\d+", stop)[:3]) for stop in stops]
+    plate = tuple(int(n) for n in re.findall(r"\d+", ground)[:3])
+    assert len(plate) == 3, f"could not read the plate's ground: {ground!r}"
+    assert len(ramp) >= 2, "the plate's ramp declares no stops"
 
-    for colour in colours:
-        ratio = _contrast(colour, RAIL_BG)
+    for stop in ramp:
+        colour = tuple(int(n) for n in re.findall(r"\d+", stop)[:3])
+        ratio = _contrast(colour, plate)
         assert ratio >= 4.5, (
-            f"a stop of the rail mark measures {ratio:.2f}:1 on #14161b - it is not legible"
+            f"a stop of the plate's ramp measures {ratio:.2f}:1 on its own ground "
+            f"{plate} - the knocked-out mark is not legible"
         )
 
 

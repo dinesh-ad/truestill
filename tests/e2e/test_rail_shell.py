@@ -73,13 +73,18 @@ def test_the_wordmark_is_monospace_text_not_artwork(ui: Page) -> None:
 
 
 def test_the_rail_mark_paints_when_the_rail_is_collapsed(ui: Page) -> None:
-    """The defect this has always guarded: a mark that is present, sized, and invisible.
+    """Present, sized, and actually painting - which are three different things.
 
-    It used to be a shared `<linearGradient>` declared inside the wordmark SVG - when the rail
-    collapsed the wordmark became `display: none`, and a hidden SVG's `defs` do not resolve, so
-    the monogram painted nothing at its full 39x26 box. The mark is now flat-filled, which makes
-    that failure structurally impossible; what is asserted is the property itself, so a future
-    gradient cannot quietly reintroduce it.
+    ⚠ **Re-expected 2026-09-06 because the mark became the PLATE and this test had lost its
+    subject.** It read the fill of the first `<path>`, which was the artwork's only painted
+    element while the mark was a bare gradient T. In `brand/pillar-t-plate.svg` the two paths are
+    inside a `<mask>` - they are the KNOCKOUT, filled `#000` so the mask reads them as holes - and
+    nothing paints them. So the old assertion still passed, on an element that is never drawn:
+    "not `none` and not transparent" is trivially true of `#000`.
+
+    What paints is the pair of `<rect>`s: the plate's ground and the ramp over it through the
+    mask. Both are asserted, because either one missing is a different visible failure - no
+    ground is a floating letter, no ramp is a dark square.
     """
     ui.click("#sidebar-toggle")
     expect(ui.locator("#sidebar")).to_have_attribute("data-collapsed", "true")
@@ -88,14 +93,19 @@ def test_the_rail_mark_paints_when_the_rail_is_collapsed(ui: Page) -> None:
     painted = ui.eval_on_selector(
         "svg[data-brand='pillar-t']",
         "el => { const box = el.getBoundingClientRect();"
-        " const fill = getComputedStyle(el.querySelector('path')).fill;"
-        " return {w: box.width, h: box.height, fill}; }",
+        " const rects = [...el.querySelectorAll('rect')].filter(r => !r.closest('mask'));"
+        " return {w: box.width, h: box.height,"
+        "         fills: rects.map(r => getComputedStyle(r).fill)}; }",
     )
     assert painted["w"] > 0, "the mark has no width"
     assert painted["h"] > 0, "the mark has no height"
-    assert painted["fill"] not in ("none", "rgba(0, 0, 0, 0)"), (
-        f"the collapsed mark resolves to {painted['fill']!r} - present, sized and invisible"
+    assert len(painted["fills"]) == 2, (
+        f"the plate is not two painted rects any more: {painted['fills']}"
     )
+    for fill in painted["fills"]:
+        assert fill not in ("none", "rgba(0, 0, 0, 0)"), (
+            f"a layer of the plate resolves to {fill!r} - present, sized and invisible"
+        )
 
 
 def test_collapsing_drops_the_word_and_keeps_the_mark(ui: Page) -> None:
@@ -151,21 +161,26 @@ def test_the_rail_artwork_matches_the_authored_source(ui: Page) -> None:
 
     The artwork is inlined rather than linked, which buys the accessible name, the collapsed
     swap and zero extra requests - and costs a second copy. This is what makes the copy a
-    duplicate rather than a fork: the path data in the page has to be the path data in
-    `brand/*-dark.svg`. Dark, because this rail is dark in both themes.
+    duplicate rather than a fork: the path data in the page has to be the path data in `brand/`.
+
+    ⚠ **Re-pointed 2026-09-06 from `pillar-t-geometric-noflute.svg` to `pillar-t-plate.svg`,
+    because the plate is the artwork the rail now inlines.** The two files carry byte-identical
+    path data - the plate is that same flute-less mark knocked out of a filled square - so this
+    assertion did not change value; it changed SOURCE, which is the whole point of it. Left
+    pointing at the old file it would have gone on passing while the thing on screen came from
+    somewhere else, and an edit to the plate would not have been caught.
     """
     root = Path(__file__).resolve().parents[2]
-    # The flute-less variant: this renders ~26px tall and the hairline is sub-pixel below ~61px.
-    source = (root / "brand" / "pillar-t-geometric-noflute.svg").read_text(encoding="utf-8")
+    source = (root / "brand" / "pillar-t-plate.svg").read_text(encoding="utf-8")
     expected = [" ".join(d.split()) for d in re.findall(r'\sd="(.*?)"', source, re.S)]
-    assert expected, "no path data in brand/pillar-t-geometric-noflute.svg"
+    assert expected, "no path data in brand/pillar-t-plate.svg"
 
     rendered = ui.eval_on_selector_all(
         ".wordmark svg[data-brand='pillar-t'] path",
         "els => els.map(e => e.getAttribute('d').split(/\\s+/).join(' ').trim())",
     )
     assert rendered == expected, (
-        "the rail mark in index.html has drifted from brand/pillar-t-geometric-noflute.svg"
+        "the rail mark in index.html has drifted from brand/pillar-t-plate.svg"
     )
 
 

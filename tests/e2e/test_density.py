@@ -11,6 +11,8 @@ input, and the rail. Density that shrinks hit targets is not density, it is a sm
 
 from __future__ import annotations
 
+import json
+
 from playwright.sync_api import Page
 
 #: Measured at 1920x1080 on a real library: 721px before, 642px after.
@@ -21,7 +23,48 @@ ORGANIZE_CARD_WAS = 721
 #: and two field hints. Getting under 620 meant deleting copy, which is a product decision
 #: nobody asked for. 660 leaves a hint room to wrap without a false failure and still fails if
 #: the gaps creep back.
+#:
+#: ⚠ **UNCHANGED 2026-09-06, and the SUBJECT is what was wrong.** See `_card_height`.
 ORGANIZE_CARD_CEILING = 660
+
+
+def _has_a_library(ui: Page) -> None:
+    """Answer `/api/library/status` as a machine that has organized before."""
+    ui.route(
+        "**/api/library/status",
+        lambda r: r.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "files": 2269,
+                    "photos": 2200,
+                    "videos": 69,
+                    "audio": 0,
+                    "bytes": 10**10,
+                    "by_format": {},
+                    "places": 1,
+                    "single_copy": 0,
+                    "files_no_copy": 0,
+                    "files_one_copy": 0,
+                    "redundancy_floor": 1,
+                    "files_on_a_drive": 2269,
+                    "held_floor": 1,
+                    "library_path": "/home/you/Pictures/Truestill",
+                    "library_root": "/home/you/Pictures/Truestill",
+                    "needs_library_root": False,
+                    "backup_path": None,
+                    "never_checked_drives": [],
+                    "catalog_path": "/tmp/c.sqlite",
+                    "catalog_presence": "ready",
+                    "catalog_detail": "",
+                    "catalog_tone": "info",
+                }
+            ),
+        ),
+    )
+    ui.reload()
+    ui.wait_for_selector(".nav-item")
 
 
 def _organize(ui: Page) -> None:
@@ -31,10 +74,34 @@ def _organize(ui: Page) -> None:
 
 
 def _card_height(ui: Page) -> float:
-    return ui.eval_on_selector(".screen.active .card", "el => el.getBoundingClientRect().height")
+    """The height of the card that holds the FORM, named by something only that card contains.
+
+    ⚠ **Re-expected 2026-09-06, and this was measuring the wrong element.** It took
+    `.screen.active .card`, which is the FIRST card on the screen - and the first card was
+    `#org-first-run`, the one-time "Where should your library live?" question, which this
+    fixture's server answers `needs_library_root: true` to and therefore shows. So the 660px
+    ceiling written for a four-group form was being applied to a one-field question, and the form
+    it was written about was never measured at all.
+
+    The screen has one card now - the question was folded into it - so `.screen.active .card`
+    would resolve correctly today by luck. It is pinned to `#org-source` instead, because "the
+    card with the source field in it" is what this file means and stays true if a second card
+    ever returns.
+    """
+    return ui.eval_on_selector(
+        "#org-source", "el => el.closest('.card').getBoundingClientRect().height"
+    )
 
 
 def test_the_organize_form_got_shorter_without_losing_anything(ui: Page) -> None:
+    """⚠ **The library is stubbed as ALREADY ANSWERED, added 2026-09-06.** The one-time "Where
+    should your library live?" question is part of this card now, and it is ~220px of its own
+    copy that a library sees exactly once - measuring it here would put a first-run state inside
+    a ceiling written for the steady one. This fixture's server says `needs_library_root: true`
+    because its catalog is a fresh temp file, which is a property of the harness rather than of
+    the product.
+    """
+    _has_a_library(ui)
     _organize(ui)
     height = _card_height(ui)
 
