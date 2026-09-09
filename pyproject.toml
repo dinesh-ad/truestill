@@ -37,7 +37,11 @@ dev = [
     # briefcase removed on 2026-08-15 it is gone from the environment entirely - it was the only
     # package in the lock that declared it, checked rather than assumed, and nothing here imports
     # plain `httpx`. Nothing changes for truestill either way: it neither declares nor relies on it.
-    "httpx2>=2.9.1",
+    # ⚠ FLOOR RAISED 2026-09-09, and the floor is the fix rather than the lock pin: five CVEs
+    # land on 2.9.1 - CVE-2026-84378/84379/84380/84382 (httpx2) and CVE-2026-84381 (httpcore2) -
+    # fixed across 2.10.0, 2.11.0 and 2.12.0, so 2.12.0 is the first version clear of all five.
+    # A lock bump alone would be undone by the next `uv lock` that resolves the old floor.
+    "httpx2>=2.12.0",
     # Browser E2E (tests/e2e). The only tool that can execute the client-side JS layer, where
     # every UI bug the soak found actually lived -- a layer pytest alone cannot reach and
     # manual checking cannot regression-pin. Dev group only: it is never a runtime dependency
