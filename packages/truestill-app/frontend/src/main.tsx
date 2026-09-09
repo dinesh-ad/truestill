@@ -273,7 +273,6 @@ interface IslandState {
 interface FoundInFolder {
   photos: number;
   videos: number;
-  bytes: number;
 }
 
 /**
@@ -408,10 +407,18 @@ function foundInFolder(state: ResultState): FoundInFolder | null {
         ? state.preview
         : null;
   if (!s) return null;
+  // ⚠ NO SIZE, AND THERE NEVER WAS ONE. This read `(s as { bytes?: number }).bytes` - a cast that
+  // silenced TypeScript about a field that exists on NEITHER payload. The inventory carries
+  // `total_bytes` (`organize.py:OrganizeInventory`) and the dedup core carries no byte count at
+  // all (`organize.py:OrganizeDedupCore`); the only bare `bytes` in that module belongs to
+  // `SizedFilePayload`, one entry of `largest_files`. So the "on disk" figure below never
+  // rendered, in either state, since the day it was written - `found.bytes` was 0 every time.
+  // Removed rather than re-pointed at `total_bytes`: that field exists on the inventory alone, so
+  // wiring it would make a figure that appears at Look inside and vanishes at the duplicate
+  // check, which is the blink this component was just fixed for.
   return {
     photos: Number(s.photos) || 0,
     videos: Number(s.videos) || 0,
-    bytes: Number((s as { bytes?: number }).bytes) || 0,
   };
 }
 
@@ -450,12 +457,21 @@ function SourceCounts(): React.JSX.Element | null {
   // out when the run starts, and what clears them when the run is over.
   const found = useIsland().found;
   if (!found) return null;
-  const { nfmt, fmtBytes } = formatters();
-  const figures: [number | string, string][] = [
-    [nfmt(found.photos), found.photos === 1 ? "photo" : "photos"],
-    [nfmt(found.videos), found.videos === 1 ? "video" : "videos"],
-  ];
-  if (found.bytes) figures.push([fmtBytes(found.bytes), "on disk"]);
+  const { nfmt } = formatters();
+  // ⚠ A ZERO IS OMITTED, NOT PRINTED, and this file's own rule below is why. The video figure was
+  // pushed unconditionally while the size was pushed only `if (found.bytes)`, so a folder of
+  // photographs got a confident "0 videos" from a component whose docstring says it never zeros -
+  // the rule stated in one paragraph and broken two lines under it. One rule, applied to every
+  // figure: a count of nothing is not a fact worth a metric, and the result region below says
+  // what the folder holds in full.
+  const figures: [number | string, string][] = [];
+  if (found.photos > 0) {
+    figures.push([nfmt(found.photos), found.photos === 1 ? "photo" : "photos"]);
+  }
+  if (found.videos > 0) {
+    figures.push([nfmt(found.videos), found.videos === 1 ? "video" : "videos"]);
+  }
+  if (!figures.length) return null;
   return (
     <div className="source-counts" data-testid="org-source-counts">
       {figures.map(([value, label]) => (

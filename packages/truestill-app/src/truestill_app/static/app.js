@@ -1223,9 +1223,18 @@ function alignPanelWithContent() {
   // it is the gap between the header and the card, not part of either.
   const main = document.querySelector(".main");
   const top = main ? parseFloat(getComputedStyle(main).paddingTop) : 0;
-  const head = header
-    ? header.offsetHeight + parseFloat(getComputedStyle(header).marginBottom)
-    : 0;
+  // ⚠ EVERYTHING ABOVE THE FIRST CARD, not the header alone - changed 2026-09-09 when the step
+  // row moved out of `<header>` so it could stick. Summing the header was only ever a stand-in
+  // for "the distance down to the first card", and it stopped being one the moment a second
+  // element sat in that gap. `offsetTop` is a layout metric like the two it replaces, so this is
+  // still the same answer whether or not `.main` is scrolled when it runs.
+  const screen = document.querySelector(".screen.active");
+  const card = screen ? screen.querySelector(".card") : null;
+  const head = card
+    ? card.offsetTop - screen.offsetTop
+    : header
+      ? header.offsetHeight + parseFloat(getComputedStyle(header).marginBottom)
+      : 0;
   panel.style.paddingTop = `${Math.round(top + head)}px`;
 }
 
@@ -1240,8 +1249,15 @@ function alignPanelWithContent() {
 // that ever arrives late. Every screen's header is observed, not just the active one - a
 // background screen's header can settle while another is on show, and the cost is one callback
 // that reads two numbers.
+// ⚠ AND `#org-stepper` IS OBSERVED TOO, since 2026-09-09. It used to be inside the header and
+// was covered by observing headers; it is a sibling now, so the late-fill this whole mechanism
+// exists for - React putting the step row in after the bundle loads - would otherwise go unseen
+// and put the panel a step-row too high again. The element that arrives late is the one to watch,
+// wherever it sits.
 const headerSizes = new ResizeObserver(() => alignPanelWithContent());
-for (const header of document.querySelectorAll(".screen > header")) headerSizes.observe(header);
+for (const box of document.querySelectorAll(".screen > header, #org-stepper")) {
+  headerSizes.observe(box);
+}
 
 // ---------- screen readiness ----------
 // WHAT A SCREEN OWES BEFORE IT IS READY, in one table rather than in a branch chain inside
@@ -1616,10 +1632,34 @@ async function loadQuickPlaces() {
 // The gate is the SERVER's (`needs_library_root` = no declared root AND no files), not this
 // file's. A rule re-derived in the browser is a rule with two homes, and the half that keeps this
 // off an existing library - "and no files" - is the half that would be dropped.
+//: The server's half of the gate, held so the destination listener can re-apply it without
+//: re-fetching. `null` until the first status arrives, which reads as "not open".
+let libraryQuestionOpen = false;
+
+// ⚠ THE QUESTION CLOSES WHEN IT IS ANSWERED, AND A TYPED DESTINATION ANSWERS IT (2026-09-09).
+//
+// The server's gate says whether the question is OPEN - no declared root and no files - and it
+// stays the source of truth for that; this is not the browser re-deriving it. What the server
+// cannot see is the OTHER way a person answers it: typing the folder into "Organized folder"
+// six inches below and getting on with the run. `needs_library_root` only turns false once the
+// catalog has rows, so until a run FINISHED, the card sat open through Look inside, the duplicate
+// check and underneath the typed confirm - measured true in all three - asking for something the
+// screen was already showing. That is `(aby)`'s class: the screen repeating itself.
+//
+// Two conditions, both required: the server says it is open, AND the destination is still blank.
+function syncFirstRunVisibility() {
+  const card = $("org-first-run");
+  if (!card) return;
+  const dest = $("org-dest");
+  const answered = !!(dest && dest.value.trim());
+  card.classList.toggle("hidden", !libraryQuestionOpen || answered);
+}
+
 async function renderFirstRunLibrary(s) {
   const card = $("org-first-run");
   if (!card) return;
-  card.classList.toggle("hidden", !s.needs_library_root);
+  libraryQuestionOpen = !!s.needs_library_root;
+  syncFirstRunVisibility();
   // Settings shows the same answer whether or not the question is still open, so a user who has
   // one can see and change it, and one who does not is told plainly rather than shown a blank.
   const current = $("library-root-current");
@@ -2030,8 +2070,11 @@ for (const id of ["org-source", "org-dest"]) {
   if (!el) continue;
   // Undebounced on purpose: `validatePath` is debounced 400 ms because it costs a request, and
   // this costs nothing. A result that is wrong for 400 ms is a result that is wrong.
-  el.addEventListener("input", () => { invalidateOrganizeResult(); markCurrentQuickPlace(); publishOrganizeForm(); });
-  el.addEventListener("change", () => { invalidateOrganizeResult(); markCurrentQuickPlace(); publishOrganizeForm(); });
+  // `syncFirstRunVisibility` rides both events for the same reason the rest of this loop does:
+  // the picker and the quick-place chips write the destination and dispatch `change` only, so an
+  // `input`-only binding would leave the question open for everyone who used the Browse button.
+  el.addEventListener("input", () => { invalidateOrganizeResult(); markCurrentQuickPlace(); publishOrganizeForm(); syncFirstRunVisibility(); });
+  el.addEventListener("change", () => { invalidateOrganizeResult(); markCurrentQuickPlace(); publishOrganizeForm(); syncFirstRunVisibility(); });
 }
 for (const id of ["org-skip-undated", "org-refresh-metadata"]) {
   const el = $(id);

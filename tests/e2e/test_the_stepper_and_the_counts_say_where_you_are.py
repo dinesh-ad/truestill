@@ -34,7 +34,6 @@ def _summary(**overrides: Any) -> dict[str, Any]:
         "photos": 60,
         "videos": 9,
         "audio": 0,
-        "bytes": 1_500_000_000,
         "by_format": {},
         "new_unique": 40,
         "near_dup": 0,
@@ -166,10 +165,13 @@ def test_the_counts_survive_the_start_of_the_run(ui: Page) -> None:
     the instant the run began. Nothing about the folder had changed - the island had stopped
     being told."""
     _preview(ui)
-    expect(ui.locator(f"{COUNTS} .metric")).to_have_count(3)
+    # TWO, not three: no organize payload has ever carried a byte count, so the "on disk" figure
+    # this used to expect never rendered. `organize.py:OrganizeInventory` has `total_bytes` and
+    # `OrganizeDedupCore` has none.
+    expect(ui.locator(f"{COUNTS} .metric")).to_have_count(2)
 
     _set(ui, "running", html="<div class='card result'>working</div>")
-    expect(ui.locator(f"{COUNTS} .metric")).to_have_count(3)
+    expect(ui.locator(f"{COUNTS} .metric")).to_have_count(2)
     expect(ui.locator(COUNTS)).to_contain_text("60")
 
 
@@ -178,16 +180,40 @@ def test_a_finished_run_clears_them_rather_than_leaving_a_stale_figure(ui: Page)
     in-place run the source folder no longer holds what Look inside found, so the figure beside
     its name is not stale - it is false. The completion card owns the finished numbers."""
     _preview(ui)
-    expect(ui.locator(f"{COUNTS} .metric")).to_have_count(3)
+    expect(ui.locator(f"{COUNTS} .metric")).to_have_count(2)
 
     _set(ui, "complete", html="<div class='card result'>done</div>")
     expect(ui.locator(f"{COUNTS} .metric")).to_have_count(0)
 
 
+def test_a_figure_of_zero_is_omitted_rather_than_printed(ui: Page) -> None:
+    """⚠ **It printed "0 videos" from a component whose docstring says it never zeros.** The video
+    figure was pushed unconditionally while the size was pushed conditionally, so the rule was
+    stated in one paragraph and broken two lines under it. A folder of photographs now shows one
+    metric, not one metric and a confident nothing."""
+    _preview(ui, photos=6, videos=0)
+
+    metrics = ui.locator(f"{COUNTS} .metric")
+    expect(metrics).to_have_count(1)
+    expect(metrics).to_contain_text("photos")
+    expect(ui.locator(COUNTS)).not_to_contain_text("video")
+
+
+def test_a_folder_of_videos_keeps_the_video_figure_and_drops_the_photo_one(ui: Page) -> None:
+    """**The cry-wolf half.** A rule that only ever hides videos would pass the test above by
+    hiding the wrong thing; this fails unless the omission is keyed on the VALUE."""
+    _preview(ui, photos=0, videos=4)
+
+    metrics = ui.locator(f"{COUNTS} .metric")
+    expect(metrics).to_have_count(1)
+    expect(metrics).to_contain_text("videos")
+    expect(ui.locator(COUNTS)).not_to_contain_text("photo")
+
+
 def test_an_invalidated_screen_drops_the_carried_answer(ui: Page) -> None:
     """A changed field throws the result away, and the figures describe a question nobody asked."""
     _preview(ui)
-    expect(ui.locator(f"{COUNTS} .metric")).to_have_count(3)
+    expect(ui.locator(f"{COUNTS} .metric")).to_have_count(2)
 
     _set(ui, "resting")
     expect(ui.locator(f"{COUNTS} .metric")).to_have_count(0)

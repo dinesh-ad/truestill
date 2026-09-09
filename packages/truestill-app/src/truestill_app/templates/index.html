@@ -155,13 +155,20 @@
           <h1>Organize</h1>
           <p class="lede">Choose how to organize: copy into a destination, move into a destination,
             or reorganize this folder in place.</p>
-          <!-- THE STEPPER, drawn by the island. A PROJECTION of `organizeResult`'s state and not a
-               second state machine: `main.tsx`'s `stepFor` maps the seven kinds onto these four
-               and nothing else may write here. Inside <header> deliberately - `alignPanelWithContent`
-               measures the header to line the panel up with the first card, so a step row outside
-               it would put the panel a step-row too high. -->
-          <div id="org-stepper"></div>
         </header>
+
+        <!-- THE STEPPER, drawn by the island. A PROJECTION of `organizeResult`'s state and not a
+             second state machine: `main.tsx`'s `stepFor` maps the seven kinds onto these four and
+             nothing else may write here.
+             ⚠ MOVED OUT OF <header> 2026-09-09, AND IT HAD TO BE. It was inside deliberately, so
+             that `alignPanelWithContent` - which measures the header - counted it. But `position:
+             sticky` is bounded by the PARENT's box, and the step row was the header's last child,
+             so its sticky range was zero and it scrolled away with everything else. Measured at
+             1440x900 it sat at y=+141, -98, -308 and -30 across the four states: off-screen in
+             three of the four, which is the whole of its job undone. As a child of `.screen` its
+             range is the screen's box, so it stays. `alignPanelWithContent` now measures to the
+             first card rather than to the header, which is what it always meant. -->
+        <div id="org-stepper"></div>
 
         <div class="card">
           <div class="field">

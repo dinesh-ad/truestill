@@ -1065,12 +1065,36 @@ select.input {
    AN <ol>, because the steps are ordered and a screen reader should say so; `aria-current="step"`
    is what names the one you are on, and the numbers are content rather than `::before` counters
    so they are read out with it. */
+/* ⚠ IT STICKS, 2026-09-09, and this is the point of the row rather than a refinement of it.
+   Measured at 1440x900 before: the step row sat at y=+141, -98, -308 and -30 across the four
+   states of one run - visible in ONE of four, and absent for the whole of Preview, Apply and
+   Done. An orientation control that is only on screen while you have nothing to orient yourself
+   about is worse than none, which is the maintainer's own test of it.
+
+   `top: 0` resolves against `.main`, the scroll container (`overflow-y: auto`), so the row lands
+   under the rail's top edge and cannot cover another screen. The background is `--canvas` and
+   NOT transparent: a stuck row over scrolling body text is unreadable within one line of travel.
+   The negative margin + padding pair widens the painted band to the card's edges without moving
+   the row itself, so text passing underneath is covered rather than showing between the dots.
+
+   ⚠ THE STICKY RANGE IS THE PARENT'S BOX, which is why the markup moved. As the last child of
+   `<header>` this rule would have bought nothing: the row would unstick the moment the header
+   left, which is immediately. */
+#org-stepper {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--canvas-from);
+  margin: 0 calc(-1 * var(--space-3));
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  border-bottom: var(--border-width) solid transparent;
+}
 .stepper {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
-  margin: var(--space-4) 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -2241,6 +2265,41 @@ details.more.inline {
 }
 .panel:empty {
   display: none;
+}
+/* ⚠ THE TRACK IS RESERVED ONCE A RESULT EXISTS, 2026-09-09, and it is the reflow that is being
+   fixed rather than the panel.
+
+   MEASURED at 1440x900 across one run: the content column was 1144, 1144, **896**, 896. The
+   panel fills at the DUPLICATE-CHECK step (`renderPanel` is called from that handler and from
+   nowhere earlier), `.panel:empty` had collapsed its grid track until then, so the column lost
+   248px and every line of the preview rewrapped at the moment the reader started reading it.
+
+   `:empty` STAYS and so does its decision - an empty panel costs nothing, which
+   `test_the_panel_exists_and_costs_nothing_while_empty` pins on the RESTING shell, where there is
+   no result and the grid is correctly two columns. Reserving unconditionally was the other option
+   offered and is the one refused: it would put a 248px empty column on every screen at rest and
+   contradict that ruling.
+
+   ⚠ KEYED ON THE SOURCE FIELD BEING FILLED, AND NOT ON THE RESULT - which was the first attempt
+   and was WRONG in a way worth writing down. `.app:has(#org-result:not(:empty))` reserves the
+   track at the exact instant the result renders into it, so the column narrows in the same frame
+   the grid arrives; `useRowSolver` had already measured, its `ResizeObserver` corrects on the
+   NEXT frame, and `test_no_tile_is_drawn_outside_the_card_that_holds_it` and
+   `test_a_photograph_wider_than_the_panel_is_scaled_not_clipped_or_squashed` both caught tiles
+   hanging 740px past the card edge. A reflow timed to land on the content it disturbs is a worse
+   version of the defect being fixed.
+
+   `:placeholder-shown` is false as soon as the field holds a value, so the column settles while
+   the person is still typing a path - no result on screen, nothing to re-wrap, and one settle
+   rather than one per tier. By the time anything is rendered the width is already final. */
+.app:has(#org-source:not(:placeholder-shown)) {
+  grid-template-columns: var(--sidebar-width) 1fr var(--panel-width);
+}
+@media (max-width: 1335px) {
+  /* The panel is absent entirely below the threshold, so nothing may be reserved for it either. */
+  .app:has(#org-source:not(:placeholder-shown)) {
+    grid-template-columns: var(--sidebar-width) 1fr;
+  }
 }
 /* Below the threshold the panel is gone entirely - not squeezed, not stacked under the content,
    where it would push the task off the screen it belongs to. */
