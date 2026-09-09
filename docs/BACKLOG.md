@@ -55,7 +55,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aki). Next free: (akj).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akj). Next free: (akk).**
 **Retired 2026-09-02 (P190), and named here because a retired letter is not a free one:** `(abz)`
 (*"Organize shows one population three ways and connects none of them"*). False before it was
 filed: `rearrangeNote` in `app.js` (`93635af`, 2026-08-06; `RearrangeNote` in `frontend/src/preview.tsx` since 2026-09-05) prints *"N of M files here are already in
@@ -259,6 +259,23 @@ confirmed against today's code by **one decisive check**, named in its body - no
 That is enough to say *still plausible*; it is not enough to say *confirmed*. **Nothing was deleted
 on the strength of it**, and an entry that turns out already built should be closed with its commit
 rather than treated as a triage failure.
+
+- **(akj) NO LANE ANYWHERE EXECUTES `app.js` ON WINDOWS, AND THE FOLDER PICKER'S BREADCRUMB IS
+  WHAT THAT COST.** Filed 2026-09-09 (P250), **no work attached**. `app.js:pkNavigate` splits
+  `/api/fs/dirs`'s `path` on `"/"`, but that field is an absolute path in the OS's own spelling
+  (`fs_browse.py:fs_dirs`), so on Windows `C:\Users\me` is **one segment** and the crumb target is
+  built as `"/" + segment` - `/C:\Users\me`, which does not resolve. Reached by any of the five
+  `Browse…` buttons. ⚠ **`as_posix()` at the producer would be a BUG here, not a fix**, which is
+  what separates it from `destination_tree` (`4d533da`): this value is written back into the form
+  and handed to the filesystem, so rewriting it would stop it naming a place that exists. The
+  plausible fix is the **server returning the crumbs**, since only it knows whether `C:` is a root
+  - and it touches the API contract and the frozen oracle pair, which is why it is filed.
+  ⚠ **THE ENTRY'S REAL SUBJECT IS THAT NO CI CAN SEE THIS**: the three-OS matrix runs `make check`,
+  which cannot execute client-side JS, and the browser lane - the only thing that runs `app.js` -
+  is `runs-on: ubuntu-latest`, varying the **engine** and never the **OS**. The two lanes cross with
+  a hole exactly here. Not an argument for a fourth leg (`(ajx)` priced the lane, `D3` scopes it);
+  an argument for knowing the hole is there. Confirmed by code and separator behaviour, **not by
+  running on Windows** - which is the point. [Full entry](research/backlog/akj.md)
 
 - **(r) Analyze mode - the hash cache half is SHIPPED.** ⚠ **Build next, 2026-09-02 (P187)**: no condition - tier 2b and the app screen are absent for everyone; scoped work, not a conditional defect. [Full entry](research/backlog/r.md)
 
