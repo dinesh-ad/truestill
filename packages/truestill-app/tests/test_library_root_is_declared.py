@@ -11,9 +11,12 @@ first test below is what holds it up.
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
+from PIL import Image
 from starlette.testclient import TestClient
+from truestill_app import service
 from truestill_app.service.drives import LIBRARY_PATH_HINT, LIBRARY_ROOT_KEY
 from truestill_core.catalog import Catalog
 
@@ -125,3 +128,78 @@ def test_an_empty_declaration_is_refused_rather_than_stored(client: TestClient) 
     refused = client.post("/api/library/root", json={"path": "   "}).json()
     assert refused.get("error"), refused
     assert client.get("/api/library/status").json()["needs_library_root"] is True
+
+
+def test_an_open_question_can_arrive_with_the_destination_already_filled_in(
+    client: TestClient, db_path: Path, tmp_path: Path
+) -> None:
+    """⚠ **THE TWO CAN COEXIST, AND THE SCREEN MUST NOT READ ONE AS THE OTHER.**
+
+    `organize.py` writes `path_hint.library` when a run COMPLETES, not only when it organized
+    something. So a first-time user whose first run takes zero files ends with a hint and an empty
+    catalog, and every part of `needs_library_root` still holds:
+
+        library_root       None   - never declared
+        files              0      - nothing was organized
+        needs_library_root True   - the question is still OPEN
+        library_path       set    - and `app.js` prefills `#org-dest` from it
+
+    That prefill runs five lines before `renderFirstRunLibrary` on the same status load, so a
+    visibility rule reading the FIELD would close a question nobody answered - hiding a decision
+    the user was meant to make. `syncFirstRunVisibility` keys on a destination the USER named.
+
+    This asserts the payload; the test below asserts a real run reaches this state.
+    """
+    landed = tmp_path / "Truestill"
+    landed.mkdir()
+    with Catalog(db_path) as catalog:
+        catalog.set_setting(LIBRARY_PATH_HINT, str(landed))
+
+    status = client.get("/api/library/status").json()
+
+    assert status["files"] == 0, (
+        "fixture check: the catalog must be empty for the question to be open"
+    )
+    assert status["library_root"] is None, "fixture check: nothing may have been declared"
+    assert status["needs_library_root"] is True, "the question is not open, so nothing is at stake"
+    assert status["library_path"] == str(landed), (
+        "the hint did not survive, so this payload cannot prefill the destination and the "
+        "coexistence this test exists to demonstrate was not reached"
+    )
+
+
+def test_a_run_that_organized_nothing_still_writes_the_hint(tmp_path: Path) -> None:
+    """⚠ **THE PREMISE ABOVE, DRIVEN THROUGH A REAL RUN RATHER THAN HAND-MADE.**
+
+    The test above sets the hint itself, so it proves what the payload does with that state and
+    NOT that the state occurs - `ENGINEERING_STANDARD.md` §4's *"a fixture whose SUBJECT never
+    entered the code path"*. This one runs `organize_run` and lets the product write it.
+
+    ⚠ **MEDIA IS REQUIRED, and the first draft of this test got that wrong.** `organize_run`
+    returns early on `if not files`, so a folder holding no photographs never reaches the hint
+    write at all and a run over a text file proved the opposite of what it claimed. These are real
+    JPEGs with no EXIF: found, dated nothing, and skipped by request.
+
+    If the hint write is ever made conditional on having organized something, this goes red and
+    the reachability argument in the client has to be re-made rather than quietly evaporating.
+    """
+    source, destination, db = tmp_path / "src", tmp_path / "Out", tmp_path / "c.sqlite"
+    source.mkdir()
+    for i in range(2):
+        Image.new("RGB", (32, 32), (i * 40, 90, 120)).save(source / f"IMG_{i}.jpg", "JPEG")
+
+    service.organize_run(source, destination, db, mode="copy", skip_undated=True)(
+        lambda _p: None, threading.Event()
+    )
+
+    with Catalog(db) as catalog:
+        organized = catalog.count()
+        hint = catalog.get_setting(LIBRARY_PATH_HINT)
+        declared = catalog.get_setting(LIBRARY_ROOT_KEY)
+
+    assert organized == 0, f"fixture check: the run organized {organized} files, so it took some"
+    assert declared is None, "fixture check: nothing may have been declared"
+    assert hint == str(destination), (
+        "a completed run did not write the library hint - the state the question-closing rule "
+        "guards against is no longer reachable, and that rule's reason needs re-making"
+    )

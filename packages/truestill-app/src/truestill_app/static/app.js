@@ -1646,13 +1646,38 @@ let libraryQuestionOpen = false;
 // check and underneath the typed confirm - measured true in all three - asking for something the
 // screen was already showing. That is `(aby)`'s class: the screen repeating itself.
 //
-// Two conditions, both required: the server says it is open, AND the destination is still blank.
+// ⚠ AND IT IS A DESTINATION THE USER NAMED, NOT A NON-EMPTY FIELD (corrected 2026-09-09).
+//
+// Reading `#org-dest`'s value is wrong, and the payload proves it. `organize.py` writes
+// `path_hint.library` when a run COMPLETES, not when it organized something - so a first run that
+// takes zero files (media found, all of it undated, skipping on) leaves a live hint and an empty
+// catalog. `needs_library_root` is still true - nothing declared, no rows - and this file prefills
+// `#org-dest` from that hint FIVE LINES BEFORE `renderFirstRunLibrary` runs on the same status
+// load. Reading the field would close a question nobody answered, hiding a decision the user was
+// meant to make, which is worse than leaving it open too long.
+// `test_an_open_question_can_arrive_with_the_destination_already_filled_in` settles that the two
+// states coexist and `test_a_run_that_organized_nothing_still_writes_the_hint` settles that a real
+// run reaches them.
+//
+// `prefill` deliberately dispatches no event (see its own note), so a prefilled destination never
+// reaches the listener below - that is the property this relies on, and it is a property of
+// `prefill` rather than an accident of ordering.
+let destinationNamedByUser = false;
+
+// Called from the destination field's own listeners, never from a status load. Emptying the field
+// un-names it: a first run that types a path and thinks better of it is unanswered again.
+function noteDestinationNamed() {
+  const dest = $("org-dest");
+  destinationNamedByUser = !!(dest && dest.value.trim());
+  syncFirstRunVisibility();
+}
+
+// Two conditions, both required: the server says the question is open, AND the person has not
+// already named the folder themselves.
 function syncFirstRunVisibility() {
   const card = $("org-first-run");
   if (!card) return;
-  const dest = $("org-dest");
-  const answered = !!(dest && dest.value.trim());
-  card.classList.toggle("hidden", !libraryQuestionOpen || answered);
+  card.classList.toggle("hidden", !libraryQuestionOpen || destinationNamedByUser);
 }
 
 async function renderFirstRunLibrary(s) {
@@ -2070,11 +2095,14 @@ for (const id of ["org-source", "org-dest"]) {
   if (!el) continue;
   // Undebounced on purpose: `validatePath` is debounced 400 ms because it costs a request, and
   // this costs nothing. A result that is wrong for 400 ms is a result that is wrong.
-  // `syncFirstRunVisibility` rides both events for the same reason the rest of this loop does:
-  // the picker and the quick-place chips write the destination and dispatch `change` only, so an
-  // `input`-only binding would leave the question open for everyone who used the Browse button.
-  el.addEventListener("input", () => { invalidateOrganizeResult(); markCurrentQuickPlace(); publishOrganizeForm(); syncFirstRunVisibility(); });
-  el.addEventListener("change", () => { invalidateOrganizeResult(); markCurrentQuickPlace(); publishOrganizeForm(); syncFirstRunVisibility(); });
+  // ⚠ `noteDestinationNamed` IS BOUND ONLY ON `#org-dest`, and it rides both events for the same
+  // reason the rest of this loop does: the picker, the quick-place chips and `saveLibraryRoot`
+  // write the value and dispatch `change` alone, so an `input`-only binding would leave the
+  // question open for everyone who used the Browse button. What it will never see is `prefill`,
+  // which dispatches nothing - which is the whole point.
+  const named = id === "org-dest" ? noteDestinationNamed : () => {};
+  el.addEventListener("input", () => { invalidateOrganizeResult(); markCurrentQuickPlace(); publishOrganizeForm(); named(); });
+  el.addEventListener("change", () => { invalidateOrganizeResult(); markCurrentQuickPlace(); publishOrganizeForm(); named(); });
 }
 for (const id of ["org-skip-undated", "org-refresh-metadata"]) {
   const el = $(id);

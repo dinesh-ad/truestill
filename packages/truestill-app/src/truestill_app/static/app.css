@@ -1210,7 +1210,18 @@ select.input {
    result and neither of its controls is the next step - "Use this folder" is, and it is in the
    question. A bar pinned over the form here hides the choice the user has to make first and
    offers two buttons they cannot use yet. It sticks again the moment the question is answered. */
-#screen-organize:has(#org-first-run:not(.hidden)) .actionbar {
+/* ⚠ AND THE SOURCE FIELD IS THE OTHER HALF, added 2026-09-09 because the gate was on the wrong
+   field. "Look inside" needs NO destination - `app.js`'s own handler says so in as many words,
+   *"NO DESTINATION CHECK. This posts `{ source }` alone"* - so gating the un-stick on the
+   first-run question alone put the primary control off screen (measured y=1051 against a 900px
+   viewport) for a person who had typed a source and whose next action was the button they could
+   not see. A control is un-stuck while it is not the next thing to press, never while an
+   unrelated field is empty.
+
+   Both conditions: the question is open AND the source is still blank. That is the only state in
+   which nothing in this bar is usable and the next action - "Use this folder" - is inside the
+   question itself. One character into the source field and the bar sticks. */
+#screen-organize:has(#org-first-run:not(.hidden)):has(#org-source:placeholder-shown) .actionbar {
   position: static;
 }
 .actionbar-controls {
@@ -2291,7 +2302,15 @@ details.more.inline {
 
    `:placeholder-shown` is false as soon as the field holds a value, so the column settles while
    the person is still typing a path - no result on screen, nothing to re-wrap, and one settle
-   rather than one per tier. By the time anything is rendered the width is already final. */
+   rather than one per tier. By the time anything is rendered the width is already final.
+
+   ⚠ AND THE TRACK STAYS VISIBLY EMPTY UNTIL THE DUPLICATE CHECK, DELIBERATELY (2026-09-09).
+   **The panel is supplementary by construction - nothing needed to finish a task may live there -
+   so an empty column is the true statement that there is nothing supplementary to say yet, and
+   the only facts available at the inventory tier are the folder's counts, which already sit
+   beside the folder field.** Repeating them here would be `(aby)`'s defect, the screen saying the
+   same thing twice, inside a column reserved to stop it moving. A spinner or a placeholder card
+   was refused outright: a column pretending to load is worse than one plainly empty. */
 .app:has(#org-source:not(:placeholder-shown)) {
   grid-template-columns: var(--sidebar-width) 1fr var(--panel-width);
 }

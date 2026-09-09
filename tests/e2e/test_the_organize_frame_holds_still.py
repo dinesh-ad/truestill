@@ -13,6 +13,7 @@ no test named the stepper, the bar's position, the question's close, or the colu
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from playwright.sync_api import Page, expect
@@ -43,6 +44,50 @@ def _tracks(ui: Page) -> list[str]:
 
 def _panel_is_empty(ui: Page) -> bool:
     return bool(ui.eval_on_selector("#panel", "el => el.innerHTML.trim() === ''"))
+
+
+def _value(ui: Page, selector: str) -> str:
+    return str(ui.eval_on_selector(selector, "el => el.value"))
+
+
+def _status_with_prefilled_destination(ui: Page) -> None:
+    """The payload a first run leaves when it organized nothing: a live hint, no declaration and
+    no rows - so the question is open AND `#org-dest` prefills from the hint."""
+    ui.route(
+        "**/api/library/status",
+        lambda r: r.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "files": 0,
+                    "photos": 0,
+                    "videos": 0,
+                    "audio": 0,
+                    "bytes": 0,
+                    "by_format": {},
+                    "places": 0,
+                    "single_copy": 0,
+                    "files_no_copy": 0,
+                    "files_one_copy": 0,
+                    "redundancy_floor": 0,
+                    "files_on_a_drive": 0,
+                    "held_floor": 0,
+                    "library_path": "/tmp/AlreadyThere",
+                    "library_root": None,
+                    "needs_library_root": True,
+                    "backup_path": None,
+                    "never_checked_drives": [],
+                    "catalog_path": "/tmp/c.sqlite",
+                    "catalog_presence": "will_create",
+                    "catalog_detail": "",
+                    "catalog_tone": "info",
+                }
+            ),
+        ),
+    )
+    ui.reload()
+    ui.wait_for_selector(".nav-item")
 
 
 def test_the_step_row_is_still_on_screen_after_scrolling(ui: Page, tmp_path: Path, library) -> None:
@@ -119,6 +164,60 @@ def test_the_bar_sticks_once_the_question_is_answered(ui: Page) -> None:
     expect(ui.locator(QUESTION)).to_be_hidden()
     assert _position(ui, BAR) == "sticky", "the bar did not stick once the question closed"
     assert _y(ui, BAR) < 900, "the primary action is below the fold with the question answered"
+
+
+def test_a_source_only_state_has_its_primary_within_reach(ui: Page, library) -> None:
+    """⚠ **THE GATE WAS ON A FIELD THE BUTTON DOES NOT USE.**
+
+    "Look inside" posts `{ source }` alone - `app.js`'s handler says *"NO DESTINATION CHECK"* in
+    as many words - but the bar was un-stuck whenever the first-run question was open, and the
+    question stays open until a destination is named. So a person who typed a source path and
+    reached for the one button needing nothing else found it at y=1051 in a 900px window.
+
+    The state under test is source-filled, destination-empty: exactly the gap between the two
+    fields' conditions, and the one a real first run walks through.
+    """
+    ui.set_viewport_size({"width": 1440, "height": 900})
+    source = library(3, name="Lib")
+
+    ui.fill("#org-source", str(source))
+    ui.wait_for_timeout(200)
+
+    # The precondition IS the finding: the question is still open, and the bar must stick anyway.
+    expect(ui.locator(QUESTION)).to_be_visible()
+    assert _value(ui, "#org-dest") == "", (
+        "fixture check: the destination is filled, so the gap this test is about was skipped"
+    )
+
+    assert _position(ui, BAR) == "sticky", (
+        "the action bar is un-stuck with a source typed - the one control that needs no "
+        "destination is gated on the destination"
+    )
+    expect(ui.locator("#org-preview")).to_be_visible()
+    reach = _y(ui, "#org-preview")
+    assert reach < 900, (
+        f"'Look inside' is at y={reach:.0f} in a 900px window - below the fold, and it is the "
+        "only thing this state can do"
+    )
+
+
+def test_a_prefilled_destination_does_not_answer_the_question(ui: Page) -> None:
+    """⚠ **THE SILENT-SATISFACTION FAILURE, IN THE OPPOSITE DIRECTION.**
+
+    `organize.py` writes `path_hint.library` on every completed run, not only one that organized
+    something, so a first run taking zero files leaves a hint with an empty catalog and
+    `needs_library_root` still true. `app.js` prefills `#org-dest` from that hint five lines
+    before `renderFirstRunLibrary` runs on the same load.
+    `test_an_open_question_can_arrive_with_the_destination_already_filled_in` settles that the two
+    coexist and `test_a_run_that_organized_nothing_still_writes_the_hint` that a real run gets
+    there; this asserts the screen does not read the prefill as an answer.
+
+    A question closed by a value nobody typed hides a decision the user was meant to make.
+    """
+    _status_with_prefilled_destination(ui)
+
+    expect(ui.locator("#org-dest")).to_have_value("/tmp/AlreadyThere", timeout=30_000)
+    expect(ui.locator(QUESTION)).to_be_visible()
 
 
 def test_the_content_column_does_not_change_width_once_a_result_exists(

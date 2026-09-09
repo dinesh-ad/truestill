@@ -82,7 +82,13 @@ type ResultState =
   // its empty outcome, chosen by `app.js` rather than by the island reading `files`.
   | { kind: "preview"; preview: PreviewSummary; view: PreviewView }
   | { kind: "preview-empty"; empty: PreviewEmpty }
-  | { kind: "configured"; html: string }
+  // ⚠ `configured` WAS HERE AND IS GONE, 2026-09-09. `99e35d4` introduced it as a generic "a
+  // string `app.js` built" bucket while `#org-result` was being given one owner, and every one of
+  // its writers was then replaced by a typed kind as the island took the regions: `8c76e2f` the
+  // inventory card, `0260715` the dedup preview. Nothing has set it since, so `stepFor` carried a
+  // branch no fixture could reach - `ENGINEERING_STANDARD.md` §4's sixtieth member, in the file
+  // that had just gained nine guards. `running` and `complete` still carry html, so nothing that
+  // needed the bucket lost it.
   | { kind: "running"; html: string }
   // `complete` carries EITHER the summary - which is what gives the tests a props entry point
   // and lets the island call `organizeCompletion` itself - or an already-built card, for the
@@ -334,9 +340,9 @@ const STEPS = ["Configure", "Preview", "Apply", "Done"] as const;
  * WHICH STEP A RESULT STATE IS, and this is the whole of the stepper's logic.
  *
  * A PROJECTION, not a second state machine: every kind of `ResultState` maps onto exactly one
- * step, so the row cannot say "Preview" while the screen shows a finished run. `configured` has
- * no writer in `app.js` today and is mapped anyway - a kind that exists in the type and is
- * missing from this table would fall through to Configure and read as the screen going backwards.
+ * step, so the row cannot say "Preview" while the screen shows a finished run. A kind that exists
+ * in the type and is missing from this table would fall through to Configure and read as the
+ * screen going backwards, so the switch is exhaustive and TypeScript is what keeps it so.
  *
  * ⚠ **THE STEP IS WHERE THE PERSON IS, NOT WHICH PAYLOAD ARRIVED, and that distinction is the
  * fix of 2026-09-09.** `kind` alone put "Preview" on the row while the typed confirm was on
@@ -363,7 +369,6 @@ function stepFor(state: ResultState): number {
       return (Number(state.preview.will_organize) || 0) > 0 ? 2 : 1;
     case "preview-empty":
       return 1;
-    case "configured":
     case "running":
       return 2;
     case "complete":
