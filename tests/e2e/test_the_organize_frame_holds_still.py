@@ -220,6 +220,97 @@ def test_a_prefilled_destination_does_not_answer_the_question(ui: Page) -> None:
     expect(ui.locator(QUESTION)).to_be_visible()
 
 
+def test_prefilling_the_destination_dispatches_no_event(ui: Page) -> None:
+    """⚠ **THE DOCSTRING WAS THE ONLY THING HOLDING ITEM 7 SHUT.**
+
+    `syncFirstRunVisibility` is correct only because `prefill` writes the value and dispatches
+    nothing, so the destination listener never fires and `destinationNamedByUser` stays false.
+    That fact lived in a comment. Someone teaching `prefill` to fire events - a reasonable thing
+    to want, since the summary already needs a second call to compensate - would silently reopen
+    the defect with every test green.
+
+    Asserted at the SEAM rather than through the outcome: a spy on the field's own events, armed
+    before the status lands, counting what a prefill actually dispatches. The outcome
+    (`test_a_prefilled_destination_does_not_answer_the_question`) says the screen is right today;
+    this says WHY, and fails on the change that would break it.
+    """
+    ui.add_init_script(
+        """
+        window.__destEvents = [];
+        document.addEventListener('DOMContentLoaded', () => {
+          const dest = document.getElementById('org-dest');
+          if (!dest) return;
+          for (const kind of ['input', 'change']) {
+            dest.addEventListener(kind, () => window.__destEvents.push(kind), true);
+          }
+        });
+        """
+    )
+    _status_with_prefilled_destination(ui)
+
+    # Anti-vacuity: the prefill must actually have happened, or "no events" is trivially true.
+    expect(ui.locator("#org-dest")).to_have_value("/tmp/AlreadyThere", timeout=30_000)
+
+    fired = ui.evaluate("() => window.__destEvents || []")
+    assert fired == [], (
+        f"`prefill` dispatched {fired} on #org-dest - the destination listener will now treat a "
+        "value nobody typed as the user naming their library, which reopens (abx)'s question "
+        "closing itself"
+    )
+
+
+def test_the_bar_paints_nothing_while_the_answer_is_unknown(ui: Page) -> None:
+    """⚠ **A LAYOUT MAY NOT BE CHOSEN FROM AN UNKNOWN.**
+
+    `hidden` on the question conflated "closed" with "nobody has asked the server yet", and the
+    action bar keyed off it - so a first-run load drew the bar STICKY at y=721 and then moved it
+    to STATIC at y=1052 when the status landed. Measured over 120 frames: two distinct states,
+    331px apart, on the screen the product opens on.
+
+    ⚠ **The three states are driven directly rather than raced for.** Catching the pre-status
+    frame is timing-dependent and would be flaky in exactly the direction that hides a
+    regression - a slow machine passes because it never sampled the wrong frame. The rule is what
+    this commit added, so the rule is what is asserted: each value of `data-library`, and what the
+    bar does under it. That the ATTRIBUTE is written only after a status is
+    `test_a_first_run_is_asked_the_question`'s and `..._does_not_answer_the_question`'s job.
+    """
+    ui.set_viewport_size({"width": 1440, "height": 900})
+    expect(ui.locator("#org-first-run")).to_be_visible(timeout=30_000)
+
+    def bar_under(state: str) -> dict[str, str]:
+        return dict(
+            ui.eval_on_selector(
+                "#screen-organize",
+                "(el, s) => { el.dataset.library = s;"
+                " const cs = getComputedStyle(el.querySelector('.actionbar'));"
+                " return {pos: cs.position, vis: cs.visibility}; }",
+                state,
+            )
+        )
+
+    unknown = bar_under("unknown")
+    assert unknown["vis"] == "hidden", (
+        f"the bar paints while the answer is unknown ({unknown}) - it is being drawn in a "
+        "position it may not keep"
+    )
+    assert unknown["pos"] == "static", (
+        f"the bar is stuck while the answer is unknown ({unknown}) - revealing it in flow later "
+        "is the 331px jump this rule exists to remove"
+    )
+
+    # And both known states paint. Anti-vacuity: a rule that hid the bar always would pass the
+    # two assertions above and break the screen.
+    for state in ("open", "answered"):
+        known = bar_under(state)
+        assert known["vis"] == "visible", f"the bar never paints at data-library={state!r}: {known}"
+
+    assert bar_under("answered")["pos"] == "sticky", (
+        "an answered library does not stick the bar, so the primary action is below the fold"
+    )
+    # Leave the screen as the product left it.
+    ui.eval_on_selector("#screen-organize", "el => { el.dataset.library = 'open'; }")
+
+
 def test_the_content_column_does_not_change_width_once_a_result_exists(
     ui: Page, tmp_path: Path, library
 ) -> None:

@@ -1221,8 +1221,23 @@ select.input {
    Both conditions: the question is open AND the source is still blank. That is the only state in
    which nothing in this bar is usable and the next action - "Use this folder" - is inside the
    question itself. One character into the source field and the bar sticks. */
-#screen-organize:has(#org-first-run:not(.hidden)):has(#org-source:placeholder-shown) .actionbar {
+#screen-organize[data-library="open"]:has(#org-source:placeholder-shown) .actionbar {
   position: static;
+}
+/* ⚠ AND WHILE THE ANSWER IS UNKNOWN THE BAR PAINTS NOTHING, 2026-09-09. `data-library` starts at
+   `unknown` in the markup and is only ever written by `syncFirstRunVisibility`, i.e. once a status
+   has been read. Before that the bar has no basis for choosing between stuck and in-flow, and
+   guessing showed: measured over 120 frames of a first-run load, it was drawn `sticky` at y=721
+   and then moved to `static` at y=1052 - a 331px jump on the screen the product opens on.
+
+   It takes the IN-FLOW position while unknown so that neither outcome moves it: a first run
+   simply reveals it where it already is, and an answered library reveals it stuck, at a place it
+   was never painted. `visibility`, not `display`: the row keeps its space, so the card above it
+   does not reflow when the answer lands. This is the card's own treatment - render neither rather
+   than guess - applied to the layout that depends on the card. */
+#screen-organize[data-library="unknown"] .actionbar {
+  position: static;
+  visibility: hidden;
 }
 .actionbar-controls {
   display: flex;

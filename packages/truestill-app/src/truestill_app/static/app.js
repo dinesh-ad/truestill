@@ -1677,7 +1677,15 @@ function noteDestinationNamed() {
 function syncFirstRunVisibility() {
   const card = $("org-first-run");
   if (!card) return;
-  card.classList.toggle("hidden", !libraryQuestionOpen || destinationNamedByUser);
+  const open = libraryQuestionOpen && !destinationNamedByUser;
+  card.classList.toggle("hidden", !open);
+  // ⚠ THREE STATES, NOT TWO, and the third is why this attribute exists (2026-09-09). `hidden`
+  // conflates "the question is closed" with "nobody has asked the server yet", and the action
+  // bar's layout keys off it - so on a first-run load the bar was drawn STICKY at y=721 and then
+  // moved to STATIC at y=1052 when the status landed. Measured, 120 frames: two distinct states,
+  // 331px apart, on the screen the product opens on. A layout may not be chosen from an unknown.
+  const screen = $("screen-organize");
+  if (screen) screen.dataset.library = open ? "open" : "answered";
 }
 
 async function renderFirstRunLibrary(s) {
