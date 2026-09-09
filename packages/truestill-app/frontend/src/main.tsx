@@ -257,6 +257,23 @@ export interface FormFacts {
 interface IslandState {
   result: ResultState;
   form: FormFacts;
+  /**
+   * What Look inside found, CARRIED ACROSS the states that do not restate it.
+   *
+   * ⚠ The figures beside the folder field used to vanish the instant the run started, because
+   * `running` and `complete` carry an html/summary payload and not the inventory, so the
+   * extractor returned `null` and three numbers blinked out at the moment of most attention.
+   * Nothing had changed about the folder; the island had simply stopped being told. Remembering
+   * the last answer is the fix, and it is a memo rather than a second source: it is only ever
+   * written from a state that carries the figures.
+   */
+  found: FoundInFolder | null;
+}
+
+interface FoundInFolder {
+  photos: number;
+  videos: number;
+  bytes: number;
 }
 
 /**
@@ -275,7 +292,11 @@ function createStore(): {
   setResult: (next: ResultState) => void;
   setForm: (next: FormFacts) => void;
 } {
-  let state: IslandState = { result: { kind: "resting" }, form: { mode: "copy", destination: "" } };
+  let state: IslandState = {
+    result: { kind: "resting" },
+    form: { mode: "copy", destination: "" },
+    found: null,
+  };
   const listeners = new Set<() => void>();
   const emit = (): void => {
     for (const listener of [...listeners]) listener();
@@ -289,7 +310,7 @@ function createStore(): {
       };
     },
     setResult: (next) => {
-      state = { ...state, result: next };
+      state = { ...state, result: next, found: carryFound(state.found, next) };
       emit();
     },
     setForm: (next) => {
@@ -317,13 +338,30 @@ const STEPS = ["Configure", "Preview", "Apply", "Done"] as const;
  * step, so the row cannot say "Preview" while the screen shows a finished run. `configured` has
  * no writer in `app.js` today and is mapped anyway - a kind that exists in the type and is
  * missing from this table would fall through to Configure and read as the screen going backwards.
+ *
+ * ⚠ **THE STEP IS WHERE THE PERSON IS, NOT WHICH PAYLOAD ARRIVED, and that distinction is the
+ * fix of 2026-09-09.** `kind` alone put "Preview" on the row while the typed confirm was on
+ * screen: `app.js` sets `preview` and, eight lines later, draws the control that STARTS THE RUN
+ * from the same handler. Reading `kind` was reading the last response the server sent; the
+ * question a stepper answers is what the reader is being asked to do. A tracker has to say what
+ * is done, what is current and what is ahead, and it was calling the current step a finished one.
+ *
+ * ⚠ **`will_organize > 0` IS NOT A SECOND SOURCE OF TRUTH - it is the SAME expression the confirm
+ * is drawn from.** `app.js` computes `kept = Number(s.will_organize) || 0` and renders
+ * `renderOrganizeRunConfirm` if and only if `kept` is truthy. So this cannot disagree with the
+ * screen: if the control is there, the step says Apply; if the preview came back with nothing to
+ * organize, there is no control, no decision to make, and the step stays on Preview.
  */
 function stepFor(state: ResultState): number {
   switch (state.kind) {
     case "resting":
       return 0;
     case "inventory":
+      return 1;
     case "preview":
+      // The typed confirm is up exactly when the run has files to take, so this IS the Apply
+      // decision - the preview above it has already been read.
+      return (Number(state.preview.will_organize) || 0) > 0 ? 2 : 1;
     case "preview-empty":
       return 1;
     case "configured":
@@ -362,7 +400,7 @@ function Stepper(): React.JSX.Element {
 // ------------------------------------------------------------------ the source field's counts
 
 /** What Look inside found, from whichever state carries it. `null` before it has run. */
-function foundInFolder(state: ResultState): { photos: number; videos: number; bytes: number } | null {
+function foundInFolder(state: ResultState): FoundInFolder | null {
   const s =
     state.kind === "inventory"
       ? state.inventory
@@ -378,6 +416,28 @@ function foundInFolder(state: ResultState): { photos: number; videos: number; by
 }
 
 /**
+ * WHAT THE FIGURES BESIDE THE FOLDER FIELD SHOULD SAY IN A STATE THAT DOES NOT RESTATE THEM.
+ *
+ * Three rules, and each is about whether the sentence is still TRUE rather than about polish:
+ *
+ * - **`resting`** clears. The screen has been invalidated - a field changed, or the result was
+ *   thrown away - so the last answer describes a folder nobody is asking about now.
+ * - **`running`** KEEPS them. Nothing about the folder has changed, the run is about exactly the
+ *   set they describe, and this is the moment the reader is most likely to be looking. This is
+ *   the blink the fix is for.
+ * - **`complete`** CLEARS them, and this is the half worth arguing. The completion card below
+ *   states what the run did, so leaving "1,204 photos · 88 videos" beside the field invites a
+ *   comparison between two numbers taken at different moments - and after a MOVE or an in-place
+ *   run the source folder no longer holds them at all, so the figure is not stale, it is false.
+ *   A count that may be a false statement about the folder it names is worse than no count.
+ */
+function carryFound(previous: FoundInFolder | null, next: ResultState): FoundInFolder | null {
+  const fresh = foundInFolder(next);
+  if (fresh) return fresh;
+  return next.kind === "running" ? previous : null;
+}
+
+/**
  * Photos, videos and size beside the folder field.
  *
  * ⚠ NOTHING AT REST, and that is the requirement rather than a nicety. Zeros here would be three
@@ -386,7 +446,9 @@ function foundInFolder(state: ResultState): { photos: number; videos: number; by
  * which is what this renders, so that test is this one's guard too.
  */
 function SourceCounts(): React.JSX.Element | null {
-  const found = foundInFolder(useIsland().result);
+  // The CARRIED answer, not the live one: `carryFound` is what keeps these three from blinking
+  // out when the run starts, and what clears them when the run is over.
+  const found = useIsland().found;
   if (!found) return null;
   const { nfmt, fmtBytes } = formatters();
   const figures: [number | string, string][] = [
@@ -423,17 +485,30 @@ function folderName(path: string): string {
 }
 
 /**
- * ONE LINE SAYING WHAT IS ABOUT TO HAPPEN: `Copy · 412 files · 3.1 GB → Truestill`.
+ * ONE LINE SAYING WHAT IS ABOUT TO HAPPEN: `Copy · 412 files → Truestill`.
  *
  * **It fills in as the form fills in, and it never states a part it does not have.** A summary
  * that printed "0 files" before Look inside, or the word "destination" where a folder name goes,
  * would be the screen making a promise out of a blank field - the same defect as the counts
  * above, one line to the right. The mode is always known, so the line always has a first clause;
  * everything after it appears when it is true.
+ *
+ * ⚠ **NO SIZE, AND THE SIZE IS NOT COMING BACK AS A PAYLOAD FIELD.** This line used to read
+ * `Copy · 400 files · 3.2 GB` where the COUNT came from `will_organize` - the files the run will
+ * actually take - and the BYTES came from `foundInFolder`, the inventory's total for the whole
+ * folder. On a run with duplicates those are two different sets, stated six pixels apart in one
+ * sentence, and the reader has no way to see that they are. `(abl)` is what this repo already
+ * pays when two surfaces derive one quantity separately; this was one surface doing it to itself.
+ *
+ * Dropped rather than fixed. The alternative was a "bytes the run will write" field on the
+ * preview payload, which does not exist today - and adding one means the payload, `openapi.json`
+ * and the frozen oracle pair regenerated to put a decoration back on a line that reads correctly
+ * without it. **The count is the number that matters beside a button that starts a run**; the
+ * size is available in full in the preview card directly above.
  */
 function ActionSummary(): React.JSX.Element | null {
   const { result, form } = useIsland();
-  const { nfmt, fmtBytes, plural } = formatters();
+  const { nfmt, plural } = formatters();
   const found = foundInFolder(result);
   const destination = form.mode === "inplace" ? "" : folderName(form.destination);
   const parts: React.ReactNode[] = [<b key="mode">{MODE_WORD[form.mode] ?? MODE_WORD.copy}</b>];
@@ -445,7 +520,6 @@ function ActionSummary(): React.JSX.Element | null {
   } else if (found) {
     parts.push(<span key="n">{nfmt(found.photos + found.videos)} files</span>);
   }
-  if (found?.bytes) parts.push(<span key="b">{fmtBytes(found.bytes)}</span>);
   return (
     <div className="org-summary" data-testid="org-summary">
       {parts.map((part, i) => (

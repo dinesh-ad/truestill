@@ -245,18 +245,41 @@ code,
    a lockup; the collapsed rail keeps it as the only thing left. */
 .brand-monogram {
   display: block;
-  /* 36px SQUARE - the plate's viewBox is 1100x1100, so `width: auto` gives 36 as well. It was 22
-     when this was a bare gradient T, where the ramp's two stops average to one colour and the
-     mark read as a plain red letter; the plate needs the size for a different reason, which is
-     that its corner radius and the knocked-out stem both stop resolving below ~28px. It still
-     clears the collapsed rail: 64 - 24 of rail padding leaves 40. */
-  height: 36px;
+  /* ⚠ 30px BESIDE THE WORD, 36px ALONE, changed 2026-09-09 - and the two states wanting different
+     sizes is why the override below already existed to be edited.
+
+     MEASURED at 232px before the change: the plate was 36px in a `.sidebar-head` band that was
+     itself exactly 36.0px, so it sat flush against the top and bottom of its own band with no air
+     at all - the mark set the height and then filled it. It was also **twice the width of every
+     nav icon below it** (36 against 18) while sharing their left edge at x=24, so the one element
+     that should read as a lockup read as an outsized icon. Against an 18px word its cap-height
+     ratio was ~2.8:1, where a lockup normally sits nearer 2:1.
+
+     ⚠ PADDING WAS NOT THE FIX, and the paragraph on `.wordmark` below is why - vertical padding
+     here was already removed once because three sources stack into the band under the wordmark
+     and `test_the_wordmark_band_is_not_larger_than_the_nav_rhythm` and
+     `test_the_bar_is_a_bar_and_not_most_of_the_window` both measure the total. Adding it back
+     would break both. Size is the lever that is actually free.
+
+     30 AND NOT 28. The knocked-out stem and the corner radius stop resolving below ~28px, which
+     is a floor rather than a target; sitting on a floor leaves nothing for a future tweak. 30
+     keeps 2px of margin above it, brings the ratio to ~2.3:1 and returns 6px of band height to
+     the two tests above.
+
+     THE COLLAPSED RAIL KEEPS 36. There the mark is the only thing on the rail and carries the
+     brand alone, so it is sized against the 64px rail (64 - 24 of padding leaves 40) rather than
+     against a word that is not there. */
+  height: 30px;
   /* BEFORE the word, by `order` rather than by moving the markup: the SVG carries its own
      `aria-label` and the text is the same word, so their DOM order is what a screen reader
      reads and only the painted order should change. Trailing the word, the mark read as a
      letter of it - "Truestill.T" - which is the opposite of a lockup. */
   order: -1;
-  margin-right: var(--space-3);
+  /* ⚠ 16px, NOT 12px, and it is paid for out of slack that was already there. The lockup ended at
+     x=178.4 in a band ending at 219, so **40.6px of the rail was dead space to its right** while
+     the mark and the word were 12px apart - the same gap the nav uses between an 18px icon and
+     its label. A separator should scale with what it separates. */
+  margin-right: var(--space-4);
   flex: none;
 }
 .sidebar[data-collapsed="true"] .brand-monogram {
@@ -937,10 +960,24 @@ select.input {
   font-weight: var(--weight-medium);
   color: var(--fg-secondary);
 }
+/* ⚠ 56ch, THE LEDE'S MEASURE, NOT THE CARD BODY'S 68ch - and this is a typographic decision that
+   a CI failure happened to surface rather than a number tuned to pass one.
+
+   These two paragraphs are the explanation under a question heading. That is a lede, and
+   `.screen .lede` already caps a lede at 56ch for exactly this reason; the 68ch above it is for
+   card BODY prose, which these are not. They inherited it only because they sit inside `.card`.
+
+   WHAT SURFACED IT. `test_prose_keeps_a_readable_measure_however_wide_the_column` failed on CI at
+   **670.58px** against a 660px ceiling, and passed here at **602.89px** - the same rule, the same
+   viewport, the same font-size. `ch` is the width of the font's `0` glyph, so a 68ch cap is only
+   as stable as the face that actually renders, and CI's fallback sans has a wider one. The cap
+   was not wrong and is not touched; the prose was too wide, and at 56ch it measures ~552px on
+   CI's metrics - 108px of headroom instead of 10px of overrun. */
 .first-run .k {
   font-size: var(--type-sm);
   color: var(--fg-secondary);
   margin: 0;
+  max-width: 56ch;
 }
 .first-run .hint:not(:empty) + .k,
 .first-run .row + .hint:empty + .k {
