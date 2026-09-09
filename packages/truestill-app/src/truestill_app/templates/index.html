@@ -186,6 +186,42 @@
             <span class="hint" id="org-source-hint"></span>
           </div>
 
+          <!-- FIRST RUN ONLY, AND IT COMES BEFORE THE MODES. `(abx)`: all three modes below
+               presume an organized folder that does not exist yet, so on a first run the user's
+               actual first question - where should my library live - was never asked, and the
+               answer was inferred from whatever they typed into "Organized folder" once. Hidden
+               unless the server says the question is still open (`needs_library_root`: no declared
+               root AND no files), so an existing library never sees it.
+               ⚠ IT IS NOT A CARD ANY MORE, and that is the point of folding it in: the screen used
+               to OPEN by asking a question, with the work stacked underneath it. It is one step of
+               the form now, not a gate in front of it.
+               ⚠ MOVED BACK ABOVE THE MODES, 2026-09-09. The rebuild put it below them - so the
+               screen asked HOW before WHERE - and left the sentence above, "all three modes BELOW",
+               which is this position's own argument written when the block still held it. A
+               first-run user cannot choose between three ways of filling an organized folder
+               before being told there is one: every mode title names it. The destination field
+               this prefills is two steps down, still in this card. Pinned by
+               `test_the_question_is_asked_before_the_modes_that_presume_its_answer`.
+               ⚠ NOT `class="field"`, deliberately. `test_nothing_collides_at_the_large_text_size`
+               walks `.screen.active .field` in DOM order and compares each rect to the one before;
+               a `display:none` member has an all-zero rect and reads as an overlap with whatever
+               precedes it. It is a section by its own class instead. -->
+          <div class="first-run hidden" id="org-first-run" data-testid="org-first-run">
+            <h3>Where should your library live?</h3>
+            <p class="k">Truestill will keep your sorted photos in one folder and remember it.
+              Somewhere on this computer is usually right - a removable drive is for backups, which
+              come later.</p>
+            <label for="org-library-root">Library folder</label>
+            <div class="row">
+              <input class="input" id="org-library-root" placeholder="e.g. /home/you/Pictures/Truestill">
+              <button class="btn btn-secondary" data-browse="org-library-root" data-kind="dest">Browse…</button>
+              <button class="btn btn-primary" id="org-library-root-save">Use this folder</button>
+            </div>
+            <span class="hint" id="org-library-root-hint"></span>
+            <p class="k">You are only asked once. It does not have to exist yet, and you can change
+              it later in Settings.</p>
+          </div>
+
           <!-- A FIELDSET, so the question is announced with the options rather than lost: a
                bare <label> over a radio set has no control to name, and a screen reader read
                "Copy into an organized folder, radio, 1 of 3" with no idea what it was choosing
@@ -232,36 +268,6 @@
             </div>
             <span class="hint" id="org-mode-hint"></span>
           </fieldset>
-
-        <!-- FIRST RUN ONLY. `(abx)`: all three modes below presume an organized folder that does
-             not exist yet, so on a first run the user's actual first question - where should my
-             library live - was never asked, and the answer was inferred from whatever they typed
-             into "Organized folder" once. Hidden unless the server says the question is still
-             open (`needs_library_root`: no declared root AND no files), so an existing library
-             never sees it.
-             ⚠ IT IS NOT A CARD ANY MORE, and that is the point of folding it in: the screen used to
-             OPEN by asking a question, with the work stacked underneath it. It is a first-run state
-             of the destination field, so it lives in the one card, immediately above the field it is
-             about.
-             ⚠ NOT `class="field"`, deliberately. `test_nothing_collides_at_the_large_text_size`
-             walks `.screen.active .field` in DOM order and compares each rect to the one before;
-             a `display:none` member has an all-zero rect and reads as an overlap with whatever
-             precedes it. It is a section by its own class instead. -->
-        <div class="first-run hidden" id="org-first-run" data-testid="org-first-run">
-          <h3>Where should your library live?</h3>
-          <p class="k">Truestill will keep your sorted photos in one folder and remember it.
-            Somewhere on this computer is usually right - a removable drive is for backups, which
-            come later.</p>
-          <label for="org-library-root">Library folder</label>
-          <div class="row">
-            <input class="input" id="org-library-root" placeholder="e.g. /home/you/Pictures/Truestill">
-            <button class="btn btn-secondary" data-browse="org-library-root" data-kind="dest">Browse…</button>
-            <button class="btn btn-primary" id="org-library-root-save">Use this folder</button>
-          </div>
-          <span class="hint" id="org-library-root-hint"></span>
-          <p class="k">You are only asked once. It does not have to exist yet, and you can change
-            it later in Settings.</p>
-        </div>
 
           <div class="field" id="org-dest-field">
             <label for="org-dest">Organized folder <span style="color:var(--fg-muted);font-weight:400">(where your sorted copies go)</span></label>

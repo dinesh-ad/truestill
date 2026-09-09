@@ -66,6 +66,38 @@ def test_the_question_names_the_trade_a_removable_drive_would_be(ui: Page) -> No
     expect(ui.locator(CARD)).to_contain_text("removable drive is for backups", timeout=30_000)
 
 
+def test_the_question_is_asked_before_the_modes_that_presume_its_answer(ui: Page) -> None:
+    """WHERE before HOW, and nothing asserted this until the ordering had already inverted once.
+
+    This file's own opening sentence is the rule - *all three modes presume an organized folder
+    that does not exist yet* - and the 2026-09-06 layout rebuild moved the question below them
+    with no test going red, because every assertion here was about the card's CONTENT and none
+    about its place. A first-run user was asked to choose between "Copy", "Move" and "Reorganize
+    in place" before being told there was a library to fill.
+
+    Asserted through `compareDocumentPosition` rather than by counting rects: the modes and the
+    question are both in one card at one width, so DOM order IS reading order here, and a
+    geometric assertion would additionally fail on any reflow that does not change the answer.
+    """
+    _status(ui)
+    expect(ui.locator(CARD)).to_be_visible(timeout=30_000)
+
+    # Anti-vacuity: `compareDocumentPosition` returns 0 for an element compared with itself and
+    # would read as "not following", so prove they are two distinct nodes that both exist first.
+    found = ui.eval_on_selector_all(f"{CARD}, #org-modes", "els => els.length")
+    assert found == 2, f"expected the question and the mode cards, found {found} elements"
+
+    question_precedes_modes = ui.eval_on_selector(
+        CARD,
+        "el => !!(el.compareDocumentPosition(document.querySelector('#org-modes'))"
+        " & Node.DOCUMENT_POSITION_FOLLOWING)",
+    )
+    assert question_precedes_modes, (
+        "the mode cards come before 'Where should your library live?' - a first run is being "
+        "asked HOW before WHERE"
+    )
+
+
 def test_the_suggested_folder_is_a_place_that_exists_on_this_machine(ui: Page) -> None:
     """Suggested from the folder picker's own roots rather than a path spelled in JavaScript."""
     ui.route(

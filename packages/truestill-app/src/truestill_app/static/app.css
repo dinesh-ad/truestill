@@ -905,17 +905,21 @@ select.input {
 /* The fieldset takes the SPACE but never the rule: `test_radio_groups_announce_their_name`
    asserts it draws no border, and it is right to - a bordered fieldset is the browser chrome
    this markup already resets. A divider drawn on it would be that box coming back. */
-#screen-organize .field + fieldset.field {
+/* ⚠ `.first-run` IS ALWAYS BETWEEN THE SOURCE FIELD AND THIS FIELDSET since 2026-09-09, hidden or
+   not, so `.field + fieldset.field` can no longer match on its own - `display: none` does not
+   remove an element from `+`. Both are listed so the spacing survives either arrangement. */
+#screen-organize .field + fieldset.field,
+#screen-organize .first-run + fieldset.field {
   margin-top: var(--space-5);
 }
-/* THE FIRST-RUN QUESTION AND THE FIELD IT IS ABOUT ARE ONE SECTION, so exactly one rule is drawn
-   above the pair - above the question when it is open, above the field when it is not. Adjacent
-   siblings cannot express that on their own: `display: none` does not remove an element from
-   `+`, so `fieldset + .field` stopped matching `#org-dest-field` the moment the question was
-   folded in above it, hidden or not. `:has()` on the card asks the question that actually
-   decides it, and this file already uses it for the panel track and the checked mode. */
-#screen-organize .first-run:not(.hidden),
-#screen-organize .card:has(#org-first-run.hidden) #org-dest-field {
+/* ⚠ THE `:has()` WENT WITH THE MOVE, 2026-09-09, and the simpler rule is a consequence rather
+   than a downgrade. It read `.card:has(#org-first-run.hidden) #org-dest-field` and existed for
+   ONE reason: the question sat immediately above the destination field, so `fieldset + .field`
+   stopped matching `#org-dest-field` - hidden or not - and exactly one rule had to be drawn above
+   whichever of the pair was showing. The question is above the MODES now, which puts the fieldset
+   back adjacent to `#org-dest-field`: the section rule above matches it again on its own, in
+   every state, and all that is left here is the question's own divider. */
+#screen-organize .first-run:not(.hidden) {
   margin-top: var(--space-5);
   padding-top: var(--space-5);
   border-top: var(--border-width) solid var(--divider);
@@ -1133,6 +1137,20 @@ select.input {
   border-radius: var(--corner-lg);
   background: var(--surface);
   box-shadow: var(--elevation-md);
+}
+/* ⚠ NOT STUCK WHILE THE FIRST-RUN QUESTION IS OPEN, 2026-09-09, and this is a correctness fix
+   rather than a preference. Measured at 1280x720 with the question showing: it is 250px tall, so
+   moving it above the modes puts the three mode radios at y=670 while the stuck bar occupies
+   627-688 - the radios are UNDERNEATH it, which
+   `test_every_target_meets_the_minimum_size` caught on both engines as a 15x15 target 12px from
+   `#org-dedup`'s centre. They were at y=396 before the move.
+   Un-sticking is the right answer rather than a way to quiet the guard: the bar is sticky so the
+   primary action is not lost below a RESULT (see the note above), and on a first run there is no
+   result and neither of its controls is the next step - "Use this folder" is, and it is in the
+   question. A bar pinned over the form here hides the choice the user has to make first and
+   offers two buttons they cannot use yet. It sticks again the moment the question is answered. */
+#screen-organize:has(#org-first-run:not(.hidden)) .actionbar {
+  position: static;
 }
 .actionbar-controls {
   display: flex;
