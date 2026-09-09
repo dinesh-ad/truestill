@@ -373,7 +373,20 @@ def _summarize(resolutions: list[Resolution], *, skip_undated: bool = False) -> 
     # changes. The rest of the payload is destination-dependent (`destination_limit` sizes a
     # specific drive, and the promise sentence names it), so a new destination invalidates the
     # whole answer - `test_a_new_destination_clears_the_result_and_the_typed_confirm`.
-    tree = Counter(str(r.decision.relative.parent) for r in uploads)
+    #
+    # ⚠ `as_posix()`, NOT `str()`, and this shipped wrong. `str(PurePath)` emits the OS separator,
+    # so on Windows every key came out `2010\2010-04\...` while the field's own docstring above
+    # promises `"/"` and `preview.tsx:DestinationTree` splits on `"/"` to group them - one segment,
+    # no grouping, a flat list of backslash paths on a platform `DECISIONS.md` D9 publishes.
+    # `as_posix()` is what the rest of the codebase already uses for exactly this crossing:
+    # `run_record.py:143` on this same `decision.relative`, plus `organizer.py:1804`,
+    # `local.py:293` and `verify.py:169`. This line was the outlier.
+    #
+    # ⚠ IT IS INVISIBLE ON LINUX AND macOS, where the two are the same string, so nothing local
+    # goes red if it comes back. `check (windows-latest)` is what covers it, and it is what
+    # caught it - `test_the_destination_tree_is_keyed_by_folder` passed on two platforms and
+    # failed on the third.
+    tree = Counter(r.decision.relative.parent.as_posix() for r in uploads)
     heic = sum(1 for r in resolutions if r.decision.source.suffix.lower() in HEIF_EXTENSIONS)
     breakdown = media_breakdown([r.decision.source.name for r in resolutions])
     quality = date_quality(uploads)
