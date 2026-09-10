@@ -960,24 +960,25 @@ select.input {
   font-weight: var(--weight-medium);
   color: var(--fg-secondary);
 }
-/* ⚠ 56ch, THE LEDE'S MEASURE, NOT THE CARD BODY'S 68ch - and this is a typographic decision that
-   a CI failure happened to surface rather than a number tuned to pass one.
+/* ⚠ A `max-width: 56ch` LIVED HERE AND IS GONE, 2026-09-10 - it never applied, and its reason was
+   wrong anyway. It was added to fix `test_prose_keeps_a_readable_measure_however_wide_the_column`
+   and did nothing: `.screen .card .k` sets `68ch` at specificity (0,3,0) against this rule's
+   (0,2,0), so the older rule won and the computed cap stayed 602.891px = 68ch. Three commits
+   carried the claim that it was fixed.
 
-   These two paragraphs are the explanation under a question heading. That is a lede, and
-   `.screen .lede` already caps a lede at 56ch for exactly this reason; the 68ch above it is for
-   card BODY prose, which these are not. They inherited it only because they sit inside `.card`.
+   ⚠ AND IT WAS NOT NEEDED. That test was red on CI and green here because it converted a
+   character-based rule into pixels with a per-character constant that only holds for one font,
+   and `--family-sans` is a system stack with nothing bundled - CI renders DejaVu Sans at 0.6355
+   em/ch against 0.5714 here. The element measured **68ch on both machines**: the prose was never
+   too wide. The test asserts characters now, and this rule has nothing left to do.
 
-   WHAT SURFACED IT. `test_prose_keeps_a_readable_measure_however_wide_the_column` failed on CI at
-   **670.58px** against a 660px ceiling, and passed here at **602.89px** - the same rule, the same
-   viewport, the same font-size. `ch` is the width of the font's `0` glyph, so a 68ch cap is only
-   as stable as the face that actually renders, and CI's fallback sans has a wider one. The cap
-   was not wrong and is not touched; the prose was too wide, and at 56ch it measures ~552px on
-   CI's metrics - 108px of headroom instead of 10px of overrun. */
+   A `ch` cap on explanatory copy is still a defensible design choice - `.lede` takes 56ch for
+   exactly that reason - but it belongs in a change that is about the look and says so, not as a
+   dead rule left behind by a fix that missed. */
 .first-run .k {
   font-size: var(--type-sm);
   color: var(--fg-secondary);
   margin: 0;
-  max-width: 56ch;
 }
 .first-run .hint:not(:empty) + .k,
 .first-run .row + .hint:empty + .k {

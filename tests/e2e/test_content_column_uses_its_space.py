@@ -11,9 +11,26 @@ import json
 
 from playwright.sync_api import Page
 
-# A comfortable measure is ~45-75 characters. Sans at 16px averages ~8px per character, so this
-# is the px equivalent of roughly 80 characters - a ceiling, not a target.
-PROSE_MAX_PX = 660
+# A comfortable measure is ~45-75 characters; 80 is a ceiling, not a target.
+#
+# ⚠ **CHARACTERS, NOT PIXELS, AND THE PIXEL VERSION WAS UNSOUND ON ITS OWN TERMS.** This read
+# `PROSE_MAX_PX = 660` with the note *"sans at 16px averages ~8px per character, so this is the px
+# equivalent of roughly 80 characters"*. That conversion holds for exactly one font. `--family-sans`
+# (`tokens.css`) is a pure system stack with nothing bundled - unlike `--family-mono`, which is - so
+# the face that renders is whatever the machine has, and the `0` advance that `ch` is defined from
+# moves with it. Measured on ONE element at ONE font-size, 15.5168px:
+#
+#     this machine   8.8660 px/ch  = 0.5714 em   (Liberation/Arial metrics)
+#     CI's ubuntu    9.8614 px/ch  = 0.6355 em   (DejaVu Sans, to three decimals)
+#
+# So 660px enforced ~74 characters here and ~67 on CI - neither of them the 80 the comment claimed.
+# The element under test is capped at `68ch` by `.screen .card .k` and measured **68ch on both**:
+# the layout was doing its job exactly, and only the conversion failed. Run 34404705599 was red at
+# 670.578125px for prose that was never too wide by the rule it is governed by.
+#
+# Asserting the character count is the same property the CSS is written in, so it is correct on
+# every font, on every machine, and it cannot drift with a fallback nobody chose.
+PROSE_MAX_CH = 80
 
 
 def _with_panel(ui: Page) -> None:
@@ -88,18 +105,39 @@ def test_the_column_still_stops_growing_on_a_very_wide_window(ui: Page) -> None:
 
 
 def test_prose_keeps_a_readable_measure_however_wide_the_column(ui: Page) -> None:
-    """This is WHY 760 existed. The cap moves onto the text rather than onto the layout."""
+    """This is WHY 760 existed. The cap moves onto the text rather than onto the layout.
+
+    Each element is measured in ITS OWN `ch` - the `0` advance of the face that actually rendered
+    it, probed rather than assumed, because two elements here sit at different font sizes and a
+    single constant for all of them would be the same mistake one level up.
+    """
     ui.set_viewport_size({"width": 2400, "height": 950})
     ui.wait_for_timeout(250)
-    widths = ui.evaluate(
+    measured = ui.evaluate(
         "() => [...document.querySelectorAll("
         "  '.screen.active .lede, .screen.active .card .k, .screen.active .hint')]"
         ".filter(e => e.offsetParent && e.textContent.trim().length > 60)"
-        ".map(e => ({w: e.getBoundingClientRect().width,"
-        "            t: e.textContent.trim().slice(0, 40)}))"
+        ".map(e => {"
+        "  const probe = document.createElement('span');"
+        "  probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;font:'"
+        "    + getComputedStyle(e).font;"
+        "  probe.textContent = '0'.repeat(100);"
+        "  document.body.appendChild(probe);"
+        "  const chPx = probe.getBoundingClientRect().width / 100;"
+        "  probe.remove();"
+        "  return {ch: e.getBoundingClientRect().width / chPx,"
+        "          px: e.getBoundingClientRect().width,"
+        "          t: e.textContent.trim().slice(0, 40)};"
+        "})"
     )
-    too_wide = [w for w in widths if w["w"] > PROSE_MAX_PX]
-    assert not too_wide, f"prose runs past a readable measure: {too_wide}"
+    # Anti-vacuity: an empty set satisfies every `not too_wide` below, and the filter above is
+    # easy to make match nothing (a copy change under 60 characters, a screen that did not open).
+    assert measured, "no prose was measured, so this test asserted nothing about the column"
+
+    too_wide = [m for m in measured if m["ch"] > PROSE_MAX_CH]
+    assert not too_wide, "prose runs past a readable measure: " + ", ".join(
+        f"{m['t']!r} at {m['ch']:.0f}ch ({m['px']:.0f}px)" for m in too_wide
+    )
 
 
 def test_the_form_controls_do_use_the_extra_width(ui: Page) -> None:
