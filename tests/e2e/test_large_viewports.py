@@ -255,8 +255,29 @@ def test_the_panel_threshold_did_not_move(ui: Page) -> None:
 
 
 def _text_tokens() -> dict[str, str]:
+    """The fluid steps, with any `var()` in their bounds RESOLVED.
+
+    ⚠ **The bounds indirect since 2026-09-10.** Each step's floor is its own `--type-*-min` token
+    so the rail can reference it instead of re-typing it - the rail was a hand-copied second scale
+    and had already gone stale. A reader that takes the declaration literally sees
+    `var(--type-xs-min)`, which is neither `rem` nor `px`, so the test below would fail on an
+    indirection rather than on the defect it is about. Resolving one level checks the thing that
+    matters: what the floor ACTUALLY is, including a floor token wrongly declared in px.
+    """
     body = TOKENS.read_text("utf-8")
-    return dict(re.findall(r"(--type-(?:xs|sm|base|lg|xl|2xl|3xl)):\s*([^;]+);", body))
+    steps = dict(re.findall(r"(--type-(?:xs|sm|base|lg|display|3xl)):\s*([^;]+);", body))
+    floors = dict(re.findall(r"(--type-\w+-min):\s*([^;]+);", body))
+    for name, declared in steps.items():
+        resolved = declared
+        for ref, literal in floors.items():
+            resolved = resolved.replace(f"var({ref})", literal.strip())
+        steps[name] = resolved
+    # Anti-vacuity: if the floor tokens ever stop being found, every `var()` stays unresolved and
+    # the assertions below would report an indirection as a px floor - a confusing false red.
+    assert not any("var(" in v for v in steps.values()), (
+        f"a bound still references an unresolved token: {steps}"
+    )
+    return steps
 
 
 def test_every_type_step_is_fluid() -> None:

@@ -75,16 +75,20 @@ def test_the_wordmark_is_monospace_text_not_artwork(ui: Page) -> None:
 def test_the_rail_mark_paints_when_the_rail_is_collapsed(ui: Page) -> None:
     """Present, sized, and actually painting - which are three different things.
 
-    ⚠ **Re-expected 2026-09-06 because the mark became the PLATE and this test had lost its
-    subject.** It read the fill of the first `<path>`, which was the artwork's only painted
-    element while the mark was a bare gradient T. In `brand/pillar-t-plate.svg` the two paths are
-    inside a `<mask>` - they are the KNOCKOUT, filled `#000` so the mask reads them as holes - and
-    nothing paints them. So the old assertion still passed, on an element that is never drawn:
-    "not `none` and not transparent" is trivially true of `#000`.
+    ⚠ **Re-expected twice, and the second time is the interesting one.** On 2026-09-06 it read the
+    fill of the first `<path>`, which in the then-current artwork sat inside a `<mask>` at `#000`
+    and painted nothing - "not `none` and not transparent" is trivially true of black, so it
+    passed forever against an element that is never drawn. That was replaced by an assertion on
+    the two `<rect>`s of the plate.
 
-    What paints is the pair of `<rect>`s: the plate's ground and the ramp over it through the
-    mask. Both are asserted, because either one missing is a different visible failure - no
-    ground is a floating letter, no ramp is a dark square.
+    ⚠ **Re-expected again 2026-09-10 for the maintainer's own artwork, which has a DIFFERENT
+    SHAPE.** The old plate was two stacked rects - a dark ground with the ramp knocked through it.
+    His is **one** rect filled with the ramp, and the mark painted ON it in `#161826`. So the "two
+    painted rects" assertion had lost its subject again, and the thing to assert is what the
+    artwork is now made of: a plate that paints, and a mark on it that paints.
+
+    Both are asserted because either one missing is a different visible failure - no plate is a
+    letter floating on the rail, no mark is a blank coloured tile.
     """
     ui.click("#sidebar-toggle")
     expect(ui.locator("#sidebar")).to_have_attribute("data-collapsed", "true")
@@ -93,18 +97,34 @@ def test_the_rail_mark_paints_when_the_rail_is_collapsed(ui: Page) -> None:
     painted = ui.eval_on_selector(
         "svg[data-brand='pillar-t']",
         "el => { const box = el.getBoundingClientRect();"
-        " const rects = [...el.querySelectorAll('rect')].filter(r => !r.closest('mask'));"
-        " return {w: box.width, h: box.height,"
-        "         fills: rects.map(r => getComputedStyle(r).fill)}; }",
+        " const outside = s => [...el.querySelectorAll(s)].filter(n => !n.closest('mask'));"
+        " const plate = outside(':scope > rect');"
+        " const mark = outside('g[mask] :is(path, rect, circle)');"
+        " const ref = (getComputedStyle(plate[0]).fill.match(/#([\\w-]+)/) || [])[1];"
+        " const stops = ref ? el.querySelectorAll('#' + ref + ' stop').length : 0;"
+        " return {w: box.width, h: box.height, ramp: stops,"
+        "         plate: plate.map(r => getComputedStyle(r).fill),"
+        "         mark: mark.map(n => getComputedStyle(n).fill + '|' + getComputedStyle(n).stroke)}; }",
     )
     assert painted["w"] > 0, "the mark has no width"
     assert painted["h"] > 0, "the mark has no height"
-    assert len(painted["fills"]) == 2, (
-        f"the plate is not two painted rects any more: {painted['fills']}"
+
+    assert len(painted["plate"]) == 1, f"the plate is not one painted rect: {painted['plate']}"
+    # A `url(...)` reference is what `fill` computes to; whether it RESOLVES is the real question,
+    # so the referenced node is looked up and its stops counted. A dangling id paints nothing and
+    # would otherwise read as a pass.
+    assert painted["ramp"] >= 2, (
+        f"the plate's fill {painted['plate'][0]!r} does not resolve to a ramp with stops - a flat "
+        "or missing plate is the arrangement measured at 1.08:1 against the rail and rejected"
     )
-    for fill in painted["fills"]:
-        assert fill not in ("none", "rgba(0, 0, 0, 0)"), (
-            f"a layer of the plate resolves to {fill!r} - present, sized and invisible"
+
+    # Four shapes: the crossbar (stroked), the stem, and the two shoulders.
+    assert len(painted["mark"]) == 4, f"the mark is not four shapes any more: {painted['mark']}"
+    blank = ("none", "rgba(0, 0, 0, 0)")
+    for layer in painted["mark"]:
+        fill, stroke = layer.split("|")
+        assert not (fill in blank and stroke in blank), (
+            f"a part of the mark resolves to {layer!r} - present, sized and invisible"
         )
 
 
@@ -159,29 +179,66 @@ def test_the_section_labels_are_hidden_when_collapsed(ui: Page) -> None:
 def test_the_rail_artwork_matches_the_authored_source(ui: Page) -> None:
     """The inline SVG and `brand/` must not drift apart.
 
-    The artwork is inlined rather than linked, which buys the accessible name, the collapsed
-    swap and zero extra requests - and costs a second copy. This is what makes the copy a
-    duplicate rather than a fork: the path data in the page has to be the path data in `brand/`.
+    The artwork is inlined rather than linked, which buys the accessible name, the collapsed swap
+    and zero extra requests - and costs a second copy. This is what makes the copy a duplicate
+    rather than a fork: the geometry in the page has to be the geometry in `brand/`.
 
-    ⚠ **Re-pointed 2026-09-06 from `pillar-t-geometric-noflute.svg` to `pillar-t-plate.svg`,
-    because the plate is the artwork the rail now inlines.** The two files carry byte-identical
-    path data - the plate is that same flute-less mark knocked out of a filled square - so this
-    assertion did not change value; it changed SOURCE, which is the whole point of it. Left
-    pointing at the old file it would have gone on passing while the thing on screen came from
-    somewhere else, and an edit to the plate would not have been caught.
+    ⚠ **RE-POINTED AND STRENGTHENED 2026-09-10, when the maintainer supplied his own artwork.**
+    What this compared before was `d` attributes, and that was adequate only because the previous
+    file - which was NOT his, but a reconstruction from a prose description of it - happened to be
+    two long bezier paths. His mark is a stroked line, a rounded rect and two circles, and carries
+    **exactly one trivial `d`** (`M 25 25 L 75 25`). Comparing `d` alone would have gone on passing
+    while the stem, both shoulders and the corner radius drifted freely.
+
+    So every shape is compared - tag, coordinates, radii and stroke width - plus the transform
+    that places them. That is the whole letterform, and it is the thing that must not move.
     """
     root = Path(__file__).resolve().parents[2]
     source = (root / "brand" / "pillar-t-plate.svg").read_text(encoding="utf-8")
-    expected = [" ".join(d.split()) for d in re.findall(r'\sd="(.*?)"', source, re.S)]
-    assert expected, "no path data in brand/pillar-t-plate.svg"
+
+    # The mark's shapes, in order, as (tag, sorted geometry attrs). Presentation attributes are
+    # deliberately excluded: `fill` differs between the two by design (the inline copy points at a
+    # namespaced gradient id), and colour is `test_the_rail_mark_carries_its_own_contrast`'s job.
+    geometry = ("x", "y", "width", "height", "rx", "cx", "cy", "r", "d", "stroke-width")
+
+    def authored(text: str) -> list[tuple[str, tuple[tuple[str, str], ...]]]:
+        block = text[text.index("<g mask=") :]
+        out = []
+        for tag, attrs in re.findall(r"<(rect|circle|path)\s([^>]*?)/>", block):
+            found = dict(re.findall(r'([a-z-]+)="([^"]*)"', attrs))
+            out.append(
+                (
+                    tag,
+                    tuple(
+                        sorted((k, " ".join(v.split())) for k, v in found.items() if k in geometry)
+                    ),
+                )
+            )
+        return out
+
+    expected = authored(source)
+    assert expected, "no shapes found in brand/pillar-t-plate.svg"
 
     rendered = ui.eval_on_selector_all(
-        ".wordmark svg[data-brand='pillar-t'] path",
-        "els => els.map(e => e.getAttribute('d').split(/\\s+/).join(' ').trim())",
+        ".wordmark svg[data-brand='pillar-t'] g[mask] :is(path, rect, circle)",
+        "(els, keep) => els.map(e => [e.tagName.toLowerCase(),"
+        " keep.filter(k => e.hasAttribute(k))"
+        "     .map(k => [k, e.getAttribute(k).split(/\\s+/).join(' ').trim()])"
+        "     .sort((a, b) => a[0] < b[0] ? -1 : 1)])",
+        list(geometry),
     )
+    rendered = [(tag, tuple(tuple(pair) for pair in attrs)) for tag, attrs in rendered]
+
     assert rendered == expected, (
-        "the rail mark in index.html has drifted from brand/pillar-t-plate.svg"
+        "the rail mark in index.html has drifted from brand/pillar-t-plate.svg:\n"
+        f"  authored: {expected}\n  rendered: {rendered}"
     )
+
+    # The transform that places the mark is geometry too - the shapes are meaningless without it.
+    placed = ui.eval_on_selector(
+        ".wordmark svg[data-brand='pillar-t'] g[mask] > g", "el => el.getAttribute('transform')"
+    )
+    assert placed == "translate(16 14) scale(0.68)", f"the mark is placed differently: {placed!r}"
 
 
 def test_the_tab_icon_is_served(ui: Page) -> None:

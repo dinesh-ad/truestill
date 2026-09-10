@@ -84,8 +84,11 @@
   --text-sm: var(--type-sm);
   --text-base: var(--type-base);
   --text-lg: var(--type-lg);
-  --text-xl: var(--type-xl);
-  --text-2xl: var(--type-2xl);
+  /* ⚠ `text-xl` AND `text-2xl` ARE GONE, 2026-09-10, with the tokens they aliased. Left pointing
+     at deleted custom properties they would resolve to NOTHING and the utility would silently do
+     nothing - a missing size is not a smaller size, it is no rule at all, which is the defect
+     `test_every_step_of_the_scale_actually_resolves` was written for. Neither class is used in
+     any `.tsx`, checked; a component wanting a step between 18 and 32 should say why first. */
   --text-3xl: var(--type-3xl);
 
   --font-sans: var(--family-sans);

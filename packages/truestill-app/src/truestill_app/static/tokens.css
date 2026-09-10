@@ -182,29 +182,42 @@
      goes to CONTENT, not to type - a 3072px monitor does not want 20px body copy, it wants a
      column that is not 720px of empty page on each side. Constants are solved, not eyeballed:
      each middle term is the line through (1366, min) and (2560, max). */
-  --type-xs: clamp(0.75rem, 0.6427rem + 0.1256vw, 0.84375rem); /* 12 -> 13.5px */
-  --type-sm: clamp(0.875rem, 0.7499rem + 0.1466vw, 0.984375rem); /* 14 -> 15.75px */
-  --type-base: clamp(1rem, 0.857rem + 0.1675vw, 1.125rem); /* 16 -> 18px */
-  --type-lg: clamp(1.125rem, 0.9641rem + 0.1884vw, 1.265625rem); /* 18 -> 20.25px */
-  /* THE TOP OF THE SCALE CAME DOWN 2026-08-15, and the ACCELERATION was the defect rather than
-     any single size. The steps ran 12/14/16/18/22/28 and their ratios ran
-     1.167 / 1.143 / 1.125 / **1.222 / 1.273** - tight at the bottom, loose at the top, so the
-     scale sped up exactly where it should not. That is why the page title read as display type
-     on a form: at 28 it was 2.0x the interface (14) and 1.75x body. It is now 1.71x and 1.5x,
-     and the ratios run 1.167 / 1.143 / 1.125 / 1.111 / 1.200.
+  /* ⚠ SMALL IS 13, NOT 12, ruled 2026-09-10. This was 12 -> 13.5 and it was the densest thing
+     on screen: uppercase section labels, metadata and step names all sat at the 12px FLOOR, the
+     size an accessibility claim is made about, with nothing below it to fall back on. 13 gives
+     the floor a step of headroom and keeps the same +12.5% band. */
+  /* ⚠ EACH STEP'S FLOOR IS ITS OWN TOKEN, 2026-09-10, because the rail was a SECOND SCALE.
+     `.sidebar` drops the `vw` term - correctly, a 232px frame has no viewport relationship to
+     express - but it did so by RE-TYPING the four floors, so they were a copy. Measured the
+     moment `--type-xs` moved 12 -> 13: the content took 13.1px and the rail's section labels
+     stayed at 12, because nothing connected them. One scale with a hand-copied twin is two
+     scales that agree until someone edits one.
+     The floors are declared once here and the rail now references them, so a step can only move
+     in one place. `test_the_rail_runs_the_same_scale_as_the_page` holds the pair together. */
+  --type-xs-min: 0.8125rem;
+  --type-xs: clamp(var(--type-xs-min), 0.6963rem + 0.1361vw, 0.9140625rem); /* 13 -> 14.625px */
+  --type-sm-min: 0.875rem;
+  --type-sm: clamp(var(--type-sm-min), 0.7499rem + 0.1466vw, 0.984375rem); /* 14 -> 15.75px */
+  --type-base-min: 1rem;
+  --type-base: clamp(var(--type-base-min), 0.857rem + 0.1675vw, 1.125rem); /* 16 -> 18px */
+  --type-lg-min: 1.125rem;
+  --type-lg: clamp(var(--type-lg-min), 0.9641rem + 0.1884vw, 1.265625rem); /* 18 -> 20.25px */
+  /* ⚠ `--type-xl` AND `--type-2xl` LEFT THE SCALE, 2026-09-10, under the one-scale ruling.
+     Measured before the change: the app computed EIGHT distinct sizes on one screen - 11, 12,
+     12.09, 14, 14.11, 16.12, 18 and 32.25 - where 12/12.09 and 14/14.11 are the same step
+     rendered at the rail's floor and at the fluid size. Eight steps is not a hierarchy; it is
+     the absence of one, because no two adjacent sizes differ enough to be read as different.
 
-     `--type-xl` came down WITH it, and not for symmetry: left at 22 against a 24 title the two
-     would sit at a ratio of 1.09 and read as the same size, so the compression has to move both
-     or it moves neither. Their relationship is preserved (1.273 -> 1.200).
+     `--type-2xl` (24) was DEAD - zero rules used it, only a Tailwind alias pointed at it, so it
+     cost a step in the scale and bought nothing.
 
-     NOT CHANGED, and each for a reason: `--type-xs` and `--type-sm` carry 37 of 51 declared uses
-     and are already the dense end - the interface was never oversized. `--type-base` looks like a
-     three-use token and is not: one of the three is `body`, inherited by every unstyled element,
-     and the other two are the form label and the input. Collapsing those to `--type-sm` would put
-     labels, inputs, body, nav and buttons all at 14 and remove the last size distinction inside a
-     form, against the ruling at `app.css:583`. */
-  --type-xl: clamp(1.25rem, 1.0712rem + 0.2094vw, 1.40625rem); /* 20 -> 22.5px */
-  --type-2xl: clamp(1.5rem, 1.2855rem + 0.2513vw, 1.6875rem); /* 24 -> 27px */
+     `--type-xl` (20) had four uses and every one of them is a NUMBER, not a heading:
+     `.source-counts .metric-value`, `.metrics.compact .metric-value`, `.panel-metric` and
+     `.result .headline`. It folded into `--type-lg` (18), which is where card titles already
+     sit - so a compact metric now reads at the same weight as the title above it, and the one
+     metric that must outrank everything keeps `--type-3xl` alone.
+
+     The scale is now SIX steps, which is the ruling's ceiling: 13 / 14 / 16 / 18 / 32 / 40. */
   /* THE DISPLAY ROLE - page titles, and a SEPARATE role rather than a bigger heading.
      `--type-3xl` is the metric's, reserved by `test_only_the_metric_uses_the_metric_size`, and
      the argument that guard makes is sound: if a title takes the metric's size the metric stops
@@ -259,7 +272,9 @@
      decision rather than as a miss. */
   --line-flat: 1;
   --line-tight: 1.2;
-  --line-body: 1.45;
+  /* 1.5, ruled 2026-09-10. It was 1.45, which is inside the comfortable band and was chosen
+     against no stated number; the ruling names one, and a leading nobody can quote drifts. */
+  --line-body: 1.5;
 
   --weight-normal: 400;
   --weight-medium: 500;

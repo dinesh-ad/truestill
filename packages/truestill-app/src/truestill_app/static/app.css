@@ -155,10 +155,13 @@ code,
    the container that owns the exception is the whole fix - a container query would add a
    mechanism to express what "the rail is a fixed frame" already says. */
 .sidebar {
-  --type-xs: 0.75rem;
-  --type-sm: 0.875rem;
-  --type-base: 1rem;
-  --type-lg: 1.125rem;
+  /* ⚠ THE FLOORS, BY REFERENCE - they were hand-copied literals until 2026-09-10 and had already
+     gone stale: the scale's `--type-xs` moved to 13 and the rail's section labels stayed at 12,
+     silently, because a copy cannot follow its source. */
+  --type-xs: var(--type-xs-min);
+  --type-sm: var(--type-sm-min);
+  --type-base: var(--type-base-min);
+  --type-lg: var(--type-lg-min);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -1119,13 +1122,19 @@ select.input {
 .step-dot {
   display: grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  /* ⚠ THE ONLY RAW `font-size` LEFT IN THIS FILE WAS HERE, and it was 11px - below the 12px
+     floor the product makes an accessibility claim about, and in px, so the text-size setting
+     and a raised browser default could not reach it. It is `--type-xs` now.
+     THE BOX IS `em`, NOT px, for the same reason: a 20px circle around text that scales is a
+     circle the text grows out of at the Large setting. 1.55em of 13px is 20.15px, which is where
+     it already sat. */
+  width: 1.55em;
+  height: 1.55em;
   flex: none;
   border-radius: var(--corner-pill);
   border: var(--border-width) solid var(--border);
   background: var(--surface);
-  font-size: 11px;
+  font-size: var(--type-xs);
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
@@ -1172,7 +1181,7 @@ select.input {
 }
 .source-counts .metric-value {
   /* A figure beside a 36px input, not a headline: the display size belongs to a result. */
-  font-size: var(--type-xl);
+  font-size: var(--type-lg);
 }
 .source-counts .metric-label {
   font-size: var(--type-xs);
@@ -1348,7 +1357,7 @@ select.input {
 }
 .result .headline {
   color: var(--accent-strong);
-  font-size: var(--type-xl);
+  font-size: var(--type-lg);
   font-weight: var(--weight-semibold);
   margin-bottom: var(--space-4);
 }
@@ -2373,8 +2382,10 @@ details.more.inline {
 }
 /* A DASHBOARD, NOT FIVE LINES OF PROSE. The number leads and the label follows it small and
    quiet - the same hierarchy the main column just took, applied to the one surface that is
-   entirely numbers. `--type-xl` rather than the display role: this is a panel beside the page,
-   and a title-sized number here would outrank the page's own title. */
+   entirely numbers. `--type-lg` rather than the display role: this is a panel beside the page,
+   and a title-sized number here would outrank the page's own title. (It read `--type-xl` until
+   2026-09-10, when that step folded into `--type-lg` - the argument is unchanged, the step it
+   names is one narrower.) */
 .panel-k {
   color: var(--fg-muted);
   font-size: var(--type-xs);
@@ -2384,7 +2395,7 @@ details.more.inline {
   margin-bottom: var(--space-1);
 }
 .panel-metric {
-  font-size: var(--type-xl);
+  font-size: var(--type-lg);
   font-weight: var(--weight-semibold);
   line-height: var(--line-tight);
   color: var(--fg);
@@ -2431,6 +2442,15 @@ details.more.inline {
 
 /* Find's search field leads the screen: it is the only thing there until a query runs, and a
    16px input inside a card reads as one more form row on a screen that is nothing but this. */
+/* ⚠ THE ONE FORM CONTROL IN THIS PRODUCT SET LARGER THAN BODY TEXT, AND IT IS DELIBERATE.
+   Measured 2026-09-10 at 1440: **18.14px against 16.12px body**. The 2026-09-10 type ruling says
+   a form control may not exceed body text and names that inversion as the common ACCIDENTAL one -
+   this one is not accidental. `test_the_search_field_leads_the_screen` asserts the opposite in as
+   many words: *"Spotlight, not a dashboard: the input is the biggest thing here."*
+   The two rulings cannot both hold here, and this is a note rather than a fix because resolving
+   them is the maintainer's call: changing it makes that test red on a screen the type work was
+   told not to touch. Everywhere else in the product the ruling holds - every other control is at
+   or below body. */
 .search-hero .input {
   font-size: var(--type-lg);
   padding: var(--space-3) var(--space-4);
@@ -2440,14 +2460,15 @@ details.more.inline {
 }
 
 /* A SECOND METRIC TIER. Stats is the one screen with more true numbers than can all be the
-   biggest thing on it; without a rank, seven equal figures rank nothing. `--type-xl` is an
-   existing step - this does NOT reach past the metric-only `--type-3xl` guard. */
+   biggest thing on it; without a rank, seven equal figures rank nothing. `--type-lg` is an
+   existing step - this does NOT reach past the metric-only `--type-3xl` guard. (Was `--type-xl`
+   until 2026-09-10; that step folded into `--type-lg` and the rank it buys is the same.) */
 .metrics.compact {
   gap: var(--space-4) var(--space-5);
   margin-bottom: var(--space-4);
 }
 .metrics.compact .metric-value {
-  font-size: var(--type-xl);
+  font-size: var(--type-lg);
 }
 .metrics.compact .metric-label {
   font-size: var(--type-xs);

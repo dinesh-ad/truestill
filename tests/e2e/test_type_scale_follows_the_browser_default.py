@@ -84,7 +84,7 @@ def test_no_text_token_is_declared_in_px(ui: Page) -> None:
     """Aimed at the tokens themselves, so a px value cannot creep back unnoticed."""
     declared = ui.evaluate(
         "() => { const cs = getComputedStyle(document.documentElement);"
-        " return ['xs','sm','base','lg','xl','2xl'].map("
+        " return ['xs','sm','base','lg','display','3xl'].map("
         "   n => [n, cs.getPropertyValue('--type-' + n).trim()]); }"
     )
     in_px = [f"--type-{n}: {v}" for n, v in declared if v.endswith("px")]
@@ -106,7 +106,7 @@ def test_every_step_of_the_scale_actually_resolves(ui: Page) -> None:
     """
     resolved = ui.evaluate(
         "() => { const cs = getComputedStyle(document.documentElement);"
-        " return ['xs','sm','base','lg','xl','2xl','3xl'].map("
+        " return ['xs','sm','base','lg','display','3xl'].map("
         "   n => [n, cs.getPropertyValue('--type-' + n).trim()]); }"
     )
     missing = [f"--type-{n}" for n, v in resolved if not v]
@@ -144,3 +144,114 @@ def test_nothing_overflows_its_container_at_a_raised_default(ui: Page, root_px: 
 
     body = ui.evaluate("() => document.body.scrollWidth - document.body.clientWidth")
     assert body <= 2, f"the page scrolls horizontally by {body}px at a {root_px}px root"
+
+
+# ------------------------------------------------------------------------- one scale, six steps
+
+#: The ruling of 2026-09-10, in the order the scale runs. Six steps, and the ceiling is six.
+SCALE = {"xs": 13.0, "sm": 14.0, "base": 16.0, "lg": 18.0, "display": 32.0, "3xl": 40.0}
+
+
+def test_the_scale_is_six_steps_at_their_ruled_sizes(ui: Page) -> None:
+    """⚠ **NOTHING GUARDED THE SCALE, WHICH IS HOW IT REACHED EIGHT SIZES.**
+
+    Measured before the ruling, on one screen: 11, 12, 12.09, 14, 14.11, 16.12, 18 and 32.25 -
+    where 12/12.09 and 14/14.11 are one step rendered at the rail's floor and at the fluid size.
+    Eight steps is not a hierarchy, it is the absence of one, because no two neighbours differ
+    enough to read as different. A token could be added at any time and no test would notice.
+
+    Asserted at the FLOOR (a narrow viewport), because that is where the ruling's numbers are
+    stated - the clamps scale every step by the same +12.5% above 1366px, so pinning the floor
+    pins the scale without pinning the fluid band.
+    """
+    ui.set_viewport_size({"width": 1000, "height": 900})
+    ui.wait_for_timeout(150)
+
+    probe = (
+        "(names) => Object.fromEntries(names.map(n => {"
+        " const el = document.createElement('span');"
+        " el.style.cssText = 'position:absolute;visibility:hidden;font-size:var(--type-'+n+')';"
+        " document.body.appendChild(el);"
+        " const px = parseFloat(getComputedStyle(el).fontSize);"
+        " el.remove(); return [n, px]; }))"
+    )
+    sizes = ui.evaluate(probe, list(SCALE))
+
+    for name, expected in SCALE.items():
+        assert abs(sizes[name] - expected) < 0.5, (
+            f"--type-{name} is {sizes[name]}px, ruled {expected}px. All: {sizes}"
+        )
+
+    # And no SEVENTH step crept back in beside them.
+    declared = ui.evaluate(
+        "() => [...document.styleSheets].flatMap(s => { try { return [...s.cssRules]; }"
+        " catch { return []; } })"
+        ".filter(r => r.selectorText === ':root')"
+        ".flatMap(r => [...r.style]).filter(n => n.startsWith('--type-'))"
+    )
+    # `--type-*-min` are the floors each clamp is BUILT from, not steps of their own - the rail
+    # references them so it cannot drift from the scale. A step is a token without that suffix.
+    steps_only = {n for n in declared if not n.endswith("-min")}
+    extra = sorted(steps_only - {f"--type-{n}" for n in SCALE})
+    assert not extra, (
+        f"the scale has grown past its six steps: {extra}. Four to six sizes was the ruling; a "
+        "seventh step is one no reader can tell from its neighbours."
+    )
+
+
+def test_nothing_a_person_reads_is_set_below_twelve_pixels(ui: Page) -> None:
+    """The floor the product's accessibility claim rests on, asserted on rendered text.
+
+    ⚠ **It was broken by a raw `font-size: 11px` on `.step-dot`** - below the floor, and in px, so
+    neither the text-size setting nor a raised browser default could reach it. Asserted on what
+    renders rather than on the tokens, because the defect was not a token.
+    """
+    smallest = ui.evaluate(
+        "() => { let worst = null;"
+        " for (const e of document.querySelectorAll('.screen.active *, .sidebar *')) {"
+        "   if (!e.offsetParent) continue;"
+        "   const own = [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());"
+        "   if (!own) continue;"
+        "   const px = parseFloat(getComputedStyle(e).fontSize);"
+        "   if (!worst || px < worst.px) worst = {px, cls: e.className.toString(), tag: e.tagName};"
+        " } return worst; }"
+    )
+    assert smallest, "no rendered text was measured, so this asserted nothing"
+    assert smallest["px"] >= 12, (
+        f"{smallest['tag']}.{smallest['cls']} renders at {smallest['px']}px, below the 12px floor"
+    )
+
+
+def test_the_rail_runs_the_same_scale_as_the_page(ui: Page) -> None:
+    """⚠ **THE RAIL WAS A SECOND SCALE, and it had already gone stale.**
+
+    `.sidebar` drops the `vw` term from each step - correctly, since a 232px frame has no
+    viewport relationship to express - but it did so by RE-TYPING the four floors as literals.
+    The moment `--type-xs` moved 12 -> 13 under the one-scale ruling, the page took 13.1px and the
+    rail's section labels stayed at 12, silently, because a copy cannot follow its source.
+
+    The rail references `--type-*-min` now, so this asserts the two agree by construction. A step
+    re-typed as a literal in the rail passes only while someone keeps the two in step by hand,
+    which is the arrangement that just failed.
+    """
+    ui.set_viewport_size({"width": 2400, "height": 900})  # wide, so the page's clamps are ABOVE
+    ui.wait_for_timeout(150)  # their floors and a copy would show
+
+    probe = (
+        "(names) => Object.fromEntries(names.map(n => {"
+        " const mk = (host, value) => { const el = document.createElement('span');"
+        "   el.style.cssText = 'position:absolute;visibility:hidden;font-size:' + value;"
+        "   host.appendChild(el); const px = parseFloat(getComputedStyle(el).fontSize);"
+        "   el.remove(); return px; };"
+        " const rail = document.querySelector('.sidebar');"
+        " return [n, {rail: mk(rail, `var(--type-${n})`),"
+        "             floor: mk(document.body, `var(--type-${n}-min)`)}]; }))"
+    )
+    sizes = ui.evaluate(probe, ["xs", "sm", "base", "lg"])
+
+    for name, pair in sizes.items():
+        assert pair["floor"], f"--type-{name}-min resolves to nothing - the floor token is gone"
+        assert abs(pair["rail"] - pair["floor"]) < 0.01, (
+            f"the rail renders --type-{name} at {pair['rail']}px against the scale's floor of "
+            f"{pair['floor']}px - the rail is running its own copy of the scale"
+        )

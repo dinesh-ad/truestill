@@ -77,55 +77,83 @@ def test_no_surface_a_person_reads_contains_a_ts_monogram() -> None:
 def test_the_rail_mark_carries_its_own_contrast(ui: Page) -> None:
     """The mark is legible **without depending on the rail behind it**.
 
-    ⚠ **Re-expected and renamed 2026-09-06, and the question changed rather than the floor.** This
-    read the fill of `svg[data-brand='pillar-t'] path` and measured it against the rail's `#14161b`
-    - correct while the mark was a bare ramp-filled T sitting directly on that ground. It is the
-    PLATE now: a rounded square the ramp fills, with the letter knocked out of a dark ground, so
-    the two `<path>`s this used to read are inside a `<mask>` at `fill: #000` and painting nothing.
-    Measured against the rail they read ~1.0:1 and this test would have failed on artwork that is
-    perfectly legible.
+    ⚠ **Re-expected 2026-09-10, and THE MEASURED PAIR INVERTED.** The floor is unchanged at 4.5:1
+    and the property is unchanged - the artwork brings its own ground - but which two colours make
+    that pair is now the other way round. The previous plate was a dark ground with the ramp
+    knocked through it, so the pair was RAMP against GROUND. The maintainer's artwork fills the
+    plate with the ramp and paints the letter on it in `#161826`, so the pair is MARK against
+    RAMP: 4.79:1 on the rose stop and 7.78:1 on the amber.
 
-    So the pair that decides legibility is now the ramp against the PLATE'S OWN GROUND, and both
-    are declared in our markup where they can be read. That is a stronger claim than the old one:
-    it holds on the rail, on the narrow top bar, and anywhere else the plate is ever put, which is
-    the reason for choosing a plate.
+    Both stops are measured because a ramp is only as legible as its worst end, and the rose end
+    is the near one - 4.79:1 has 0.29 of headroom, so a darker rose would fail here rather than
+    silently ship.
 
-    The floor is unchanged at 4.5:1, and a ramp whose low stop dips under it still fails.
+    ⚠ **He supplied a second arrangement and it is deliberately not the one on the rail.** The
+    same file offers a dark `#161826` plate with a ramp-filled mark, captioned as suiting a dark
+    rail. Measured against this rail's own `#101012`, that plate is **1.08:1** - its edge is
+    invisible, so the mark would read as the floating gradient T that was rejected on 2026-09-06
+    for looking like a red letter beside the word rather than a brand. This test asserts the
+    arrangement that shipped; the other is one `fill` attribute away if he ever wants it.
     """
     ui.click("#sidebar-toggle")
     expect(ui.locator("#sidebar")).to_have_attribute("data-collapsed", "true")
 
-    ground, ramp = ui.eval_on_selector(
+    mark, ramp = ui.eval_on_selector(
         "svg[data-brand='pillar-t']",
-        "el => { const rects = [...el.querySelectorAll('rect')].filter(r => !r.closest('mask'));"
-        " const plate = rects[0];"
-        " const ref = (rects[1].getAttribute('fill').match(/#([\\w-]+)/) || [])[1];"
+        "el => { const plate = el.querySelector(':scope > rect');"
+        " const ref = (getComputedStyle(plate).fill.match(/#([\\w-]+)/) || [])[1];"
         " const stops = [...el.querySelectorAll('#' + ref + ' stop')]"
         "   .map(e => getComputedStyle(e).stopColor);"
-        " return [getComputedStyle(plate).fill, stops]; }",
+        " const letter = el.querySelector('g[mask] rect');"
+        " return [getComputedStyle(letter).fill, stops]; }",
     )
-    plate = tuple(int(n) for n in re.findall(r"\d+", ground)[:3])
-    assert len(plate) == 3, f"could not read the plate's ground: {ground!r}"
+    letter = tuple(int(n) for n in re.findall(r"\d+", mark)[:3])
+    assert len(letter) == 3, f"could not read the mark's colour: {mark!r}"
     assert len(ramp) >= 2, "the plate's ramp declares no stops"
 
     for stop in ramp:
         colour = tuple(int(n) for n in re.findall(r"\d+", stop)[:3])
-        ratio = _contrast(colour, plate)
+        ratio = _contrast(letter, colour)
         assert ratio >= 4.5, (
-            f"a stop of the plate's ramp measures {ratio:.2f}:1 on its own ground "
-            f"{plate} - the knocked-out mark is not legible"
+            f"the mark {letter} measures {ratio:.2f}:1 on a stop of its own plate {colour} - "
+            "the letter is not legible against the ground the artwork brings with it"
         )
 
 
 def test_the_rail_mark_has_no_flute_at_rail_size() -> None:
-    """It renders ~26px tall; the flute is sub-pixel below ~61px and reads as a smudge."""
-    markup = INDEX.read_text(encoding="utf-8")
-    flute_less = (BRAND / "pillar-t-geometric-noflute.svg").read_text(encoding="utf-8")
-    expected = re.findall(r'\sd="(.*?)"', flute_less, re.S)
-    assert expected, "no path data in the flute-less variant"
-    for path in expected:
-        assert " ".join(path.split()) in " ".join(markup.split()), (
-            "the rail mark has drifted from brand/pillar-t-geometric-noflute.svg"
+    """It renders ~30px tall; the hairline flute is sub-pixel below ~61px and reads as a smudge.
+
+    ⚠ **Re-expected 2026-09-10, and this test had been passing for a reason that no longer
+    exists.** It asserted that the flute-LESS geometric variant's path data appears in
+    `index.html` - true only because the plate then in the rail was a reconstruction that reused
+    exactly that geometry. The maintainer's own artwork is a different letterform entirely (a
+    stroked crossbar, a rounded stem, two shoulders), so that assertion had lost its subject and
+    would have failed for the right reason on the wrong grounds.
+
+    The PROPERTY it exists for is unchanged and still worth holding: whatever is inlined at rail
+    size must not carry the hairline flute. So the check is now the direct one - the FLUTED
+    variant's geometry must appear nowhere in the rail's markup. That is what would go wrong if
+    someone re-pointed the rail at `pillar-t-geometric.svg`, and it is checkable without knowing
+    which artwork the rail carries.
+    """
+    markup = " ".join(INDEX.read_text(encoding="utf-8").split())
+    fluted = (BRAND / "pillar-t-geometric.svg").read_text(encoding="utf-8")
+    noflute = (BRAND / "pillar-t-geometric-noflute.svg").read_text(encoding="utf-8")
+
+    only_fluted = {" ".join(d.split()) for d in re.findall(r'\sd="(.*?)"', fluted, re.S)} - {
+        " ".join(d.split()) for d in re.findall(r'\sd="(.*?)"', noflute, re.S)
+    }
+    # Anti-vacuity: if the two variants ever stop differing, this test can never fail and the
+    # smudge it guards against would ship unnoticed.
+    assert only_fluted, (
+        "the fluted and flute-less variants carry identical path data, so this test cannot "
+        "distinguish them and is asserting nothing"
+    )
+
+    for path in only_fluted:
+        assert path not in markup, (
+            "the rail inlines the FLUTED geometric mark - the flute is sub-pixel at rail size "
+            "and reads as a smudge"
         )
 
 

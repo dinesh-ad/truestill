@@ -112,7 +112,10 @@ def test_the_metric_size_token_exists_and_is_rem(ui: Page) -> None:
     Measured through real elements rather than read as declarations, because a custom property's
     *value* is a string while its *size* is the thing under test.
     """
-    steps = ("xs", "sm", "base", "lg", "xl", "2xl", "3xl")
+    # ⚠ SIX STEPS SINCE 2026-09-10, was seven. `xl` folded into `lg` and `2xl` was dead - both
+    # left the scale under the one-scale ruling, so probing for them here would assert that a
+    # deleted token still resolves, which is the opposite of what this test is for.
+    steps = ("xs", "sm", "base", "lg", "display", "3xl")
     probe = (
         "(names) => {"
         " const out = {};"
