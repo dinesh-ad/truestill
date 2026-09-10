@@ -163,7 +163,7 @@ export function Legend({ folders }: { folders: FolderCounts | null | undefined }
   return (
     <div
       className="k"
-      style={{ fontSize: "var(--type-xs)", marginTop: "var(--space-2)", lineHeight: 1.6 }}
+      style={{ fontSize: "var(--type-sm)", marginTop: "var(--space-2)", lineHeight: 1.6 }}
     >
       {names.map((n, i) => (
         <Fragment key={n}>

@@ -265,7 +265,7 @@ def _text_tokens() -> dict[str, str]:
     matters: what the floor ACTUALLY is, including a floor token wrongly declared in px.
     """
     body = TOKENS.read_text("utf-8")
-    steps = dict(re.findall(r"(--type-(?:xs|sm|base|lg|display|3xl)):\s*([^;]+);", body))
+    steps = dict(re.findall(r"(--type-(?:sm|base|lg|display|3xl)):\s*([^;]+);", body))
     floors = dict(re.findall(r"(--type-\w+-min):\s*([^;]+);", body))
     for name, declared in steps.items():
         resolved = declared

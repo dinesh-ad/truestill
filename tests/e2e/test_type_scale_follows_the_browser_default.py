@@ -84,7 +84,7 @@ def test_no_text_token_is_declared_in_px(ui: Page) -> None:
     """Aimed at the tokens themselves, so a px value cannot creep back unnoticed."""
     declared = ui.evaluate(
         "() => { const cs = getComputedStyle(document.documentElement);"
-        " return ['xs','sm','base','lg','display','3xl'].map("
+        " return ['sm','base','lg','display','3xl'].map("
         "   n => [n, cs.getPropertyValue('--type-' + n).trim()]); }"
     )
     in_px = [f"--type-{n}: {v}" for n, v in declared if v.endswith("px")]
@@ -106,7 +106,7 @@ def test_every_step_of_the_scale_actually_resolves(ui: Page) -> None:
     """
     resolved = ui.evaluate(
         "() => { const cs = getComputedStyle(document.documentElement);"
-        " return ['xs','sm','base','lg','display','3xl'].map("
+        " return ['sm','base','lg','display','3xl'].map("
         "   n => [n, cs.getPropertyValue('--type-' + n).trim()]); }"
     )
     missing = [f"--type-{n}" for n, v in resolved if not v]
@@ -149,7 +149,10 @@ def test_nothing_overflows_its_container_at_a_raised_default(ui: Page, root_px: 
 # ------------------------------------------------------------------------- one scale, six steps
 
 #: The ruling of 2026-09-10, in the order the scale runs. Six steps, and the ceiling is six.
-SCALE = {"xs": 13.0, "sm": 14.0, "base": 16.0, "lg": 18.0, "display": 32.0, "3xl": 40.0}
+#: ⚠ FIVE since 2026-09-10, was six. `xs` (13) left: against `sm` (14) it is a 7% difference,
+#: invisible as a size, and what actually separated the two on screen was case and weight. A step
+#: no reader can tell from its neighbour is not a step.
+SCALE = {"sm": 14.0, "base": 16.0, "lg": 18.0, "display": 32.0, "3xl": 40.0}
 
 
 def test_the_scale_is_six_steps_at_their_ruled_sizes(ui: Page) -> None:
@@ -194,7 +197,7 @@ def test_the_scale_is_six_steps_at_their_ruled_sizes(ui: Page) -> None:
     steps_only = {n for n in declared if not n.endswith("-min")}
     extra = sorted(steps_only - {f"--type-{n}" for n in SCALE})
     assert not extra, (
-        f"the scale has grown past its six steps: {extra}. Four to six sizes was the ruling; a "
+        f"the scale has grown past its five steps: {extra}. Four to six sizes was the ruling; a "
         "seventh step is one no reader can tell from its neighbours."
     )
 
@@ -247,7 +250,7 @@ def test_the_rail_runs_the_same_scale_as_the_page(ui: Page) -> None:
         " return [n, {rail: mk(rail, `var(--type-${n})`),"
         "             floor: mk(document.body, `var(--type-${n}-min)`)}]; }))"
     )
-    sizes = ui.evaluate(probe, ["xs", "sm", "base", "lg"])
+    sizes = ui.evaluate(probe, ["sm", "base", "lg"])
 
     for name, pair in sizes.items():
         assert pair["floor"], f"--type-{name}-min resolves to nothing - the floor token is gone"

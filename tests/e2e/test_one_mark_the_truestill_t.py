@@ -7,7 +7,7 @@ from the Libre Caslon font, so the geometric mark was committed and reached noth
 Two measured constraints shape how it appears:
 
 * **The rail is dark**, and the mark's authored ramp measures 2.45:1 and 1.11:1 directly on it -
-  the foot is invisible. That is why the rail carries the PLATE (`brand/pillar-t-plate.svg`): the
+  the foot is invisible. That is why the rail carries the PLATE (`brand/truestill-mark.svg`): the
   letter is knocked out of a square the ramp fills, so the artwork brings its own ground and the
   rail's colour stops being an input. The wordmark beside it still takes the flat treatment, which
   is the same gradient rejected on the same ground.
@@ -17,11 +17,15 @@ Two measured constraints shape how it appears:
 
 from __future__ import annotations
 
+import importlib.util
+import io
 import re
 import struct
+import sys
 from pathlib import Path
 
 import pytest
+from PIL import Image, ImageChops
 from playwright.sync_api import Page, expect
 
 #: THE MIGRATION'S EARLY-WARNING SYSTEM. This file belongs to no screen, so no screen's commit
@@ -63,7 +67,7 @@ def test_the_collapsed_rail_shows_the_pillar_t_and_no_monogram(ui: Page) -> None
     ui.click("#sidebar-toggle")
     expect(ui.locator("#sidebar")).to_have_attribute("data-collapsed", "true")
 
-    expect(ui.locator("svg[data-brand='pillar-t']")).to_be_visible()
+    expect(ui.locator("svg[data-brand='truestill-t']")).to_be_visible()
     assert ui.locator("svg[data-brand='monogram']").count() == 0, "the TS monogram is still here"
 
 
@@ -99,7 +103,7 @@ def test_the_rail_mark_carries_its_own_contrast(ui: Page) -> None:
     expect(ui.locator("#sidebar")).to_have_attribute("data-collapsed", "true")
 
     mark, ramp = ui.eval_on_selector(
-        "svg[data-brand='pillar-t']",
+        "svg[data-brand='truestill-t']",
         "el => { const plate = el.querySelector(':scope > rect');"
         " const ref = (getComputedStyle(plate).fill.match(/#([\\w-]+)/) || [])[1];"
         " const stops = [...el.querySelectorAll('#' + ref + ' stop')]"
@@ -160,11 +164,76 @@ def test_the_rail_mark_has_no_flute_at_rail_size() -> None:
 # --------------------------------------------------------------------------- the tab
 
 
-def test_the_favicon_is_generated_from_the_geometric_mark_not_from_a_font() -> None:
-    """`(abi)`: the generator built every icon from the font, so the geometric T reached nothing."""
+def _brand_generator():
+    """The icon generator, loaded from source - it is a one-shot tool, not an importable package."""
+    spec = importlib.util.spec_from_file_location(
+        "build_brand_assets", ROOT / "scripts" / "build_brand_assets.py"
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["build_brand_assets"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_favicon_is_generated_from_the_mark_not_from_a_font() -> None:
+    """`(abi)`: the generator built every icon from the font, so the committed T reached nothing.
+
+    ⚠ **Re-pointed 2026-09-10.** This asserted `"pillar-t-geometric" in script` - that the icons
+    come from the RETIRED mark, which is the divergence rather than a guard against it.
+    """
     script = (ROOT / "scripts/build_brand_assets.py").read_text(encoding="utf-8")
-    assert "pillar-t-geometric" in script, "the generator does not read the geometric artwork"
+    assert "truestill-mark.svg" in script, "the generator does not read the one mark"
     assert '"TS"' not in script, "the generator still rasterises a TS monogram"
+
+
+def test_the_shipped_icon_is_a_current_render_of_the_mark_the_rail_shows(ui: Page) -> None:
+    """⚠ **THE GUARD THAT WOULD HAVE CAUGHT TWO MARKS SHIPPING FOR WEEKS.**
+
+    Both favicon tests tied the icon to `brand/` and the artwork test tied the rail to `brand/` -
+    but to *different files in it*, so the tab carried a fluted column serif on a blue tile while
+    the rail carried the maintainer's rounded T on a rose plate, and every test was green. The
+    icon was dated 2026-08-05 and the artwork had moved underneath it.
+
+    Nothing here reads a filename. The icon is re-rendered from whatever source the RAIL is
+    proved against, and compared to what actually ships - so re-pointing either one, or leaving
+    the icon stale after the artwork changes, fails.
+
+    Compared as PIXELS at 128px, downsampled to 32 to stay clear of resampling noise: the
+    question is "is this the same mark", not "is this the same file", and a build-tool change
+    that produced the same artwork by another route should not fail.
+    """
+    served = ui.request.get(f"{ui.url.split('?')[0].rstrip('/')}/static/favicon.ico")
+    assert served.ok, "the favicon does not serve"
+
+    generator = _brand_generator()
+    fresh = generator.raster_mark(128).convert("RGB")
+
+    blob = served.body()
+    count = struct.unpack("<H", blob[4:6])[0]
+    entries = {}
+    for index in range(count):
+        at = 6 + 16 * index
+        width = blob[at] or 256
+        length, offset = struct.unpack("<II", blob[at + 8 : at + 16])
+        entries[width] = blob[offset : offset + length]
+    assert 128 in entries, f"the shipped ICO has no 128px entry to compare: {sorted(entries)}"
+
+    shipped = Image.open(io.BytesIO(entries[128])).convert("RGB")
+    small = (32, 32)
+    a = fresh.resize(small, Image.Resampling.LANCZOS)
+    b = shipped.resize(small, Image.Resampling.LANCZOS)
+    # `get_flattened_data`, not `getdata`: the latter is deprecated in Pillow 14 and this suite
+    # turns warnings into errors.
+    # Through `ImageChops`, PIL's own per-channel difference: the hand-rolled zip over pixel data
+    # used `getdata`, which Pillow 14 deprecates and this suite turns into an error.
+    worst = max(high for _low, high in ImageChops.difference(a, b).getextrema())
+    assert worst <= 12, (
+        f"the shipped icon is not a current render of the mark the rail shows (worst channel "
+        f"difference {worst}/255). Re-run `uv run --with pillow python "
+        f"scripts/build_brand_assets.py` and copy brand/favicon.ico into static/."
+    )
 
 
 def test_the_ico_still_carries_every_size_it_did_before() -> None:

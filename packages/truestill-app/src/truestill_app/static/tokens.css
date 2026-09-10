@@ -194,8 +194,14 @@
      scales that agree until someone edits one.
      The floors are declared once here and the rail now references them, so a step can only move
      in one place. `test_the_rail_runs_the_same_scale_as_the_page` holds the pair together. */
-  --type-xs-min: 0.8125rem;
-  --type-xs: clamp(var(--type-xs-min), 0.6963rem + 0.1361vw, 0.9140625rem); /* 13 -> 14.625px */
+  /* ⚠ `--type-xs` IS GONE, 2026-09-10, AND THIS IS A STEP REMOVED RATHER THAN ONE RETUNED.
+     It was 12, then 13 under the one-scale ruling, and 13 against `--type-sm`'s 14 is a 7%
+     difference - which is invisible as a SIZE. Looking at the screen, what separated a 13px
+     uppercase section label from a 14px field label was the uppercase, the letterspacing and the
+     colour; the one pixel contributed nothing a reader could name. Two names for one level is
+     worse than one name, because it invites a third.
+     Everything it carried is `--type-sm` now: section labels, step names, metadata, hints. The
+     distinction they had is the distinction they keep - case and weight - and those are real. */
   --type-sm-min: 0.875rem;
   --type-sm: clamp(var(--type-sm-min), 0.7499rem + 0.1466vw, 0.984375rem); /* 14 -> 15.75px */
   --type-base-min: 1rem;
@@ -313,7 +319,7 @@
    and saw nothing. Compounding is still bounded because these are PERCENTAGES - a 24px default
    gives 18 / 24 / 30, which is large by choice rather than by accident, where an absolute step
    would have handed that reader 20px and called it Large. */
-/* ⚠ AT SMALL, `--type-xs` RENDERS ~9px AND `--type-sm` ~10.5px on a 16px default. That is not a
+/* ⚠ AT SMALL, `--type-sm` RENDERS ~10.5px on a 16px default. That is not a
    defect and it is not new - it predates the 2026-08-15 type pass and is arithmetic, since 75% of
    a 12px step is 9px. **It is deliberately NOT clamped, and the reason is the same one that
    refused `document.body.zoom`:** a floor here would override a preference the user set on

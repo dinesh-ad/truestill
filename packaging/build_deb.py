@@ -125,7 +125,7 @@ License: Bitstream-Vera
 
 Files: usr/share/icons/hicolor/*
 Copyright: truestill
-Comment: The pillar T, rendered from brand/pillar-t-geometric*.svg. Outlined
+Comment: The Truestill mark, rendered from brand/truestill-mark.svg. Drawn
  artwork, not a font; see brand/PROVENANCE.md.
 License: Apache-2.0
 """

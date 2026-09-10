@@ -95,7 +95,7 @@ def test_the_rail_mark_paints_when_the_rail_is_collapsed(ui: Page) -> None:
     ui.wait_for_timeout(400)
 
     painted = ui.eval_on_selector(
-        "svg[data-brand='pillar-t']",
+        "svg[data-brand='truestill-t']",
         "el => { const box = el.getBoundingClientRect();"
         " const outside = s => [...el.querySelectorAll(s)].filter(n => !n.closest('mask'));"
         " const plate = outside(':scope > rect');"
@@ -138,12 +138,12 @@ def test_collapsing_drops_the_word_and_keeps_the_mark(ui: Page) -> None:
     unchanged and still asserted: at 64px there is a mark and no word.
     """
     expect(ui.locator(".wordmark .wordmark-text")).to_be_visible()
-    expect(ui.locator(".wordmark svg[data-brand='pillar-t']")).to_be_visible()
+    expect(ui.locator(".wordmark svg[data-brand='truestill-t']")).to_be_visible()
 
     ui.click("#sidebar-toggle")
     expect(ui.locator("#sidebar")).to_have_attribute("data-collapsed", "true")
 
-    expect(ui.locator(".wordmark svg[data-brand='pillar-t']")).to_be_visible()
+    expect(ui.locator(".wordmark svg[data-brand='truestill-t']")).to_be_visible()
     expect(ui.locator(".wordmark .wordmark-text")).to_be_hidden()
 
 
@@ -194,7 +194,7 @@ def test_the_rail_artwork_matches_the_authored_source(ui: Page) -> None:
     that places them. That is the whole letterform, and it is the thing that must not move.
     """
     root = Path(__file__).resolve().parents[2]
-    source = (root / "brand" / "pillar-t-plate.svg").read_text(encoding="utf-8")
+    source = (root / "brand" / "truestill-mark.svg").read_text(encoding="utf-8")
 
     # The mark's shapes, in order, as (tag, sorted geometry attrs). Presentation attributes are
     # deliberately excluded: `fill` differs between the two by design (the inline copy points at a
@@ -217,10 +217,10 @@ def test_the_rail_artwork_matches_the_authored_source(ui: Page) -> None:
         return out
 
     expected = authored(source)
-    assert expected, "no shapes found in brand/pillar-t-plate.svg"
+    assert expected, "no shapes found in brand/truestill-mark.svg"
 
     rendered = ui.eval_on_selector_all(
-        ".wordmark svg[data-brand='pillar-t'] g[mask] :is(path, rect, circle)",
+        ".wordmark svg[data-brand='truestill-t'] g[mask] :is(path, rect, circle)",
         "(els, keep) => els.map(e => [e.tagName.toLowerCase(),"
         " keep.filter(k => e.hasAttribute(k))"
         "     .map(k => [k, e.getAttribute(k).split(/\\s+/).join(' ').trim()])"
@@ -230,13 +230,13 @@ def test_the_rail_artwork_matches_the_authored_source(ui: Page) -> None:
     rendered = [(tag, tuple(tuple(pair) for pair in attrs)) for tag, attrs in rendered]
 
     assert rendered == expected, (
-        "the rail mark in index.html has drifted from brand/pillar-t-plate.svg:\n"
+        "the rail mark in index.html has drifted from brand/truestill-mark.svg:\n"
         f"  authored: {expected}\n  rendered: {rendered}"
     )
 
     # The transform that places the mark is geometry too - the shapes are meaningless without it.
     placed = ui.eval_on_selector(
-        ".wordmark svg[data-brand='pillar-t'] g[mask] > g", "el => el.getAttribute('transform')"
+        ".wordmark svg[data-brand='truestill-t'] g[mask] > g", "el => el.getAttribute('transform')"
     )
     assert placed == "translate(16 14) scale(0.68)", f"the mark is placed differently: {placed!r}"
 

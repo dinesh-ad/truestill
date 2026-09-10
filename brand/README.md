@@ -25,6 +25,31 @@ wrong. So the rule instead:
 - **Nothing invented.** Artwork under the name of the brand is authored or it is absent; a
   fabricated size is a drawn asset nobody drew.
 
+## The one mark, and the retired one
+
+**`truestill-mark.svg` is the product's mark.** The maintainer authored it; the rail inlines it and
+every icon in `icons/` and `favicon.ico` is rasterised from it by `scripts/build_brand_assets.py`.
+There is no second mark and no light/dark variant: it brings its own plate, and `#161826` measures
+4.79:1 on the rose stop and 7.78:1 on the amber, so what sits behind it is not an input.
+
+⚠ **`pillar-t-*.svg` ARE RETIRED, 2026-09-10, and reach no surface.** They are the pillar T - a
+fluted column serif - which was the tab and installer icon until that date while the rail carried
+the maintainer's T. Two unrelated marks shipped together for weeks because both favicon tests tied
+the icon to `brand/` and the artwork test tied the rail to `brand/`, but to *different files in
+it*. `test_the_shipped_icon_is_a_current_render_of_the_mark_the_rail_shows` now re-renders the icon
+from the source the rail is proved against and compares pixels.
+
+**They are kept rather than deleted, and the reason is the record.** `PROVENANCE.md` documents
+where the geometry came from and its licence position, `scripts/make_pillar_t.py` still generates
+them, `test_pillar_t_is_deterministic.py` still pins the pair, and `.scratch/pillar-t-render/`
+holds the size measurements taken against them - a lost answer key corrupts every measurement
+taken against it. **Do not point a consumer back at them.**
+
+⚠ **The retirement is recorded HERE and not inside the SVGs**, deliberately: those files are
+byte-compared against their generator's output, so a comment added to one breaks that guard. The
+first attempt did exactly that and turned four green tests red. A fact about the product belongs
+in the product's documentation, not inside a derived drawing.
+
 ## What is NOT here, and where those live
 
 The web icon set in `docs/brand.md` §4 - `apple-touch-icon.png`, `mstile-144x144.png`,
@@ -33,7 +58,7 @@ rules on which surfaces may use what; that section is the authority, not this fi
 
 `brand/` is **not packaged**. The wheel and the frozen bundle carry their own copies of what they
 need - `truestill_app/static/favicon.ico` is byte-identical to `brand/favicon.ico` and is pinned
-that way by `tests/e2e/test_one_mark_the_pillar_t.py`, and the installers stage from `brand/` at
+that way by `tests/e2e/test_one_mark_the_truestill_t.py`, and the installers stage from `brand/` at
 build time.
 
 ## Two things not to get wrong

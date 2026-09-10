@@ -140,7 +140,7 @@ Most of what an older copy said is **stale rather than merely absent**. Since it
   status-only. Measuring found a pre-existing AA failure (amber 2.94:1, green 3.42:1).
 - **The type scale** became rem, so a raised browser default reaches the app; a text-size
   setting was then added on top of it as percentages of that default (`16fcdd7`).
-- **The wordmark and icon set** collapsed to one mark, the pillar T.
+- **The wordmark and icon set** collapsed to one mark, the pillar T. (Superseded 2026-09-10: the one mark is the maintainer's own `brand/truestill-mark.svg`, and the pillar T is retired - see `docs/brand.md` §3.)
 - **The content column and the type scale** were sized against the maintainer's real monitors
   (`9c79a3e`): ceiling 1080 -> 1600, panel 320 -> fluid, type -> `clamp()` with rem bounds.
 

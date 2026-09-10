@@ -105,17 +105,32 @@ The supplied page also sets `msapplication-TileColor` and `theme-color` to `#fff
 **chrome colours for a web page**, not brand colours, and they are listed here only so nobody
 mistakes them for part of the palette.
 
-## 3. Icon - the pillar T (the TS monogram is RETIRED)
+## 3. Icon - the maintainer's T (the pillar T and the TS monogram are both RETIRED)
 
-**The rule: there is one mark, the pillar T.** `703e3b1` replaced the monogram with it everywhere,
-and `index.html` says why in the markup: *"there is no TS in this product"*. The mark must stay
-legible on a **light** and a **dark** ground, which is what the two authored variants are for; the
-dark one is not an inversion of the light one.
+**The rule: there is one mark, and it is `brand/truestill-mark.svg`** - the maintainer's own
+artwork, a rounded T with two shoulders and two knocked-out eyes on a rose-to-orange plate. The
+rail inlines it and every icon is rasterised from it, so there is no surface on which two marks
+coexist.
+
+> ⚠ **Superseded 2026-09-10, and the rule it replaces had gone quietly false.** This read *"there
+> is one mark, the pillar T"* while the product shipped **two**: the rail carried the maintainer's
+> T on a rose plate and the browser tab carried the pillar T - a fluted column serif on a blue
+> tile, built 2026-08-05 and never rebuilt. They shared neither letterform nor a single colour.
+> Nothing caught it because both favicon tests tied the icon to `brand/` and the artwork test tied
+> the rail to `brand/`, but to *different files in it*.
+> `test_the_shipped_icon_is_a_current_render_of_the_mark_the_rail_shows` re-renders the icon from
+> the same source the rail is proved against and compares pixels, so the two cannot part again.
+> The pillar T stays in `brand/` as a record, each file carrying a dated retirement note.
+
+The mark must stay legible on a **light** and a **dark** ground. It needs no second variant for
+that: it brings its own plate, and `#161826` measures 4.79:1 on the rose stop and 7.78:1 on the
+amber, so the ground behind it is not an input.
 
 > **Superseded 2026-08-05, kept as the record.** This section required a **TS monogram** in the
 > indigo gradient, in light and dark variants. It was authored, shipped, and then withdrawn: TS
-> closes up at 16px, and the product has one mark rather than a family. The rail renders the
-> pillar T inline from `brand/pillar-t-geometric-noflute.svg`.
+> closes up at 16px, and the product has one mark rather than a family. (That paragraph's own
+> pointer is stale twice over: the rail inlined `brand/pillar-t-geometric-noflute.svg` when it was
+> written, then a reconstruction, and since 2026-09-10 `brand/truestill-mark.svg`.)
 
 ## 4. The icon set, by filename and size
 

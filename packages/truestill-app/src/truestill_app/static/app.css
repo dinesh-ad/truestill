@@ -158,7 +158,6 @@ code,
   /* ⚠ THE FLOORS, BY REFERENCE - they were hand-copied literals until 2026-09-10 and had already
      gone stale: the scale's `--type-xs` moved to 13 and the rail's section labels stayed at 12,
      silently, because a copy cannot follow its source. */
-  --type-xs: var(--type-xs-min);
   --type-sm: var(--type-sm-min);
   --type-base: var(--type-base-min);
   --type-lg: var(--type-lg-min);
@@ -298,7 +297,7 @@ code,
    below it already say what they are, and a second announcement is noise. */
 .nav-section-label {
   padding: var(--space-3) var(--space-3) var(--space-1);
-  font: var(--weight-semibold) var(--type-xs) / var(--line-tight) var(--family-sans);
+  font: var(--weight-semibold) var(--type-sm) / var(--line-tight) var(--family-sans);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--rail-muted);
@@ -466,7 +465,7 @@ svg.ico {
   border-radius: var(--corner-md);
   background: #2c3140;
   color: #eef0f6;
-  font: var(--weight-medium) var(--type-xs) / var(--line-tight) var(--family-sans);
+  font: var(--weight-medium) var(--type-sm) / var(--line-tight) var(--family-sans);
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
@@ -548,7 +547,7 @@ svg.ico {
    sentence at 12px needs it and a column of counts did not. */
 .custody .line {
   margin-top: var(--space-3);
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   line-height: 1.55;
   color: var(--rail-muted);
   min-width: 0;
@@ -603,7 +602,7 @@ svg.ico {
   -webkit-user-select: text;
   cursor: text;
   font-family: var(--family-mono);
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   color: var(--rail-muted);
   opacity: 0.62;
 }
@@ -780,7 +779,7 @@ fieldset.field {
    grouping it names disappears with it. */
 .field > label {
   display: block;
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   font-weight: var(--weight-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1050,7 +1049,7 @@ select.input {
 }
 .org-mode .k {
   color: var(--fg-secondary);
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
 }
 /* ONE COLUMN where three would be three words per line. The threshold is the CONTENT column,
    not the window: the rail takes 232px and `.main` 48px of padding, so a 1024px window leaves
@@ -1106,7 +1105,7 @@ select.input {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   color: var(--fg-muted);
   min-width: 0;
 }
@@ -1124,7 +1123,7 @@ select.input {
   place-items: center;
   /* ⚠ THE ONLY RAW `font-size` LEFT IN THIS FILE WAS HERE, and it was 11px - below the 12px
      floor the product makes an accessibility claim about, and in px, so the text-size setting
-     and a raised browser default could not reach it. It is `--type-xs` now.
+     and a raised browser default could not reach it. It is `--type-sm` now.
      THE BOX IS `em`, NOT px, for the same reason: a 20px circle around text that scales is a
      circle the text grows out of at the Large setting. 1.55em of 13px is 20.15px, which is where
      it already sat. */
@@ -1134,7 +1133,7 @@ select.input {
   border-radius: var(--corner-pill);
   border: var(--border-width) solid var(--border);
   background: var(--surface);
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
@@ -1184,7 +1183,7 @@ select.input {
   font-size: var(--type-lg);
 }
 .source-counts .metric-label {
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
 }
 
 /* ---------- the Organize action bar ---------- */
@@ -1257,7 +1256,7 @@ select.input {
   min-width: 0;
 }
 .actionbar .why {
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   color: var(--fg-muted);
 }
 /* WHAT IS ABOUT TO HAPPEN, in one line, on the right. It fills in as the form fills in, so the
@@ -1341,7 +1340,7 @@ select.input {
   margin-top: var(--space-4);
 }
 .actions .why {
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   color: var(--fg-muted);
 }
 .actions .spacer {
@@ -1503,7 +1502,7 @@ select.input {
   margin-bottom: var(--space-4);
 }
 .chip {
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   padding: var(--space-1) var(--space-3);
   border-radius: var(--corner-pill);
   background: var(--surface-sunken);
@@ -1537,7 +1536,7 @@ select.input {
 }
 .result-folders h3 {
   margin: 0 0 var(--space-3);
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   font-weight: var(--weight-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1577,7 +1576,7 @@ select.input {
 }
 .dest-tree h3 {
   margin: 0 0 var(--space-4);
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   font-weight: var(--weight-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1615,7 +1614,7 @@ select.input {
   margin-top: var(--space-2);
   padding-top: var(--space-2);
   border-top: var(--border-width) solid var(--divider);
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   color: var(--fg-secondary);
 }
 .tree-child {
@@ -1732,7 +1731,7 @@ details.more.inline {
 /* The activity line proves liveness on a single large file, so it must never push the layout
    around as filenames change length. */
 .progress-wrap .activity {
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   color: var(--fg-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -1740,7 +1739,7 @@ details.more.inline {
   max-width: 22rem;
 }
 .progress-wrap .count {
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   color: var(--fg-secondary);
 }
 .progress-wrap .proportion {
@@ -1767,7 +1766,7 @@ details.more.inline {
   flex: 1;
 }
 .progress-wrap .meta {
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   color: var(--fg-secondary);
 }
 .progress-wrap .prog-tally {
@@ -1775,7 +1774,7 @@ details.more.inline {
   flex-wrap: wrap;
   gap: var(--space-3);
   margin-top: var(--space-2);
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   color: var(--fg-muted);
 }
 .progress-wrap .prog-tally b {
@@ -1786,7 +1785,7 @@ details.more.inline {
 /* The completion moment: in-register and calm. A quiet mark, not a celebration. */
 .done-mark {
   font-family: var(--family-mono);
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--accent);
@@ -1856,7 +1855,7 @@ details.more.inline {
   gap: var(--space-1);
   padding: var(--space-3) var(--space-5);
   font-family: var(--family-mono);
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   color: var(--fg-secondary);
   border-bottom: var(--border-width) solid var(--border);
 }
@@ -1876,7 +1875,7 @@ details.more.inline {
   overflow-y: auto;
 }
 .modal .roots .grp {
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   color: var(--fg-muted);
   padding: var(--space-2) var(--space-3) var(--space-1);
 }
@@ -1915,7 +1914,7 @@ details.more.inline {
 .modal footer .sel {
   flex: 1;
   font-family: var(--family-mono);
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   color: var(--fg-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2024,7 +2023,7 @@ details.more.inline {
   .sidebar[data-collapsed="true"] .wordmark-text {
     display: inline;
   }
-  .sidebar[data-collapsed="true"] svg[data-brand="pillar-t"] {
+  .sidebar[data-collapsed="true"] svg[data-brand="truestill-t"] {
     display: none;
   }
   .nav-section-label,
@@ -2083,7 +2082,13 @@ details.more.inline {
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    padding: var(--space-2) var(--space-3);
+    /* ⚠ `--space-1` VERTICALLY, NOT `--space-2`, since 2026-09-10. The band's budget was set
+       when the catalog path was `--type-xs`; collapsing that step into `--type-sm` grew the line
+       2px and took the whole bar from 119 to 121.375 against
+       `test_the_bar_is_a_bar_and_not_most_of_the_window`'s 120px ceiling. The type is the
+       decision and the padding is the give: a band whose text grew should spend less on air, not
+       more of the window. The ceiling was NOT raised - it is what the rule is. */
+    padding: var(--space-1) var(--space-3);
     border-radius: 0;
     border: none;
     border-top: var(--border-width) solid var(--rail-border);
@@ -2115,7 +2120,7 @@ details.more.inline {
 .carried {
   display: block;
   margin-top: var(--space-1);
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   color: var(--accent);
   min-height: 1.45em;
 }
@@ -2133,11 +2138,11 @@ details.more.inline {
   margin-top: var(--space-2);
 }
 .drive-foot .k {
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
 }
 .drive-foot .drive-check {
   padding: var(--space-1) var(--space-2);
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   color: var(--accent);
 }
 
@@ -2388,7 +2393,7 @@ details.more.inline {
    names is one narrower.) */
 .panel-k {
   color: var(--fg-muted);
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   font-weight: var(--weight-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2414,7 +2419,7 @@ details.more.inline {
   border-radius: var(--corner-pill);
   background: var(--surface-sunken);
   color: var(--fg-secondary);
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
   font-weight: var(--weight-semibold);
 }
 .panel-row {
@@ -2471,7 +2476,7 @@ details.more.inline {
   font-size: var(--type-lg);
 }
 .metrics.compact .metric-label {
-  font-size: var(--type-xs);
+  font-size: var(--type-sm);
 }
 
 /* Quick access: the picker's places, inline, so choosing a folder does not begin with a modal. */

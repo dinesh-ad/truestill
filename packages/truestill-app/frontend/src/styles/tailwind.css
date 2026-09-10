@@ -80,7 +80,11 @@
   --color-warning-subtle: var(--warning-subtle);
 
   /* --- type: `text-*` utilities resolve to the fluid clamps in tokens.css ------------------ */
-  --text-xs: var(--type-xs);
+  /* ⚠ `text-xs` MAPS TO `--type-sm` SINCE 2026-09-10, when `--type-xs` left the scale. It is
+     NOT dead like `text-xl` was: `select.tsx` and `button.tsx` both use the class, so leaving it
+     pointing at a deleted property would resolve to nothing and silently drop the rule. Tailwind's
+     name is kept; the step it resolves to is the one that exists. */
+  --text-xs: var(--type-sm);
   --text-sm: var(--type-sm);
   --text-base: var(--type-base);
   --text-lg: var(--type-lg);

@@ -5,6 +5,12 @@ see what the artwork derives from.
 
 ## One mark: the geometric pillar T
 
+⚠ **RETIRED 2026-09-10 - `pillar-t-*.svg` reach no surface.** The product's one mark is
+`truestill-mark.svg`, the maintainer's own; the rail inlines it and every icon is rasterised from
+it. This section is kept as the record of where the pillar T's geometry came from, because
+`scripts/make_pillar_t.py` still generates it and `test_pillar_t_is_deterministic.py` still pins
+the pair. `brand/README.md` carries the full reason. Do not point a consumer back at it.
+
 `pillar-t-geometric*.svg` is **drawn, not outlined**. Every point comes from named constants in
 `scripts/make_pillar_t.py`; no typeface was traced or referenced. **No font licence attaches and
 no attribution is required.** Four files, two flags: gradient or solid paint, flute or no flute.
