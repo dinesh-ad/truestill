@@ -5,7 +5,6 @@ from __future__ import annotations
 import threading
 import uuid
 from collections import Counter
-from dataclasses import replace
 from itertools import islice
 from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict, cast
@@ -17,7 +16,7 @@ from truestill_core.catalog_busy import REQUEST_BUSY_ATTEMPTS, retry_while_busy
 from truestill_core.catalog_session import open_catalog
 from truestill_core.categorize import build_rules
 from truestill_core.date_provenance import format_offset
-from truestill_core.dedup import DedupIndex, credible_copies
+from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
 from truestill_core.destinations.base import DestinationError
 from truestill_core.drive import (
@@ -60,7 +59,6 @@ from truestill_core.organizer import (
     Relocation,
     RunStoppedError,
     SourceScan,
-    _scope_to_destination,
     discover,
     execute,
     heavy_days_for_organize,
@@ -86,6 +84,7 @@ from truestill_core.run_record import (
 from truestill_core.thumbnails import upright_size
 
 from truestill_app.jobs import JobTarget
+from truestill_app.service.destination_scope import promise_view, scope_to_marker
 from truestill_app.service.drives import LIBRARY_PATH_HINT
 from truestill_app.service.leftover_cleanup import (
     LeftInSource,
@@ -1083,14 +1082,14 @@ def organize_preview(
         # Inside the open catalog, because it asks the catalog. Two index seeks over the
         # matched hashes; the preview has just hashed every file, so this is not the cost.
         matched_drives = _matched_drives(catalog, resolutions)
-        on_destination = _scope_to_marker(destination, catalog)
+        on_destination = scope_to_marker(destination, catalog)
     # ONE RESOLVE, TWO ANSWERS - `DECISIONS.md` D14. The pass above is catalog-global on purpose:
     # `matched_drives` and `exact_dup_matches` are the LIBRARY's answer ("these are already in
     # your library, on X"), which `IMPLEMENTATION_STANDARDS.md` §9 requires the preview to name.
     # The PROMISE - what the run will write into THIS destination - is `(aei)`'s answer, and the
-    # run scopes it through `_scope_to_marker`. Until 2026-09-05 the preview gave only the first,
+    # run scopes it through `scope_to_marker`. Until 2026-09-05 the preview gave only the first,
     # so a fresh second destination was promised "0 files" and then received every one.
-    promise = _promise_view(resolutions, on_destination)
+    promise = promise_view(resolutions, on_destination)
     core = _summarize(promise, skip_undated=skip_undated)
     # The duplicate report keeps the library's view: it is what names where the twins live and
     # what the rearrange pointer counts. The tally and the promise above are the destination's.
@@ -1116,31 +1115,6 @@ def organize_preview(
     if limit is not None:
         summary["destination_limit"] = limit
     return summary
-
-
-def _promise_view(
-    resolutions: list[Resolution], on_destination: dict[str, str]
-) -> list[Resolution]:
-    """Re-judge each exact match against THIS destination, exactly as the run will.
-
-    Same function, same inputs, same order as `organizer.resolve`'s own loop, so the verdicts
-    are the run's verdicts: a catalog twin absent from this destination is not a duplicate for
-    the promise, a twin this run is already writing here (`landing_here`) still is, and a
-    within-batch twin is always honoured. Nothing is re-hashed and nothing is resolved twice;
-    the near-duplicate verdict is untouched because bytes that match exactly are simply not
-    here, which is not a look-alike.
-    """
-    landing_here: set[str] = set()
-    judged: list[Resolution] = []
-    for r in resolutions:
-        sha = r.hashes.sha256
-        exact = r.exact_duplicate
-        if exact is not None:
-            exact = _scope_to_destination(exact, sha, on_destination, landing_here)
-        if exact is None and sha is not None:
-            landing_here.add(sha)
-        judged.append(replace(r, exact_duplicate=exact))
-    return judged
 
 
 def organize_preview_run(
@@ -1195,33 +1169,6 @@ def _approve_registration(destination: Path, catalog: Catalog) -> None:
     ghost = ghost_drive_at(destination, catalog, drives)
     if ghost is not None:
         raise DriveGhostError(ghost_drive_refusal(ghost))
-
-
-def _scope_to_marker(destination: Path, catalog: Catalog) -> dict[str, str]:
-    """What this destination already holds, for `(aei)`'s per-destination dedup.
-
-    ⚠ **Read from the MARKER, not from registration**, which is what lets `(aek)` move the marker
-    write behind the space check without restoring `(aei)`. A destination that has an identity has
-    it before anything here runs; one that does not provably holds no recorded copies, and `{}` is
-    exactly what a freshly minted uuid would have returned.
-
-    The app always writes to a local drive - there is no rclone path here - so
-    `organizer._scope_to_destination`'s catalog-global `None` case never applies. Returning `None`
-    here would make organize dedupe against the whole catalog and copy nothing onto a second
-    drive, which is `(aei)` itself.
-    """
-    existing = read_marker(destination)
-    if existing is None:
-        return {}
-    rows = catalog.copies_on_drive(existing.uuid)
-    # ⚠ **A row is a claim; the destination is asked whether it is still true.** `(aja)`. The app
-    # always writes to a local drive, so `sizes()` always answers here - there is no rclone branch
-    # to fall back to. See `dedup.credible_copies`.
-    return credible_copies(
-        {str(r["sha256"]): str(r["relative"]) for r in rows},
-        sizes=LocalDestination(destination).sizes(),
-        expected={str(r["sha256"]): (None if r["size"] is None else int(r["size"])) for r in rows},
-    )
 
 
 def _reapply_named_events(
@@ -1380,7 +1327,7 @@ def organize_run(
             _approve_registration(effective_destination, catalog)
 
             index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
-            on_destination = _scope_to_marker(effective_destination, catalog)
+            on_destination = scope_to_marker(effective_destination, catalog)
             resolutions = resolve(
                 decisions,
                 index,

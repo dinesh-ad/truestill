@@ -1875,6 +1875,9 @@
       },
       "IngestPreviewSummary": {
         "properties": {
+          "already_in_library": {
+            "type": "integer"
+          },
           "dates_exif": {
             "type": "integer"
           },
@@ -1928,6 +1931,7 @@
           }
         },
         "required": [
+          "already_in_library",
           "dates_exif",
           "dates_photo_taken",
           "dates_upload_approx",

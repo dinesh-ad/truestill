@@ -1261,3 +1261,65 @@ counter, the cap as a pure function, the precedence between a licence problem an
 epoch's two guards, exit code `9`, and §7's exemption for `recover`. **Not built:** any screen,
 route or rail slot; the licensing server and payment do not exist. §5's free-tier
 announcement is a **website** deliverable and the website does not exist.
+
+---
+
+## D17. Import applies in the app too, and it means "into this destination"
+
+**Decision (the maintainer, 2026-09-11).** Two rulings on the Import surface, made because the
+product could show a user exactly what an import would do and could not do it.
+
+### 1. The app applies. Its absence was drift, not a decision.
+
+**`truestill ingest --apply` already organizes** - `cli.py:_cmd_ingest` runs the ordinary pipeline
+(`_run_pipeline`, passing `takeout=scan.sidecars`) and calls `execute(apply=args.apply)`. The
+engine was never missing. What is missing is one service function and one route: there is no
+`/api/ingest/run` (`server.py`'s three ingest routes are `preview`,
+`archives/precheck`, `archives/run`), and `service/takeout.py:archive_ingest_run` unpacks, records
+the extraction, and then **ends in a preview**.
+
+⚠ **THE ABSENCE OF A REASON IS THE EVIDENCE, and it is the project's own rule that makes it so.**
+`BACKLOG.md`'s *App-surface deferrals* register exists precisely to stop a single-surface contract
+being implicit: *"an undocumented single-surface contract is indistinguishable from drift."* It
+names five members - `(aap)`, the date rescue, trip/event naming, `reclaim`, `{camera_model}` -
+and **ingest-apply is not among them**. No `D`-number mentions it. `(jj)`, `(agg)`, `(aht)` and
+`(akg)` are about other things. So this was never ruled on; it was left.
+
+**Ruled: the app applies.** This decision is the record that was missing, and it is recorded as
+**drift corrected**, not as a deferral ending.
+
+### 2. Import means INTO THIS DESTINATION
+
+`(akg)` left this open - *"whether Import means 'bring these into this destination' … or 'bring
+these into the library'"* - and named the CLI as the reference without reading it.
+
+**The CLI was read, and then run.** `_run_pipeline` passes
+`on_destination=_shas_on_destination(...)` into `resolve`, so `ingest` has always scoped dedup to
+the destination. Measured on a two-drive fixture: six photographs ingested into Drive A, then the
+**same source** ingested into a fresh Drive B - `skipped (exact dup): 0`, and **Drive B received
+all six**.
+
+So the ruling matches what the CLI already does, and `(akg)`'s question is answered by the
+reference it nominated. This is `(aei)` on a third surface.
+
+⚠ **And the app disagrees with it today.** `service/takeout.py:ingest_preview` resolves
+catalog-globally and passes no `on_destination`, so on the identical fixture it promises
+**`kept: 0`, `dup_collapsed: 6`** for a fresh drive the CLI fills. That is defect **D2** of
+`handoff-2026-09-05.md` - *"no second copy"* - on Import.
+
+**The fix is D14's shape and not the one-argument version**, which that record measured and
+rejected: scoping the single `resolve` makes the promise true and empties the naming. One pass,
+catalog-global, then `promise_view` re-judges against this destination with the run's own
+function. Both rulings then hold at once.
+
+### What this decision does NOT settle
+
+- **The staging tree's lifetime.** `(aht)` - `clear_staging` has no caller - is untouched and
+  still wants its own ruling.
+- **The dry-run-extracts-anyway shape.** `_source_root_or_none` unpacks before any `--apply`
+  check and therefore under no drive lock. Named here so it is not rediscovered; not ruled on.
+- **`--tz`, `--prefer-takeout-dates`, `--map-albums`**, which `cli-app-parity.md` records as
+  unimplemented in the app.
+
+**Status:** Settled as a decision, partially built. **Built:** the destination-scoped promise on
+both Import previews. **Not built:** the apply route, the screen's control, or the three flags.

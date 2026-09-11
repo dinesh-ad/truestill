@@ -32,6 +32,7 @@ from truestill_core.progress import Phase, Progress, ProgressCallback
 from truestill_core.takeout import scan_takeout
 
 from truestill_app.jobs import JobTarget
+from truestill_app.service.destination_scope import promise_view, scope_to_marker
 
 
 class InferredLocalShiftPayload(TypedDict):
@@ -52,8 +53,14 @@ class IngestPreviewEmpty(TypedDict):
 
 class IngestPreviewSummary(TypedDict):
     files: int
+    #: What will be written INTO THIS DESTINATION. `(aei)`, D14, D17.
     kept: int
+    #: Collapsed for this destination - a twin already here, or a twin this run is writing here.
     dup_collapsed: int
+    #: ⚠ **The LIBRARY's answer, and it is a different number.** How many of these the catalog
+    #: holds anywhere. On a fresh second drive this can be every file while `kept` is also every
+    #: file, and both are true: they are already in your library, and they are still going here.
+    already_in_library: int
     #: Named on its own so `files == kept + dup_collapsed + unreadable` holds. A file truestill
     #: could not read is neither kept nor collapsed, and counting it as kept promised one that
     #: will not be organized.
@@ -75,7 +82,7 @@ class IngestPreviewSummary(TypedDict):
 
 def ingest_preview(
     takeout: Path,
-    destination: Path,  # noqa: ARG001 - kept for API symmetry with organize preview
+    destination: Path,
     db: Path,
     *,
     progress: ProgressCallback | None = None,
@@ -86,6 +93,18 @@ def ingest_preview(
     Discovery has no progress callback, so the first tick is indeterminate (:attr:`Phase.SCANNING`
     with ``total=0``) rather than a fake count. Metadata and hashing then reuse the same
     callbacks :func:`read_metadata` and :func:`resolve` already expose to organize preview.
+
+    ⚠ **ONE RESOLVE, TWO ANSWERS - `DECISIONS.md` D14 and D17.** ``destination`` was accepted and
+    unused until 2026-09-11, and the numbers this returned were the **library's** answer wearing
+    the promise's name: a fresh second drive was told ``kept: 0, dup_collapsed: 6`` while
+    ``truestill ingest`` copied all six into it. Measured on a two-drive fixture, and it is
+    defect **D2** of `handoff-2026-09-05.md` - *"no second copy"* - on Import.
+
+    ⚠ **NOT the one-argument fix.** That record measured scoping the single `resolve` and rejects
+    it: it makes the promise true and empties the naming. The pass below stays catalog-global, and
+    `organize.promise_view` re-judges it against this destination with the same function the run
+    uses - so ``kept`` is what will be written here and ``already_in_library`` is still what the
+    library holds. Both are true at once, which is the whole point of the shape.
     """
     if progress is not None:
         progress(Progress(0, 0, Phase.SCANNING, ""))
@@ -110,11 +129,22 @@ def ingest_preview(
             cancel=cancel,
             cache=cache,
         )
+        # Read inside the catalog block, like organize's. `{}` for a destination with no marker
+        # is exactly what a freshly minted uuid would hold - see `organize.scope_to_marker`.
+        on_destination = scope_to_marker(destination, catalog)
+    # ⚠ **THE PROMISE IS THE DESTINATION'S ANSWER.** `promise_view` re-judges each exact match
+    # against THIS destination, in the run's order, with the run's `landing_here` - the same
+    # function `organize` uses since `(aei)`, so the verdicts are the run's verdicts.
+    promise = promise_view(resolutions, on_destination)
     # Same disjointness as the organize summary: an unreadable file is neither kept nor a
     # collapsed duplicate, and counting it as kept promised a file that will not be organized.
-    buckets = partition_for_report(resolutions)
+    buckets = partition_for_report(promise)
     uploads = buckets.organized
     dups = buckets.exact_duplicates
+    # ⚠ **AND THE LIBRARY'S ANSWER SURVIVES, which is the half the one-argument fix destroyed.**
+    # Counted from the catalog-global pass, so "your library already holds these" stays true even
+    # when every one of them is still going to be written into this destination.
+    already_in_library = len(partition_for_report(resolutions).exact_duplicates)
     sources = Counter(r.decision.date_source.value for r in uploads)
     reclaimed = sum(_safe_size(r.decision.source) for r in dups)
     quality = date_quality(uploads)
@@ -122,6 +152,7 @@ def ingest_preview(
         "files": len(resolutions),
         "kept": len(uploads),
         "dup_collapsed": len(dups),
+        "already_in_library": already_in_library,
         "unreadable": len(buckets.unreadable),
         "reclaimed_mb": round(reclaimed / 1e6, 1),
         "dates_photo_taken": sources.get("takeout", 0),

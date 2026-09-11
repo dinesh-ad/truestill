@@ -5233,6 +5233,14 @@ recording shipped work as unstarted, which is the more expensive direction of th
   - **The UI shipped in `4606713`** and is not outstanding. Preview-then-confirm in the Rescue
     screen, progress and cancel through the existing job machinery, and the space figure
     labelled in the copy as the archives' own claim.
+    - ⚠ **SCOPE NOTE ADDED 2026-09-11, and nothing above is withdrawn.** *"Core through UI"* and
+      *"preview-then-confirm"* are true of **this entry's subject** - reading an archive - and the
+      confirm they name is confirm-to-**UNPACK** (`app.js`'s `Unpack and scan`). They are **not**
+      a claim that the app can apply an import: it cannot, there is no `/api/ingest/run`, and
+      `cli-app-parity.md`'s *"the app can preview an import and can never apply one"* is
+      simultaneously true. **The two documents were read as contradictory on 2026-09-11 and are
+      not** - they answer different questions, and this note is what stops the next reader
+      spending the same half hour. The apply is ruled on in `DECISIONS.md` **D17**.
     **Refusals carry their CODE in the DOM** (`data-refusal="<code>"`), and the browser tests key
     on that rather than on the sentence - five refusals render similar-looking prose, so matching
     words lets a test pass because a *different* refusal fired. That is guard rule 8, and it is
