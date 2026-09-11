@@ -142,6 +142,9 @@ _EXPECTED: dict[str, Decision] = {
     # Writes user files on the drive. The four `(aaw)` was measured on.
     "organize": Decision(True, surface="organize"),
     "backup": Decision(True, surface="backup"),
+    # Writes user files into the destination: it IS the organize pipeline, with the Takeout
+    # sidecars handed to it. D17. The CLI has served both from one function since ingest shipped.
+    "ingest": Decision(True, surface="ingest"),
     # Copies into the LIBRARY from a drive. Adds only - nothing is deleted or replaced - but it
     # writes user files, so it holds the library for the run exactly as a backup holds its target.
     "recover": Decision(True, surface="recover"),

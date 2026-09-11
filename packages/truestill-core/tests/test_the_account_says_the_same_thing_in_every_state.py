@@ -176,10 +176,16 @@ def test_the_summary_row_strings_stay_short_enough_to_be_worth_measuring(
     """A cheap proxy, and **it is named as a proxy because it twice said yes when the answer was
     no.**
 
-    The headline and the allowance render on one row of a 232px rail, in a box measured at
-    **127px**. A character count cannot decide that: letters are not the same width, so
+    The headline and the allowance render on one row of the rail, in a box measured at **168px**
+    since 2026-09-11 - it was **127px** in a 232px rail, and the rail is 272px now. A character
+    count cannot decide what fits either width: letters are not the same width, so
     "1,000 of 1,000 left" fits at 19 characters while "Licence unreadable" truncates at 18. Two
     budgets were set from counts (22, then 19) and both passed strings that clipped on screen.
+
+    ⚠ **The count stayed at 19 when the box grew, deliberately.** Raising it to match 168px would
+    be setting a budget from a measurement of today's font on today's machine - the third time
+    this file would have done that. It is a trip-wire against wording that grows by a lot, and a
+    looser box makes it looser still; the browser guard below is what actually decides.
 
     ⚠ **The real guard is in the browser** -
     `tests/e2e/test_the_account_slot_draws_every_licence_state.py` asserts

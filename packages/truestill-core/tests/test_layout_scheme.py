@@ -313,7 +313,9 @@ def test_no_decommissioned_layout_reference_survives_current_facing_text() -> No
             or relative in negative_fixture_files
         ):
             continue
-        text = path.read_text(encoding="utf-8", errors="ignore")
+        # ⚠ **`text_of`, not `read_text`**: this listing is a snapshot and the working tree is
+        # live, so a file can go between the two. It shipped as a flake in `1867be3`.
+        text = repo_sources.text_of(relative)
         offenders += [f"{relative}: {name}" for name in forbidden if name in text]
 
     assert not offenders, "decommissioned layout references still present: " + "; ".join(offenders)

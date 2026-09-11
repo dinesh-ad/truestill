@@ -11,6 +11,7 @@ from typing import Any, Literal, NotRequired, TypedDict, cast
 
 from truestill_core import decode_noise
 from truestill_core.allowance import files_written_by, record_files_written
+from truestill_core.archive_extract import pending_staging
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_busy import REQUEST_BUSY_ATTEMPTS, retry_while_busy
 from truestill_core.catalog_session import open_catalog
@@ -81,6 +82,7 @@ from truestill_core.run_record import (
     record_organize,
     stop_block,
 )
+from truestill_core.takeout import ingest_context, scan_takeout
 from truestill_core.thumbnails import upright_size
 
 from truestill_app.jobs import JobTarget
@@ -1293,6 +1295,54 @@ def _open_organize_run(
     )
 
 
+def ingest_run(
+    takeout: Path, destination: Path, db: Path
+) -> JobTarget[CompletionBase | OrganizeDoneSummary]:
+    """Apply a Takeout rescue. **The organize pipeline with the sidecars handed to it.** D17.
+
+    ⚠ **IT LIVES HERE, NEXT TO WHAT IT CALLS, and the placement was forced rather than chosen.**
+    `service/takeout.py` is the natural home and cannot be: `organize.py` already imports
+    `InferredLocalShiftPayload` from it, so importing back is a **circular import** that neither
+    ruff nor mypy reports because it only exists at run time. Beside `organize_run` is honest -
+    this is that function with one argument set.
+
+    ⚠ **A WRAPPER, NEVER A SECOND PIPELINE.** Everything that makes a run safe already exists in
+    `organize_run` and is inherited here rather than re-established: the per-drive lock (the route
+    declares `mutating=True` on the destination), the run record, the `organize_runs` row, the
+    allowance charge, and `RunStoppedError`'s stopped-partway shape. The CLI has served both from
+    one function since `ingest` shipped; this is the same choice on the other surface.
+
+    ⚠ **And it is the same `plan` the preview ran**, so the number the screen showed is the number
+    this honours - which is what `ingest_preview`'s destination scoping bought.
+    """
+    source = _unpacked_source(takeout, destination)
+    return organize_run(source, destination, db, takeout=source)
+
+
+def _unpacked_source(given: Path, destination: Path) -> Path:
+    """The folder to import FROM: an archive's unpacked staging tree, or the folder as given.
+
+    ⚠ **FOUND BY WALKING IT, and it imported nothing.** The Import screen hands this route the
+    path the user typed - which for the case the screen is built around is a **`.zip`**. The
+    preview never sees that: `archive_ingest_run` unpacks first and previews
+    `extraction.staging_root`. So the preview promised eight files from the staging tree and the
+    run called `discover()` on an archive file, found none, and reported *"0 imported"* - a clean,
+    confident, wrong answer.
+
+    `pending_staging` answers from the destination path alone, which is exactly the recovery shape
+    it was written for: the unpack already happened in `/api/ingest/archives/run`, and this finds
+    what it left. A path that is already a directory is returned untouched, so an
+    already-extracted folder keeps the old single-step behaviour.
+
+    ⚠ **It does NOT unpack.** Extraction is `archives/run`'s job, declared `mutating=True` and
+    locked; doing it here would put an unpack behind a button labelled "Import them".
+    """
+    if given.is_dir():
+        return given
+    staged = pending_staging(destination)
+    return staged[-1].staging_root if staged else given
+
+
 def organize_run(
     source: Path,
     destination: Path,
@@ -1301,8 +1351,21 @@ def organize_run(
     skip_undated: bool = False,
     refresh_metadata: bool = False,
     mode: str = "copy",
+    takeout: Path | None = None,
 ) -> JobTarget[CompletionBase | OrganizeDoneSummary]:
-    """Build a job target that runs the real organize (progress across hashing then copying)."""
+    """Build a job target that runs the real organize (progress across hashing then copying).
+
+    ⚠ **``takeout`` MAKES THIS THE INGEST RUN TOO, AND THAT IS ONE PIPELINE RATHER THAN TWO.**
+    D17. The CLI has always served both from one function - `_run_pipeline` takes `takeout=` and
+    is what `truestill ingest` and `truestill organize` both call - and a second app pipeline
+    would be a second answer to every question this one already answers: the lock, the run
+    record, the `organize_runs` row, the allowance, and the stopped-partway shape.
+
+    When given, the sidecars reach `plan` **and** `execute`. ⚠ **Both, not one**: `plan` is what
+    makes the copy's *filename and folder* carry the rescued date, and `ingest` is what bakes it
+    *into the file*. Passing only the first writes a correctly-named copy whose EXIF still says
+    whatever the export left - which is the one thing this feature exists to fix.
+    """
 
     def target(
         progress: ProgressCallback, cancel: threading.Event
@@ -1320,8 +1383,16 @@ def organize_run(
             pin_existing_layout(catalog)
             scheme = resolve_scheme(catalog)
             rules = build_rules()
-            heavy = heavy_days_for_organize(catalog, files, metadata, rules)
-            decisions = plan(files, metadata, rules, scheme=scheme, heavy_days=heavy)
+            # Scanned inside the job: it walks the tree, which on an unpacked export is real work.
+            scan = scan_takeout(takeout) if takeout is not None else None
+            sidecars = scan.sidecars if scan is not None else None
+            heavy = heavy_days_for_organize(catalog, files, metadata, rules, takeout=sidecars)
+            decisions = plan(
+                files, metadata, rules, takeout=sidecars, scheme=scheme, heavy_days=heavy
+            )
+            # ⚠ The bake plan, from core, so the CLI and this cannot answer "which date does the
+            # copy carry" differently. `None` for an ordinary organize leaves `execute` unchanged.
+            ingest = ingest_context(decisions, metadata, scan) if scan is not None else None
             # Settle whether this folder MAY become a drive, before the expensive pass. Writes
             # nothing; the marker itself waits for the space check below. `(aek)`
             _approve_registration(effective_destination, catalog)
@@ -1379,6 +1450,7 @@ def organize_run(
                     progress=progress,
                     cancel=cancel,
                     drive_uuid=drive_uuid,
+                    ingest=ingest,
                 )
             except RunStoppedError as exc:
                 # ⚠ **THE RECORD, BEFORE THE EXCEPTION LEAVES THE BUILDING.** `(agj)`

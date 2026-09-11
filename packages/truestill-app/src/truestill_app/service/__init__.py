@@ -224,6 +224,7 @@ OrganizePreviewSummary = _organize.OrganizePreviewSummary
 organize_preview = _organize.organize_preview
 organize_preview_run = _organize.organize_preview_run
 organize_run = _organize.organize_run
+ingest_run = _organize.ingest_run
 CompletionBase = _organize.CompletionBase
 OrganizeDoneSummary = _organize.OrganizeDoneSummary
 _summarize = _organize._summarize

@@ -76,6 +76,9 @@ UNBOUND: dict[str, str] = {
     "/api/migrate/run": "as above",
     "/api/ingest/archives/run": "zero reads, and its factory returns a UNION of three payloads",
     "/api/ingest/preview": "zero reads, and a union of two",
+    "/api/ingest/run": "D17. The factory returns `CompletionBase | OrganizeDoneSummary` - the "
+    "same union as `/api/organize/run`, because it IS `organize_run` with `takeout=` set - and a "
+    "read set cannot be attributed to one arm of a union",
     "/api/recover/preview": "the factory returns `RecoverPreviewOk | RecoverPreviewErr`; a read "
     "set cannot be attributed to one arm of a union, and the refusal arm is rendered by the same "
     "block that renders the answer",

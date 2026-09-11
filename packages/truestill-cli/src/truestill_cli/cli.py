@@ -211,7 +211,6 @@ from truestill_core.models import (
     ActionResult,
     ActionStatus,
     DateSource,
-    Decision,
     Event,
     Resolution,
     UnreadableReason,
@@ -276,10 +275,9 @@ from truestill_core.selfcheck import (
 )
 from truestill_core.source_repoint import RepointPlan, plan_repoint
 from truestill_core.takeout import (
-    IngestContext,
-    MetadataWrite,
     TakeoutScan,
     TakeoutSidecar,
+    ingest_context,
     scan_takeout,
 )
 from truestill_core.undo import (
@@ -3106,27 +3104,6 @@ def _print_execution(results: list[ActionResult], resolutions: list[Resolution])
     return 1 if failures else 0
 
 
-def _build_ingest_context(
-    decisions: list[Decision], metadata: dict[Path, dict[str, Any]], scan: TakeoutScan
-) -> IngestContext:
-    """Bake plan: write a rescued date into a copy only when it lacks a good embedded one;
-    add sidecar GPS only when the file has none; always carry a description."""
-    writes: dict[str, MetadataWrite] = {}
-    for decision in decisions:
-        sidecar = scan.sidecars.get(decision.source)
-        if sidecar is None:
-            continue
-        from_takeout = decision.date_source in (DateSource.TAKEOUT, DateSource.TAKEOUT_UPLOAD)
-        taken = decision.captured_at if from_takeout else None
-        has_exif_gps = "GPSLatitude" in metadata.get(decision.source, {})
-        gps = sidecar.gps if (sidecar.gps is not None and not has_exif_gps) else None
-        write = MetadataWrite(taken_at_local=taken, gps=gps, description=sidecar.description)
-        if write.has_content:
-            writes[str(decision.source)] = write
-    albums = {str(path): name for path, name in scan.albums.items()}
-    return IngestContext(writes=writes, albums=albums)
-
-
 def _safe_size(path: Path) -> int:
     try:
         return path.stat().st_size
@@ -3626,7 +3603,7 @@ def _run_pipeline(
             scheme=scheme,
             heavy_days=heavy,
         )
-        ingest_ctx = _build_ingest_context(decisions, metadata, scan) if scan is not None else None
+        ingest_ctx = ingest_context(decisions, metadata, scan) if scan is not None else None
 
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), args.phash_threshold)
         if catalog.count():

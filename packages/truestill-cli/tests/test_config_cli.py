@@ -232,7 +232,9 @@ def test_no_removed_preset_name_survives_anywhere_in_the_tree() -> None:
             "docs/default-layout-research.md",
         }:
             continue
-        text = path.read_text(encoding="utf-8", errors="ignore")
+        # ⚠ **`text_of`, not `read_text`**: this listing is a snapshot and the working tree is
+        # live, so a file can go between the two. It shipped as a flake in `1867be3`.
+        text = repo_sources.text_of(relative)
         offenders += [f"{relative}: {name}" for name in removed if name in text]
 
     assert not offenders, "removed preset names still present: " + "; ".join(offenders)

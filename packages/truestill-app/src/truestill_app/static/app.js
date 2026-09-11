@@ -3281,9 +3281,64 @@ function rcRenderSummary(d) {
      ${orgMarkup().matchList(r.duplicate_matches, "Show what each duplicate matched")}
      ${orgMarkup().matchList(r.near_dup_matches, "Show what each look-alike resembles")}`
   );
+  // ⚠ **The control appears only when the promise is non-zero**, and the promise is the
+  // DESTINATION's since D17 - so a drive that already holds everything is offered nothing to do
+  // rather than a button that would import nothing.
+  $("rc-confirm").innerHTML = "";
+  if (r.kept > 0) rcConfirm(r, $("rc-takeout").value.trim(), $("rc-dest").value.trim());
 }
 
 let rcJob = null;
+
+// ---------- applying an import (D17) ----------
+//
+// ⚠ **THE WORD IS "import", AND THERE IS NO CLI WORD TO AGREE WITH.** `truestill ingest` gates on
+// `--apply`, not on a typed word, so unlike `recover` there is no command name to mirror. The
+// word therefore has to be one the user is looking at: the screen is headed **Import**, the
+// button says **Import them**, and the CLI's subcommand happens to be spelled `ingest` - a
+// disagreement that predates this and is not papered over by making a person type a word the
+// screen never shows them.
+let rcPlan = null;
+
+function rcConfirm(r, takeout, destination) {
+  rcPlan = { takeout, destination, count: r.kept };
+  typedConfirm($("rc-confirm"), {
+    word: "import",
+    label: `Type import to bring ${plural(r.kept, "file")} into this library`,
+    buttonLabel: "Import them",
+    onConfirm: rcRun,
+  });
+}
+
+async function rcRun() {
+  if (!rcPlan) return;
+  const { takeout, destination } = rcPlan;
+  $("rc-confirm").innerHTML = "";
+  await runJob({
+    busyLabel: "Importing…",
+    start: () => api("/api/ingest/run", { takeout, destination }),
+    setJob: (id) => { rcJob = id; },
+    progress: rcProgress,
+    progressLabel: "importing",
+    statusVerb: "Importing",
+    onRefuse: (started) => { $("rc-result").innerHTML = startRefusedCard(started, "rc-dest"); },
+    onError: (d) => { $("rc-result").innerHTML = jobErrorCard(d); },
+    // A cancelled import keeps what landed - the same honesty the completion card carries, and
+    // re-running copies only what is still missing.
+    onCancelled: (d) => { $("rc-result").innerHTML = rcCompletion(d.summary, true); },
+    onSuccess: (d) => { $("rc-result").innerHTML = rcCompletion(d.summary, false); },
+  });
+}
+
+function rcCompletion(s, cancelled) {
+  const failed = s.failed
+    ? `<div class="banner warn"><div>${plural(s.failed, "file")} could not be imported.</div></div>`
+    : "";
+  return card(
+    `<div class="headline" data-testid="rc-done">${nfmt(s.organized || 0)} imported</div>
+     <div class="k">${cancelled ? "Stopped - this is what landed. " : ""}Their dates came from the
+     export's own records where the files had none.</div>${failed}`);
+}
 
 // Every refusal carries its CODE in data-refusal, and the tests key on that rather than on the
 // sentence. Five refusals render similar-looking prose, so matching words lets a test pass

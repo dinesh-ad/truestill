@@ -337,8 +337,9 @@ def test_no_state_truncates_its_own_headline(
 ) -> None:
     """**The real budget guard, and it exists because a character count lied twice.**
 
-    Core carries a length proxy; this is the property. The summary row's name box measures 127px,
-    and a count cannot decide what fits it - letters are not the same width, so
+    Core carries a length proxy; this is the property. The summary row's name box measures
+    **168px** since 2026-09-11 (127px when the rail was 232px), and a count cannot decide what
+    fits it - letters are not the same width, so
     "1,000 of 1,000 left" fits at 19 characters and "Licence unreadable" truncates at 18. Both
     shipped inside a passing length budget and both rendered with an ellipsis on screen.
 
@@ -367,6 +368,10 @@ def test_no_state_truncates_its_own_headline(
 
     assert overflow, "nothing was measured; the summary row rendered neither line"
     clipped = [row for row in overflow if row["over"] > 0]
+    # ⚠ **THIS ASSERTS LESS THAN IT DID, and that is stated rather than left to be discovered.**
+    # The box grew from 127px to 168px with the rail, so every string here clears it by more than
+    # before. The guard is unchanged and still the right one - it measures the property, not a
+    # count - but a wider box is a looser test, and nothing here compensates for that.
     assert not clipped, f"{state}: truncated in the rail - {clipped}"
 
 

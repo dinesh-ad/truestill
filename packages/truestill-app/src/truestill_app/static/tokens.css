@@ -169,7 +169,7 @@
   /* STAYS px, deliberately - do not "finish the conversion":
      --icon-size, and the 18px icon column it sits in - an icon is a fixed object, and a
        collapsed 64px rail that grew with body text would clip it;
-     --sidebar-width (232/64px) - the rail is a layout frame, not type;
+     --sidebar-width (272/64px) - the rail is a layout frame, not type;
      --border-width, --radius-* - hairlines and corners are not reading sizes;
      --space-* - spacing that scaled with type would compound every gap in a nested layout. */
   /* FLUID, and the bounds are rem for the reason the whole file is rem: a clamp in px

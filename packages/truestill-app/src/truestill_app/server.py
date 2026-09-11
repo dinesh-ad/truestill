@@ -497,6 +497,20 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             mutating=True,
         )
 
+    async def ingest_run(request: Request) -> JSONResponse:
+        # ⚠ **`mutating=True`, locked on the DESTINATION** - this is the organize pipeline with
+        # the Takeout sidecars handed to it, so it writes user files exactly as organize does.
+        # `(agg)` is the record of what declaring otherwise costs: the lock never engages.
+        body = await request.json()
+        takeout, destination = Path(body["takeout"]), Path(body["destination"])
+        return await run_in_threadpool(
+            _start_drive_job,
+            await run_in_threadpool(service.ingest_run, takeout, destination, _db()),
+            paths=[destination],
+            operation="ingest",
+            mutating=True,
+        )
+
     async def ingest_archives_precheck(request: Request) -> JSONResponse:
         # NOT a job: header reads only, so it answers in seconds and writes nothing - which is
         # what makes declining free. A job here would put a progress bar on a question.
@@ -1078,6 +1092,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         Route("/api/organize/undo/apply", organize_undo_apply, methods=["POST"]),
         Route("/api/verify/run", verify_run, methods=["POST"]),
         Route("/api/ingest/preview", ingest_preview, methods=["POST"]),
+        Route("/api/ingest/run", ingest_run, methods=["POST"]),
         Route("/api/ingest/archives/precheck", ingest_archives_precheck, methods=["POST"]),
         Route("/api/ingest/archives/run", ingest_archives_run, methods=["POST"]),
         Route("/api/fs/dirs", fs_dirs),

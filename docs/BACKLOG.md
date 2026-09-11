@@ -1340,8 +1340,24 @@ here because a lost answer key corrupts every measurement taken against it, whic
   first on the run and, on 2026-09-05, on the preview. Preview and run agree with each other
   there, so no promise breaks; the question is the semantics. `(aei)`'s tests cover `organize`
   only. Whether Import means "into this destination" or "into the library" decides it, and
-  nothing here says which. [Full entry](research/backlog/akg.md)
+  nothing here says which. ⚠ **ANSWERED 2026-09-11 BY `DECISIONS.md` D17 and fixed the same day**:
+  Import means *into this destination*, which is what `truestill ingest` has always done - run on a
+  two-drive fixture, a fresh second drive received all six. Both previews are scoped now; the entry
+  stays as the record of the question. [Full entry](research/backlog/akg.md)
 
+
+- **(akl) THE IMPORT PREVIEW NAMES NO DRIVE, AND `app.js` ALREADY ASKS IT TO.** Filed 2026-09-11
+  while building D17's apply. `app.js` calls `orgMarkup().matchList(r.duplicate_matches, ...)` and
+  `(r.near_dup_matches, ...)`, and `IngestPreviewSummary` has **never carried either key** - so
+  Import renders no duplicate naming at all. ⚠ **Not a bug today**: `MatchList` types its report
+  `| null | undefined` and returns `null` when absent, so nothing throws and nothing is blank that
+  should not be. It is a **gap against `IMPLEMENTATION_STANDARDS.md` §9** - the preview should name
+  WHICH drive already holds a file - which organize satisfies and Import does not.
+  **Not fixed in that commit, deliberately**: `_duplicate_report` lives in `service/organize.py`,
+  which `service/takeout.py` cannot import - the circular import that forced two relocations in
+  that same commit - so filling the keys costs a third move for a cosmetic gap. The honest fix is
+  the §9 naming as its own piece, now that `already_in_library` gives Import the library's count.
+  [Full entry](research/backlog/akl.md)
 
 - **(aal) How often is the machine wrong about dates, and about what?** Recorded 2026-07-31. [Full
   entry](research/backlog/aal.md)

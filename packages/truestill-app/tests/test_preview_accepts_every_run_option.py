@@ -25,10 +25,17 @@ from __future__ import annotations
 
 import inspect
 
-from truestill_app.service import organize_preview, organize_run
+from truestill_app.service import ingest_preview, organize_preview, organize_run
 
 #: Plumbing, not decisions. A parameter added here is a claim that it cannot change the answer.
 NOT_A_DECISION = {"progress", "cancel"}
+
+#: ⚠ **Options whose preview is a DIFFERENT function, named with it.** Not `NOT_A_DECISION`,
+#: which would be a lie: `takeout` changes the outcome more than any other option here - it is
+#: what makes a copy carry its rescued date. Its preview is `ingest_preview`, the pair
+#: `ingest_run` forms; `organize_preview` answering it would be a second Takeout preview.
+#: **The named function is checked below**, so this cannot decay into an excuse.
+ANSWERED_BY: dict[str, object] = {"takeout": ingest_preview}
 
 
 def _keyword_options(function: object) -> set[str]:
@@ -41,7 +48,7 @@ def _keyword_options(function: object) -> set[str]:
 
 def test_the_preview_accepts_every_option_the_run_accepts() -> None:
     """The forward direction: a run option the preview cannot see is a preview that can lie."""
-    missing = _keyword_options(organize_run) - _keyword_options(organize_preview)
+    missing = _keyword_options(organize_run) - _keyword_options(organize_preview) - set(ANSWERED_BY)
     assert not missing, (
         f"organize_run accepts {sorted(missing)} and organize_preview does not, so a preview "
         f"cannot answer for a run configured that way. Thread it through, or add it to "
@@ -62,3 +69,18 @@ def test_the_guard_names_the_options_it_is_checking() -> None:
     assert "mode" in options
     assert "refresh_metadata" in options
     assert not (options & NOT_A_DECISION), "plumbing leaked into the decision set"
+
+
+def test_every_option_answered_elsewhere_really_is() -> None:
+    """⚠ **The half that stops `ANSWERED_BY` becoming a waiver.**
+
+    Naming a function is a claim that it can answer for the option. A row whose function does not
+    accept it - by any spelling, positional or keyword - is the same blind spot as adding the
+    option to `NOT_A_DECISION`, and this fails on it.
+    """
+    assert ANSWERED_BY, "the map is empty, so the assertion below is free"
+    for option, preview in ANSWERED_BY.items():
+        accepted = set(inspect.signature(preview).parameters)  # type: ignore[arg-type]
+        assert option in accepted, (
+            f"{option!r} is recorded as answered by {preview!r}, which does not accept it"
+        )

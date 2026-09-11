@@ -451,6 +451,16 @@ OPERATIONS: dict[str, tuple[str, str, bool, str]] = {
     "organize": ("organize", "organize_run", True, "`(afu)`; per-file `ActionResult` list"),
     "undo organize": ("organize_undo", "organize_undo", True, "`(afw)`; per-file outcomes"),
     "backup": ("backup", "backup_run", True, "`(afw)` stage 3, under `kind: backup` via core"),
+    "ingest": (
+        "organize",
+        "ingest_run",
+        True,
+        (
+            "D17: `ingest_run` IS `organize_run` with `takeout=` set, so it records under "
+            "`kind: organize` through the same `_write_the_record`. The module is `organize` "
+            "rather than `takeout` because the circular import puts the function there"
+        ),
+    ),
     "recover": (
         "recover",
         "recover_run",

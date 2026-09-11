@@ -69,6 +69,26 @@ def paths(*pathspec: str) -> list[str]:
     return sorted(rel for rel in seen if (REPO / rel).is_file())
 
 
+def text_of(relative: str) -> str:
+    """One listed file's text, or ``""`` if it is gone or is not text.
+
+    ⚠ **A LISTING IS A SNAPSHOT, AND THE WORKING TREE IS LIVE.** :func:`paths` filters to files
+    that exist *when it runs*; anything can remove one before a caller reads it. That is not
+    hypothetical - it shipped as a flake in `1867be3`: `pytest -n` runs these guards in parallel,
+    and `test_a_census_sees_the_file_being_added` creates an untracked probe and deletes it in a
+    `finally`, so a whole-repo reader in another worker listed it and then raised
+    `FileNotFoundError` reading it. A developer saving or deleting a file during a long run is
+    the same event with no test involved.
+
+    **Empty rather than raising**, for `is_same_file`'s reason: *"one of them is not there"* is a
+    perfectly good answer, and a guard that dies on it reports a defect that does not exist.
+    """
+    try:
+        return (REPO / relative).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return ""
+
+
 def files(*pathspec: str) -> list[Path]:
     """:func:`paths`, as absolute paths, for callers that read the bytes."""
     return [REPO / rel for rel in paths(*pathspec)]

@@ -388,6 +388,10 @@
         <!-- shared progress block: see createProgress() in app.js -->
         <div class="run-mount" data-run="rc"></div>
         <div id="rc-result"></div>
+        <!-- ⚠ The apply, D17. Written by `rcRenderSummary` only when there is something to
+             import, and gated by a typed word - the app's other writers all have one and this
+             had none. BELOW the result, so the number is read before the control appears. -->
+        <div id="rc-confirm"></div>
       </section>
 
       <!-- BACKUPS -->

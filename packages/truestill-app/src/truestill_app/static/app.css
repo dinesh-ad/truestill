@@ -153,7 +153,15 @@ code,
    Papercut #9, `docs/walkthrough-qa-report.md`. Rule 2 is in the 720px media query below. */
 .app {
   position: relative; /* the collapse knob is positioned against the rail boundary */
-  --sidebar-width: 232px;
+  /* ⚠ **272px SINCE 2026-09-11, AND THE NUMBER IS DERIVED RATHER THAN CHOSEN.** At 232 the
+     account slot's text column measured **128px** while the truncation budget the tests assert
+     is **22 characters** - and 22 characters measure 144px in digits and **165px** in a typical
+     mixed-case name at the slot's own 14px font. The box was smaller than the budget it claimed,
+     so the budget could only ever be met by narrow glyphs.
+     165 + the 40px the slot spends on its icon and chevron = a 269px floor; 272 is the next step
+     on the 4/8px spacing grid (8x34). The nav was never the constraint - "Trips & events", the
+     longest label, is 90px natural in a content box that was already 184px and is now 224. */
+  --sidebar-width: 272px;
   /* Layout frames, not type: these stay px through the rem conversion. 232 + 760 + 320 plus
      gaps is the ~1336px below which the panel cannot appear without squeezing the content
      column past a comfortable measure.

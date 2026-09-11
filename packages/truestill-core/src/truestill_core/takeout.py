@@ -24,11 +24,13 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+
+from truestill_core.models import DateSource, Decision
 
 # --- parsed sidecar --------------------------------------------------------------------
 
@@ -281,3 +283,32 @@ class IngestContext:
 
     writes: dict[str, MetadataWrite] = field(default_factory=dict)
     albums: dict[str, str] = field(default_factory=dict)
+
+
+def ingest_context(
+    decisions: Sequence[Decision], metadata: Mapping[Path, dict[str, Any]], scan: TakeoutScan
+) -> IngestContext:
+    """The bake plan for one ingest: what to write into each organized copy, and its album.
+
+    ⚠ **Moved here from `cli.py` on 2026-09-11 (D17), unchanged.** The app cannot import
+    `truestill_cli` (`IMPLEMENTATION_STANDARDS.md` §2), and an `/api/ingest/run` that reimplemented
+    this would be a second answer to *"which date does the copy carry"* - the one question the
+    whole feature exists for.
+
+    **Write a rescued date only when the file lacks a good embedded one**, add sidecar GPS only
+    when the file has none, and always carry a description.
+    """
+    writes: dict[str, MetadataWrite] = {}
+    for decision in decisions:
+        sidecar = scan.sidecars.get(decision.source)
+        if sidecar is None:
+            continue
+        from_takeout = decision.date_source in (DateSource.TAKEOUT, DateSource.TAKEOUT_UPLOAD)
+        taken = decision.captured_at if from_takeout else None
+        has_exif_gps = "GPSLatitude" in metadata.get(decision.source, {})
+        gps = sidecar.gps if (sidecar.gps is not None and not has_exif_gps) else None
+        write = MetadataWrite(taken_at_local=taken, gps=gps, description=sidecar.description)
+        if write.has_content:
+            writes[str(decision.source)] = write
+    albums = {str(path): name for path, name in scan.albums.items()}
+    return IngestContext(writes=writes, albums=albums)
