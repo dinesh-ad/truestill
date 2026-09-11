@@ -133,7 +133,7 @@ def test_an_unreadable_licence_is_never_an_accusation() -> None:
     damaged = Licence(LicenceState.UNREADABLE, reason="This licence file is damaged.")
     summary = account_summary(damaged, CAP, CAP)
 
-    assert summary.headline == "Licence not readable"
+    assert summary.headline == "Licence problem"
     assert "nothing about your library has changed" in summary.detail
     assert summary.notice is not None
     assert summary.notice.message == "This licence file is damaged."
@@ -170,27 +170,27 @@ def test_no_sentence_anywhere_reads_as_a_countdown_or_a_gate(state: LicenceState
 
 
 @pytest.mark.parametrize("state", list(LicenceState))
-def test_the_summary_row_strings_fit_the_rail_they_are_rendered_in(state: LicenceState) -> None:
-    """**The defect a screenshot found and no assertion would have.**
+def test_the_summary_row_strings_stay_short_enough_to_be_worth_measuring(
+    state: LicenceState,
+) -> None:
+    """A cheap proxy, and **it is named as a proxy because it twice said yes when the answer was
+    no.**
 
-    The headline and the allowance render on one row of a 232px rail, beside an 8px dot and a
-    14px chevron - about 154px, or roughly 20 characters at `--type-sm`. The first wording
-    ("No licence on this computer", "1,000 of 1,000 free files left to organize") was 27 and 42,
-    so both truncated and the name ran under the chevron. The second attempt fitted by dropping
-    the cap, which left a user who had spent 300 files unable to learn the allowance anywhere;
-    both numbers fit once the WORDS went instead. The long forms live in `detail`, inside
-    the fold, where they wrap.
+    The headline and the allowance render on one row of a 232px rail, in a box measured at
+    **127px**. A character count cannot decide that: letters are not the same width, so
+    "1,000 of 1,000 left" fits at 19 characters while "Licence unreadable" truncates at 18. Two
+    budgets were set from counts (22, then 19) and both passed strings that clipped on screen.
 
-    ⚠ **A character budget is coarse, and it is the honest instrument available here.** The
-    rail's sans is not pinned, which is exactly what made the prose-measure lane fail on `ch`
-    units earlier in this project: a pixel figure would be one number locally and another on CI.
-    So this is a cheap guard against the wording growing back, and **the screenshot is what
-    actually proves it fits** - 22 is a rounded estimate, not a measurement.
+    ⚠ **The real guard is in the browser** -
+    `tests/e2e/test_the_account_slot_draws_every_licence_state.py` asserts
+    `scrollWidth <= clientWidth` for every state, which is the property itself rather than a
+    stand-in for it. This stays as a fast trip-wire against wording that grows by a lot, runs in
+    `make check` where the browser lane does not, and is deliberately loose.
     """
     summary = account_summary(Licence(state, reason="x"), CAP, CAP)
 
-    assert len(summary.headline) <= 22, summary.headline
-    assert len(summary.allowance) <= 22, summary.allowance
+    assert len(summary.headline) <= 19, summary.headline
+    assert len(summary.allowance) <= 19, summary.allowance
 
 
 def test_the_standing_notice_never_blocks_anything() -> None:

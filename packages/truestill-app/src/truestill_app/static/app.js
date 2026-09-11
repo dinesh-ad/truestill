@@ -4343,6 +4343,12 @@ function renderAccount(a) {
   // is not rendered as its own sentence: `detail` already says what lapsed and what did not, in
   // core's words, and a second phrasing of the same fact beside it is the drift above.
   const who = a.email ? `<p><span class="account-field">${esc(a.email)}</span></p>` : "";
+  // ⚠ THE TOKEN PATH IS SHOWN ONLY WHERE IT IS ACTIONABLE, and that is a fix rather than a
+  // preference: with it always rendered, an ACTIVE panel was taller than its 40vh cap and the
+  // Sign out BUTTON fell below the fold while its warning stayed visible - the worst possible
+  // ordering, found by looking at a screenshot. An entitled user has nothing to do with the
+  // path; a user who must replace or place a file has everything to do with it.
+  const entitled = a.state === "active" || a.state === "lapsed";
   slot.innerHTML = `
     <details class="account-acct">
       <summary aria-label="Account and licence">
@@ -4359,7 +4365,8 @@ function renderAccount(a) {
         ${who}
         <p>${esc(a.detail)}</p>
         ${notice}
-        <p class="account-path" data-testid="account-token-path">${esc(a.token_path)}</p>
+        ${entitled ? "" : `
+        <p class="account-path" data-testid="account-token-path">${esc(a.token_path)}</p>`}
         <div data-testid="account-activation">
           <input class="input" id="account-file" type="text" spellcheck="false"
                  placeholder="Path to your licence file" aria-label="Path to your licence file">

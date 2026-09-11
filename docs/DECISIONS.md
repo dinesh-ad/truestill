@@ -1158,6 +1158,37 @@ of refusal it is a bait-and-switch, and the two are the same number.
 - alongside `(afg)`'s download page and the attorney trademark clearance
 (`PROJECT_STATUS.md:604`), not as work with code attached.
 
+**FILE-IMPORT IS THE FALLBACK, NOT THE FRONT DOOR** (ruled 2026-09-11, third pass).
+
+What is built today is file-import: the user types or pastes a **path** to the licence file they
+downloaded. That is D5's offline path and it stays. **It is not the primary route.**
+
+⚠ **The reason is who this product is for.** truestill's users are not developers. A person who
+has just paid for a photo organiser may not know where their downloads folder is, what a path is,
+or that the file they were sent is the thing the box is asking for. A route that requires all
+three is a route that generates support mail from people who have already given you money.
+
+**The stage-4 primary path is paste-a-key or sign-in**, and the file route is kept beside it,
+relabelled as the offline one.
+
+**The precedent, checked rather than recalled** - JetBrains does exactly this and ships both in
+one dialog. Its documentation describes pasting *"the activation code into the License Key
+field"*, and beside that field a **"..." button** that points at *"the activation code file"*,
+with drag-and-drop onto the same field as a third way in. The offline code is labelled *"for
+offline usage"*: the file is the fallback, named as such, and never the thing a normal customer
+meets first.
+
+⚠ **The usability half is a NULL RESULT and is recorded as one.** A search for UX research
+comparing paste-a-key against import-a-file for non-technical users returned vendor
+documentation and licensing-SDK marketing, no study. So this ruling rests on the JetBrains
+precedent, which is concrete, and on the maintainer's judgement about this audience - not on
+evidence that does not exist.
+
+**Nothing built is discarded**, and no code attaches to the primary path yet: pasting a key is
+the same verifier reading the same token from a text box instead of a file, and signing in needs
+the server that does not exist. `licence.install_token_from` is the offline half of stage 4,
+arriving early.
+
 **The CLI gets exit code `9`.**
 
 A refused run is its own family, because a caller acts differently from every other code: `5` and

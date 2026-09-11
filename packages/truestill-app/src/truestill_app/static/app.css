@@ -603,6 +603,22 @@ code,
   margin-top: var(--space-4);
   border-top: var(--border-width) solid rgba(255, 255, 255, 0.08);
   padding-top: var(--space-3);
+  /* ⚠ STICKY, so the one control that leaves is never the thing the cap clips.
+     Found by looking: with a 40vh panel, ACTIVE and LAPSED were both taller than the box and the
+     Sign out BUTTON fell below the fold while its warning stayed visible - a control the user is
+     being warned about and cannot see. Shortening the copy fixed ACTIVE and not LAPSED, whose
+     detail is the longest of the five and is deliberately so (D16 §2 reassures at length).
+     A taller box was the wrong lever: 40vh is what keeps custody on screen, and any figure that
+     fits today's longest sentence is one wording change from being wrong again. Sticky fixes the
+     CLASS - the content scrolls and the exit stays put, whatever the five states come to say.
+     The background reproduces the card exactly - the same white overlay over the same rail
+     ground - so scrolled text passes behind it rather than through it. */
+  position: sticky;
+  bottom: 0;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.025)),
+    var(--rail-bg);
+  padding-bottom: var(--space-2);
 }
 /* Collapsed: the dot alone. Same rule as custody one block down - no sentence, no path, nothing
    that can overflow a 64px rail - and the dot still carries the state. */
@@ -2312,20 +2328,63 @@ details.more.inline {
     border: none;
     border-top: var(--border-width) solid var(--rail-border);
   }
-  /* ⚠ THE ACCOUNT SLOT FOLDS OUT ENTIRELY BELOW 720px, AND IT IS THE CEILING THAT DECIDES.
-     The rail is a horizontal band here with a hard 120px budget - `test_narrow_top_bar.py`'s
-     `test_the_bar_is_a_bar_and_not_most_of_the_window`, which caught this build at **202px**.
-     Custody already spends most of that budget and the comment above records that the ceiling
-     was NOT raised when the type grew 2px: it is what the rule is.
-     So the choice was between a second band that breaks the ceiling and no band. Nothing is
-     lost that matters at this width: D16 §1 guarantees every feature still works, a licence is
-     administrative rather than urgent, and custody - what the user stands to LOSE - is the one
-     thing that has earned a permanent strip in a window this narrow.
-     ⚠ **The cost is stated rather than hidden: below 720px there is nowhere to read the
-     remaining allowance or to activate a licence.** That is a gap, not a second home for either
-     (D16 §5, ruling 3), and it closes the moment the window is wider. */
+  /* ⚠ THE ACCOUNT LEAVES THE FLOW HERE, IT DOES NOT LEAVE THE PRODUCT.
+     It was `display: none` for one commit, and the reason was sound as far as it went: the rail
+     is a horizontal band at this width with a hard 120px budget - `test_narrow_top_bar.py`'s
+     `test_the_bar_is_a_bar_and_not_most_of_the_window`, which caught this build at **202px** -
+     and custody already spends most of it.
+     **But hiding it took the only activation path with it**, so a user on a small window could
+     not activate a licence they had paid for. That is not a cost worth paying for a layout: it
+     is the one control that turns a paying customer into a working app, and "the window is
+     narrow" is not a reason to withhold it.
+     THE RESOLUTION IS `position: absolute`, and it is exact rather than a compromise: an
+     out-of-flow child contributes **nothing** to its parent's height, so the bar's budget is
+     mathematically untouched while the control is fully present. It sits in the empty right of
+     the head row, where the collapse chevron would be if that were not `display: none` here.
+     Still NOT a second home (D16 §5, ruling 3) - it is the same slot, the same markup and the
+     same wording, reached in the same place relative to the rail. Only the layout differs. */
+  .sidebar,
+  .sidebar[data-collapsed="true"] {
+    position: relative;
+  }
   .account-slot {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-3);
+    z-index: 6;
+    margin: 0;
+    width: auto;
+  }
+  /* No card in the bar: at this size the summary is a control, not a panel. The panel arrives
+     when it is opened, below. */
+  .account-acct {
+    border: none;
+    background: none;
+  }
+  .account-acct > summary {
+    padding: var(--space-2);
+    gap: var(--space-2);
+  }
+  /* The name and the allowance cannot fit beside a wordmark in a 400px bar, and a truncated
+     name is worse than none - the dot carries the state and opening carries the rest. */
+  .account-slot .account-who {
     display: none;
+  }
+  /* THE BODY IS AN OVERLAY, anchored to the slot rather than pushing anything. `max-height` is
+     `60vh` here rather than `40vh`: nothing is below it to protect, and this is the only route
+     to activation at this width, so the field and the button must be reachable without the
+     panel scrolling on a short phone-shaped window. */
+  .account-acct[open] .account-body {
+    position: absolute;
+    top: calc(100% + var(--space-1));
+    right: 0;
+    width: min(320px, calc(100vw - 2 * var(--space-4)));
+    max-height: 60vh;
+    padding: var(--space-4);
+    border: var(--border-width) solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--corner-lg);
+    background: var(--rail-bg);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
   }
   .custody .pips,
   .sidebar[data-collapsed="true"] .custody .pips {

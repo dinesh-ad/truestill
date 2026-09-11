@@ -210,7 +210,15 @@ _SIGNED_OUT: Final = (
     "You signed out on this computer, and every feature still works. Your licence has not been "
     "cancelled - point at your licence file to sign back in."
 )
-_UNREADABLE_HEAD: Final = "Licence not readable"
+#: ⚠ **MEASURED IN PIXELS, BECAUSE A CHARACTER COUNT IS THE WRONG INSTRUMENT AND TWO WRONG
+#: GUESSES PROVED IT.** "Licence not readable" (20) truncated inside a 22-character budget;
+#: "Licence unreadable" (18) truncated inside a 19-character one. The reason is obvious in
+#: hindsight and invisible to a length check: letters are not the same width, so
+#: "1,000 of 1,000 left" fits at 19 characters while "Licence unreadable" does not at 18.
+#: Rendered and measured, the box is **127px**; this string is 127 and "Licence unreadable" was
+#: 128. `test_the_account_slot_draws_every_licence_state.py` now asserts the real property -
+#: `scrollWidth <= clientWidth` - in a browser, for every state.
+_UNREADABLE_HEAD: Final = "Licence problem"
 _UNREADABLE: Final = (
     "Every feature still works, and nothing about your library has changed. Replacing the file "
     "restores your licence."
@@ -231,7 +239,11 @@ _ALLOWANCE: Final = "{remaining:,} of {cap:,} left"
 #: Said **before** signing out, never after. `(aam)`: *"a casual logout can strand a paying user
 #: on an offline machine"*, which is why the action lives inside account details rather than
 #: beside Help - and why the one thing it must do is tell the truth about what it removes.
+#: ⚠ SHORTENED after looking at it: the first version ran to four lines in a 232px rail and
+#: pushed the Sign out BUTTON below the panel's cap while leaving its warning visible - a control
+#: you are being warned about and cannot see. The box is calibrated (40vh keeps custody on
+#: screen), so the content is what gives. Nothing was dropped: it still names what is removed and
+#: what the user must keep.
 _SIGN_OUT_WARNING: Final = (
-    "Signing out removes the licence file from this computer. You will need that file again to "
-    "sign back in, so keep a copy before you do."
+    "Signing out removes the licence file. Keep a copy - you need it to sign back in."
 )
