@@ -16,6 +16,7 @@ token is perpetual by D6 §1, so these bytes are the ones this product has to ke
 from __future__ import annotations
 
 import json
+import sys
 
 import nacl.signing
 import pytest
@@ -316,16 +317,43 @@ def test_a_directory_where_the_token_should_be_is_a_state_not_a_crash(keys: dict
 # --- the file on disk -------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="CPython synthesizes st_mode on Windows; the mode is not the instrument there",
+)
 def test_the_token_is_written_private(signer: nacl.signing.SigningKey) -> None:
     """0600 at creation, `session_link`'s rule and its reasoning.
 
     It carries the buyer's name and email, so on a shared machine it is not everyone's business.
     The mode is read back from the file rather than trusted, because `touch` reports success on a
     filesystem that discarded it.
+
+    ⚠ **POSIX ONLY, AND THIS WENT RED ON WINDOWS CI BEFORE IT SAID SO.** The caveat was written
+    down in the very module this test cites: `session_link`'s docstring says *"On Windows the
+    mode says nothing: CPython synthesizes `st_mode` (`0o666` writable, `0o444` read-only) and
+    `os.chmod` honours only the read-only flag, so reading it back there reported EVERY file as
+    world-readable"*. The rule was copied and the platform note beside it was not.
     """
     target = licence.write_licence(make_token(signer))
 
     assert target.stat().st_mode & 0o777 == 0o600
+
+
+def test_the_token_is_created_rather_than_appended_to_on_every_platform(
+    signer: nacl.signing.SigningKey,
+) -> None:
+    """What Windows CAN answer, so the platform is not simply silent about this file.
+
+    The mode is unreadable there, but the two properties that do not depend on it are: the file
+    exists after a write, and it holds exactly one token. `session_link` states the rest of the
+    Windows story plainly and it is inherited unchanged - the protection there is the user's own
+    profile ACL, which is weaker than `0600` and is said out loud rather than glossed.
+    """
+    licence.write_licence(make_token(signer))
+    licence.write_licence(make_token(signer))
+
+    assert app_paths.licence_path().is_file()
+    assert app_paths.licence_path().read_text().strip().count(".") == 1
 
 
 def test_writing_a_second_token_replaces_the_first_rather_than_appending(
