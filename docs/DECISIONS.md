@@ -43,7 +43,9 @@ channels already produce. None of it requires instrumenting the software:
 
 1. **PyPI download statistics** - aggregate install counts for the published packages.
 2. **GitHub signals** - stars, clones, and per-release download counts.
-3. **Privacy-friendly site analytics on `truestill.app`** *(domain not yet registered)* - a Plausible-class analytics tool: **no
+3. **Privacy-friendly site analytics on `truestill.app`** *(domain registered 2026-08-22; this
+   line said "not yet registered" until `D16` corrected it - `(afg)` had flagged the
+   contradiction and left it for the maintainer)* - a Plausible-class analytics tool: **no
    cookies, no personal data, no cross-site tracking**. Page-level aggregates only.
 4. **Purchase records for Pro customers** - name / email / country, held by the **payment
    provider** as the record of a transaction. This is a payment record, not product telemetry:
@@ -300,7 +302,18 @@ tool that holds someone's photo library must never become a hostage to a missed 
 subscription that stops opening a library would contradict the custody promise the whole product
 rests on. What lapses is *new versions*, not access to your own files.
 
+⚠ **`D16` (2026-09-11) CONFIRMS THIS SECTION UNCHANGED and records a framing it refused:** that a
+lapsed licence might open, find, browse and export but not organize. Organizing is the core
+function, so that would be a licence that stopped working, which is the sentence above. A lapsed
+licence loses nothing it bought.
+
 ### 2. Keys are signed, not generated
+
+⚠ **THE MECHANISM HERE IS SUPERSEDED - read `D5` §3 first.** This section describes
+key-with-no-server, and `D5` §3 replaced it with **token-after-activation** on 2026-07-28. It
+carried no note saying so until `D16`, so it read as current for six weeks. **What survives the
+change is the payload decision below** - Ed25519, name and email embedded, deterrence by identity
+- which is exactly as true of a token as it was of a key.
 
 Licence keys are **Ed25519-signed**, with the **buyer's name and email embedded** in the payload.
 
@@ -338,6 +351,9 @@ degraded free experience, or any feature that stops working to make a point. A g
 contradict D5's framing of an account "for the software, never for your data" - the same
 instinct applies to function.
 
+⚠ **`D16` DECIDES HOW THE FREE TIER IS SHAPED SO THAT THIS PARAGRAPH STAYS TRUE**: a cumulative
+cap on files **written**, never a feature lock. Nothing stops working at any count.
+
 ### 4. No trial. Free tier forever. (2026-08-01, revises the framing above)
 
 **Decision.** truestill has **no time-limited trial**. There is a **free tier that does not
@@ -369,6 +385,11 @@ feature.** FocusClean allows "100 photos free each month" - the core works *comp
 volume is limited. Recorded because it is **compatible with the boundary below in a way
 feature-gating is not**: nothing is withheld, nothing is crippled, and the user can always
 finish what they started at a slower pace.
+
+⚠ **CHOSEN, 2026-09-11: the fourth candidate, as a CUMULATIVE lifetime cap rather than a monthly
+rate.** `D16` is the ruling and carries the reasoning, the starting number and why it is low. The
+first three candidates are not refused - they remain open shapes for what Pro *adds* - but the
+free/Pro **line** is no longer an open question.
 
 **THE BOUNDARY, which does not move: do not cripple the core organiser.** If free cannot be
 trusted with a user's photos, **Pro cannot either** - trust is the product, and a hobbled free
@@ -409,7 +430,10 @@ be decided before then**, and pricing and the final split stay post-launch regar
 
 **Status:** Settled as a decision, unbuilt. Supersedes the one-time Pro-licence sketch;
 the capability seam (`IMPLEMENTATION_STANDARDS.md` §2) is where Pro features attach.
-§4 revises the framing: no trial, free tier forever, and the free/Pro split deliberately open.
+§4 revises the framing: no trial, free tier forever.
+⚠ **Partly superseded by `D16` (2026-09-11)**: the free/Pro split is no longer open - it is a
+cumulative cap on files written. §2's *mechanism* was superseded by `D5` §3; its payload decision
+stands. §1 is confirmed unchanged.
 
 ---
 
@@ -920,3 +944,110 @@ glassmorphism library examined emit `backdrop-filter`.** That is not a detail to
 installing - it is the whole implementation, and on the engine this product must support it
 renders nothing. **None may be adopted**, and the refusal is recorded here rather than left to be
 rediscovered, which is exactly what `D12` says about Aceternity.
+
+---
+
+## D16. The free tier is a volume cap. A lapsed licence loses nothing. Enforcement is a speed bump.
+
+**Decision (the maintainer, 2026-09-11).** Supersedes the parts of **D6 §3** and **D6 §4** that
+left the free/Pro split an open question, and confirms **D6 §1** unchanged. It exists because a
+licensing design pass found three places where the tree contradicted itself or was about to, and
+a system cannot be built against a contradiction.
+
+**What prompted it.** A design turn on the one decided-but-unbuilt system (D5) was asked to quote
+its constraints from the tree rather than from conversation. Doing that surfaced three conflicts,
+two of them between a proposed shape and what D6 already said. This decision rules on all three.
+
+### 1. The free tier is a VOLUME CAP, not a feature lock
+
+**The app always opens. Every feature works. Every screen is reachable.** What the free tier
+limits is the number of files an organize run **writes** - cumulative across every run, never per
+run.
+
+**Cumulative, and the distinction is the whole decision.** A per-run cap is not a cap: a user runs
+it n times and the free tier is the entire product. A cumulative cap is a lifetime budget against
+the one-time job D6 §4 already identified as what this product is.
+
+**This is the fourth candidate in D6 §4, chosen.** That section recorded it from market
+observation - *"meter by RATE, not by feature... the core works completely and only volume is
+limited"* - and noted it is *"compatible with the boundary below in a way feature-gating is not"*.
+It is now the answer rather than a candidate.
+
+**It keeps both of D6's rules true rather than bending them:**
+
+- **D6 §3 stands.** *"never withholds function to force the question"*, and *"what is never done:
+  a nag on launch, a countdown, a modal that must be dismissed, a degraded free experience, or any
+  feature that stops working to make a point."* Nothing here stops working. There is no nag, no
+  countdown and no modal. A capability present at file 1 is present at file 100,000; what changes
+  is how many files the tool will write for free.
+- **D6 §4's boundary stands.** *"do not cripple the core organiser"*, and **nothing behind the
+  paywall stands between a user and their own files** - the cap governs only what truestill
+  **writes**, so reading, finding, browsing, exporting and retrieving are untouched at any count.
+
+⚠ **THE EARLIER PROPOSAL - "no licence means the app does nothing", the DBeaver shape - IS
+REFUSED, and is recorded because it was seriously considered.** It is the direct negation of all
+three sentences quoted above, and it would have made the first thing a new user meets a locked
+door, for a tool whose entire proposition is custody.
+
+**Starting number: 1,000 files**, and it is deliberately set low.
+
+> **Raising a cap later is a gift. Lowering one is Evernote.** In 2023 Evernote cut its free tier
+> from 100,000 notes to **50**, and took immediate and lasting public damage for it. A number set
+> generously and corrected downward costs more reputation than the revenue it recovers, and this
+> product sells trust. So the number starts low, where every later move is upward.
+
+The figure is a starting point, not a derivation, and D6 §4's instrument applies to it unchanged:
+the soak and real users decide what it should be.
+
+### 2. A lapsed licence loses nothing it bought
+
+**D6 §1 stands entirely unchanged**: *"Pay once, own that version forever. A licence never expires
+and never stops working."* What lapses is entitlement to **new versions** - never any function of
+the build already paid for.
+
+**There is no read-only degraded mode, and no lapsed state that cannot organize.**
+
+⚠ **WITHDRAWN, and recorded as withdrawn rather than quietly dropped: the maintainer's own earlier
+framing that a lapsed licence "still opens, finds, browses and exports, but does not organize".**
+It was wrong on D6 §1's own terms. Organizing is the core function, so a licence that cannot
+organize **is** a licence that stopped working, which is the exact sentence §1 forbids. It is
+written down because a withdrawn position that leaves no trace gets re-proposed.
+
+Consequence for the design, and it is load-bearing: the entitlement carried by a token is a
+**version ceiling** checked against the running build, never a date checked against the system
+clock. A build is covered or it is not, and that answer is identical on a machine whose clock is
+wrong - which removes the whole clock-tampering problem rather than defending against it.
+
+### 3. Enforcement is a speed bump, not a wall
+
+**Recorded in writing so that nobody builds a fortress later.**
+
+The cap is counted locally. A local counter can be reset by deleting the catalog or reinstalling,
+and that is not a defect awaiting a fix - **enforcing it properly requires asking the server,
+which D5 forbids**: *"there is no per-launch phone-home and no periodic revalidation."* The two
+cannot both be had, and D5 is the one that ships.
+
+**So the cap is for honest people.** That is the same bet D6 §2 already made and gave the reason
+for - *"a social deterrent rather than a technical restriction, which is deliberate: it costs an
+honest user nothing, and it never risks locking out someone who has paid."* The trade is recorded
+here rather than discovered by whoever later notices the counter is resettable and starts
+hardening it. **Hardening it is the refused direction**, because every mechanism that makes the
+count harder to reset makes it likelier to strand someone who paid.
+
+### 4. Two corrections made in the same commit
+
+- ⚠ **D6 §2 still described key-with-no-server and read as current.** D5 §3 superseded that
+  mechanism on 2026-07-28 - *"the offline-verified-key mechanism described there becomes
+  token-after-activation rather than key-with-no-server"* - but §2 carried no note saying so, so
+  anyone reading D6 would have quoted a retired design. §2 now points at D5 §3. What survives the
+  change is its **payload** decision: Ed25519, buyer's name and email embedded, deterrence by
+  identity rather than by lockout.
+- ⚠ **`DECISIONS.md` said `truestill.app` was *"not yet registered"*.** `(afg)` records the
+  maintainer stating on 2026-08-22 that the domain is bought, and `(afg)` itself flagged the
+  contradiction on 2026-09-02 and left it for the maintainer to resolve. Resolved here: it is
+  registered, and the line is corrected.
+
+**Status:** Settled as a decision, partially built. Supersedes D6 §3's and §4's open free/Pro
+split with the volume cap; confirms D6 §1 unchanged and withdraws the lapsed-read-only framing;
+records the enforcement trade. Stage 1 of the licensing arc - the token format and its verifier -
+is built against this ruling; the cap itself, the gate, the server and payment are not.
