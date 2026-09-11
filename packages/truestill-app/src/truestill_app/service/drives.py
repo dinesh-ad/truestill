@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Literal, NotRequired, TypedDict, cast
 
 from truestill_core import binaries
+from truestill_core.app_paths import is_same_location
 from truestill_core.carried import (
     CARRIES_NOTHING_EXTRA,
     FROM_RECORDS,
@@ -646,10 +647,14 @@ def _the_library(catalog: Catalog, libraries: set[str], declared: str | None) ->
        `carried.TWO_LIBRARIES`.
     """
     if declared:
-        wanted = str(Path(declared).expanduser())
+        # ⚠ **`is_same_location`, NEVER a string compare, and this shipped wrong.** The declared
+        # root and the remembered hint are two things a person typed at different times, and on
+        # this maintainer's own machine `/home/dinesh/TruestillLibrary` is a symlink to
+        # `/data/TruestillLibrary` - both real, both typed, one folder. String equality ignored
+        # the user's explicit declaration and left the cards blank.
         for uuid in libraries:
             remembered = catalog.get_setting(drive_path_hint(uuid))
-            if remembered and str(Path(remembered).expanduser()) == wanted:
+            if remembered and is_same_location(Path(remembered), Path(declared)):
                 return uuid
     return next(iter(libraries)) if len(libraries) == 1 else None
 

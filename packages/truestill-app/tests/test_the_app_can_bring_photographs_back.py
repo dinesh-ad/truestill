@@ -14,9 +14,11 @@ remedy for that inherited fear is a sentence - so the sentence is treated as a s
 
 from __future__ import annotations
 
+import sys
 import threading
 from pathlib import Path
 
+import pytest
 from truestill_app import service
 from truestill_core import carried, recover
 from truestill_core.catalog import Catalog
@@ -406,3 +408,35 @@ def test_saying_which_folder_is_the_library_resolves_the_ambiguity(tmp_path: Pat
     assert rows["Backup Drive"]["carried"] == 3, "the declared library did not settle it"
     assert rows["Backup Drive"]["carried_short"] == carried.FROM_RECORDS_SHORT
     assert service.cannot_name_library(db) == "", "the sentence outlived the ambiguity"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="a directory symlink needs a Windows privilege")
+def test_a_library_declared_by_its_other_spelling_still_settles_the_ambiguity(
+    tmp_path: Path,
+) -> None:
+    """⚠ **THE DEFECT THIS TURN EXISTS FOR, AND IT WAS LIVE ON THE MAINTAINER'S MACHINE.**
+
+    `/home/dinesh/TruestillLibrary` is a symlink to `/data/TruestillLibrary`. The declared root
+    and the remembered drive hint are two things a person types at different times, so they are
+    routinely two spellings of one folder - and a string compare ignored the user's explicit
+    declaration, leaving every card blank with the two-libraries sentence they had just answered.
+    """
+    db, drive, library = _world(tmp_path)
+    link = tmp_path / "home-TruestillLibrary"
+    link.symlink_to(library)
+    with Catalog(db) as catalog:
+        for root in (library, drive):
+            marker = read_marker(root)
+            assert marker is not None
+            catalog.start_organize_run(
+                drive_uuid=marker.uuid, run_id=f"r-{marker.uuid}", intended_total=1
+            )
+            catalog.set_setting(drive_path_hint(marker.uuid), str(root))
+    assert service.cannot_name_library(db) == carried.TWO_LIBRARIES
+
+    # The hint records the real path; the user declares the symlinked one. One folder.
+    service.set_library_root(str(link), db)
+
+    assert str(link) != str(library), "the two spellings are identical; this proves nothing"
+    assert service.cannot_name_library(db) == "", "the declaration was ignored"
+    assert _rows(db)["Backup Drive"]["carried"] == 3

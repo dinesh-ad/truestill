@@ -46,6 +46,7 @@ from pathlib import Path
 from typing import Any, Final, NamedTuple, Protocol
 from uuid import uuid4
 
+from truestill_core.app_paths import is_same_location
 from truestill_core.destinations.base import device_of
 from truestill_core.drive_unwritable import explain_unwritable_drive
 
@@ -821,7 +822,13 @@ def ghost_drive_at(
         return None  # a marker is here: whatever this is, it is not a ghost
     for uuid, label in drives:
         hint = settings.get_setting(drive_path_hint(uuid))
-        if hint and Path(hint) == path:
+        # ⚠ **THE GUARD THIS EXISTS FOR FAILS OPEN ON A STRING COMPARE.** A drive registered as
+        # `/data/X` and later pointed at as `~/X` would not be recognised here, so the ghost
+        # refusal never fires and a second drive id is minted for a library that already exists -
+        # `(aap)`, the precise failure. `is_same_location` keeps the lexical answer as well as
+        # the inode one, so an UNMOUNTED drive - whose folder no longer exists, and which is the
+        # commonest ghost - still matches its recorded path.
+        if hint and is_same_location(Path(hint), path):
             return GhostDrive(uuid=uuid, label=label, recorded_at=hint)
     return None
 

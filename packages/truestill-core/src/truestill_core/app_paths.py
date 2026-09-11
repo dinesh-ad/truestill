@@ -248,6 +248,65 @@ def is_same_file(one: Path, other: Path) -> bool:
         return False
 
 
+def is_same_location(one: Path, other: Path) -> bool:
+    """Whether two paths name the same **place** - *even one that does not exist yet*.
+
+    ⚠ **`is_same_file` ALONE IS NOT THIS, and the difference is a regression waiting to happen.**
+    It compares device and inode, so it answers **False for a path that is not there - including
+    a path against itself**. Measured::
+
+        is_same_file(missing, real)    -> False
+        is_same_file(missing, missing) -> False      <- the trap
+
+    That is right for its own question (*"is this catalog the one already at that path"*) and
+    wrong wherever a user may name a folder **before creating it**. The first-run flow does
+    exactly that - `set_library_root` accepts a library folder that does not exist yet, and says
+    so - so a comparison built on inodes alone would silently stop matching a declared library
+    against itself until the folder was created.
+
+    **So: identity first, spelling second.** The inode answer settles the symlink case; the
+    lexical answer keeps a not-yet-created path equal to itself.
+
+    **Why this matters here rather than in theory**: `/home/dinesh/TruestillLibrary` is a symlink
+    to `/data/TruestillLibrary` on the maintainer's machine. Both spellings are real, both get
+    typed, and they are one folder. `(aeb)` found the first casualty on `truestill catalog`;
+    `is_same_file`'s own docstring records it.
+
+    ⚠ **Never `resolve()` on both sides.** It agrees here and it is the wrong instrument: it can
+    raise where this must answer - `drive.py`'s containment check records that a path which
+    cannot be resolved *"must still get an answer"* - and a comparison that throws where it used
+    to return False is a worse failure than the one being fixed. Measured, ``resolve()`` does
+    **not** raise on a merely missing path or a broken link, so the risk is narrower than it
+    sounds; it is the stale-mount and loop cases that bite, and this avoids them entirely.
+
+    ⚠ **Case is not folded.** On Windows two spellings differing only in case name one folder and
+    this returns False for them unless the inode arm answers first. Stated rather than fixed: no
+    call site here compares user-typed case variants, and folding case on a POSIX path would be a
+    new and wrong behaviour.
+    """
+    if is_same_file(one, other):
+        return True
+    return _spelling(one) == _spelling(other)
+
+
+def _spelling(path: Path) -> str:
+    """A path's lexical normal form: ``~`` expanded, ``.``/``..``/doubled separators settled.
+
+    ``os.path.normpath`` and never ``resolve``: this arm exists precisely for paths the
+    filesystem cannot answer about, so it must not touch it.
+
+    ⚠ **`normpath` adds exactly ONE thing over `str(Path(x))`, and it is the unsound one.**
+    Measured: `Path` already settles a trailing slash, a `.` segment and a doubled separator, so
+    the only difference is that `normpath` collapses `..` - and collapsing `..` lexically is
+    **wrong** wherever a symlink is involved, because `/a/link/../b` is not `/a/b` when `link`
+    points elsewhere. It is kept anyway, and the reason is the order: this arm is only reached
+    when :func:`is_same_file` could not answer, which means at least one side is not on the
+    filesystem - so there is no symlink to be wrong about, and `..` would otherwise make two
+    spellings of one not-yet-created folder read as two folders.
+    """
+    return os.path.normpath(str(Path(path).expanduser()))
+
+
 def default_catalog_path() -> Path:
     """The catalog to use when the caller did not name one. **Never creates anything.**
 
@@ -446,6 +505,9 @@ def cache_path_for(catalog: Path) -> Path:
     path - an explicit ``--db``, a test fixture, a catalog on an external drive - there is no
     counterpart, so the cache sits beside it and travels with it.
     """
-    if catalog == _data_dir() / CATALOG_FILENAME:
+    # Same class as the two above: a symlinked data directory made the conventional catalog
+    # unrecognisable, so its cache quietly stopped going to the OS cache directory. The string
+    # arm keeps a first run - where the catalog does not exist yet - matching itself.
+    if is_same_location(catalog, _data_dir() / CATALOG_FILENAME):
         return default_cache_path()
     return catalog.with_suffix(".cache.sqlite")
