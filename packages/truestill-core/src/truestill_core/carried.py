@@ -177,7 +177,8 @@ def render(carried: Carried, *, drive_path: str | None) -> str:
         lines.append(
             f"This catalog has no record of anything on '{carried.drive_label}', so it cannot say"
             f"\nwhat the drive is carrying. That is not the same as the drive being empty: a drive"
-            f"\nregistered with `truestill drives --init` has a marker and was never walked."
+            f"\nregistered with `truestill drives --init <path> --label <name>` has a marker"
+            f"\nand was never walked."
         )
         lines.append(
             f"\nWalk it and find out:  truestill rescan {drive_path}"

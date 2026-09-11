@@ -90,6 +90,7 @@ SUBCOMMANDS: tuple[str, ...] = (
     "clean-empty",
     "rescan",
     "carried",
+    "recover",
     "restore",
     "self-check",
 )

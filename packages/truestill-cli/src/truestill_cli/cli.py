@@ -243,6 +243,14 @@ from truestill_core.organizer import (
 )
 from truestill_core.progress import Progress, ProgressCallback
 from truestill_core.reclaim import ReclaimPlan, plan_reclaim, run_reclaim
+from truestill_core.recover import (
+    RecoverOutcome,
+    RecoverPair,
+    RecoverStoppedError,
+    Skipped,
+    plan_recovery,
+    recover_into_library,
+)
 from truestill_core.rescan import RescanReport, reconcile
 from truestill_core.run_record import (
     RunHeader,
@@ -382,6 +390,10 @@ _LOCKS_DRIVE_AT: dict[str, str | None] = {
     "clean-empty": "path",
     "rescan": None,  # reports; `(abn)` is that nothing acts on it yet
     "carried": None,  # reads two catalog tables and stats the library; writes nothing
+    # ⚠ **The LIBRARY, which is the side being written into** - `backup` locks `target` for the
+    # same reason. Locking the drive instead would leave the tree that actually changes
+    # unprotected, which is the whole point of the lock.
+    "recover": "library",
     "migrate-layout": "path",
     # ⚠ **`"path"` since stage 2**, which was the condition the stage-1 note set: the apply moves
     # files on the drive, so it is held for the duration like every other mutating command. `(aix)`
@@ -821,6 +833,20 @@ def _add_rescan_parser(sub: argparse._SubParsersAction) -> None:  # type: ignore
     carried.add_argument("library", type=Path, help="the library it would be compared against")
     carried.add_argument("--db", type=Path, default=default_catalog_path(), help="SQLite catalog")
 
+    # ⚠ **`recover`, NOT `restore`** - `restore` is taken by the decisions command, declared above
+    # as "writes catalog rows from a drive's document, never files onto the drive". Two commands
+    # that both "restore" and move entirely different things is how a person runs the wrong one.
+    # The app's button will read **"Bring these back"** on the drive card, which is the same verb
+    # in the register that screen uses; the command name is what a script types.
+    recover = sub.add_parser(
+        "recover",
+        help="copy photographs a drive has and this library does not back into the library",
+    )
+    recover.add_argument("drive", type=Path, help="the drive to read from (never written to)")
+    recover.add_argument("library", type=Path, help="the library to copy into")
+    recover.add_argument("--apply", action="store_true", help="actually copy (default: preview)")
+    recover.add_argument("--db", type=Path, default=default_catalog_path(), help="SQLite catalog")
+
 
 #: How many names one section prints before it stops. The count beside it is always the real
 #: one - a drive with 30,000 unrecorded files must say 30,000 and show a sample, never show 20
@@ -1092,6 +1118,164 @@ def _drive_here_or_named(given: Path, db: Path) -> tuple[DriveRef, str | None] |
                 file=sys.stderr,
             )
     return None
+
+
+#: Everything that can stop a recover part way. `_BACKUP_STOPS`' enumeration, for its reason: the
+#: surfaces were once enumerated per DEFECT, and a second exception class walked past the arm
+#: added for the first and reached the user as a traceback.
+_RECOVER_STOPS = (RecoverStoppedError, ValueError, DestinationError, sqlite3.Error)
+
+#: What a person types to authorise it. **The word is the command**, which is `undo-organize`'s
+#: and `catalog --move`'s rule - a confirmation whose word is a generic "yes" is one a person can
+#: type without reading what it is attached to.
+_RECOVER_WORD = "recover"
+
+
+def _cmd_recover(args: argparse.Namespace) -> int:
+    """Copy back what a drive has and this library does not. **Adds only; never deletes.**
+
+    Stage 2 of the restore arc, and the writer stage 1 deliberately was not. The engine is
+    `truestill_core.recover`; this is the terminal's panel over it, the relationship
+    `_cmd_backup` has to `copy_to_drive`.
+
+    ⚠ **BOTH FOLDERS MUST BE PRESENT, and unlike `carried` there is no route by label.** Stage 1
+    answers from the catalog and so can name a drive that is not here; this one reads bytes off
+    it. A label route would plan a copy from a disk nobody can see.
+
+    **Exit codes follow `backup`'s**: 0 nothing left to do, 1 some file could not be copied, 2 a
+    refusal before anything started, 4 a run that stopped part way.
+    """
+    drive = _drive_or_explain(args.drive, args.db)
+    if drive is None:
+        return 2
+    library = _drive_or_explain(args.library, args.db)
+    if library is None:
+        return 2
+    if drive.uuid == library.uuid:
+        print("error: the drive and the library are the same drive.", file=sys.stderr)
+        return 2
+
+    pair = RecoverPair(
+        drive=args.drive, drive_marker=drive, library=args.library, library_marker=library
+    )
+    plan = plan_recovery(pair, args.db)
+    if not plan.drive_walked:
+        # ⚠ **Stage 1's worst wrong answer, and it is worse here.** `drives --init` writes a
+        # marker and does not walk, so `file_copies` is empty while the drive is full. Telling
+        # somebody who has just lost a library that there is nothing to bring back, about a drive
+        # holding all of it, is the most expensive sentence in the product.
+        print(
+            f"This catalog has no record of anything on '{plan.drive_label}', so there is "
+            f"nothing\nit can bring back. That is not the same as the drive being empty: a drive"
+            f"\nregistered with `truestill drives --init <path> --label <name>` has a marker"
+            f"\nand was never walked."
+        )
+        print(f"\nWalk it first:  truestill rescan {args.drive}")
+        return 1
+
+    print(
+        f"From '{plan.drive_label}' into '{plan.library_label}': {plan.count} file(s) to copy, "
+        f"{_gb(plan.bytes_needed)}."
+    )
+    # ⚠ **What it does NOT do, and it costs three lines.** The documented data-loss mode for this
+    # operation is a sync run in the wrong direction overwriting newer files with older ones, and
+    # the reassurance a person needs before letting a tool write into their library is that the
+    # library cannot lose anything. Stated up front, on the preview, before they type anything.
+    print(
+        "       Copies only. Nothing in the library is deleted or replaced - a file already\n"
+        "       at the same path is skipped and named, never overwritten. The drive is read\n"
+        "       and left exactly as it is."
+    )
+    if not plan.count:
+        print(
+            f"\nNothing to bring back - every file this catalog records on "
+            f"'{plan.drive_label}' is\n       already in '{plan.library_label}'."
+        )
+        print(
+            "       That is a comparison of records against this library's own disk, not a "
+            f"fresh\n       look at the drive. To check what is really there:  "
+            f"truestill rescan {args.drive}"
+        )
+        return 0
+    if not args.apply:
+        print("\nPreview only. Nothing was copied. Re-run with --apply to bring them back.")
+        return 0
+    confirmed = _typed_confirmation(
+        f"\nType '{_RECOVER_WORD}' to copy {plan.count} file(s) into '{plan.library_label}': ",
+        _RECOVER_WORD,
+    )
+    if confirmed is None:
+        return 2
+    if not confirmed:
+        print("Aborted. Nothing was copied.")
+        return 2
+
+    try:
+        outcome = recover_into_library(
+            pair, args.db, progress=_progress_printer("copying"), cancel=threading.Event()
+        )
+    except _RECOVER_STOPS as exc:
+        _end_of_tier()
+        return _recover_stopped_exit(exc, planned=plan.count)
+    _end_of_tier()
+    return _report_recovered(outcome)
+
+
+def _report_recovered(outcome: RecoverOutcome) -> int:
+    """What landed, what was left alone, and what could not be copied. **Never silent.**"""
+    print(f"\nCopied {outcome.copied} file(s), {_gb(outcome.bytes_copied)}.")
+    present = [rel for rel, why in outcome.skipped if why is Skipped.ALREADY_THERE]
+    absent = [rel for rel, why in outcome.skipped if why is Skipped.NOT_ON_THE_DRIVE]
+    if present:
+        # ⚠ **Reported, not buried.** These are the files the never-overwrite rule protected, and
+        # a person who asked for N and got fewer must be told which rule accounts for the rest -
+        # otherwise the ones that did not arrive read as a defect.
+        print(
+            f"  {len(present)} file(s) were already at that path in the library and were left\n"
+            f"       exactly as they are. Nothing was overwritten."
+        )
+        for relative in present[:RESCAN_SAMPLE_LIMIT]:
+            print(f"       kept: {relative}")
+    if absent:
+        # ⚠ The measured NTFS case - 429 rows against 124 real files. A claim the drive did not
+        # honour is not a failure of this run, and calling it one sends the user hunting a defect.
+        print(
+            f"  {len(absent)} file(s) the catalog records on that drive are not actually on it.\n"
+            f"       Run `truestill rescan` on the drive to correct its records."
+        )
+    for relative, why in outcome.failures:
+        print(f"  failed: {relative} -- {why}", file=sys.stderr)
+    if outcome.failures:
+        print(f"error: {len(outcome.failures)} file(s) could not be copied.", file=sys.stderr)
+        return 1
+    return 0
+
+
+def _recover_stopped_exit(exc: Exception, *, planned: int) -> int:
+    """Say what the stopped recover managed, then what stopped it. `_backup_stopped_exit`'s rule.
+
+    ⚠ **Only `RecoverStoppedError` carries counts, and this does not invent the others** - a
+    `DestinationError` is raised by a guard that runs before each copy, so the type says nothing
+    about how many landed, and printing `0 copied` would be a false custody record.
+    """
+    if isinstance(exc, RecoverStoppedError):
+        print(f"\n{exc.outcome.copied:>9,}  copied before the run stopped")
+        if exc.outcome.failures:
+            print(f"{len(exc.outcome.failures):>9,}  failed")
+        print(f"error: {exc.detail}", file=sys.stderr)
+        print(
+            f"       {planned - exc.outcome.attempted:,} file(s) were not attempted. Re-run the "
+            "same command\n       when the drive is back: it copies only what is still missing.",
+            file=sys.stderr,
+        )
+        return 4
+    print(f"error: {exc}", file=sys.stderr)
+    print(
+        "       The recovery stopped. What had already been copied is recorded, so re-running\n"
+        "       the same command copies only what is still missing.",
+        file=sys.stderr,
+    )
+    return 4
 
 
 def _cmd_rescan(args: argparse.Namespace) -> int:
@@ -5419,6 +5603,7 @@ def _dispatch(argv: list[str] | None) -> int:
         "clean-empty": _cmd_clean_empty,
         "rescan": _cmd_rescan,
         "carried": _cmd_carried,
+        "recover": _cmd_recover,
         "migrate-layout": _cmd_migrate_layout,
         "rename": _cmd_rename,
         "reclaim": _cmd_reclaim,

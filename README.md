@@ -245,7 +245,7 @@ reporting a zero.
 `truestill --help` lists every subcommand: `analyze`, `organize`, `ingest`, `drives`,
 `repoint-sources`, `undo-organize`, `where`, `verify`, `status`, `catalog`, `config`,
 `reclaim`, `migrate-layout`, `backup`, `bake`, `rename`, `clean-empty`, `rescan`, `restore`,
-`carried`, `self-check`.
+`carried`, `recover`, `self-check`.
 
 ⚠ Two of those were missing until 2026-08-30. The list is pinned by
 `test_the_readme_names_every_subcommand.py`, which reads the parser rather than this sentence -
