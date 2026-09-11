@@ -187,7 +187,7 @@
      size an accessibility claim is made about, with nothing below it to fall back on. 13 gives
      the floor a step of headroom and keeps the same +12.5% band. */
   /* ⚠ EACH STEP'S FLOOR IS ITS OWN TOKEN, 2026-09-10, because the rail was a SECOND SCALE.
-     `.sidebar` drops the `vw` term - correctly, a 232px frame has no viewport relationship to
+     `.sidebar` drops the `vw` term - correctly, a 272px frame has no viewport relationship to
      express - but it did so by RE-TYPING the four floors, so they were a copy. Measured the
      moment `--type-xs` moved 12 -> 13: the content took 13.1px and the rail's section labels
      stayed at 12, because nothing connected them. One scale with a hand-copied twin is two

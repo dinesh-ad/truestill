@@ -229,7 +229,7 @@ def test_nothing_a_person_reads_is_set_below_twelve_pixels(ui: Page) -> None:
 def test_the_rail_runs_the_same_scale_as_the_page(ui: Page) -> None:
     """⚠ **THE RAIL WAS A SECOND SCALE, and it had already gone stale.**
 
-    `.sidebar` drops the `vw` term from each step - correctly, since a 232px frame has no
+    `.sidebar` drops the `vw` term from each step - correctly, since a 272px frame has no
     viewport relationship to express - but it did so by RE-TYPING the four floors as literals.
     The moment `--type-xs` moved 12 -> 13 under the one-scale ruling, the page took 13.1px and the
     rail's section labels stayed at 12, silently, because a copy cannot follow its source.

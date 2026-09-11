@@ -1359,6 +1359,19 @@ here because a lost answer key corrupts every measurement taken against it, whic
   the §9 naming as its own piece, now that `already_in_library` gives Import the library's count.
   [Full entry](research/backlog/akl.md)
 
+- **(akm) TWO BREAKPOINTS' DERIVATIONS WENT STALE, AND EVERY TEST STAYED GREEN.** Filed 2026-09-11
+  sweeping the tree after `--sidebar-width` went 232 -> 272. The **1336px panel threshold** was
+  `rail 232 + a 760 column + a 320 panel`; the panel's floor became 248 on 2026-09-06 and the rail
+  272 on 2026-09-11, so the content column at 1336 measures **1000px** against the 1040 assumed.
+  The **1023px `.org-modes`** comment claimed `.main` spends 48px a side, leaves ~744 and gives
+  ~230 a card - measured, it is **32px**, **674px** and **216.7px**, all three wrong *before* the
+  rail moved; at 272 it is 634 and **203.3px**. ⚠ **Both numbers are literals in the stylesheet,
+  so neither could go red**: `test_the_panel_threshold_did_not_move` passed across both changes,
+  correctly, because it asserts the panel is hidden at 1335 and nothing more. Filed rather than
+  fixed - moving either is a judgement made by looking at a rendering, and the rail commit was
+  scoped to the rail. Both comments now carry the measured numbers.
+  [Full entry](research/backlog/akm.md)
+
 - **(aal) How often is the machine wrong about dates, and about what?** Recorded 2026-07-31. [Full
   entry](research/backlog/aal.md)
 

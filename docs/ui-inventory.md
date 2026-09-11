@@ -98,7 +98,7 @@ Now: column ceiling **1600px** (defended by the widest real element - a Find row
 event-folder path, measured at ~1030px natural width), panel `clamp(320px, 20vw, 440px)` with its
 floor unmoved so the 1336px threshold still means something, and the type scale fluid via
 `clamp()` with **rem bounds** so the root still governs. **Fluid type stops at the rail** - `vw`
-asks how wide the window is and the rail is 232px at every window size.
+asks how wide the window is and the rail is 272px at every window size.
 
 **Still open from that pass:** at 3072 with an *empty* library there is no panel, so the column is
 ~56% of the track. That is the honest worst case and also the case with least on screen.

@@ -162,14 +162,16 @@ code,
      on the 4/8px spacing grid (8x34). The nav was never the constraint - "Trips & events", the
      longest label, is 90px natural in a content box that was already 184px and is now 224. */
   --sidebar-width: 272px;
-  /* Layout frames, not type: these stay px through the rem conversion. 232 + 760 + 320 plus
-     gaps is the ~1336px below which the panel cannot appear without squeezing the content
-     column past a comfortable measure.
+  /* Layout frames, not type: these stay px through the rem conversion.
 
-     THE PANEL SCALES, ITS FLOOR DOES NOT. The 320 minimum is what the 1336 threshold was
-     derived from, so it has to survive or that number stops meaning anything: at 1336px,
-     20vw is 267 and the clamp holds it at 320. The ceiling is 440 because the panel carries
-     short library facts - a wider one is empty space with a border, not more information. */
+     ⚠ **THE 1336px PANEL THRESHOLD IS NOW HELD, NOT DERIVED, and BOTH of the terms it was
+     derived from have since moved.** It was `232 + 760 + 320 plus gaps` - rail, a comfortable
+     column, the panel's floor. The panel's floor went 320 -> 248 on 2026-09-06 (the narrowing
+     below), and the rail went 232 -> 272 on 2026-09-11; measured at 1336, the content column is
+     1000px where the derivation assumed 1040. The threshold itself has not moved and
+     `test_the_panel_threshold_did_not_move` still passes, because it is a literal in the media
+     query rather than a computed value - which is exactly why nothing went red. Whether 1336 is
+     still the right number is `(akm)`, not a thing to adjust in passing. */
   /* NARROWED 2026-09-06. It was clamp(320px, 20vw, 440px) and held five lines of body text in a
      third of the window. As a dashboard of three numbers it needs a column, not a page. */
   --panel-width: clamp(248px, 15vw, 320px);
@@ -183,7 +185,7 @@ code,
 }
 /* FLUID TYPE STOPS AT THE RAIL, and this is the one thing the viewport-keyed scale gets wrong
    on its own. `vw` asks how wide the WINDOW is; the rail asks how wide the RAIL is, and the rail
-   is 232px (or 64px) at every window size. Letting its text grow with the viewport made the
+   is 272px (or 64px) at every window size. Letting its text grow with the viewport made the
    custody path truncate MORE on the bigger monitor - caught by the refit test, which is what it
    is for. Redeclaring the tokens at their floor is enough: they are still rem, so a raised
    browser default and the text-size setting both still reach the rail; only the `vw` term is
@@ -605,7 +607,7 @@ code,
 }
 .account-body p {
   margin: 0 0 var(--space-3);
-  /* A licence path and an email are unbreakable tokens in a 232px rail. They wrap rather than
+  /* A licence path and an email are unbreakable tokens in a 272px rail. They wrap rather than
      spill, for `.custody .line`'s reason and by its means. */
   overflow-wrap: anywhere;
 }
@@ -1371,9 +1373,16 @@ select.input {
   font-size: var(--type-sm);
 }
 /* ONE COLUMN where three would be three words per line. The threshold is the CONTENT column,
-   not the window: the rail takes 232px and `.main` 48px of padding, so a 1024px window leaves
-   ~744 and three cards are ~230 each - the last width at which a title and a one-line
-   description still read. A raised browser default reaches this the same way. */
+   not the window, and a raised browser default reaches it the same way.
+
+   ⚠ **RE-MEASURED 2026-09-11, AND THE ARITHMETIC HERE WAS WRONG BEFORE THE RAIL MOVED.** It read
+   *"the rail takes 232px and `.main` 48px of padding, so a 1024px window leaves ~744 and three
+   cards are ~230 each - the last width at which a title and a one-line description still read"*.
+   `.main`'s padding is **32px** a side, not 48; at a 232px rail a 1024px window left **674**, not
+   ~744, and each card was **216.7px**, not ~230. So the stated floor was never met at this
+   breakpoint - the number was computed, not looked at. At the 272px rail the same window gives
+   **634** and **203.3px** a card, and ~230 is first reached at ~1107px. The breakpoint is left at
+   1023 rather than moved on my own judgement of where a title stops reading: `(akm)`. */
 @media (max-width: 1023px) {
   .org-modes {
     grid-template-columns: minmax(0, 1fr);
@@ -2409,7 +2418,7 @@ details.more.inline {
   /* Below the bar rather than inside it. It floated to the right edge on `margin-left: auto`
      and took 219px of the 619px bar. It is the only ambient answer to "where are my files",
      so it is not dropped here - it becomes a full-width band, which also gives the catalog
-     path far more room than the 232px rail ever did. */
+     path far more room than the 272px rail ever did. */
   .custody,
   .sidebar[data-collapsed="true"] .custody {
     order: 10;

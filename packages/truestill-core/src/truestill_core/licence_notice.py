@@ -239,10 +239,13 @@ _WHILE_UNREADABLE: Final = (
 
 #: The five states, worded once. Each says what IS true rather than what is missing - D16 §1 makes
 #: every one of these informational, so none of them may read as a refusal or a prompt.
-#: ⚠ SHORT BY MEASUREMENT, NOT BY TASTE. The summary row is a 232px rail less its padding, the
-#: state dot and the chevron - about 154px, or roughly 20 characters at `--type-sm`. "No licence
-#: on this computer" rendered as "No licence on this comput..." with the tail under the chevron,
-#: which is what a screenshot showed and no assertion would have. The long form lives in
+#: ⚠ SHORT BY A SCREENSHOT, NOT BY ARITHMETIC. "No licence on this computer" rendered as
+#: "No licence on this comput..." with the tail under the chevron - which is what a screenshot
+#: showed and no assertion would have. The row was a 232px rail less its padding, the state dot
+#: and the chevron; it is a **272px** rail since 2026-09-11 and the text column measures 168px,
+#: so these strings now have headroom. They are NOT being lengthened to fill it: the budget was
+#: set by looking at a rendering, and re-deriving it from a measurement is how it went wrong
+#: before. The long form lives in
 #: :data:`_ABSENT`, inside the fold, where it wraps.
 _ABSENT_HEAD: Final = "No licence"
 _ABSENT: Final = (

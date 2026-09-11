@@ -12,7 +12,7 @@ no new layout mechanism: it moves the same lever a raised browser default alread
 `d8f4f4e`.
 
 WHAT EACH STEP COSTS THE FIXED FRAME is asserted rather than assumed. `--sidebar-width`
-(232/64px), `--icon-size` (16px), `--space-*` and the 720px breakpoint are all px ON PURPOSE, and
+(272/64px), `--icon-size` (16px), `--space-*` and the 720px breakpoint are all px ON PURPOSE, and
 `tokens.css` says why. If the setting moved any of them, it would be doing something the browser
 default does not, and the "same lever" claim would be false.
 """

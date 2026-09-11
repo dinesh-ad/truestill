@@ -244,8 +244,11 @@ def test_the_column_and_the_panel_share_a_wide_screen_sensibly(ui: Page) -> None
 
 
 def test_the_panel_threshold_did_not_move(ui: Page) -> None:
-    """1336 = rail 232 + a comfortable 760 column + a 320 panel. The panel's MINIMUM is still
-    320, so the number that threshold was derived from is unchanged."""
+    """The threshold has not moved. ⚠ **Its DERIVATION has, twice, and this test cannot see
+    that** - 1336 was `rail 232 + a comfortable 760 column + a 320 panel`, the panel floor went to
+    248 on 2026-09-06 and the rail to 272 on 2026-09-11, and 1336 is a literal in the media query
+    so all three readings stayed green. What is asserted is that the panel is absent at 1335, and
+    that is all it asserts. `(akm)` holds whether 1336 is still right."""
     ui.set_viewport_size({"width": 1335, "height": 900})
     ui.wait_for_timeout(200)
     expect(ui.locator("#panel")).to_be_hidden()
