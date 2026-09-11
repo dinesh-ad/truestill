@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict, cast
 
 from truestill_core import decode_noise
+from truestill_core.allowance import files_written_by, record_files_written
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_busy import REQUEST_BUSY_ATTEMPTS, retry_while_busy
 from truestill_core.catalog_session import open_catalog
@@ -40,6 +41,7 @@ from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF
 from truestill_core.insights import capture_span, duplicate_bytes, largest_files, sizes_for
 from truestill_core.layout import LayoutScheme
 from truestill_core.layout_settings import pin_existing_layout, resolve_scheme
+from truestill_core.licence_notice import RunNotAllowedError, refusal_before_a_run
 from truestill_core.models import (
     FAILURE_PREVIEW_LIMIT,
     ActionResult,
@@ -1260,6 +1262,43 @@ def _refuse_if_it_cannot_hold(resolutions: list[Resolution], destination: Path) 
         raise DestinationError(limit["detail"])
 
 
+def _refuse_if_the_allowance_cannot_cover(
+    resolutions: list[Resolution], *, skip_undated: bool
+) -> None:
+    """Stop before a run the free allowance cannot cover. `DECISIONS.md` D16 §4, §5.
+
+    `will_organize` is read through `partition_for_report`, which is the **same** derivation the
+    preview shows the user - a second expression here would be a second answer to "how many files
+    will this organize", which `Buckets.will_organize`'s own docstring records as a defect this
+    product already had once.
+
+    :raises RunNotAllowedError: the allowance cannot cover this run.
+    """
+    will_organize = partition_for_report(resolutions).will_organize(skip_undated=skip_undated)
+    refusal = refusal_before_a_run(will_organize)
+    if refusal is not None:
+        raise RunNotAllowedError(refusal)
+
+
+def _close_any_inplace_run(
+    catalog: Catalog, relocation: Relocation | None, results: list[ActionResult]
+) -> None:
+    """Finish or discard the in-place run row, if this run opened one.
+
+    **Discarded when nothing was renamed**, which is the half that matters: an in-place run that
+    moved no files leaves a row claiming a relocation that did not happen, and the rebuild guard
+    reads those rows. Extracted from `organize_run`'s target when the cap check pushed it past
+    the statement bound - a self-contained block with one decision in it was the honest thing to
+    lift, rather than widening the lint exemption for the whole module.
+    """
+    if relocation is None:
+        return
+    if any(result.status is ActionStatus.MOVED_IN_PLACE for result in results):
+        catalog.finish_inplace_run(relocation.run_id)
+    else:
+        catalog.discard_inplace_run(relocation.run_id)
+
+
 def _register_destination(catalog: Catalog, destination: Path) -> DriveMarker:
     """Give the destination a drive identity and remember where it was seen. Returns the marker.
 
@@ -1352,6 +1391,17 @@ def organize_run(
                 on_destination=on_destination,
             )
             _refuse_if_it_cannot_hold(resolutions, effective_destination)
+            # ⚠ **THE FREE-TIER CAP, AND IT SITS HERE FOR THE SAME REASON THE SPACE CHECK ABOVE
+            # DOES.** D16 §4: a run over the cap is refused BEFORE it starts and never stopped
+            # part-way, because half an organize run is the worst state this product can leave a
+            # library in. This line is after planning - so `will_organize` is known - and before
+            # `_register_destination`, before `_open_organize_run` and before `execute`, so
+            # nothing has been written, no marker minted and no run row opened when it raises.
+            #
+            # ⚠ **NOT at the preview, deliberately** (D16 §5): the preview stays complete and
+            # silent about the cap, because a number that updates as a user types is the
+            # countdown D6 §3 forbids. `organize_preview` does not call this and must not.
+            _refuse_if_the_allowance_cannot_cover(resolutions, skip_undated=skip_undated)
             marker = _register_destination(catalog, effective_destination)
             drive_uuid = marker.uuid
             _open_organize_run(catalog, drive_uuid, resolutions, on_destination)
@@ -1399,17 +1449,17 @@ def organize_run(
                 _write_the_record(
                     db, resolutions, exc.results, source, effective_destination, cancelled=False
                 )
+                # ⚠ **CHARGED FOR WHAT IT WROTE, NOT FOR WHAT IT PLANNED.** A run stopped by a
+                # full drive still put files in the library, and those files are there - so the
+                # allowance is spent on them and on nothing else. Recording only on the clean
+                # path would let a user organize a library in stopped halves for ever.
+                record_files_written(files_written_by(exc.results))
                 raise
             # An OPTIMISATION, never a correctness requirement: a crash between the last file and
             # this line leaves the row open, and `unfinished_organize_run` derives the answer from
             # what the drive holds, so that case still reads as complete. `(aem)`.
             catalog.finish_organize_run(drive_uuid)
-            if relocation is not None:
-                moved = sum(1 for r in results if r.status is ActionStatus.MOVED_IN_PLACE)
-                if moved:
-                    catalog.finish_inplace_run(relocation.run_id)
-                else:
-                    catalog.discard_inplace_run(relocation.run_id)
+            _close_any_inplace_run(catalog, relocation, results)
         # ⚠ **THE RUN RECORD, AND THE APP HAD NONE UNTIL `(afu)`.** `IMPLEMENTATION_STANDARDS` §1
         # states it as a **product** invariant - *"automatic because the user who most needs it is
         # the one who did not know to ask"* - and that user is this surface's: a person typing
@@ -1426,6 +1476,12 @@ def organize_run(
         record_error = _write_the_record(
             db, resolutions, results, source, effective_destination, cancelled=cancel.is_set()
         )
+        # **AFTER the run, beside the record, and this line covers CANCELLATION too** - `execute`
+        # returns what it managed when `cancel` is set, so a run stopped halfway by the user is
+        # charged for the files it had already filed and for none of the rest. That is the
+        # honest answer rather than the generous one: those photographs are in the library, and a
+        # cap that forgave them would be a cap anyone could avoid by pressing Stop.
+        record_files_written(files_written_by(results))
         base = _completion(results, effective_destination, metadata)
         leftover: LeftoverEmptyFolders | None = None
         # The two halves of what a move left behind, gated together on the mode. A copy leaves

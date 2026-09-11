@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from truestill_core import decode_noise
+from truestill_core.allowance import files_written_by, record_files_written
 from truestill_core.app_paths import (
     LEGACY_CATALOG_PATH,
     cache_path_for,
@@ -185,6 +186,7 @@ from truestill_core.left_behind import (
     files_left_in_source,
     will_remain_line,
 )
+from truestill_core.licence_notice import refusal_before_a_run
 from truestill_core.migrate import (
     ROUTE_SIDE_BIN,
     STOP_WORDING,
@@ -3201,6 +3203,80 @@ def _close_organize_run(catalog: Catalog, args: argparse.Namespace, drive_uuid: 
     catalog.finish_organize_run(drive_uuid)
 
 
+def _charge_the_allowance_for_a_stopped_run(
+    args: argparse.Namespace, exc: RunStoppedError | DestinationError
+) -> None:
+    """Charge a run that ended in an exception for the files it managed to write.
+
+    ⚠ **Only `RunStoppedError` carries results**, because `DestinationError` is raised BEFORE any
+    file moves - so there is nothing to charge for and the check that tells them apart lives here
+    rather than as a second `except` clause at the call site.
+    """
+    if isinstance(exc, RunStoppedError):
+        _charge_the_allowance(args, exc.results)
+
+
+def _close_any_inplace_run(
+    catalog: Catalog,
+    args: argparse.Namespace,
+    relocation: Relocation | None,
+    results: list[ActionResult],
+    *,
+    drive_uuid: str | None,
+    emptied_folders: int,
+) -> int:
+    """Finish or discard the in-place journal row, and count what the moves emptied.
+
+    ⚠ **Counted HERE and printed after the report**, because the catalog closes with this block
+    and the journal has to be FINISHED before it is read - `finish_inplace_run` is what makes
+    those rows visible. `(afi)`
+
+    A run that renamed nothing leaves no journal row to offer as an undo, so it is discarded.
+    Extracted from `_run_pipeline` when the cap check pushed it past the branch bound; the app
+    service has the same block as `_close_any_inplace_run`, and the two surfaces having one shape
+    each rather than one shared one is `IMPLEMENTATION_STANDARDS.md` §2 - core is the only home
+    they share, and a catalog-journal decision that reads `args` is not core's.
+    """
+    if relocation is None or not args.apply:
+        return emptied_folders
+    if any(result.status is ActionStatus.MOVED_IN_PLACE for result in results):
+        catalog.finish_inplace_run(relocation.run_id)
+        return _emptied_folder_count(catalog, drive_uuid, Path(args.destination))
+    catalog.discard_inplace_run(relocation.run_id)
+    return emptied_folders
+
+
+def _allowance_refusal(args: argparse.Namespace, resolutions: list[Resolution]) -> int | None:
+    """`ALLOWANCE_EXHAUSTED_EXIT` when the free allowance cannot cover this run, else ``None``.
+
+    ⚠ **`args.apply` is what keeps this out of a preview** (D16 §5): the preview stays complete
+    and silent about the cap, because a number that moves as a user types is the countdown D6 §3
+    forbids. A dry run passes straight through.
+
+    `will_organize` comes from `partition_for_report`, the same derivation the preview prints, so
+    the number the user was shown is the number the cap is measured against.
+    """
+    if not args.apply:
+        return None
+    refusal = refusal_before_a_run(
+        partition_for_report(resolutions).will_organize(skip_undated=args.skip_undated)
+    )
+    if refusal is None:
+        return None
+    print(refusal.message, file=sys.stderr)
+    return ALLOWANCE_EXHAUSTED_EXIT
+
+
+def _charge_the_allowance(args: argparse.Namespace, results: list[ActionResult]) -> None:
+    """Record what the run wrote. **After the run, never before** (`DECISIONS.md` D16 §4).
+
+    A dry run reaches here with `PLANNED` results, which `files_written_by` does not count - and
+    `args.apply` is checked anyway, because a preview must not touch the counter file at all.
+    """
+    if args.apply:
+        record_files_written(files_written_by(results))
+
+
 def _run_pipeline(
     args: argparse.Namespace,
     files: list[Path],
@@ -3289,6 +3365,24 @@ def _run_pipeline(
             )
 
         preflight = preflight_for_run(resolutions, destination, skip_undated=args.skip_undated)
+
+        # ⚠ **THE FREE-TIER CAP, AND `args.apply` IS WHAT KEEPS IT OUT OF A PREVIEW.**
+        # D16 §5: the preview stays complete and silent about the cap, so a dry run reaches this
+        # line and passes straight through it. D16 §4: an `--apply` run over the allowance is
+        # refused here - before the report, before `_registered_or_refused` mints a marker, before
+        # `_open_organize_run` writes a row, and before `execute` touches a file - because half an
+        # organize run is the worst state this product can leave a library in.
+        #
+        # ⚠ **BEFORE `_print_run_reports`, AND WALKING THE FREE TIER IS WHAT MOVED IT THERE.** The
+        # check sat below the report and worked - exit 9, nothing written - but a refused
+        # `--apply` printed the ENTIRE run report first and one sentence on stderr afterwards.
+        # That report carries no DRY RUN banner (it prints only when `not args.apply`), so it
+        # described a run that did not happen as though it had, and anyone reading stdout alone
+        # saw a successful-looking organize. A refused run now says one thing: why.
+        over_the_allowance = _allowance_refusal(args, resolutions)
+        if over_the_allowance is not None:
+            return over_the_allowance
+
         _print_run_reports(args, resolutions, destination, preflight, scan)
 
         resolved = _registered_or_refused(args, drive_marker, catalog, destination, preflight)
@@ -3325,20 +3419,19 @@ def _run_pipeline(
                 else None,
             )
         except (RunStoppedError, DestinationError) as exc:
+            _charge_the_allowance_for_a_stopped_run(args, exc)
             return _stopped_run_exit(args, resolutions, exc)
 
+        _charge_the_allowance(args, results)
         _close_organize_run(catalog, args, drive_uuid)
-        if relocation is not None and args.apply:
-            moved = sum(1 for r in results if r.status is ActionStatus.MOVED_IN_PLACE)
-            # A run that renamed nothing leaves no journal row to offer as an undo.
-            if moved:
-                catalog.finish_inplace_run(relocation.run_id)
-                # ⚠ Counted HERE and printed after the report, because the catalog closes with
-                # this block and the journal has to be FINISHED before it is read - the line
-                # above is what makes these rows visible. `(afi)`
-                emptied_folders = _emptied_folder_count(catalog, drive_uuid, Path(args.destination))
-            else:
-                catalog.discard_inplace_run(relocation.run_id)
+        emptied_folders = _close_any_inplace_run(
+            catalog,
+            args,
+            relocation,
+            results,
+            drive_uuid=drive_uuid,
+            emptied_folders=emptied_folders,
+        )
 
     print()
     if not args.apply:

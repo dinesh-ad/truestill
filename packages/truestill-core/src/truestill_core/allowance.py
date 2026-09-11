@@ -31,11 +31,13 @@ someone who paid.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Final
 
 from truestill_core.app_paths import allowance_path
 from truestill_core.licence import Licence, LicenceState
+from truestill_core.models import ActionResult, ActionStatus
 
 #: D16 §1's starting number, and it is deliberately low.
 #:
@@ -188,6 +190,44 @@ def record_files_written(count: int) -> int:
     except OSError:
         return total
     return total
+
+
+#: The statuses that mean **this run put a file in the library**, which is what the cap counts.
+#:
+#: ⚠ **THIS IS NOT `organizer._BYTES_WRITTEN_STATUSES`, AND THE DIFFERENCE IS ONE MEMBER ON
+#: PURPOSE.** That set answers *"did bytes reach a disk"* - it feeds the disk-filling message, and
+#: its own comment says a rename is excluded because *"counting one would put a number in the
+#: disk-filling message that no disk ever saw"*. This set answers a different question: what did
+#: the run **organize**. An in-place move writes no bytes and still files a photograph, so it is
+#: charged here and not there.
+#:
+#: `ALREADY_PLACED` is absent for the mirror reason: an in-place re-run over a file that is
+#: already at its target does nothing at all, and charging a user for a second run that moved
+#: nothing would make re-running - the ordinary way people recover from a partial run - cost them
+#: allowance for work that already happened.
+#:
+#: `PLANNED` is absent because that is a dry run, `DUPLICATE` and `SKIPPED_UNDATED` because the
+#: file stayed where it was, and `FAILED` because nothing landed.
+FILES_WRITTEN_STATUSES: Final = frozenset(
+    {
+        ActionStatus.UPLOADED,
+        ActionStatus.RENAMED,
+        ActionStatus.MOVED,
+        ActionStatus.MOVE_KEPT,
+        ActionStatus.MOVED_IN_PLACE,
+    }
+)
+
+
+def files_written_by(results: Iterable[ActionResult]) -> int:
+    """How many files a finished run actually put in the library.
+
+    **Counted from what happened, never from what was planned**, which is the whole of D16 §4's
+    "record after the run, not before". A run that was stopped by a full disk, or cancelled
+    halfway, hands back the results it managed - and those files are in the library, so they are
+    charged. A run that planned 4,000 files and wrote 12 costs 12.
+    """
+    return sum(1 for result in results if result.status in FILES_WRITTEN_STATUSES)
 
 
 def _refusal(will_organize: int, remaining: int) -> str:

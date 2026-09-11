@@ -31,8 +31,14 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final
 
-from truestill_core.allowance import RUN_DID_NOT_START, CapVerdict
-from truestill_core.licence import Licence, LicenceState
+from truestill_core.allowance import (
+    RUN_DID_NOT_START,
+    CapVerdict,
+    files_written,
+    may_start,
+    remaining_for,
+)
+from truestill_core.licence import Licence, LicenceState, read_licence
 
 
 class NoticeKind(StrEnum):
@@ -169,6 +175,44 @@ def _summary(
         allowance=allowance,
         sign_out_warning=_SIGN_OUT_WARNING,
     )
+
+
+class RunNotAllowedError(RuntimeError):
+    """A run the free allowance cannot cover, raised instead of starting it.
+
+    **The wording is core's and travels with the exception**, which is `catalog_busy`'s split:
+    recognition and wording here, presentation per surface. The CLI turns this into exit `9` and
+    a sentence on stderr; the app lets it reach the job runner, which sends the message as a
+    terminal error frame with the class name attached - the same channel `DestinationError`
+    already uses for the other refusal that happens after planning and before anything moves.
+    """
+
+    def __init__(self, notice: Notice) -> None:
+        super().__init__(notice.message)
+        self.notice = notice
+
+
+def refusal_before_a_run(will_organize: int) -> Notice | None:
+    """The one reason this run must not start, or ``None`` to go ahead. **Never raises.**
+
+    ⚠ **BLOCKING NOTICES ONLY, and that is what makes this safe to call at Apply.**
+    `notice_for` also answers with the *non-blocking* licence notice - a damaged token on someone
+    well inside the allowance - and D16 §5 rules that such a notice belongs **with the account**,
+    not beside the form and not in the way of a run. Returning it here would put a licence
+    message on the Organize screen, which is the thing that ruling forbids by name. So a caller
+    cannot misuse this: what comes back is a reason to stop, or nothing.
+
+    **This reads the installation** - the token and the counter - which is why it lives here
+    rather than in `allowance`, whose functions are deliberately pure and testable without a
+    filesystem. The decision itself is still `may_start`'s, and the precedence is still
+    `notice_for`'s; this joins the three and decides nothing of its own.
+    """
+    current = read_licence()
+    remaining = remaining_for(current.state, files_written())
+    notice = notice_for(current, may_start(will_organize, remaining))
+    if notice is None or not notice.blocks_run:
+        return None
+    return notice
 
 
 def standing_notice(licence: Licence) -> Notice | None:
