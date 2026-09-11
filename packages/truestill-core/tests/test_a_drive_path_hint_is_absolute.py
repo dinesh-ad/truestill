@@ -147,7 +147,11 @@ def test_no_site_writes_a_drive_path_hint_directly() -> None:
     """
     root = Path(__file__).resolve().parents[3]
     found = subprocess.run(
-        ["git", "grep", "-n", "drive_path_hint(", "--", "packages"],
+        # ⚠ **`--untracked` because `git grep` alone searches the INDEX**, so a brand-new file
+        # writing the hint directly would be invisible to this guard until it was added - which
+        # is after the `make check` that should have caught it. `repo_sources` is the same fix
+        # for the enumerating guards; this one greps, so it takes git's own flag for it.
+        ["git", "grep", "-n", "--untracked", "drive_path_hint(", "--", "packages"],
         cwd=root,
         capture_output=True,
         text=True,

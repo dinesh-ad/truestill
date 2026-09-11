@@ -29,8 +29,9 @@ built on the parser would pass while the defect stood.
 from __future__ import annotations
 
 import ast
-import subprocess
 from pathlib import Path
+
+import repo_sources
 
 REPO = Path(__file__).resolve().parents[3]
 
@@ -40,16 +41,9 @@ REQUIRED = "--label"
 
 
 def _source_files() -> list[Path]:
-    out = subprocess.run(
-        ["git", "ls-files", "packages/*/src/**/*.py"],
-        cwd=REPO,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    files = [REPO / line for line in out.splitlines() if line]
+    files = repo_sources.files("packages/*/src/**/*.py")
     assert files, (
-        "`git ls-files packages/*/src/**/*.py` matched nothing, so this guard has no subject "
+        "`repo_sources.files('packages/*/src/**/*.py')` matched nothing, so this guard has no subject "
         "and would report zero bad suggestions over zero files. See ENGINEERING_STANDARD.md 4, "
         "the fifty-second member: zero violations over zero files is the same green as zero "
         "over a clean tree."

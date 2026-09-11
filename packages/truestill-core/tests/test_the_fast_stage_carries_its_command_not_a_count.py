@@ -32,8 +32,9 @@ and the handoffs stay legal.
 from __future__ import annotations
 
 import re
-import subprocess
 from pathlib import Path
+
+import repo_sources
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -64,13 +65,7 @@ _DATE = re.compile(r"20\d\d-\d\d-\d\d")
 
 def _scope() -> list[str]:
     """The canon, plus every open backlog body - a ruling's body carries the same claim."""
-    bodies = subprocess.run(
-        ["git", "ls-files", "docs/research/backlog/*.md"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.split()
+    bodies = repo_sources.paths("docs/research/backlog/*.md")
     return [p for p in (*CANON, *bodies) if (ROOT / p).is_file()]
 
 

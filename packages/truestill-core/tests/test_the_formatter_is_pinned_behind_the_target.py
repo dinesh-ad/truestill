@@ -28,6 +28,8 @@ from pathlib import Path
 
 import pytest
 
+import repo_sources
+
 _REPO = Path(__file__).resolve().parents[3]
 
 #: Every place the formatter runs, and the shape the flag has in each.
@@ -40,14 +42,7 @@ _INVOCATIONS = (
 
 
 def _tracked_python_files() -> list[Path]:
-    listed = subprocess.run(
-        ["git", "ls-files", "-z", "*.py"],
-        cwd=_REPO,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return [_REPO / name for name in listed.stdout.split("\0") if name]
+    return repo_sources.files("*.py")
 
 
 @pytest.mark.parametrize(("relative", "needle"), _INVOCATIONS)
@@ -107,16 +102,9 @@ def test_no_invocation_escapes_the_pin() -> None:
     a `.py` file is prose by construction, and `scripts/mutate_once.py` contains exactly that -
     a docstring explaining how reformatting defeats an anchor.
     """
-    listed = subprocess.run(
-        ["git", "ls-files", "-z"],
-        cwd=_REPO,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
     offenders: list[str] = []
-    for name in listed.stdout.split("\0"):
-        if not name or name.endswith(".md"):
+    for name in repo_sources.paths():
+        if name.endswith(".md"):
             continue
         path = _REPO / name
         try:

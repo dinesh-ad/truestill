@@ -1209,10 +1209,55 @@ still there and no amount of retrying will do it** - stop looping and tell a per
   contradiction on 2026-09-02 and left it for the maintainer to resolve. Resolved here: it is
   registered, and the line is corrected.
 
+### 7. RECOVERING YOUR OWN PHOTOGRAPHS IS NEVER CAPPED (2026-09-11, restore stage 2)
+
+**`truestill recover` does not consult the allowance and does not charge it.** It copies files
+into a library - the one operation §1 says the cap governs - and it is exempt.
+
+**Why, and the reason is the whole of it: recovering your own photographs from your own backup is
+not organizing.** The cap in §1 is a price for *work truestill does for you* - deciding where a
+photograph belongs, renaming it, de-duplicating it, building a library out of a heap. A recover
+does none of that. It copies bytes the user already owns, back to paths **truestill itself chose
+on an earlier run that was already paid for or already counted**. Charging for it would bill the
+same files twice: once when they were organized, again when a disk died.
+
+⚠ **And the moment it would fire is the worst moment in the product.** A person runs this having
+just lost a library. The answer *"you have reached your free limit, please buy a licence to get
+your photographs back"* is the definition of holding data hostage - it is D6 §4's boundary, *"do
+not cripple the core organiser"*, failing at the one point where the user has no alternative and
+no leverage. D6 §3 forbids withholding function to force the question; there is no version of
+this that is not exactly that.
+
+**It is also the rule D6 §4 already states, applied where it bites hardest**: *"nothing behind the
+paywall stands between a user and their own files"*, and §1 restates it - *"reading, finding,
+browsing, exporting and **retrieving** are untouched at any count"*. A recover is retrieval. The
+word was already there; this section is only naming the command it now has.
+
+**What this does NOT license.** The exemption is for copying a file back to the path the catalog
+already records for it. It is not a route around the cap:
+
+- A recover **cannot create a library**. It refuses unless both sides are registered drives, and
+  a drive nobody has walked has no rows to recover from.
+- It **never re-derives layout**. Paths come from `file_copies`, so nothing is being organized -
+  which is exactly why there is nothing to charge for.
+- **`organize` is unchanged and still charged.** Ingesting new photographs is the work, and the
+  work is what the cap prices.
+
+**Where it is enforced:** nowhere, and deliberately. `truestill_core.recover` does not import
+`allowance` at all, so there is no check to get wrong and no counter to forget to skip. The
+absence is the mechanism.
+
+⚠ **The open half, stated rather than left to be discovered.** Nothing currently stops somebody
+using `backup` then `recover` as an uncapped copy tool between two registered drives. That is
+accepted: it requires two drives, a walked catalog, and more effort than organizing, and D16 §3
+already ruled that enforcement is **a speed bump, not a wall** - *"someone determined to avoid
+paying will avoid paying"*. If it is ever observed in the field it is a §3 question, not a reason
+to cap retrieval.
+
 **Status:** Settled as a decision, partially built. Supersedes D6 §3's and §4's open free/Pro
 split with the volume cap; confirms D6 §1 unchanged and withdraws the lapsed-read-only framing;
 records the enforcement trade. **Built:** the token format and its verifier, the cumulative
 counter, the cap as a pure function, the precedence between a licence problem and the cap, the
-epoch's two guards, and exit code `9`. **Not built:** any screen, route or rail slot; the counter
-is not wired to the organizer; the licensing server and payment do not exist. §5's free-tier
+epoch's two guards, exit code `9`, and §7's exemption for `recover`. **Not built:** any screen,
+route or rail slot; the licensing server and payment do not exist. §5's free-tier
 announcement is a **website** deliverable and the website does not exist.

@@ -20,6 +20,8 @@ import ast
 import subprocess
 from pathlib import Path
 
+import repo_sources
+
 REPO = Path(__file__).resolve().parents[3]
 
 #: The one module allowed to call subprocess directly - it *is* the wrapper.
@@ -31,16 +33,9 @@ LAUNCHERS = frozenset({"run", "Popen", "call", "check_call", "check_output"})
 
 
 def _source_files() -> list[Path]:
-    out = subprocess.run(
-        ["git", "ls-files", "packages/*/src/**/*.py"],
-        cwd=REPO,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    sources = [REPO / line for line in out.splitlines() if line]
+    sources = repo_sources.files("packages/*/src/**/*.py")
     assert sources, (
-        "`git ls-files packages/*/src/**/*.py` matched nothing, so this guard has no "
+        "`repo_sources.files('packages/*/src/**/*.py')` matched nothing, so this guard has no "
         "subject and would report zero direct subprocess launches in zero files. "
         "See ENGINEERING_STANDARD.md 4, the fifty-second member: `check=True` turns a "
         "missing .git into an error, but a pathspec that stops matching returns zero rows "

@@ -41,26 +41,17 @@ It sees **separators only**, and only where the rendering is lexically adjacent 
 from __future__ import annotations
 
 import ast
-import subprocess
 from pathlib import Path, PurePosixPath, PureWindowsPath
+
+import repo_sources
 
 REPO = Path(__file__).resolve().parents[3]
 
 
 def _tracked_python() -> list[Path]:
-    out = subprocess.run(
-        ["git", "ls-files", "*.py"],
-        cwd=REPO,
-        capture_output=True,
-        # UTF-8 rather than `text=True`, which decodes with the machine locale - cp1252 on
-        # Windows. The sibling half of this entry, and a guard that trips over it is a joke.
-        encoding="utf-8",
-        errors="surrogateescape",
-        check=True,
-    ).stdout
-    files = [REPO / line for line in out.splitlines() if line]
+    files = repo_sources.files("*.py")
     assert files, (
-        "`git ls-files '*.py'` matched nothing, so this guard has no subject and would report "
+        "`repo_sources.files('*.py')` matched nothing, so this guard has no subject and would report "
         "zero offences in zero files - ENGINEERING_STANDARD.md 4's silent instrument."
     )
     return files

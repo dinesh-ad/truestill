@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import re
 import shutil
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -14,6 +13,8 @@ from truestill_cli import cli as cli_module
 from truestill_cli.cli import main
 from truestill_core.catalog import Catalog
 from truestill_core.layout import LAYOUT_EVENT_TEMPLATE_KEY, LAYOUT_TEMPLATE_KEY, PRESETS
+
+import repo_sources
 
 
 def test_config_show_lists_default_and_presets(
@@ -214,11 +215,10 @@ def test_no_removed_preset_name_survives_anywhere_in_the_tree() -> None:
         "flat-date",
     )
     root = Path(__file__).resolve().parents[3]
-    tracked = subprocess.run(
-        ["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True
-    ).stdout.split()
+    tracked = repo_sources.paths()
     assert tracked, (
-        "`git ls-files` (whole repo) returned nothing, so this guard has no subject and would pass by\n"
+        "`repo_sources.paths()` (whole repo) returned nothing, so this guard has no subject and\n"
+        "would pass by\n"
         "finding zero violations in zero files. See ENGINEERING_STANDARD.md 4, the\n"
         "fifty-second member: a guard must prove its subject is non-empty first."
     )

@@ -8,7 +8,6 @@ inside the template grammar -- the grammar stays a description of structure.
 from __future__ import annotations
 
 import inspect
-import subprocess
 from datetime import date, datetime
 from pathlib import Path
 
@@ -34,6 +33,8 @@ from truestill_core.layout import (
     scheme_from_string,
 )
 from truestill_core.models import RuleName
+
+import repo_sources
 
 WHEN = datetime(2014, 8, 20, 14, 30)
 #: Derived, not transcribed. This was a hand-kept tuple of the same seven strings until
@@ -282,11 +283,10 @@ def test_no_decommissioned_layout_reference_survives_current_facing_text() -> No
         "label / %Y / %m",
     )
     root = Path(__file__).resolve().parents[3]
-    tracked = subprocess.run(
-        ["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True
-    ).stdout.split()
+    tracked = repo_sources.paths()
     assert tracked, (
-        "`git ls-files` (whole repo) returned nothing, so this guard has no subject and would pass by\n"
+        "`repo_sources.paths()` (whole repo) returned nothing, so this guard has no subject and\n"
+        "would pass by\n"
         "finding zero violations in zero files. See ENGINEERING_STANDARD.md 4, the\n"
         "fifty-second member: a guard must prove its subject is non-empty first."
     )

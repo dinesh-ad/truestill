@@ -21,6 +21,7 @@ import threading
 from pathlib import Path
 
 import pytest
+from truestill_core import allowance, recover
 from truestill_core.app_paths import RUN_RECORD_FILENAME
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
@@ -464,3 +465,33 @@ def test_the_record_names_a_skip_as_a_skip(world: tuple[Path, RecoverPair]) -> N
     assert entry["status"] == "skipped"
     assert entry["detail"] == Skipped.ALREADY_THERE.value
     assert entry["copy_sha256"] is None
+
+
+# ------------------------------------------------------------------ recovering is never charged
+
+
+def test_recovering_never_consults_or_charges_the_free_allowance(
+    world: tuple[Path, RecoverPair],
+) -> None:
+    """⚠ **D16 §7, and the mechanism it names is an ABSENCE, which nothing else would notice.**
+
+    Recovering your own photographs from your own backup is not organizing: the paths come from
+    `file_copies`, so truestill is not deciding anything it could charge for - and the moment a
+    cap would fire is the moment a person has just lost a library, which is D6 §4's boundary
+    failing exactly where the user has no alternative.
+
+    §7 says the enforcement is that `truestill_core.recover` never imports `allowance` at all.
+    An absence has no call site to test, so both halves are asserted: the counter does not move
+    across a real run, and the module does not reach the counter to begin with. The second is
+    what survives somebody adding a check that happens to charge zero.
+    """
+    db, pair = world
+    allowance.record_files_written(allowance.FREE_FILE_ALLOWANCE * 3)
+    before = allowance.files_written()
+
+    outcome = _run(db, pair)
+
+    assert outcome.copied == 6, "nothing was recovered, so the counter proves nothing"
+    assert allowance.files_written() == before
+    source = Path(recover.__file__).read_text(encoding="utf-8")
+    assert "allowance" not in source, "D16 §7's mechanism is that this module never reaches it"

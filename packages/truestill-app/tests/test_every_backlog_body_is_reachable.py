@@ -29,8 +29,9 @@ the fifteen were exactly that and would have read as fine under a looser rule.
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
+
+import repo_sources
 
 ROOT = Path(__file__).resolve().parents[3]
 BACKLOG = ROOT / "docs/BACKLOG.md"
@@ -47,14 +48,7 @@ def _tracked_bodies() -> list[str]:
     An untracked scratch file in that directory is not a document this repo ships, and demanding
     it be indexed would fail on somebody's working copy for a file nobody else can see.
     """
-    listed = subprocess.run(
-        ["git", "ls-files", "-z", "docs/research/backlog/*.md"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return sorted(name for name in listed.stdout.split("\0") if name)
+    return repo_sources.paths("docs/research/backlog/*.md")
 
 
 def _index_text() -> str:

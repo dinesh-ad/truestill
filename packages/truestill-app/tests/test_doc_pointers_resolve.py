@@ -57,6 +57,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import repo_sources
+
 #: `[text](target)`. Reference-style and bare-URL links are not used in this repo's docs.
 _LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 
@@ -94,12 +96,11 @@ def _root() -> Path:
     return Path(out.stdout.strip())
 
 
-def _tracked(root: Path) -> list[str]:
-    out = subprocess.run(["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True)
+def _tracked() -> list[str]:
     return [
         rel
-        for rel in out.stdout.split("\n")
-        if rel and not any(rel.startswith(s) or f"/{s}" in rel for s in _SKIP)
+        for rel in repo_sources.paths()
+        if not any(rel.startswith(s) or f"/{s}" in rel for s in _SKIP)
     ]
 
 
@@ -145,7 +146,7 @@ def broken_links(docs: dict[str, str], tracked: set[str]) -> list[tuple[str, str
 
 def _corpus() -> tuple[dict[str, str], set[str]]:
     root = _root()
-    tracked = _tracked(root)
+    tracked = _tracked()
     docs = {
         rel: (root / rel).read_text(encoding="utf-8", errors="replace")
         for rel in tracked

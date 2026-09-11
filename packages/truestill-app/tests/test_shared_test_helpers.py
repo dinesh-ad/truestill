@@ -31,20 +31,18 @@ claims the name; nothing resolves against it.
 from __future__ import annotations
 
 import ast
-import subprocess
 from collections import defaultdict
 from pathlib import Path
+
+import repo_sources
 
 REPO = Path(__file__).resolve().parents[3]
 
 
 def _tracked_python_files() -> list[Path]:
-    out = subprocess.run(
-        ["git", "ls-files", "*.py"], cwd=REPO, capture_output=True, text=True, check=True
-    ).stdout
-    sources = [REPO / line for line in out.splitlines() if line]
+    sources = repo_sources.files("*.py")
     assert sources, (
-        "`git ls-files *.py` matched nothing, so this guard has no subject and would find "
+        "`repo_sources.files('*.py')` matched nothing, so this guard has no subject and would find "
         "zero ambiguous basenames among zero files. "
         "See ENGINEERING_STANDARD.md 4, the fifty-second member: `check=True` turns a "
         "missing .git into an error, but a pathspec that stops matching returns zero rows "

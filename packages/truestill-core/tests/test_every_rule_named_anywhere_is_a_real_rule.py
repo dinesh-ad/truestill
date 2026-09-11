@@ -34,11 +34,12 @@ bytes, no second pass, well under a second.
 from __future__ import annotations
 
 import ast
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
 from truestill_core.models import RuleName
+
+import repo_sources
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -59,10 +60,7 @@ class RuleLiteral:
 
 
 def _tracked_python() -> list[str]:
-    out = subprocess.run(
-        ["git", "ls-files", "*.py"], cwd=ROOT, capture_output=True, text=True, check=True
-    )
-    return out.stdout.split()
+    return repo_sources.paths("*.py")
 
 
 def _rule_argument(call: ast.Call) -> ast.expr | None:
