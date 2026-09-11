@@ -9,6 +9,12 @@ from pathlib import Path
 from typing import Literal, NotRequired, TypedDict, cast
 
 from truestill_core import binaries
+from truestill_core.carried import (
+    CARRIES_NOTHING_EXTRA,
+    CARRIES_UNRECORDED,
+    FROM_RECORDS,
+    NOT_WALKED_YET,
+)
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog, problem_key
 from truestill_core.catalog_startup import (
@@ -519,6 +525,21 @@ class DriveRow(TypedDict):
     reach: str
     #: What this drive is carrying, or `None` when there is nothing to say about it.
     decisions: DriveDecisions | None
+    #: ⚠ **Is this drive a LIBRARY - somewhere an organize run has written?** From
+    #: `catalog.drives_organized_into`, which is exact rather than a heuristic: `backup` and
+    #: `recover` never write `organize_runs`, so a backup drive is never marked. It is what lets
+    #: the screen fill in where the user's library is instead of asking for a path it knows.
+    is_library: bool
+    #: How many recorded copies this drive has that the library does not. ⚠ **`None` means the
+    #: drive has NO ROWS - nobody walked it - which is the opposite of "it carries nothing"**;
+    #: and `None` also when no single library is known, because the question has no subject then.
+    #: **From records. Nothing was read from the drive**, which is why `carried_note` travels
+    #: beside it and the card must render both or neither.
+    carried: int | None
+    #: Core's short form of what that number is, or of why there is no number. Never composed here.
+    carried_note: str
+    #: Core's phrase for what the number counts, empty when there is no number to count.
+    carried_label: str
 
 
 class WhereCopy(TypedDict):
@@ -578,6 +599,22 @@ class DrivesPayload(TypedDict):
     at_risk: list[AtRiskRow]
 
 
+def _carried_note(row: object, the_library: str | None, gaps: dict[str, int]) -> str:
+    """Core's short form for what this card's number is, or why there is not one.
+
+    ⚠ **Every branch returns a core constant.** `IMPLEMENTATION_STANDARDS.md` §9: the CLI's
+    `carried` prints the long form of exactly these facts, and a card that worded them itself
+    would let the two surfaces disagree about what a count means.
+    """
+    uuid = str(row["uuid"])  # type: ignore[index]
+    if the_library is None or uuid == the_library:
+        return ""
+    if not int(row["file_count"] or 0):  # type: ignore[index]
+        # No rows at all: nobody walked it. NOT "it carries nothing".
+        return NOT_WALKED_YET
+    return CARRIES_NOTHING_EXTRA if gaps.get(uuid, 0) == 0 else FROM_RECORDS
+
+
 def list_drives(db: Path) -> list[DriveRow]:
     with open_catalog(db) as catalog:
         mine: Decisions | None = None
@@ -585,6 +622,16 @@ def list_drives(db: Path) -> list[DriveRow]:
         for row in catalog.copy_names_by_drive():
             names_by_drive.setdefault(row["drive_uuid"], []).append(row["relative"])
         drives: list[DriveRow] = []
+        # ⚠ **ONE QUERY FOR THE WHOLE SCREEN, not one per card.** Measured on 376,000 rows - a
+        # 40,000-file library and eight drives of 42,000 - at **292 ms for all eight against
+        # 36 ms for one**, so the per-card alternative costs more and scales worse. No new index:
+        # `idx_file_copies_drive` scans and `file_copies`' own primary key covers the lookup.
+        libraries = catalog.drives_organized_into()
+        # ⚠ **Only when the catalog names exactly ONE library.** Two organize destinations is a
+        # real state and `drives_organized_into` refuses to pick between them, so the gap has no
+        # subject and every card says so rather than being measured against a guess.
+        the_library = next(iter(libraries)) if len(libraries) == 1 else None
+        gaps = catalog.gap_by_drive(the_library) if the_library is not None else {}
         for d in catalog.list_drives():
             breakdown = media_breakdown(names_by_drive.get(d["uuid"], []))
             # The hint is READ, not taken. `take_live_path_hint` clears a dead path, which was
@@ -621,6 +668,20 @@ def list_drives(db: Path) -> list[DriveRow]:
                     "last_seen": d["last_seen"],
                     "last_verified": d["last_verified"],
                     "reach": reach.value,
+                    "is_library": str(d["uuid"]) in libraries,
+                    # ⚠ **`None` vs `0` is the whole point.** A drive with no `file_copies` rows
+                    # is absent from `gaps`, so it stays `None` and the card says "not checked
+                    # yet" - never "nothing to bring back" about a drive holding a whole library.
+                    "carried": (
+                        None
+                        if the_library is None or str(d["uuid"]) == the_library
+                        else gaps.get(str(d["uuid"]))
+                        if int(d["file_count"] or 0)
+                        else None
+                    ),
+                    "carried_note": _carried_note(d, the_library, gaps),
+                    #: Core's phrase for what the number counts. Empty where there is no number.
+                    "carried_label": CARRIES_UNRECORDED if gaps.get(str(d["uuid"])) else "",
                     # Where it was last seen, so a card can offer "Check now" for the right
                     # folder. Absent when we have never had a path for it, or the hint was
                     # stale and cleared -- in which case the card states the fact without

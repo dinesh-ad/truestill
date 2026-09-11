@@ -156,6 +156,15 @@ def test_drives_split_photos_and_videos(client: TestClient, tmp_path: Path) -> N
         # them would put a `.length` between the card and the number it prints.
         "not_found",
         "not_found_at",
+        # Added 2026-09-11 - restore stage 3. THREE flat keys, and the grouping is deliberate:
+        # `is_library` answers a different question from the other two (which drive is a library,
+        # rather than what one is carrying), and `carried` must never travel without
+        # `carried_note` - the note is what says the number came from records rather than from a
+        # look at the drive, and a count on a card without it reads as a fact about bytes.
+        "is_library",
+        "carried",
+        "carried_note",
+        "carried_label",
     }
     assert drives[0]["photos"] == 2
     assert drives[0]["videos"] == 1

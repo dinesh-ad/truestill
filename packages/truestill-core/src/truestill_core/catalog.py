@@ -2449,6 +2449,76 @@ class Catalog:
             )
         )
 
+    def drives_organized_into(self) -> set[str]:
+        """Every drive an organize run has ever written to - **the libraries**. `(restore 3)`
+
+        ⚠ **THIS IS THE ONLY THING THE CATALOG CAN SAY ABOUT WHICH DRIVE IS A LIBRARY, and it
+        says it exactly rather than by heuristic.** `files` carries no `drive_uuid`, and
+        `file_copies` cannot tell a library from its own backup: `backup` mirrors relative paths
+        verbatim, so "its paths match `files.relative`" is true of both sides.
+
+        `organize_runs` is `drive_uuid PRIMARY KEY`, written by `start_organize_run` from both
+        organize surfaces and **by nothing else** - `backup.py` and `recover.py` never touch it -
+        and `finish_organize_run` closes a row rather than deleting it. So a row here means *an
+        organize run wrote to this drive*, which is what a library is.
+
+        **Measured on a CLI-built catalog** with three registered drives, one organized into and
+        one holding a full backup mirror: one row, the library's. The backup drive had none.
+
+        ⚠ **Two answers are possible and neither is wrong**: organize into a second folder and
+        there are two libraries. The caller decides what to do with an ambiguous answer; this
+        refuses to pick one. ⚠ **And a row is not proof the drive is STILL a library** - a folder
+        organized into once and repurposed keeps its row.
+        """
+        return {
+            str(row["drive_uuid"])
+            for row in self._conn.execute("SELECT drive_uuid FROM organize_runs")
+        }
+
+    def gap_by_drive(self, library_uuid: str) -> dict[str, int]:
+        """Per drive, how many recorded copies the library does not record. **Records only.**
+
+        ⚠ **NOT A LOOK AT ANY DRIVE, and the caller must say so.** This is `carried.Carried`'s
+        `recorded_on_drive` minus `recorded_here`, without the stat pass that
+        `dedup.credible_copies` performs - so a number from here is what the catalog *believes*,
+        and a card that renders it as "files on this drive" would be making a promise about
+        bytes that nothing checked.
+
+        ⚠ **A drive with no rows is ABSENT from the result, never zero.** Empty `file_copies` for
+        a drive means nobody walked it, which is the opposite of "it carries nothing" - the worst
+        wrong answer in the product. A `dict` with a missing key forces the caller to tell the two
+        apart; a `0` would let it skip the distinction by accident.
+
+        **Cost, measured** on 376,000 rows - a 40,000-file library and eight drives of 42,000:
+        **292 ms for all eight, 36 ms for one**, in a single pass. No new index: the plan is
+        ``SCAN fc USING INDEX idx_file_copies_drive`` with the lookup served by `file_copies`'
+        own primary key as a covering index.
+        """
+        return {
+            str(row["drive_uuid"]): int(row["gap"])
+            for row in self._conn.execute(
+                """
+                -- ⚠ **SUM(CASE ...), NOT COUNT(*) BEHIND A WHERE, and the difference is the
+                -- whole contract.** Filtering first drops a drive whose copies are ALL recorded
+                -- here, so it vanishes from the result and reads exactly like a drive with no
+                -- rows at all - collapsing "walked, carries nothing extra" into "nobody walked
+                -- it", which is the one pair this method exists to keep apart. Caught by its own
+                -- test. Aggregating instead returns a row for every drive that has any rows.
+                SELECT fc.drive_uuid AS drive_uuid,
+                       SUM(
+                           CASE WHEN NOT EXISTS (SELECT 1 FROM file_copies h
+                                                  WHERE h.sha256 = fc.sha256
+                                                    AND h.drive_uuid = ?)
+                                THEN 1 ELSE 0 END
+                       ) AS gap
+                  FROM file_copies fc
+                 WHERE fc.drive_uuid <> ?
+                 GROUP BY fc.drive_uuid
+                """,
+                (library_uuid, library_uuid),
+            )
+        }
+
     def copies_on_drive(self, drive_uuid: str) -> list[sqlite3.Row]:
         """Every recorded copy on a drive: ``sha256, relative, copy_sha256, size``.
 

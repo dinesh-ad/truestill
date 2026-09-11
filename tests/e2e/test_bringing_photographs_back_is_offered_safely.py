@@ -151,3 +151,162 @@ def test_clicking_it_on_the_library_itself_says_so_instead_of_starting_a_job(ui:
 
     expect(ui.locator("#rcv-result")).to_contain_text("That is your library")
     expect(ui.locator("#rcv-drive")).to_have_value("")
+
+
+# ------------------------------------------------------ what the card knows before it is asked
+
+
+def _carrying(label: str, uuid: str, path: str | None, **over: Any) -> dict[str, Any]:
+    row = _drive(label, uuid, path)
+    row.update({"is_library": False, "carried": None, "carried_note": "", "carried_label": ""})
+    row.update(over)
+    return row
+
+
+def test_a_drive_carrying_files_says_how_many_and_where_the_number_came_from(ui: Page) -> None:
+    """⚠ **A COUNT ON A CARD READS AS A FACT ABOUT THE DRIVE, and this one is a fact about the
+    catalog's records of it.** So the number never renders without its provenance beside it -
+    asserted together, because either alone is the defect."""
+    _show(
+        ui,
+        [
+            _carrying(
+                "Morrowkeep",
+                "u1",
+                "/mnt/backup",
+                carried=7,
+                carried_label="your library does not record",
+                carried_note="from this catalog's records, not from a fresh look at the drive",
+            )
+        ],
+    )
+
+    foot = ui.locator("#drives-list .drive-carried")
+    expect(foot).to_contain_text("7 files", timeout=30_000)
+    expect(foot).to_contain_text("not from a fresh look at the drive")
+    expect(ui.locator(".drive-recover")).to_have_count(1)
+
+
+def test_a_drive_carrying_nothing_says_so_and_is_offered_no_button(ui: Page) -> None:
+    """⚠ **"Bring these back" - which these?** A drive with nothing to bring needs a sentence,
+    not an offer. The zero case is the note ALONE: rendering the count too produced "0 files your
+    library does not record, nothing here that your library does not already record"."""
+    _show(
+        ui,
+        [
+            _carrying(
+                "Morrowkeep",
+                "u1",
+                "/mnt/backup",
+                carried=0,
+                carried_note="nothing here that your library does not already record",
+            )
+        ],
+    )
+
+    expect(ui.locator("#drives-list .drive-carried")).to_contain_text(
+        "nothing here that your library does not already record", timeout=30_000
+    )
+    assert "0 file" not in ui.eval_on_selector("#drives-list", "el => el.innerText")
+    expect(ui.locator(".drive-recover")).to_have_count(0)
+
+
+def test_a_drive_nobody_walked_shows_no_number_at_all(ui: Page) -> None:
+    """⚠ **THE WORST WRONG ANSWER ON A CARD.** `drives --init` writes a marker and does not walk,
+    so a drive holding a whole library has no rows. `carried` is `null`, and the card must say it
+    was not checked - never "nothing to bring back" - and must offer `Check now` instead."""
+    _show(
+        ui,
+        [
+            _carrying(
+                "Morrowkeep",
+                "u1",
+                "/mnt/backup",
+                carried=None,
+                carried_note="not checked yet, so this catalog cannot say what is on it",
+            )
+        ],
+    )
+
+    expect(ui.locator("#drives-list .drive-carried")).to_contain_text(
+        "not checked yet", timeout=30_000
+    )
+    assert "0 file" not in ui.eval_on_selector("#drives-list", "el => el.innerText")
+    expect(ui.locator(".drive-recover")).to_have_count(0)
+    expect(ui.locator(".drive-check")).to_have_count(1)
+
+
+def test_the_library_card_carries_neither_a_number_nor_the_button(ui: Page) -> None:
+    """Recovering a drive into itself is refused by the engine, so a button there is the
+    un-honourable offer the rule forbids - and a gap against itself is not a question."""
+    _show(ui, [_carrying("Morrowkeep", "u1", "/mnt/library", is_library=True)])
+
+    expect(ui.locator("#drives-list")).to_contain_text("Morrowkeep", timeout=30_000)
+    expect(ui.locator(".drive-carried")).to_have_count(0)
+    expect(ui.locator(".drive-recover")).to_have_count(0)
+
+
+def test_the_library_field_is_filled_from_the_card_the_catalog_names(ui: Page) -> None:
+    """⚠ **ITEM 1: the app asked for a path it already knew.** `is_library` comes from
+    `organize_runs`, which the CLI writes too - so this now works on a catalog the app never
+    touched, where `library_path` is absent and the earlier check failed open."""
+    _show(
+        ui,
+        [
+            _carrying("My Library", "u1", "/mnt/library", is_library=True),
+            _carrying(
+                "Morrowkeep",
+                "u2",
+                "/mnt/backup",
+                carried=3,
+                carried_label="your library does not record",
+                carried_note="from records",
+            ),
+        ],
+    )
+
+    expect(ui.locator("#drives-list")).to_contain_text("Morrowkeep", timeout=30_000)
+    expect(ui.locator("#rcv-library")).to_have_value("/mnt/library")
+
+
+def test_the_confirm_is_not_uppercased(ui: Page) -> None:
+    """⚠ **ITEM 3.** `.field > label` is right for "DRIVE FOLDER" and wrong for the most serious
+    sentence on the screen: uppercase reads as an alarm. Asserted on the computed style, because
+    `text-transform` changes what is PAINTED and leaves `textContent` alone - a text assertion
+    would pass while the screen shouted."""
+    _show(
+        ui,
+        [
+            _carrying(
+                "Morrowkeep",
+                "u1",
+                "/mnt/backup",
+                carried=3,
+                carried_label="your library does not record",
+                carried_note="from records",
+            )
+        ],
+    )
+    expect(ui.locator("#drives-list")).to_contain_text("Morrowkeep", timeout=30_000)
+    ui.locator("#rcv-library").fill("/mnt/library")
+    # ⚠ **The page's OWN helper, not a click**, because reaching the confirm through the button
+    # means running the preview job and stubbing an SSE stream - which would be testing the job
+    # machinery in order to assert a style rule. `typedConfirm` is what the rule governs, and all
+    # seven of its call sites render this same markup.
+    ui.evaluate(
+        """() => typedConfirm(document.getElementById("rcv-confirm"), {
+             word: "recover",
+             label: "Type recover to copy 3 files into My Library",
+             buttonLabel: "Bring them back",
+             onConfirm: () => {},
+           })"""
+    )
+
+    label = ui.locator("#rcv-confirm label.confirm-ask")
+    expect(label).to_be_visible(timeout=30_000)
+    assert label.evaluate("el => getComputedStyle(el).textTransform") == "none"
+    # And not demoted either: `--fg-secondary` would make the screen's most serious sentence the
+    # one a reader skips. Asserted against the body's own colour rather than a hex.
+    assert label.evaluate("el => getComputedStyle(el).color") == label.evaluate(
+        "el => getComputedStyle(document.body).color"
+    )

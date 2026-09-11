@@ -1148,6 +1148,22 @@
           "audio": {
             "type": "integer"
           },
+          "carried": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "carried_label": {
+            "type": "string"
+          },
+          "carried_note": {
+            "type": "string"
+          },
           "decisions": {
             "anyOf": [
               {
@@ -1160,6 +1176,9 @@
           },
           "files": {
             "type": "integer"
+          },
+          "is_library": {
+            "type": "boolean"
           },
           "label": {
             "type": "string"
@@ -1225,8 +1244,12 @@
         },
         "required": [
           "audio",
+          "carried",
+          "carried_label",
+          "carried_note",
           "decisions",
           "files",
+          "is_library",
           "label",
           "last_seen",
           "last_verified",

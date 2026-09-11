@@ -938,7 +938,7 @@ const rcvProgress = createProgress("rcv");
 // need the same gate in the app. One helper so each surface does not invent its own.
 function typedConfirm(host, { word, label, buttonLabel, onConfirm }) {
   host.innerHTML =
-    `<div class="field"><label>${esc(label)}</label>
+    `<div class="field"><label class="confirm-ask">${esc(label)}</label>
        <input class="input" data-typed-confirm autocomplete="off" spellcheck="false"
               placeholder="type ${esc(word)}"></div>
      <div class="actions">
@@ -2846,6 +2846,35 @@ function driveReachBadge(reach) {
   return "";
 }
 
+// ⚠ **WHAT THE CARD SAYS IT IS CARRYING, AND WHAT THAT NUMBER IS.** A count beside a drive reads
+// as a fact about the drive; this one is a fact about the catalog's RECORDS of it - no stat, no
+// read. So the number never appears without core's `carried_note` beside it, and the two are
+// rendered by one function so neither can ship alone.
+//
+// ⚠ **AND A DRIVE NOBODY WALKED MUST NOT READ AS EMPTY.** `carried` is `null` there, never `0`,
+// because `drives --init` writes a marker and does not walk: "nothing to bring back" about a
+// drive holding a whole library is the worst sentence in the product.
+function carriedNote(d, libraryHere) {
+  if (d.is_library || !d.carried_note) return "";
+  // ⚠ **THE ZERO CASE IS THE NOTE ALONE.** Rendering the count as well produced "0 files your
+  // library does not record, nothing here that your library does not already record" - the same
+  // fact twice, and the second half is the readable one. A count is only worth printing when
+  // there is something to count.
+  const what = d.carried
+    ? `${plural(d.carried, "file")} ${esc(d.carried_label)}, ${esc(d.carried_note)}`
+    : esc(d.carried_note);
+  return `<span class="k drive-carried">${what}</span>`;
+}
+
+// The action, offered only where it can be honoured - `loadDrives`' own rule, and now with a
+// third condition it could not check before: a drive carrying nothing needs no button, and a
+// drive nobody walked needs `Check now` rather than this.
+function carriedOffer(d, libraryHere) {
+  if (!d.path || d.path === libraryHere || d.is_library) return "";
+  if (d.carried === null || d.carried === 0) return "";
+  return `<button class="btn btn-ghost drive-recover" data-path="${esc(d.path)}">Bring these back</button>`;
+}
+
 async function loadDrives() {
   const [{ drives, at_risk }, lib] = await Promise.all([api("/api/drives"), get("/api/library/status")]);
   const list = $("drives-list");
@@ -2906,9 +2935,17 @@ async function loadDrives() {
   // ⚠ **WHICH CARD IS THE LIBRARY ITSELF**, so "Bring these back" is not offered on it.
   // Recovering a drive into itself is refused by the engine, so a button there is exactly the
   // un-honourable offer the rule below forbids - the refusal would be correct and the button
-  // would still have been a lie. `library_root` is the user's stated intent and survives the
-  // drive being unplugged; `library_path` is the live hint. Either identifies the card.
-  const libraryHere = lib.library_root || lib.library_path || null;
+  // would still have been a lie.
+  //
+  // ⚠ **`is_library` FIRST, AND IT IS WHY THIS NOW WORKS ON A CLI-BUILT CATALOG.** The earlier
+  // version asked `library_root || library_path`, both written only by the APP's organize flow -
+  // so on a catalog the CLI built they are null, the check failed open, and the button rendered
+  // on the library's own card while the user was asked to type the path of their own library.
+  // `is_library` comes from `organize_runs`, which both organize surfaces write and neither
+  // backup nor recover touches. The two settings stay as a fallback for the path: `is_library`
+  // names the CARD, a hint names the PATH, and a drive can be one without the other.
+  const libraryCard = drives.find((d) => d.is_library && d.path);
+  const libraryHere = (libraryCard && libraryCard.path) || lib.library_root || lib.library_path || null;
   // Filled in once, here, because this is the only place that knows it. A person who clicks
   // "Bring these back" should not then have to type where their own library is.
   if (libraryHere && !$("rcv-library").value.trim()) $("rcv-library").value = libraryHere;
@@ -2933,14 +2970,13 @@ async function loadDrives() {
       <div class="mono" style="color:var(--success)">${strip}</div></div>
       <div class="drive-foot">
         <span class="k mono">last checked: ${(d.last_verified || "never").slice(0, 10)}</span>
+        ${carriedNote(d, libraryHere)}
         ${lastSeenNote(d)}
         ${driveDecisionsNote(d)}
         ${d.path
           ? `<button class="btn btn-ghost drive-check" data-path="${esc(d.path)}">Check now</button>`
           : ""}
-        ${d.path && d.path !== libraryHere
-          ? `<button class="btn btn-ghost drive-recover" data-path="${esc(d.path)}">Bring these back</button>`
-          : ""}
+        ${carriedOffer(d, libraryHere)}
       </div></div>`;
   }).join("");
   list.innerHTML = summary + cards + risk;

@@ -42,6 +42,28 @@ from truestill_core.destinations import LocalDestination
 from truestill_core.drive import DriveMarker
 from truestill_core.units import format_bytes
 
+#: ⚠ **WHAT A COUNT ON A DRIVE CARD IS, and it is not what it looks like.** A number beside a
+#: drive reads as a fact about that drive; this one is a fact about this catalog's RECORDS of it,
+#: with no stat and no read. `render` already says the long form - *"Counted from records, not
+#: from a fresh look at the drive"* - and this is the short form a card has room for.
+FROM_RECORDS = "from this catalog's records, not from a fresh look at the drive"
+
+#: The state that must never render as a count. `drives --init` writes a marker and does not walk,
+#: so `file_copies` is empty while the drive is full - and "0 to bring back" told to somebody who
+#: has just lost a library, about a drive holding all of it, is the worst sentence in the product.
+NOT_WALKED_YET = "not checked yet, so this catalog cannot say what is on it"
+
+#: ⚠ **"RECORD", NEVER "HAVE", AND THE VERB IS THE HONESTY.** This count is records against
+#: records - no stat on either side - so a library that lost files from its disk still *records*
+#: them and this reads zero. `recover`'s own preview DOES stat the library and will find them, so
+#: "nothing your library does not already **have**" would put the card and the preview in flat
+#: contradiction. Measured: a library with 20 rows and 14 files on disk reads 0 here and 6 there.
+CARRIES_NOTHING_EXTRA = "nothing here that your library does not already record"
+
+#: The count's own phrase, for the same reason. The card renders this with the number and
+#: :data:`FROM_RECORDS` beside it; neither half is composed by a surface.
+CARRIES_UNRECORDED = "your library does not record"
+
 
 @dataclass(frozen=True, slots=True)
 class DriveRef:

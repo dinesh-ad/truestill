@@ -1065,6 +1065,23 @@ fieldset.field {
   color: var(--fg-secondary);
   margin-bottom: var(--space-3);
 }
+/* ⚠ **A TYPED CONFIRMATION IS A SENTENCE, NOT A FIELD LABEL, and `.field > label` above was
+   shouting it.** That rule is right for "DRIVE FOLDER" - small, spaced, uppercase, secondary,
+   naming a control. It is wrong for "Type recover to copy 7 files into My Library", which is the
+   most serious sentence on the screen: uppercase reads as an alarm, letter-spacing slows it
+   down, and `--fg-secondary` demotes the one line that has to be read.
+
+   Body size and the primary foreground, so it reads as serious rather than as loud. Applies to
+   every `typedConfirm` - all seven call sites pass a sentence, and the defect is in the helper
+   rather than on one screen, so fixing it anywhere else would be six special cases. */
+.field > label.confirm-ask {
+  font-size: var(--type-base);
+  font-weight: var(--weight-normal);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--fg);
+}
+
 .field .row {
   display: flex;
   gap: var(--space-2);

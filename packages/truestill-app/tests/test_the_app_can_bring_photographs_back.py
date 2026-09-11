@@ -18,7 +18,7 @@ import threading
 from pathlib import Path
 
 from truestill_app import service
-from truestill_core import recover
+from truestill_core import carried, recover
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker, read_marker
 from truestill_core.hashing import sha256_file
@@ -240,3 +240,125 @@ def test_every_skip_class_has_a_sentence() -> None:
     empty bullet would be the product declining to say what it did."""
     assert set(recover.SKIP_REASONS) == set(recover.Skipped)
     assert all(recover.SKIP_REASONS[member].strip() for member in recover.Skipped)
+
+
+# ------------------------------------------------- what the drive card knows without being asked
+
+
+def _rows(db: Path) -> dict[str, dict[str, object]]:
+    return {str(row["label"]): dict(row) for row in service.list_drives(db)}
+
+
+def test_the_card_names_the_library_without_being_told(tmp_path: Path) -> None:
+    """⚠ **ITEM 1: the app asked for a path it already knew.**
+
+    `LIBRARY_PATH_HINT` is written by the app's own organize flow, so on a CLI-built catalog it
+    is absent and the user was asked to type the absolute path of their own library. `is_library`
+    comes from `organize_runs` instead, which both organize surfaces write and neither backup nor
+    recover touches - so the backup drive here is not marked even though it holds a full mirror.
+    """
+    db, _drive, library = _world(tmp_path)
+    with Catalog(db) as catalog:
+        marker = read_marker(library)
+        assert marker is not None
+        catalog.start_organize_run(drive_uuid=marker.uuid, run_id="r1", intended_total=5)
+        catalog.finish_organize_run(marker.uuid)
+
+    rows = _rows(db)
+
+    assert rows["My Library"]["is_library"] is True
+    assert rows["Backup Drive"]["is_library"] is False
+
+
+def test_a_walked_drive_says_how_much_it_carries(tmp_path: Path) -> None:
+    """⚠ **ITEM 2: the button promised something it had not checked.** 8 against 5 is 3."""
+    db, _drive, library = _world(tmp_path)
+    with Catalog(db) as catalog:
+        marker = read_marker(library)
+        assert marker is not None
+        catalog.start_organize_run(drive_uuid=marker.uuid, run_id="r1", intended_total=5)
+
+    rows = _rows(db)
+
+    assert rows["Backup Drive"]["carried"] == 3
+    assert rows["Backup Drive"]["carried_note"] == carried.FROM_RECORDS
+
+
+def test_a_drive_carrying_nothing_extra_says_so_rather_than_showing_three(
+    tmp_path: Path,
+) -> None:
+    """A drive whose every copy is already here gets `0` and core's sentence - not a number the
+    card would dress up as an offer."""
+    db, _drive, library = _world(tmp_path, on_drive=5, here=5)
+    with Catalog(db) as catalog:
+        marker = read_marker(library)
+        assert marker is not None
+        catalog.start_organize_run(drive_uuid=marker.uuid, run_id="r1", intended_total=5)
+
+    rows = _rows(db)
+
+    assert rows["Backup Drive"]["carried"] == 0
+    assert rows["Backup Drive"]["carried_note"] == carried.CARRIES_NOTHING_EXTRA
+
+
+def test_a_drive_nobody_walked_carries_no_number_at_all(tmp_path: Path) -> None:
+    """⚠ **THE WORST WRONG ANSWER ON A CARD.** `drives --init` writes a marker and does not walk,
+    so a drive holding a whole library has no rows. `carried` is `None`, never `0`, and the note
+    says it was not checked - because a `0` here tells somebody who has just lost a library that
+    their backup holds nothing."""
+    db, _drive, library = _world(tmp_path)
+    fresh = tmp_path / "Fresh"
+    fresh.mkdir()
+    (fresh / "everything.jpg").write_bytes(b"the drive is full")
+    marker = create_marker(fresh, label="Never Walked")
+    with Catalog(db) as catalog:
+        catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+        here = read_marker(library)
+        assert here is not None
+        catalog.start_organize_run(drive_uuid=here.uuid, run_id="r1", intended_total=5)
+
+    row = _rows(db)["Never Walked"]
+
+    assert row["carried"] is None
+    assert row["carried_note"] == carried.NOT_WALKED_YET
+
+
+def test_with_two_libraries_no_card_claims_a_number(tmp_path: Path) -> None:
+    """⚠ **An ambiguous answer is not resolved by guessing.** Two organize destinations means the
+    gap has no single subject, so every card says nothing rather than being measured against a
+    library picked arbitrarily - which would be right on one machine and wrong on another."""
+    db, drive, library = _world(tmp_path)
+    with Catalog(db) as catalog:
+        for root in (library, drive):
+            marker = read_marker(root)
+            assert marker is not None
+            catalog.start_organize_run(
+                drive_uuid=marker.uuid, run_id=f"r-{marker.uuid}", intended_total=1
+            )
+
+    rows = _rows(db)
+
+    # `all()` over an empty dict is True, so the population is pinned before it is judged.
+    assert len(rows) == 2, "the fixture is not the shape this test is about"
+    assert all(row["carried"] is None for row in rows.values())
+    assert all(row["carried_note"] == "" for row in rows.values())
+
+
+def test_the_note_never_travels_without_the_number_or_the_other_way(tmp_path: Path) -> None:
+    """⚠ **The pair is the contract.** A count with no note reads as a fact about bytes; a note
+    with no count says nothing. Asserted across every state this fixture can produce."""
+    db, _drive, library = _world(tmp_path)
+    with Catalog(db) as catalog:
+        marker = read_marker(library)
+        assert marker is not None
+        catalog.start_organize_run(drive_uuid=marker.uuid, run_id="r1", intended_total=5)
+
+    rows = _rows(db)
+
+    judged = {label: row for label, row in rows.items() if not row["is_library"]}
+    assert judged, "every drive is the library, so the loop below is free"
+    for label, row in judged.items():
+        # A note always. Which note is the count's business; having one is the contract.
+        assert row["carried_note"], f"{label} shows a state with no words for it"
+        # And the two states that share the value `None` are told apart by the note.
+        assert (row["carried"] is None) == (row["carried_note"] == carried.NOT_WALKED_YET), label
