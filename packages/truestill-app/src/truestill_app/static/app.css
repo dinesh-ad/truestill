@@ -99,6 +99,18 @@ code,
   --rail-text: #e6e2d9; /* 14.12:1 on the rail */
   --rail-muted: #b0a89a; /* 7.75:1 - replaces --fg-muted, which is 3.91:1 here */
   --rail-success: #5cc47f; /* 8.39:1 - replaces --success, tuned for white at 5.30:1 */
+  /* ADDED 2026-09-11 for the account slot's licence notice (D16 §5). Amber rather than red: an
+     unreadable licence is a thing to fix and D16 §1 means nothing has stopped working, so the
+     rail must not paint an alarm. Measured against #101012 at **9.00:1**, above `--rail-muted`
+     so the one sentence that asks for action is not quieter than the prose around it.
+     ⚠ THREE OF THE FOUR RATIOS RECORDED IN THE BLOCK ABOVE ARE STALE, found while measuring
+     this one and reported rather than rewritten. Re-run against #101012 they read 14.70, 8.07
+     and 8.74 where the comment says 14.12, 7.75 and 8.39 - the 2026-08-13 figures, taken
+     against the OLD ground (#17150f) and carried over when 2026-09-06 changed it.
+     `--rail-accent` is the exception and agrees exactly at 10.05:1, because it was the one
+     re-measured that day. Every stale figure UNDERSTATES the contrast the rail actually has, so
+     none is a regression and none is urgent; they are three numbers a reader would trust. */
+  --rail-warn: #e0a94a; /* 9.00:1 on the rail */
   --rail-active-bg: #2a2a34; /* 1.42:1 - lifted with the canvas, see the note above */
   /* THE ACTIVE ITEM'S EDGE. `--rail-active-bg` alone is **1.27:1** against the rail - a fill
      that has to be inferred rather than seen, which is `organize-preview-record.md`'s fourth
@@ -407,8 +419,200 @@ code,
   transform: rotate(180deg);
 }
 
-/* The reserved account slot. Renders nothing and occupies nothing until D5 exists. */
+/* ---------- the account slot. D5, D16 §5; shape ruled by `(aam)` ---------- */
+/* Still hidden while empty: the rail must not flash a guessed licence state before
+   `/api/account` answers, which is the defect the Organize action bar had with
+   data-library="unknown" and is cheaper to prevent than to chase. */
 .account-slot:empty {
+  display: none;
+}
+/* It sits ABOVE custody, and custody owns `margin-top: auto` - so this needs none. Read as a
+   pair from the bottom up: what is safe, then who you are. */
+.account-slot {
+  /* ⚠ THE `auto` LIVES HERE, AND CUSTODY'S IS CANCELLED BELOW. Both carried one, so the free
+     space in the rail was SPLIT between them and the slot floated in the middle of a dark
+     column with a gap under it - visibly an afterthought, and exactly what a screenshot shows
+     and no assertion does. One auto pushes the pair to the bottom together. */
+  margin-top: auto;
+  margin-bottom: var(--space-3);
+  min-width: 0;
+}
+/* Scoped to the slot being present, so custody keeps its own rule unchanged whenever the slot
+   is empty, hidden, or folded out below 720px. */
+.account-slot:not(:empty) + .custody {
+  margin-top: 0;
+}
+/* QUIETER THAN CUSTODY, DELIBERATELY. Custody is the product's claim about the user's
+   irreplaceable files and earns a raised card; an account is administrative. Giving both the same
+   treatment would make the rail read as two equal announcements, and the wrong one would win on
+   position. So: no gradient, no shadow, one hairline. */
+.account-acct {
+  border-radius: var(--corner-lg);
+  border: var(--border-width) solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.025);
+  overflow: hidden;
+}
+.account-acct > summary {
+  /* `list-style: none` plus the WebKit pseudo-element: Safari ignores the standard property on a
+     summary and keeps drawing its own triangle, which lands on top of the name. D15's engine
+     rule reaches here - what WebKit reports and what it paints are different questions. */
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  min-width: 0;
+}
+.account-acct > summary::-webkit-details-marker {
+  display: none;
+}
+.account-acct > summary:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+/* The focus ring is the whole keyboard affordance here - the marker is gone, so without this a
+   keyboard user cannot tell the row is the control. */
+.account-acct > summary:focus-visible {
+  outline: 2px solid var(--rail-accent);
+  outline-offset: -2px;
+}
+/* A DOT, NOT AN AVATAR. `(aam)` names Cursor as the model, which shows a photograph; there is no
+   photograph here and inventing initials in a circle would be identity theatre for a local tool.
+   One dot carrying the state colour says the same thing in 8px and can never be wrong. */
+.account-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--rail-muted);
+}
+.account-slot[data-state="active"] .account-dot {
+  background: var(--rail-success);
+}
+.account-slot[data-state="unreadable"] .account-dot {
+  background: var(--rail-warn);
+}
+.account-who {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.account-name {
+  /* ⚠ BLOCK, because `overflow`/`text-overflow` DO NOTHING on an inline box. This is a <span>,
+     so the ellipsis was inert and the name ran under the chevron instead of being clipped. */
+  display: block;
+  font-size: var(--type-sm);
+  color: var(--rail-text);
+  /* One line, and a long name loses its tail rather than the rail losing its width. The full
+     name is in the details below, where it wraps. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* THE ALLOWANCE LIVES HERE AND NOWHERE ELSE (D16 §5, ruling 3). Not beside the form, not beside
+   the run button, and NOT "when it gets low" - that last one is a countdown wearing a different
+   hat and is the version a well-meaning person will propose. */
+.account-allowance {
+  font-size: var(--type-sm);
+  color: var(--rail-muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-chevron {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--rail-muted);
+  transition: transform var(--dur) var(--ease);
+}
+.account-acct[open] .account-chevron {
+  transform: rotate(180deg);
+}
+.account-body {
+  padding: 0 var(--space-4) var(--space-4);
+  font-size: var(--type-sm);
+  color: var(--rail-muted);
+  line-height: 1.55;
+  min-width: 0;
+}
+.account-body p {
+  margin: 0 0 var(--space-3);
+  /* A licence path and an email are unbreakable tokens in a 232px rail. They wrap rather than
+     spill, for `.custody .line`'s reason and by its means. */
+  overflow-wrap: anywhere;
+}
+.account-body p:last-child {
+  margin-bottom: 0;
+}
+.account-field {
+  color: var(--rail-text);
+}
+/* The licence notice, when there is one. A left rule rather than a filled panel: it is a thing
+   to fix, not an alarm, and D16 §1 means nothing has stopped working. */
+.account-notice {
+  border-left: 2px solid var(--rail-warn);
+  padding-left: var(--space-3);
+  color: var(--rail-text);
+}
+.account-path {
+  font-family: var(--family-mono);
+  font-size: var(--type-sm);
+  color: var(--rail-muted);
+}
+/* ⚠ BOUNDED, because an open fold must not push custody out of the rail.
+   Measured at a 700px-tall window: opening this took the rail's scrollHeight to 858 and put the
+   custody strip 142px below the fold. Nothing is LOST - the rail is `overflow-y: auto` and it
+   scrolls - but custody is the product's standing claim about a user's irreplaceable files, and
+   it silently leaving the screen when someone opens their account is the wrong trade.
+   ⚠ **This bounds my contribution, it does not fix the rail.** The nav alone is ~360px, so a
+   short enough window overflows with or without this panel; that is pre-existing and is reported
+   rather than papered over with a taller magic number. */
+.account-body {
+  max-height: 40vh;
+  overflow-y: auto;
+}
+/* THE RAIL'S OWN PALETTE, NOT THE CANVAS'S. `.input` and `.btn` are authored for a light page,
+   and dropped into a near-black rail they were the two brightest objects in it - a form that
+   read as pasted in from another screen rather than as part of the rail. Same surface language
+   as `.custody` one block down: translucent white over dark, one hairline, no gradient. */
+.account-body .input {
+  width: 100%;
+  margin-bottom: var(--space-2);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--rail-text);
+}
+.account-body .input::placeholder {
+  color: var(--rail-muted);
+  opacity: 0.75;
+}
+.account-body .btn {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--rail-text);
+}
+.account-body .btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+/* SIGN OUT IS LAST, BELOW ITS OWN WARNING, AND INSIDE THE DETAILS. `(aam)`: "a casual logout can
+   strand a paying user on an offline machine." It is reachable only after a deliberate expand,
+   it is never styled as the primary action, and the sentence above it says what it removes. */
+.account-signout {
+  margin-top: var(--space-4);
+  border-top: var(--border-width) solid rgba(255, 255, 255, 0.08);
+  padding-top: var(--space-3);
+}
+/* Collapsed: the dot alone. Same rule as custody one block down - no sentence, no path, nothing
+   that can overflow a 64px rail - and the dot still carries the state. */
+.sidebar[data-collapsed="true"] .account-acct > summary {
+  justify-content: center;
+  padding: var(--space-2);
+}
+.sidebar[data-collapsed="true"] .account-who,
+.sidebar[data-collapsed="true"] .account-chevron,
+.sidebar[data-collapsed="true"] .account-body {
   display: none;
 }
 
@@ -2107,6 +2311,21 @@ details.more.inline {
     border-radius: 0;
     border: none;
     border-top: var(--border-width) solid var(--rail-border);
+  }
+  /* ⚠ THE ACCOUNT SLOT FOLDS OUT ENTIRELY BELOW 720px, AND IT IS THE CEILING THAT DECIDES.
+     The rail is a horizontal band here with a hard 120px budget - `test_narrow_top_bar.py`'s
+     `test_the_bar_is_a_bar_and_not_most_of_the_window`, which caught this build at **202px**.
+     Custody already spends most of that budget and the comment above records that the ceiling
+     was NOT raised when the type grew 2px: it is what the rule is.
+     So the choice was between a second band that breaks the ceiling and no band. Nothing is
+     lost that matters at this width: D16 §1 guarantees every feature still works, a licence is
+     administrative rather than urgent, and custody - what the user stands to LOSE - is the one
+     thing that has earned a permanent strip in a window this narrow.
+     ⚠ **The cost is stated rather than hidden: below 720px there is nowhere to read the
+     remaining allowance or to activate a licence.** That is a gap, not a second home for either
+     (D16 §5, ruling 3), and it closes the moment the window is wider. */
+  .account-slot {
+    display: none;
   }
   .custody .pips,
   .sidebar[data-collapsed="true"] .custody .pips {

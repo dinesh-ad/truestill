@@ -377,6 +377,41 @@ def write_licence(token: str) -> Path:
     return target
 
 
+def install_token_from(
+    source: Path,
+    *,
+    keys: dict[str, str] | None = None,
+    build_epoch: int = BUILD_EPOCH,
+) -> Licence:
+    """Activate from a file the user points at. **Never raises.**
+
+    ⚠ **THIS IS THE WHOLE OF ACTIVATION UNTIL THERE IS A SERVER**, and it is not a stopgap - D5's
+    offline path is exactly this shape and survives the server existing: *"sign in on any device
+    with a browser, download the token file, copy it onto the target machine."* JetBrains and
+    DBeaver both end in a file the user drops in; ours is simpler only because the token is not
+    machine-bound, so there is no challenge to exchange.
+
+    **It verifies BEFORE it installs, and installs nothing when verification fails.** The
+    alternative - write it, then read it back and report - would replace a working licence with a
+    broken one because the user picked the wrong file out of their downloads folder. The
+    installed token is not touched unless the new one is good.
+
+    A licence that verifies but does not cover this build is still **installed**: that is a lapsed
+    licence, and D16 §2 is explicit that it is a real entitlement rather than a failure.
+    """
+    try:
+        token = source.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return Licence(LicenceState.UNREADABLE, reason=_ACTIVATION_UNREADABLE_FILE)
+
+    candidate = verify_token(token, keys=keys, build_epoch=build_epoch)
+    if candidate.state is LicenceState.UNREADABLE:
+        return candidate
+
+    write_licence(token)
+    return candidate
+
+
 def sign_out() -> None:
     """Remove the token and record that leaving was deliberate.
 
@@ -408,6 +443,10 @@ _UNREADABLE_SIGNATURE: Final = (
 _UNREADABLE_FIELDS: Final = (
     "This licence is in a format this version of truestill does not understand. Check for an "
     "update."
+)
+_ACTIVATION_UNREADABLE_FILE: Final = (
+    "That file could not be read. Choose the licence file you downloaded from your account - it "
+    "is one line of text."
 )
 _UNREADABLE_PATH: Final = (
     "The licence file could not be opened. Check that nothing else is using it, then sign in to "

@@ -131,13 +131,16 @@
           <span class="nav-tooltip" role="tooltip">Settings</span>
         </button>
       </div>
-      <!-- ACCOUNT SLOT - deliberately empty, and reserved rather than filled.
-           `DECISIONS.md` D5 makes an account required at activation, and `(aam)` already ruled
-           the bottom item is account/licence details with sign-out INSIDE it, never a one-click
-           Logout - a casual logout can strand a paying user on an offline machine. None of that
-           is built, so anything here now would be a guess. The position is held; it renders
-           nothing and takes no space until there is something true to put in it. -->
-      <div class="account-slot" id="account-slot" data-reserved="d5-account"></div>
+      <!-- ACCOUNT SLOT. `DECISIONS.md` D5, D16 §5; `(aam)` ruled its shape.
+           A <details> ELEMENT, and that is the ruling rather than a widget choice: (aam) requires
+           sign-out to live INSIDE account details and never as a one-click Logout, because "a
+           casual logout can strand a paying user on an offline machine". `<details>` is that
+           sentence in markup - the destructive action is unreachable without one deliberate
+           expand - and it is keyboard-operable and screen-reader-labelled with no JS.
+           EMPTY UNTIL THE FETCH LANDS. `.account-slot:empty` still hides it, so the rail never
+           flashes a guessed state before `/api/account` answers - the same defect the Organize
+           bar had with data-library="unknown". -->
+      <div class="account-slot" id="account-slot" data-state="unknown"></div>
       <div class="custody" id="custody" title="Custody - a verified record of where every file is safe.">
         <div class="pips none" id="custody-pips">▫ ▫ ▫</div>
         <div class="line" id="custody-line">Checking your library…</div>

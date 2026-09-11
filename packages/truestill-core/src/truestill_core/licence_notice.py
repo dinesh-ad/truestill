@@ -100,6 +100,89 @@ def _licence_notice(licence: Licence, *, blocks_run: bool) -> Notice:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class AccountSummary:
+    """Everything the account surface says, worded here so no surface retypes a sentence.
+
+    ⚠ **This exists because the seam this product keeps getting wrong is a second copy of a
+    sentence.** `IMPLEMENTATION_STANDARDS.md` §9's rule is one home per outcome; a rail that built
+    its own "Updates until..." string would be a second home the moment the model changed. So the
+    frontend renders fields and composes nothing.
+
+    Every string is present in every state - empty rather than absent - so a renderer branches on
+    content, never on a key that may not be there.
+    """
+
+    state: LicenceState
+    #: One line, always. Who is signed in, or what this is when nobody is.
+    headline: str
+    #: One sentence under it, explaining the state without asking for anything.
+    detail: str
+    #: The standing licence notice, when there is one. Never blocks - nothing is being refused.
+    notice: Notice | None
+    #: The free allowance, worded. Empty when the licence is an entitlement and there is no cap.
+    allowance: str
+    #: What signing out will actually do, said before it is done rather than after.
+    sign_out_warning: str
+
+
+def account_summary(licence: Licence, remaining: int | None, cap: int) -> AccountSummary:
+    """What the account surface shows, for any state. **Pure.**
+
+    ⚠ **D16 §1 binds every branch: none of these is a gate.** The app always opens and every
+    feature works, so every sentence below is informational - there is no countdown, no nag, and
+    nothing here withholds anything. `ABSENT` in particular is **not** an error state: it is what
+    every new user is, and it says what the product is rather than what they are missing.
+
+    ``remaining`` is ``None`` for an entitlement, which is why the allowance line is empty there
+    rather than reading "unlimited" - a number that is absent because it does not apply should not
+    be dressed up as a very large one.
+    """
+    payload = licence.payload
+    notice = standing_notice(licence)
+    allowance = "" if remaining is None else _ALLOWANCE.format(remaining=remaining, cap=cap)
+
+    if licence.state is LicenceState.ACTIVE and payload is not None:
+        detail = _ACTIVE.format(edition=payload.edition.title(), until=payload.updates_until)
+        return _summary(licence, payload.name, detail, notice, allowance)
+    if licence.state is LicenceState.LAPSED and payload is not None:
+        detail = _LAPSED.format(edition=payload.edition.title(), until=payload.updates_until)
+        return _summary(licence, payload.name, detail, notice, allowance)
+    if licence.state is LicenceState.SIGNED_OUT:
+        return _summary(licence, _SIGNED_OUT_HEAD, _SIGNED_OUT, notice, allowance)
+    if licence.state is LicenceState.UNREADABLE:
+        return _summary(licence, _UNREADABLE_HEAD, _UNREADABLE, notice, allowance)
+    # ABSENT, and the two entitlement states when a payload somehow did not survive - which is
+    # unreachable through `verify_token` and is still answered rather than left to fall off the
+    # end, because a rail with no sentence in it is the one outcome nobody would notice.
+    return _summary(licence, _ABSENT_HEAD, _ABSENT, notice, allowance)
+
+
+def _summary(
+    licence: Licence, headline: str, detail: str, notice: Notice | None, allowance: str
+) -> AccountSummary:
+    return AccountSummary(
+        state=licence.state,
+        headline=headline,
+        detail=detail,
+        notice=notice,
+        allowance=allowance,
+        sign_out_warning=_SIGN_OUT_WARNING,
+    )
+
+
+def standing_notice(licence: Licence) -> Notice | None:
+    """The licence notice with **no run in play** - what the account surface shows at rest.
+
+    D16 §5 rules that a non-blocking licence notice appears with the account, in the same place as
+    the allowance, *"because it is the user's relationship with their licence and that has one
+    home"*. This is that question, and it is :func:`notice_for` asked with a run of zero files
+    rather than a second code path - a run that writes nothing is always permitted, so the answer
+    can only ever be the non-blocking licence notice or silence.
+    """
+    return notice_for(licence, CapVerdict(may_start=True, will_organize=0, remaining=None))
+
+
 #: Why a run stopped for someone whose licence may well be valid, said without accusing them.
 #:
 #: It names the connection the user cannot see - that the run was measured against the **free**
@@ -107,4 +190,48 @@ def _licence_notice(licence: Licence, *, blocks_run: bool) -> Notice:
 #: are looking at a file problem rather than a bill.
 _WHILE_UNREADABLE: Final = (
     "Until the licence can be read, runs are measured against the free allowance."
+)
+
+
+#: The five states, worded once. Each says what IS true rather than what is missing - D16 §1 makes
+#: every one of these informational, so none of them may read as a refusal or a prompt.
+#: ⚠ SHORT BY MEASUREMENT, NOT BY TASTE. The summary row is a 232px rail less its padding, the
+#: state dot and the chevron - about 154px, or roughly 20 characters at `--type-sm`. "No licence
+#: on this computer" rendered as "No licence on this comput..." with the tail under the chevron,
+#: which is what a screenshot showed and no assertion would have. The long form lives in
+#: :data:`_ABSENT`, inside the fold, where it wraps.
+_ABSENT_HEAD: Final = "No licence"
+_ABSENT: Final = (
+    "truestill is free to use and every feature works. The free allowance covers the files a run "
+    "writes. If you have bought a licence, point at the file you downloaded."
+)
+_SIGNED_OUT_HEAD: Final = "Signed out"
+_SIGNED_OUT: Final = (
+    "You signed out on this computer, and every feature still works. Your licence has not been "
+    "cancelled - point at your licence file to sign back in."
+)
+_UNREADABLE_HEAD: Final = "Licence not readable"
+_UNREADABLE: Final = (
+    "Every feature still works, and nothing about your library has changed. Replacing the file "
+    "restores your licence."
+)
+_ACTIVE: Final = "{edition}. Updates included until {until}."
+_LAPSED: Final = (
+    "{edition}. Updates ran out on {until}. This version is yours for ever and nothing has been "
+    "taken away; renewing brings new versions."
+)
+#: Same ~22-character budget as the headline above it. The first wording - "1,000 of 1,000 free
+#: files left to organize" - was 42 characters and truncated under the chevron; the second,
+#: "{remaining} free files left", fitted but **dropped the cap**, so a user who had spent 300
+#: files could no longer learn what the allowance was from anywhere in the product. Both numbers
+#: fit if the words go instead: 19 characters, and the sentence that says what a free allowance
+#: IS is one line below in :data:`_ABSENT`.
+_ALLOWANCE: Final = "{remaining:,} of {cap:,} left"
+
+#: Said **before** signing out, never after. `(aam)`: *"a casual logout can strand a paying user
+#: on an offline machine"*, which is why the action lives inside account details rather than
+#: beside Help - and why the one thing it must do is tell the truth about what it removes.
+_SIGN_OUT_WARNING: Final = (
+    "Signing out removes the licence file from this computer. You will need that file again to "
+    "sign back in, so keep a copy before you do."
 )

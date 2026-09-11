@@ -357,6 +357,14 @@ _MUST_HOLD_THE_EXCLUSION = {"clean_empty_apply"}
 #: and deliberately outside drive locks - the gap `(aaw)` recorded and `(adt)`'s close split
 #: into residue letters); and the two deliberate non-catalog exemptions, with their reasons.
 _DIRECT_ALLOWED: dict[str, str] = {
+    # THE ACCOUNT SURFACE (D5, D16). None of these touches a library, a drive or the catalog, so
+    # none can want the per-drive lock this file exists to place. The two that WRITE write one
+    # small file in the data directory: the licence token and the sign-out marker. That is a
+    # decision rather than an oversight - a drive lock protects a user's photographs from two
+    # processes at once, and a token is neither a photograph nor on their drive.
+    "account": "reads the token, the counter and nothing else; writes nothing",
+    "account_activate": "writes the token file in the data dir - no library, no drive, no catalog",
+    "account_sign_out": "removes the token file in the data dir - no library, no drive, no catalog",
     # pure reads / payload builders
     "organize_inventory": "walk and count; writes nothing",
     "backup_preview": "read",

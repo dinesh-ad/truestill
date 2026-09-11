@@ -1,6 +1,70 @@
 {
   "components": {
     "schemas": {
+      "AccountPayload": {
+        "properties": {
+          "allowance": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "headline": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "notice": {
+            "type": "string"
+          },
+          "sign_out_warning": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "token_path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "allowance",
+          "detail",
+          "email",
+          "headline",
+          "name",
+          "notice",
+          "sign_out_warning",
+          "state",
+          "token_path"
+        ],
+        "title": "AccountPayload",
+        "type": "object"
+      },
+      "ActivationPayload": {
+        "properties": {
+          "account": {
+            "$ref": "#/components/schemas/AccountPayload"
+          },
+          "error": {
+            "type": "string"
+          },
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "account",
+          "error",
+          "ok"
+        ],
+        "title": "ActivationPayload",
+        "type": "object"
+      },
       "AppliedReviewGroupPayload": {
         "properties": {
           "end": {
@@ -4491,6 +4555,87 @@
               }
             },
             "description": "HTMLResponse (no JSON body)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/account": {
+      "get": {
+        "operationId": "account",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPayload"
+                }
+              }
+            },
+            "description": "AccountPayload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/account/activate": {
+      "post": {
+        "operationId": "account_activate",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivationPayload"
+                }
+              }
+            },
+            "description": "ActivationPayload"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/account/sign-out": {
+      "post": {
+        "operationId": "account_sign_out",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPayload"
+                }
+              }
+            },
+            "description": "AccountPayload"
           },
           "503": {
             "content": {

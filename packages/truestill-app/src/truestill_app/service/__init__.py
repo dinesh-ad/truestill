@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from truestill_core import backup as _core_backup
 
+from truestill_app.service import account as _account
 from truestill_app.service import backup as _backup
 from truestill_app.service import bake as _bake
 from truestill_app.service import clean_empty as _clean_empty
@@ -31,6 +32,13 @@ from truestill_app.service import takeout as _takeout
 from truestill_app.service import thumbs as _thumbs
 from truestill_app.service import trips as _trips
 from truestill_app.service import verify as _verify
+
+# --- account (D5, D16) ---
+AccountPayload = _account.AccountPayload
+ActivationPayload = _account.ActivationPayload
+account = _account.account
+account_activate = _account.account_activate
+account_sign_out = _account.account_sign_out
 
 # --- fs_browse ---
 FsRoot = _fs_browse.FsRoot

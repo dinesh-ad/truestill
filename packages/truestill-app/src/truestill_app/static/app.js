@@ -4119,7 +4119,9 @@ document.querySelectorAll('input[name="text-size"]').forEach((radio) => {
 // `refreshOrganizeUndoAffordance` used to sit in this list and is now `SCREEN_LOADS.organize`.
 // It was only ever here because Organize is the screen that ships open - it is a screen load,
 // not a shell load, and leaving it in both places would fetch it twice on every visit.
-shellLoads = [loadOrganizeMode(), loadSidebar(), loadTextSize(), loadCustody(), loadQuickPlaces()];
+shellLoads = [
+  loadOrganizeMode(), loadSidebar(), loadTextSize(), loadCustody(), loadQuickPlaces(), loadAccount(),
+];
 
 // `showScreen` is never called at boot - Organize ships with `class="screen active"` in the
 // markup - so without this the screen a user actually lands on would sit at "loading" forever.
@@ -4316,3 +4318,105 @@ document.addEventListener("click", guarded((event) => {
   row.querySelector("[data-rescue-date]").value = button.getAttribute("data-rescue-candidate");
   row.querySelector("[data-rescue-date]").focus();
 }));
+
+
+// ---------- the account slot. D5, D16 §5; shape ruled by `(aam)` ----------
+// EVERY SENTENCE HERE COMES FROM `/api/account`, AND NOTHING IS COMPOSED IN THIS FILE. That is
+// the whole seam: `licence_notice` in core owns the wording, §9 says an outcome is worded once,
+// and the failure this product keeps finding is a second copy of a sentence. So this function
+// places fields and never writes one - the only strings below are element names and the two
+// labels on controls the payload does not describe.
+//
+// NOT A GATE. D16 §1: the app always opens and every feature works. Nothing here refuses
+// anything, nothing here is consulted before doing work, and no state renders as an error.
+function renderAccount(a) {
+  const slot = $("account-slot");
+  slot.dataset.state = a.state;
+  // The allowance line is EMPTY for an entitlement, and stays out of the DOM rather than
+  // rendering an empty element that still takes its margin (D16 §5, ruling 3: it lives here and
+  // nowhere else, so when it does not apply there is nothing to see).
+  const allowance = a.allowance
+    ? `<div class="account-allowance">${esc(a.allowance)}</div>` : "";
+  const identity = a.name || a.headline;
+  const notice = a.notice ? `<p class="account-notice">${esc(a.notice)}</p>` : "";
+  // The email is the second line of identity and only exists when a token does. `covers_this_build`
+  // is not rendered as its own sentence: `detail` already says what lapsed and what did not, in
+  // core's words, and a second phrasing of the same fact beside it is the drift above.
+  const who = a.email ? `<p><span class="account-field">${esc(a.email)}</span></p>` : "";
+  slot.innerHTML = `
+    <details class="account-acct">
+      <summary aria-label="Account and licence">
+        <span class="account-dot" aria-hidden="true"></span>
+        <span class="account-who">
+          <span class="account-name">${esc(identity)}</span>
+          ${allowance}
+        </span>
+        <svg class="account-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <div class="account-body">
+        ${who}
+        <p>${esc(a.detail)}</p>
+        ${notice}
+        <p class="account-path" data-testid="account-token-path">${esc(a.token_path)}</p>
+        <div data-testid="account-activation">
+          <input class="input" id="account-file" type="text" spellcheck="false"
+                 placeholder="Path to your licence file" aria-label="Path to your licence file">
+          <button class="btn" id="account-activate">Use this licence file</button>
+          <p class="warn hidden" id="account-error" role="alert"></p>
+        </div>
+        ${a.state === "absent" || a.state === "signed_out" ? "" : `
+        <div class="account-signout">
+          <p>${esc(a.sign_out_warning)}</p>
+          <button class="btn" id="account-signout" data-testid="account-signout">Sign out</button>
+        </div>`}
+      </div>
+    </details>`;
+}
+
+async function loadAccount() {
+  renderAccount(await get("/api/account"));
+}
+
+// ACTIVATION IS A FILE ON DISK, which is D5's offline path and the whole of activation until a
+// licensing server exists. Delegated, not bound per render: `renderAccount` replaces the slot's
+// contents on every state change, so a listener attached to the button would be lost the first
+// time it worked.
+document.addEventListener("click", guarded(async (event) => {
+  if (!event.target.closest("#account-activate")) return;
+  const field = $("account-file");
+  const r = await api("/api/account/activate", { path: field.value });
+  // THE ERROR IS SHOWN IN THE SLOT, NOT THE GLOBAL BANNER. A file the user picked wrongly is an
+  // ordinary mistake answered where they made it; the red banner across the top of the screen is
+  // for a failure with no home, and using it here would put a licence message on whatever screen
+  // happens to be open - which D16 §5 rules out by name.
+  renderAccount(r.account);
+  const details = document.querySelector(".account-acct");
+  if (details) details.open = true;
+  if (!r.ok) {
+    $("account-file").value = field.value;
+    const err = $("account-error");
+    err.textContent = r.error;
+    err.classList.remove("hidden");
+  }
+}));
+
+// SIGN OUT IS INSIDE THE DETAILS AND BELOW ITS OWN WARNING. `(aam)`: "a casual logout can strand
+// a paying user on an offline machine", so it is never a one-click Logout beside Help. The
+// warning is `sign_out_warning` from core, already rendered above this button.
+document.addEventListener("click", guarded(async (event) => {
+  if (!event.target.closest("#account-signout")) return;
+  renderAccount(await postForJson("/api/account/sign-out"));
+}));
+
+// `send()` above answers a bare 202 for job cancels and parses nothing. This posts with no body
+// and DOES want the JSON back, which is the account as it now stands - so the rail cannot be
+// left describing a signed-in state after signing out.
+async function postForJson(path) {
+  const res = await fetch(path, { method: "POST", headers: { "X-Truestill-Token": TOKEN } });
+  noticeIfPageIsStale(res);
+  const text = await res.text();
+  if (!res.ok) throw new Error(`${path} failed (${res.status}): ${text.slice(0, 200)}`);
+  return JSON.parse(text);
+}

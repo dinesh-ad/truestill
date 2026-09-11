@@ -15,6 +15,9 @@ from pathlib import Path
 
 import pytest
 from playwright.sync_api import Page, expect
+from truestill_core.allowance import FREE_FILE_ALLOWANCE
+from truestill_core.licence import Licence, LicenceState
+from truestill_core.licence_notice import account_summary
 
 #: THE MIGRATION'S EARLY-WARNING SYSTEM. This file belongs to no screen, so no screen's commit
 #: carries it - and an island landing on a DIFFERENT screen changes the DOM around it without
@@ -285,17 +288,100 @@ def test_the_collapse_control_is_a_chevron_not_a_nav_row(ui: Page) -> None:
     ), "the accessible name did not flip; (fff) requires it and there is no visible word now"
 
 
-def test_the_account_slot_is_reserved_and_empty(ui: Page) -> None:
-    """D5 is unbuilt, so the position is held and nothing is guessed into it.
+def test_the_account_slot_says_who_you_are_and_what_remains(ui: Page) -> None:
+    """The slot is built. `DECISIONS.md` D5, D16 §5; `(aam)` ruled its shape.
 
-    `(aam)` already ruled what goes here - account/licence details, sign-out inside, never a
-    one-click Logout. Until that exists the slot renders nothing and takes no space.
+    ⚠ **THIS TEST REPLACED `test_the_account_slot_is_reserved_and_empty`**, which asserted the
+    position was held and nothing guessed into it. That was correct for as long as D5 was
+    unbuilt, and it is the ONE assertion this build is allowed to change: the slot is no longer
+    reserved, so a test demanding it stay empty would now be asserting the feature's absence.
+    What it protected - the *position*, and the shape `(aam)` ruled - is what is asserted here
+    instead, which is why this is a replacement rather than a deletion.
+
+    A suite runs with no licence file, so this is the ABSENT state: every new user's, and D16 §1
+    makes it informational rather than a gate.
     """
     slot = ui.locator("#account-slot")
     assert slot.count() == 1, "the reserved account position is gone"
-    assert ui.eval_on_selector("#account-slot", "el => el.children.length") == 0
-    assert ui.eval_on_selector("#account-slot", "el => el.textContent.trim()") == ""
-    expect(slot).to_be_hidden()
+    expect(slot).to_be_visible()
+    expect(slot).to_have_attribute("data-state", "absent")
+    # The allowance lives HERE and nowhere else (D16 §5, ruling 3), and it is on the summary row
+    # rather than inside the fold - a user who wants to know must not have to open anything.
+    # ⚠ ASSERTED AGAINST CORE'S OWN STRING, NOT A FRAGMENT OF IT. This line read
+    # `to_contain_text("free files")` and went red when the wording was shortened to fit the
+    # rail - a retyped fragment of a sentence core owns, which is the exact seam this whole
+    # feature exists to close, reproduced in its own test.
+    owned = account_summary(Licence(LicenceState.ABSENT), FREE_FILE_ALLOWANCE, FREE_FILE_ALLOWANCE)
+    expect(ui.locator("#account-slot .account-allowance")).to_have_text(owned.allowance)
+
+
+def test_the_slot_renders_the_wording_core_owns_rather_than_its_own(ui: Page) -> None:
+    """**The seam this product keeps getting wrong is a second copy of a sentence.**
+
+    `licence_notice.account_summary` owns every sentence in the slot; the frontend places fields.
+    So the assertion is against core's string, imported here rather than retyped - a frontend
+    that started composing its own wording would still look right and would fail this.
+    """
+    ui.click("#account-slot summary")
+
+    owned = account_summary(Licence(LicenceState.ABSENT), FREE_FILE_ALLOWANCE, FREE_FILE_ALLOWANCE)
+
+    expect(ui.locator("#account-slot .account-body")).to_contain_text(owned.detail)
+    expect(ui.locator("#account-slot .account-allowance")).to_have_text(owned.allowance)
+
+
+def test_sign_out_is_inside_the_details_and_absent_when_there_is_nothing_to_sign_out_of(
+    ui: Page,
+) -> None:
+    """`(aam)`'s ruling, asserted as markup: *"a casual logout can strand a paying user on an
+    offline machine"*, so sign-out is never a one-click Logout in the rail.
+
+    Two halves, and the second is what keeps the first honest. The control must be **inside**
+    `<details>` when it exists - a `<details>` element is that ruling in markup, since the
+    destructive action cannot be reached without one deliberate expand. And in the ABSENT state
+    it must not exist at all: offering to sign out of nothing is a button that can only confuse.
+    """
+    expect(ui.locator("#account-slot [data-testid='account-signout']")).to_have_count(0)
+
+    ui.click("#account-slot summary")
+    expect(ui.locator("#account-slot .account-body")).to_be_visible()
+    expect(ui.locator("#account-slot [data-testid='account-signout']")).to_have_count(0)
+
+
+def test_activation_is_a_file_on_disk_and_a_bad_one_is_answered_in_the_slot(ui: Page) -> None:
+    """D5's offline path is the whole of activation until a server exists, and a wrong file is an
+    ordinary mistake.
+
+    ⚠ **The error must land in the SLOT, not the global banner.** `#global-error` is the backstop
+    for a failure with no home; putting a licence message there would paint it across whatever
+    screen happens to be open, which D16 §5 rules out by name - the user's relationship with
+    their licence has one home.
+    """
+    ui.click("#account-slot summary")
+    ui.fill("#account-file", "/tmp/not-a-licence-file-at-all")
+    ui.click("#account-activate")
+
+    expect(ui.locator("#account-error")).to_be_visible()
+    expect(ui.locator("#global-error")).to_be_hidden()
+    # Still absent: a file that does not verify installs nothing, so the rail cannot report a
+    # state that did not happen.
+    expect(ui.locator("#account-slot")).to_have_attribute("data-state", "absent")
+
+
+def test_the_collapsed_rail_keeps_the_dot_and_drops_everything_that_could_overflow(
+    ui: Page,
+) -> None:
+    """64px of rail, and the same rule `.custody` already follows one block down.
+
+    The state dot survives because it is 8px and carries the state; the name, the allowance and
+    the whole body go, because a licence path in a 64px column is the overflow `.custody .line`
+    was rewritten to prevent.
+    """
+    ui.click("#sidebar-toggle")
+    expect(ui.locator("#sidebar")).to_have_attribute("data-collapsed", "true")
+
+    expect(ui.locator("#account-slot .account-dot")).to_be_visible()
+    expect(ui.locator("#account-slot .account-who")).to_be_hidden()
 
 
 def test_the_chevron_rides_the_boundary_between_rail_and_content(ui: Page) -> None:

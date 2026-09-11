@@ -567,6 +567,31 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             service.library_status(_db(), explicit_db=_explicit_db(), boot_catalog=boot_catalog)
         )
 
+    def account(_request: Request) -> JSONResponse:
+        """Who is signed in, what they hold, and what remains. `DECISIONS.md` D5, D16 §5.
+
+        **Informational, never a gate.** D16 §1 makes every licence state a thing the rail says
+        rather than a thing the product does, so nothing consults this before doing work and it
+        refuses nothing.
+        """
+        return JSONResponse(service.account())
+
+    async def account_activate(request: Request) -> JSONResponse:
+        """Activate from a file the user points at - D5's offline path, and the whole of
+        activation until a licensing server exists.
+
+        Always `200`: a file that will not verify is an ordinary mistake with core's own sentence
+        attached, not a transport failure, and the payload carries the unchanged account so the
+        rail cannot be left describing a state that did not happen.
+        """
+        body = await request.json()
+        return JSONResponse(await run_in_threadpool(service.account_activate, body.get("path", "")))
+
+    async def account_sign_out(_request: Request) -> JSONResponse:
+        """Remove the token. `(aam)`: this lives INSIDE account details, never beside Help, and
+        the surface states what it removes before calling it."""
+        return JSONResponse(await run_in_threadpool(service.account_sign_out))
+
     async def library_root(request: Request) -> JSONResponse:
         """Record where the user says their library should live. `(abx)`."""
         body = await request.json()
@@ -1023,6 +1048,9 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         Route("/api/fs/create", fs_create, methods=["POST"]),
         Route("/api/clean-empty/preview", clean_empty_preview, methods=["POST"]),
         Route("/api/clean-empty/apply", clean_empty_apply, methods=["POST"]),
+        Route("/api/account", account),
+        Route("/api/account/activate", account_activate, methods=["POST"]),
+        Route("/api/account/sign-out", account_sign_out, methods=["POST"]),
         Route("/api/library/status", library_status),
         Route("/api/library/root", library_root, methods=["POST"]),
         Route("/api/library/stats", library_stats),

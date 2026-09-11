@@ -1136,6 +1136,14 @@ A user who wants to know looks at their account, where it is always visible and 
 user who does not never meets it until Apply. This is what makes the Apply-time refusal legible
 rather than a surprise: the number was never hidden, it was simply never pushed.
 
+**And a non-blocking licence notice goes to the same place** (ruled 2026-09-11, closing the last
+open question this section had). Not a banner, not a toast, not near the form. It is the user's
+relationship with their licence and **that relationship has one home**; a damaged token announced
+across the top of whatever screen happens to be open is the interruption D6 §3 forbids, and it
+would also be the second place a licence is discussed, which is how two surfaces start
+contradicting each other. The account slot says it, the user opens the account when they want to
+deal with it, and nothing stops working meanwhile.
+
 **The free tier is announced before download. Launch requirement, not code.**
 
 The download page says what the free tier is, in the same plain words D9 already requires for the
