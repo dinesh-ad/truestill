@@ -11,6 +11,7 @@ it and assert the app followed.
 from __future__ import annotations
 
 import pytest
+from e2e_support import open_screen
 from playwright.sync_api import Page
 
 #: THE MIGRATION'S EARLY-WARNING SYSTEM. This file belongs to no screen, so no screen's commit
@@ -258,3 +259,73 @@ def test_the_rail_runs_the_same_scale_as_the_page(ui: Page) -> None:
             f"the rail renders --type-{name} at {pair['rail']}px against the scale's floor of "
             f"{pair['floor']}px - the rail is running its own copy of the scale"
         )
+
+
+# ------------------------------------------------------- a control never shouts over its labels
+
+#: Find's search field, the one deliberate exception. `test_the_search_field_leads_the_screen`
+#: asserts it in as many words - *"Spotlight, not a dashboard: the input is the biggest thing
+#: here"* - so it is named here rather than silently skipped by a size threshold.
+LEADS_ITS_SCREEN = "where-term"
+
+
+def test_no_form_control_is_set_larger_than_the_labels_around_it(ui: Page) -> None:
+    """⚠ **A PATH IS A VALUE THE USER SUPPLIES, NOT PROSE THEY READ.**
+
+    Measured 2026-09-11, before the fix: every `.input` computed **16.12px** - body size -
+    against a **14.11px** surround of labels, hints and buttons, and the field is monospace,
+    which reads larger still at the same nominal size. The string the user types was the largest
+    text in the form, on Organize, Trips, Import, Backups and Settings alike.
+
+    ⚠ **THE REFERENCE IS THE SURROUND, NOT BODY, AND THE FIRST VERSION OF THIS TEST GOT THAT
+    WRONG.** It asserted `size <= body` - and body is `--type-base`, which is exactly what the
+    defect was, so a field restored to 16px passed it. The mutation caught it: reverting `.input`
+    to `--type-base` left the test green, proving nothing. A control is secondary type; the rule
+    is that it sits at or below `--type-sm`, the step the labels, hints and buttons take.
+
+    Stated against the TOKEN rather than a pixel, so it follows the scale if the scale moves.
+    Swept across every screen, because the defect was in a shared `.input` rule and a test that
+    looked at one screen would have proved nothing about the others.
+    """
+    ui.set_viewport_size({"width": 1440, "height": 900})
+    secondary = float(
+        ui.evaluate(
+            "() => { const el = document.createElement('span');"
+            " el.style.cssText = 'position:absolute;visibility:hidden;font-size:var(--type-sm)';"
+            " document.body.appendChild(el);"
+            " const px = parseFloat(getComputedStyle(el).fontSize); el.remove(); return px; }"
+        )
+    )
+    assert secondary > 0, "--type-sm resolves to nothing, so there is no ceiling to compare against"
+
+    probe = (
+        "() => [...document.querySelectorAll("
+        "  '.screen.active input, .screen.active select, .screen.active textarea')]"
+        ".filter(e => e.offsetParent && !['checkbox','radio'].includes(e.type))"
+        ".map(e => [e.id || e.name || e.tagName, parseFloat(getComputedStyle(e).fontSize)])"
+    )
+
+    measured: list[tuple[str, str, float]] = []
+    for screen in ("organize", "events", "import", "backups", "find", "stats", "settings"):
+        open_screen(ui, screen)
+        ui.wait_for_timeout(200)
+        for name, size in ui.evaluate(probe):
+            measured.append((screen, name, float(size)))
+
+    # Anti-vacuity: the filter drops hidden controls and the two input types that render no text
+    # of their own, so an empty sweep would satisfy every assertion below having seen nothing.
+    assert len(measured) >= 10, f"only {len(measured)} controls were measured across seven screens"
+    assert any(name == LEADS_ITS_SCREEN for _screen, name, _size in measured), (
+        f"{LEADS_ITS_SCREEN} was never reached, so the exception below is not being exercised"
+    )
+
+    too_big = [
+        (screen, name, size)
+        for screen, name, size in measured
+        if size > secondary + 0.5 and name != LEADS_ITS_SCREEN
+    ]
+    assert not too_big, (
+        "form controls set larger than the labels around them - the value the user types "
+        f"outranks the words explaining it (--type-sm is {secondary:.2f}px): "
+        + ", ".join(f"{s}/{n} at {px:.2f}px" for s, n, px in too_big)
+    )

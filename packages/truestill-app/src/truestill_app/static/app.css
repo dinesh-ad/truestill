@@ -807,10 +807,25 @@ fieldset.field {
 select.input {
   width: 100%;
 }
+/* ⚠ SECONDARY, NOT BODY, ruled 2026-09-11. This was `--type-base` (16), which made the path a
+   user types the LARGEST text in the form: every label, hint and button around it is
+   `--type-sm` (14), and the field is monospace, which reads larger still at the same size.
+   Measured before: `#org-source`, `#org-dest`, `#org-library-root` and every other `.input`
+   computed 16.12px against a 14.11px surround.
+
+   A PATH IS A VALUE THE USER SUPPLIES, NOT PROSE THEY READ. Body size is for the sentences that
+   explain the screen; a field holding `/home/you/Pictures` is data, and sizing it above the
+   words around it inverts what leads. It keeps `--family-mono` - a path is still checked
+   character by character, and the face is what carries that, not the size.
+
+   ⚠ ONE EXCEPTION, AND IT IS DELIBERATE: `.search-hero .input` (Find) stays at `--type-lg`.
+   `test_the_search_field_leads_the_screen` asserts it in as many words - *"Spotlight, not a
+   dashboard: the input is the biggest thing here"* - and that rule is later and more specific,
+   so it still wins. Find's field leads its screen; these fields do not lead theirs. */
 .input {
   flex: 1;
   min-width: 0;
-  font: var(--weight-normal) var(--type-base) / 1.4 var(--family-mono);
+  font: var(--weight-normal) var(--type-sm) / 1.4 var(--family-mono);
   color: var(--fg);
   background: var(--surface);
   border: var(--border-width) solid var(--border-strong);
@@ -2440,6 +2455,10 @@ details.more.inline {
    tail - `text-overflow` on an input hides characters from someone typing them. */
 #layout-template {
   width: 100%;
+  /* ⚠ These two now restate `.input`'s own values rather than overriding them - `.input` moved to
+     `--type-sm` and `--family-mono` on 2026-09-11. Kept rather than deleted because this field
+     asked for both on its own terms, before the default agreed: if `.input` ever moves again,
+     the pattern field's reasons above are still true and should still hold here. */
   font-family: var(--family-mono);
   font-size: var(--type-sm);
   text-overflow: clip;
