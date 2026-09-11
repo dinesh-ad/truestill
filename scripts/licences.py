@@ -39,9 +39,12 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sqlite3
 import sys
 import uuid
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -51,6 +54,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages/truestill
 from mint_licence import inside_a_repository, load_signing_key, sign_payload
 from truestill_core.licence import (
     BUILD_EPOCH,
+    EPOCH_OPENED_AT,
     PAYLOAD_VERSION,
     LicenceState,
     verify_token,
@@ -126,6 +130,24 @@ def store_path() -> Path:
         )
         raise StoreError(msg)
     return chosen
+
+
+@contextmanager
+def opened(path: Path | None = None) -> Iterator[sqlite3.Connection]:
+    """The store, committed on success, rolled back on failure, and **closed either way**.
+
+    ⚠ `with sqlite3.connect(...) as db` commits or rolls back and **does not close** - a detail
+    every one of the six commands here got wrong, because the shape looks exactly like a file
+    handle and is not. It leaks a handle per invocation, which for a process that exits a
+    millisecond later is invisible; that is precisely why it survives review and why it is worth
+    writing once rather than six times.
+    """
+    connection = connect(path)
+    try:
+        with connection:
+            yield connection
+    finally:
+        connection.close()
 
 
 def connect(path: Path | None = None) -> sqlite3.Connection:
@@ -209,6 +231,7 @@ def issue(db: sqlite3.Connection, args: argparse.Namespace) -> tuple[str, sqlite
         )
         raise StoreError(msg)
 
+    check_covers_through(args.covers_through)
     account_id = _account_for(db, args.email, args.name, args.consent_version)
     licence_id = str(uuid.uuid4())
     db.execute(
@@ -225,6 +248,31 @@ def issue(db: sqlite3.Connection, args: argparse.Namespace) -> tuple[str, sqlite
         ),
     )
     return mint_for(db, licence_id, args, reason="purchase")
+
+
+def check_covers_through(epoch: int) -> None:
+    """Refuse an entitlement for an epoch that does not exist. `DECISIONS.md` D16 §4.
+
+    ⚠ **A typo here is expensive in a way nothing downstream notices.** `--covers-through 2`
+    against a product that has only opened epoch 1 mints a signed, perpetual, unrevokable token
+    granting an entitlement that was never sold - and it verifies, because `verify_token` asks
+    whether the ceiling *reaches* this build and a ceiling from the future reaches everything.
+    The customer is covered for years they did not pay for, and nothing ever reports it.
+    `0` is the mirror image: a licence that is lapsed the day it is issued.
+
+    `EPOCH_OPENED_AT` is the table `test_the_entitlement_epoch_cannot_move_by_accident.py`
+    already holds to a release, so there is one answer to "which epochs exist" rather than two.
+    """
+    valid = sorted(EPOCH_OPENED_AT)
+    if epoch not in EPOCH_OPENED_AT:
+        msg = (
+            f"--covers-through {epoch} names an entitlement period that does not exist.\n"
+            f"This build knows epochs {valid[0]}-{valid[-1]} "
+            f"(opened at {', '.join(f'{k}: {EPOCH_OPENED_AT[k]}' for k in valid)}).\n"
+            "An epoch is opened by adding a row to licence.EPOCH_OPENED_AT in a minor or major "
+            "release - never here, and never by issuing against it."
+        )
+        raise StoreError(msg)
 
 
 def mint_for(
@@ -263,7 +311,16 @@ def mint_for(
 def licence_row(
     db: sqlite3.Connection, *, licence_id: str | None = None, order_ref: str | None = None
 ) -> sqlite3.Row:
-    """One licence with its account joined, by id or by order reference."""
+    """One licence with its account joined, by id or by order reference.
+
+    ⚠ **Refuses when neither is given**, rather than falling through to `WHERE order_ref = NULL`
+    and reporting "no licence with order_ref None". The CLI already refuses this at
+    `parser.error`, which is argparse's job and a better message; this is the store declining to
+    have an undefined branch, because the next caller may not be the CLI.
+    """
+    if not (licence_id or order_ref):
+        msg = "a licence must be named by its id or by its order reference"
+        raise StoreError(msg)
     column, value = ("licence_id", licence_id) if licence_id else ("order_ref", order_ref)
     row = db.execute(
         "SELECT l.*, a.email, a.name, a.forgotten_at FROM licences l"
@@ -278,11 +335,39 @@ def licence_row(
 
 
 def issues_for(db: sqlite3.Connection, licence_id: str) -> list[sqlite3.Row]:
+    """Every issue against one licence, oldest first."""
     return list(
         db.execute(
             "SELECT * FROM issues WHERE licence_id = ? ORDER BY issue_id", (licence_id,)
         ).fetchall()
     )
+
+
+def issues_by_licence(
+    db: sqlite3.Connection, licence_ids: Sequence[str]
+) -> dict[str, list[sqlite3.Row]]:
+    """Issues for many licences, in **one** query.
+
+    ⚠ **This replaced a query inside a loop**, and the reason is structural rather than a speed
+    claim. At this size the loop was free - a handful of licences, tens of issues, a local SQLite
+    file - and adding an index or a cache here would be ceremony. What is not free is the SHAPE:
+    a query inside a loop is the thing that stops being free later without anybody changing it,
+    and it is the pattern a reader copies into somewhere it matters.
+
+    `IN (?, ?, ...)` with a generated placeholder list because SQLite has no array binding.
+    SQLITE_MAX_VARIABLE_NUMBER is 32,766 on any build this decade, and the caller is a
+    maintainer's own customer list, so the bound is stated rather than defended against.
+    """
+    if not licence_ids:
+        return {}
+    holes = ", ".join("?" for _ in licence_ids)
+    grouped: dict[str, list[sqlite3.Row]] = {one: [] for one in licence_ids}
+    for row in db.execute(
+        f"SELECT * FROM issues WHERE licence_id IN ({holes}) ORDER BY issue_id",
+        tuple(licence_ids),
+    ):
+        grouped[str(row["licence_id"])].append(row)
+    return grouped
 
 
 def forget(db: sqlite3.Connection, account_id: str) -> int:
@@ -345,22 +430,49 @@ def whois(
 # --- the command line ---------------------------------------------------------------------------
 
 
-def token_filename(row: sqlite3.Row) -> str:
-    """What the customer's file is called. Their order reference, so a support mail quoting a
-    filename is already quoting the key that finds them."""
-    return f"truestill-licence-{row['order_ref']}.token"
+#: What may appear in a filename built from an order reference. Everything else becomes `-`.
+_FILENAME_SAFE = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def token_filename(order_ref: str) -> str:
+    """What the customer's file is called: their order reference, sanitised.
+
+    ⚠ **THE SANITISE IS NOT COSMETIC.** The order reference comes from whatever the operator
+    types or pastes out of a processor's dashboard, and it was interpolated straight into a path.
+    A reference containing `/` or `..` writes the token **outside `--out`** - silently, to a path
+    nobody chose, possibly over something. It is a support tool run on a maintainer's own laptop
+    rather than a public surface, so this is carelessness rather than a vulnerability; it is
+    still the kind of line a reviewer stops on, and the fix is four characters of regex.
+
+    The reference stays in the name because a support mail quoting a filename is already quoting
+    the key that finds them - so the sanitised form is kept close to the original rather than
+    hashed into something unreadable.
+    """
+    safe = _FILENAME_SAFE.sub("-", order_ref).strip("-.") or "unknown"
+    return f"truestill-licence-{safe}.token"
+
+
+def write_token_file(token: str, order_ref: str, out_dir: Path) -> Path:
+    """Put the token where the operator can attach it, and return where that was.
+
+    Split from the printing so a caller - and a test - can ask *what was written* without
+    capturing stdout to find out. The two were one function and it did two jobs: a command that
+    both produces an artifact and narrates it has no seam to assert against.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    target = out_dir / token_filename(order_ref)
+    target.write_text(token + "\n", encoding="utf-8")
+    return target
 
 
 def _hand_over(token: str, row: sqlite3.Row, out_dir: Path, note: str) -> None:
-    """Write the token beside the operator and print what to send.
+    """Print what to send, having written it.
 
     The file is written rather than printed alone because the thing the customer needs is a
     FILE, and a token pasted out of a terminal is one wrapped line away from being unusable -
     which is the failure JetBrains' own documentation warns about for its offline codes.
     """
-    out_dir.mkdir(parents=True, exist_ok=True)
-    target = out_dir / token_filename(row)
-    target.write_text(token + "\n", encoding="utf-8")
+    target = write_token_file(token, str(row["order_ref"]), out_dir)
     print(f"{note}\n")
     print(f"  licence   {row['licence_id']}")
     print(f"  account   {row['account_id']}")
@@ -378,19 +490,17 @@ def _hand_over(token: str, row: sqlite3.Row, out_dir: Path, note: str) -> None:
 
 
 def cmd_issue(args: argparse.Namespace) -> int:
-    with connect() as db:
+    with opened() as db:
         token, row = issue(db, args)
-        db.commit()
         _hand_over(token, row, Path(args.out), "issued a new licence")
     return 0
 
 
 def cmd_reissue(args: argparse.Namespace) -> int:
-    with connect() as db:
+    with opened() as db:
         row = licence_row(db, order_ref=args.order_ref, licence_id=args.licence)
         before = len(issues_for(db, row["licence_id"]))
         token, row = mint_for(db, row["licence_id"], args, reason="reissue")
-        db.commit()
         _hand_over(
             token,
             row,
@@ -410,13 +520,12 @@ def cmd_correct_email(args: argparse.Namespace) -> int:
     costing exactly this. So the instruction to delete the old file is printed as part of the
     correction rather than left to the operator to remember.
     """
-    with connect() as db:
+    with opened() as db:
         row = licence_row(db, order_ref=args.order_ref, licence_id=args.licence)
         db.execute(
             "UPDATE accounts SET email = ? WHERE account_id = ?", (args.email, row["account_id"])
         )
         token, row = mint_for(db, row["licence_id"], args, reason="email-correction")
-        db.commit()
         _hand_over(token, row, Path(args.out), "corrected the email and re-issued")
         print(
             "\n⚠ The token they already have still verifies and still says the old address."
@@ -426,7 +535,7 @@ def cmd_correct_email(args: argparse.Namespace) -> int:
 
 
 def cmd_find(args: argparse.Namespace) -> int:
-    with connect() as db:
+    with opened() as db:
         rows = db.execute(
             "SELECT l.*, a.email, a.name, a.forgotten_at FROM licences l"
             " JOIN accounts a ON a.account_id = l.account_id"
@@ -438,8 +547,9 @@ def cmd_find(args: argparse.Namespace) -> int:
         if not rows:
             print(f"nothing matches {args.query!r}")
             return 1
+        issues = issues_by_licence(db, [str(row["licence_id"]) for row in rows])
         for row in rows:
-            issued = issues_for(db, row["licence_id"])
+            issued = issues[str(row["licence_id"])]
             who = f"{row['name']} <{row['email']}>" if row["email"] else "(forgotten)"
             print(f"{row['order_ref']}  {who}")
             print(f"  licence {row['licence_id']}  account {row['account_id']}")
@@ -457,8 +567,14 @@ def cmd_find(args: argparse.Namespace) -> int:
 
 
 def cmd_whois(args: argparse.Namespace) -> int:
-    token = Path(args.token).expanduser().read_text(encoding="utf-8")
-    with connect() as db:
+    # ⚠ `errors="replace"`, because a customer sends whatever they have. A screenshot saved as
+    # `.token` raises `UnicodeDecodeError` - a `ValueError` - and `main` printed its decode
+    # message instead of this command's own "cannot read that file, send the file itself". The
+    # bytes cannot be a token either way; replacing lets that answer come from the verifier
+    # rather than from the codec, which is the difference between an operator being told what to
+    # do and being shown a stack of jargon.
+    token = Path(args.token).expanduser().read_text(encoding="utf-8", errors="replace")
+    with opened() as db:
         state, row, claimed = whois(db, token)
         print(f"the token verifies as: {state}")
         if row is None and not claimed:
@@ -488,9 +604,8 @@ def cmd_whois(args: argparse.Namespace) -> int:
 
 
 def cmd_forget(args: argparse.Namespace) -> int:
-    with connect() as db:
+    with opened() as db:
         touched = forget(db, args.account)
-        db.commit()
     print(f"erased the name and email on account {args.account} and on {touched} past issue(s).")
     print("Retained: licence id, order reference and the dates - that is a tax record.")
     print(
@@ -561,8 +676,24 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("one of --order-ref or --licence is required")
     try:
         return int(args.func(args))
-    except (StoreError, ValueError, OSError) as exc:
+    except StoreError as exc:
+        # Already worded for a person by whoever raised it - printed as the sentence it is.
         print(str(exc), file=sys.stderr)
+        return 2
+    except ValueError as exc:
+        # `load_signing_key` is the one source of these and it words its own message. Narrowed
+        # from a blanket `(StoreError, ValueError, OSError)`, which would also have swallowed a
+        # programming error and printed it as advice.
+        print(str(exc), file=sys.stderr)
+        return 2
+    except OSError as exc:
+        # ⚠ The only path here with NO wording of its own, so the address is added: a bare
+        # "Permission denied" tells the operator nothing about which of the store, the key and
+        # the output directory refused them.
+        print(
+            f"{args.command}: {exc.strerror or exc} ({exc.filename or 'no path reported'})",
+            file=sys.stderr,
+        )
         return 2
 
 

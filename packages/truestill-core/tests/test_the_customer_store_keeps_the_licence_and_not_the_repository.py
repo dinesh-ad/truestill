@@ -17,7 +17,7 @@ from __future__ import annotations
 import sqlite3
 import sys
 from argparse import Namespace
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import nacl.signing
@@ -46,9 +46,15 @@ def key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 @pytest.fixture
-def db(tmp_path: Path) -> sqlite3.Connection:
-    """A store in this test's own directory, never the maintainer's real one."""
-    return licences.connect(tmp_path / "customers.db")
+def db(tmp_path: Path) -> Iterator[sqlite3.Connection]:
+    """A store in this test's own directory, never the maintainer's real one.
+
+    Closed on teardown. It was not, and pytest reported `ResourceWarning: unclosed database` -
+    the same handle leak `opened()` exists to stop in the tool, reproduced in its own test file.
+    """
+    connection = licences.connect(tmp_path / "customers.db")
+    yield connection
+    connection.close()
 
 
 def _args(key: Path, **overrides: object) -> Namespace:
@@ -389,9 +395,8 @@ def test_whois_on_a_token_this_store_never_issued_says_so(
     rather than left to infer from an empty result.
     """
     token, _issued = licences.issue(db, _args(key))
-    elsewhere = licences.connect(tmp_path / "other.db")
-
-    state, found, claimed = licences.whois(elsewhere, token)
+    with licences.opened(tmp_path / "other.db") as elsewhere:
+        state, found, claimed = licences.whois(elsewhere, token)
 
     assert state is LicenceState.ACTIVE
     assert found is None
@@ -436,7 +441,8 @@ def test_the_store_is_created_private(tmp_path: Path) -> None:
     synthesizes `st_mode` there, so the number means nothing and the protection is the user's own
     profile."""
     target = tmp_path / "customers.db"
-    licences.connect(target)
+    with licences.opened(target):
+        pass
 
     if sys.platform != "win32":
         assert target.stat().st_mode & 0o777 == 0o600
