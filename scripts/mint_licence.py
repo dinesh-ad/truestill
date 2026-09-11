@@ -98,13 +98,32 @@ def write_new_key(target: Path, kid: str) -> int:
     return 0
 
 
+def sign_payload(signing_key: nacl.signing.SigningKey, fields: dict[str, object]) -> str:
+    """Turn a payload into a signed token. **The only place a token is signed.**
+
+    Extracted when `licences.py` arrived: two callers building the same two lines is how one of
+    them ends up signing something subtly different - a different canonicalisation, a different
+    thing signed - and the resulting token verifies nowhere with no obvious reason why.
+    """
+    encoded = encode_payload(fields)
+    return f"{encoded}.{b64url_encode(signing_key.sign(signing_input(encoded)).signature)}"
+
+
+def load_signing_key(path: Path) -> nacl.signing.SigningKey:
+    """Read a private key, or raise ``ValueError`` with something a person can act on."""
+    try:
+        return nacl.signing.SigningKey(b64url_decode(path.expanduser().read_text().strip()))
+    except (OSError, ValueError) as exc:
+        msg = f"could not read the signing key at {path}: {exc}"
+        raise ValueError(msg) from exc
+
+
 def mint(args: argparse.Namespace) -> int:
     """Sign one token and print it."""
-    key_path = Path(args.key).expanduser()
     try:
-        signing_key = nacl.signing.SigningKey(b64url_decode(key_path.read_text().strip()))
-    except (OSError, ValueError) as exc:
-        print(f"could not read the signing key at {key_path}: {exc}", file=sys.stderr)
+        signing_key = load_signing_key(Path(args.key))
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
         return 2
 
     fields = {
@@ -119,9 +138,7 @@ def mint(args: argparse.Namespace) -> int:
         "issued_at": args.issued_at or datetime.now(tz=UTC).date().isoformat(),
         "updates_until": args.updates_until,
     }
-    encoded = encode_payload(fields)
-    signature = signing_key.sign(signing_input(encoded)).signature
-    print(f"{encoded}.{b64url_encode(signature)}")
+    print(sign_payload(signing_key, fields))
     return 0
 
 
