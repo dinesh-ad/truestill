@@ -52,6 +52,8 @@ from truestill_core.bake import (
     migration_unfinished_message,
     nothing_to_write_reason,
 )
+from truestill_core.carried import DriveRef, carried_by
+from truestill_core.carried import render as render_carried
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_backup import BackupOutcome
 from truestill_core.catalog_busy import (
@@ -379,6 +381,7 @@ _LOCKS_DRIVE_AT: dict[str, str | None] = {
     "bake": "path",  # writes bytes inside the user's files; `(ahd)`
     "clean-empty": "path",
     "rescan": None,  # reports; `(abn)` is that nothing acts on it yet
+    "carried": None,  # reads two catalog tables and stats the library; writes nothing
     "migrate-layout": "path",
     # ⚠ **`"path"` since stage 2**, which was the condition the stage-1 note set: the apply moves
     # files on the drive, so it is held for the duration like every other mutating command. `(aix)`
@@ -793,6 +796,31 @@ def _add_rescan_parser(sub: argparse._SubParsersAction) -> None:  # type: ignore
     rescan.add_argument("path", type=Path, help="the connected drive folder")
     rescan.add_argument("--db", type=Path, default=default_catalog_path(), help="SQLite catalog")
 
+    # ⚠ **A SEPARATE READ-ONLY COMMAND RATHER THAN A FLAG, AND THE REASON IS A LIVE HAZARD.**
+    # The comparison this answers already exists: `truestill backup <drive> <library>` without
+    # `--apply` prints it, because `copy_to_drive` is direction-agnostic and its only directional
+    # refusal is that the two sides are the same drive. Which means **the restore it previews is
+    # reachable today by adding `--apply`** - an operation nobody has designed, with no undo, no
+    # collision policy, and wording that says "copy the library to a second drive".
+    # So the question gets a command that CANNOT take `--apply`, and pointing a user at `backup`
+    # in reverse is refused. A flag on `rescan` was the other candidate and is refused too:
+    # rescan's subject is ONE drive against its own records, and this needs a second drive.
+    carried = sub.add_parser(
+        "carried",
+        help="say what a drive is carrying that this catalog does not have (reads only)",
+    )
+    carried.add_argument(
+        "drive",
+        type=Path,
+        # ⚠ A LABEL IS ACCEPTED HERE BECAUSE THE DRIVE MAY BE UNPLUGGED, which is the state a
+        # person is most likely to be in when they ask this question - they are asking precisely
+        # because they no longer have the disk in front of them. A path-only argument would refuse
+        # the whole command at the resolver and never reach the catalog, which answers offline.
+        help="the drive to read about: its folder, or its label if it is not connected",
+    )
+    carried.add_argument("library", type=Path, help="the library it would be compared against")
+    carried.add_argument("--db", type=Path, default=default_catalog_path(), help="SQLite catalog")
+
 
 #: How many names one section prints before it stops. The count beside it is always the real
 #: one - a drive with 30,000 unrecorded files must say 30,000 and show a sample, never show 20
@@ -971,6 +999,99 @@ def _catalog(db: Path) -> AbstractContextManager[Catalog]:
     call site - and `test_catalog_opens_go_through_the_session` refuses a bare `Catalog(...)`.
     """
     return open_catalog(db, report=_report_decision_saves, backup_report=_report_pre_upgrade_copy)
+
+
+def _cmd_carried(args: argparse.Namespace) -> int:
+    """What a drive is carrying that this catalog does not have. **Reads; writes nothing.**
+
+    Both sides must already be registered drives, and this REFUSES rather than registering them
+    - `_cmd_backup`'s rule, for its reason: registering is a distinct act with its own ghost
+    guard, and a command that mints a drive id as a side effect is how a ghost drive gets created
+    from a shell.
+
+    ⚠ **The drive may be named by its LABEL instead of its folder**, because the catalog half of
+    this answer works with the drive unplugged and refusing at the resolver would throw that away.
+    The library may not: its rows are checked against its own disk, which needs the disk.
+
+    **Exit codes follow `rescan`'s precedent**, because this answers the same *kind* of question:
+    `0` when there is nothing to act on, `1` when there is - a gap, or a drive nobody has walked.
+    A script can branch on it; a person reads the sentence.
+    """
+    named = _drive_here_or_named(args.drive, args.db)
+    if named is None:
+        return 2
+    drive, drive_path = named
+    library = _drive_or_explain(args.library, args.db)
+    if library is None:
+        return 2
+    if drive.uuid == library.uuid:
+        print("error: the drive and the library are the same drive.", file=sys.stderr)
+        return 2
+
+    with _catalog(args.db) as catalog:
+        report = carried_by(
+            catalog,
+            drive=drive,
+            library=DriveRef.of(library),
+            # The ONE optional input, and the only syscall: given a reachable library the
+            # recorded rows on THIS side are checked against its disk, so a row the disk
+            # contradicts stops counting as "already here". An unreachable path answers `None`,
+            # which `credible_copies` reads as "cannot say cheaply", never as "nothing is there".
+            library_root=args.library,
+        )
+    print(render_carried(report, drive_path=drive_path))
+    return 0 if report.drive_walked and report.gap == 0 else 1
+
+
+def _drive_here_or_named(given: Path, db: Path) -> tuple[DriveRef, str | None] | None:
+    """A drive that is connected, or one the catalog knows by label. ``None`` after refusing.
+
+    The second element is the drive's path **when the drive is actually there**, and ``None`` when
+    it was named by label - which is what `carried.render` needs to stop offering a `rescan` of a
+    folder that does not exist.
+
+    ⚠ **The marker on disk wins**, and the label is tried only for a path that is not there. A
+    label that collides with a real drive folder therefore cannot shadow it, and the reading that
+    involved looking at something is always preferred over the reading that did not.
+    """
+    location = locate_drive(given)
+    if location.is_root and location.marker is not None:
+        return DriveRef.of(location.marker), str(given)
+    if not path_is_usable_dir(given) and db.is_file():
+        # Through the session wrapper like every other surface open, for `_ghost_at`'s reason.
+        with _catalog(db) as catalog:
+            matches = [d for d in catalog.list_drives() if str(d["label"]) == str(given)]
+        if len(matches) == 1:
+            return DriveRef(uuid=str(matches[0]["uuid"]), label=str(matches[0]["label"])), None
+        if len(matches) > 1:
+            # Labels are not unique - `upsert_drive` does `DO UPDATE SET label = excluded.label`,
+            # so two drives can carry one name. Guessing which one a person meant is the one
+            # thing this command must not do about a backup.
+            print(
+                f"error: {len(matches)} drives are labelled '{given}'.\n"
+                f"       Connect the one you mean and name its folder instead:  truestill drives",
+                file=sys.stderr,
+            )
+            return None
+    # Every other refusal - a folder inside a drive, a ghost mountpoint, an unregistered folder -
+    # is already worded once there, and is not worded a second time here.
+    _drive_or_explain(given, db)
+    # ⚠ **BUT A PATH THAT IS NOT THERE IS A DEAD END WITHOUT THIS**, and that is the whole state
+    # this command was built for. Measured by running it: the refusal above says "is it plugged
+    # in?" and stops, so a person who has lost the disk and typed the path they remember is told
+    # to go and find it - when the catalog could have answered them without it. A stated refusal
+    # should carry its remedy, which is `app.js:loadDrives`'s rule applied to a shell.
+    if not path_is_usable_dir(given) and db.is_file():
+        with _catalog(db) as catalog:
+            labels = sorted({str(d["label"]) for d in catalog.list_drives()})
+        if labels:
+            named = "\n".join(f"         {label}" for label in labels)
+            print(
+                f"\n       This one can answer from the catalog without the drive. Name it"
+                f" instead of its folder:\n{named}",
+                file=sys.stderr,
+            )
+    return None
 
 
 def _cmd_rescan(args: argparse.Namespace) -> int:
@@ -5297,6 +5418,7 @@ def _dispatch(argv: list[str] | None) -> int:
         "bake": _cmd_bake,
         "clean-empty": _cmd_clean_empty,
         "rescan": _cmd_rescan,
+        "carried": _cmd_carried,
         "migrate-layout": _cmd_migrate_layout,
         "rename": _cmd_rename,
         "reclaim": _cmd_reclaim,

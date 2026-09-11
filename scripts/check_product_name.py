@@ -89,6 +89,7 @@ SUBCOMMANDS: tuple[str, ...] = (
     "migrate-layout",
     "clean-empty",
     "rescan",
+    "carried",
     "restore",
     "self-check",
 )
