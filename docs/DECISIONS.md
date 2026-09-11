@@ -1034,7 +1034,71 @@ here rather than discovered by whoever later notices the counter is resettable a
 hardening it. **Hardening it is the refused direction**, because every mechanism that makes the
 count harder to reset makes it likelier to strand someone who paid.
 
-### 4. Two corrections made in the same commit
+### 4. How each of the three above is actually enforced (2026-09-11, later the same day)
+
+Written after stage 1 was built, because building it surfaced four questions §1-§3 did not
+answer. Each is ruled here rather than left to whoever writes the UI.
+
+**A build a token does not cover is never INSTALLED, not refused at runtime.**
+
+This is the answer to §2, and it is what makes §2 true in practice rather than only on paper. The
+build a customer paid for runs for ever, untouched. What lapses is *receiving the next one*, and
+that is enforced by **not shipping it to them** - never by a newer build declining to start.
+
+⚠ **The reason, and it is the whole of D16 in one sentence: if a newer build refused to run, an
+automatic update would strand a paying customer behind a gate.** They would go to bed with a
+working photo organiser and wake up to a licence screen, having done nothing and bought
+everything. That is precisely the failure this decision exists to prevent, arriving through the
+back door of a feature nobody thinks of as commercial.
+
+**So: nothing in the product may auto-update across an epoch boundary.** Not the app, not an
+installer, not a package manager path we control. A user may always choose to install a build
+their licence does not cover - that is their machine - but the product may never make that choice
+for them.
+
+Where the rule lives so the release process meets it: the banner at the top of
+`.github/workflows/release.yml`, which is what a person reads before dispatching a release.
+
+**The counter lives with the token, not in the catalog.**
+
+`app_paths.allowance_path`, beside `licence.token` in the data directory. The argument is the
+same one that placed the token, run in the other direction: **a catalog travels when it is
+copied**, so a counter living there would carry the cap to a second machine - punishing exactly
+the multi-drive, multi-library behaviour this product is *for*. A catalog rebuild resetting the
+count is acceptable under §3; travelling is not, and the asymmetry is deliberate.
+
+It counts **files an organize run writes**, cumulative across every run. Not files scanned, not
+files previewed, not files in a library.
+
+**At the cap, the run is refused before it starts. It is never stopped part-way.**
+
+Half an organize run is the worst state this product can leave a library in: some files moved,
+some not, and a user who cannot tell which. The promise is that a run either happens or does not.
+
+This is only possible because **the preview already knows `will_organize`**, so the question is
+asked before the first byte moves. The refusal names the number the run would write and the
+number that remains, and says that nothing has moved - a refusal that does not say so sends the
+user to go and check their library, which is the same anxiety in a different shape.
+
+If `will_organize` exceeds what remains, the run does not start. There is no partial organize.
+
+**Bumping `BUILD_EPOCH` is a commercial act and gets a release checklist.**
+
+An epoch is opened by **adding a row to `licence.EPOCH_OPENED_AT`**, never by editing the
+integer, and **only by a minor or major release - never a patch**. A patch is the release nobody
+reads the diff of twice; requiring a minor bump means the version number itself announces to
+every customer that something commercial happened.
+
+Two guards, because the checkout and the artifact are different questions.
+`test_the_entitlement_epoch_cannot_move_by_accident.py` holds the tree honest in `make check`,
+which cannot be skipped by dispatching a workflow with the wrong inputs.
+`packaging/compare_selfcheck.py` holds the *binary* honest, by reading the epoch out of the
+frozen build's own self-check and comparing it against the tree - the existing
+artifact-versus-checkout machinery, extended rather than duplicated, because a binary carrying
+the wrong epoch is exactly `(ajw)`'s class: a fact about the build that nothing compared, and a
+product that works perfectly while being commercially wrong.
+
+### 5. Two corrections made in the same commit
 
 - ⚠ **D6 §2 still described key-with-no-server and read as current.** D5 §3 superseded that
   mechanism on 2026-07-28 - *"the offline-verified-key mechanism described there becomes

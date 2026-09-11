@@ -179,9 +179,12 @@ def test_app_findings_is_core_plus_the_assets_only_the_app_can_see() -> None:
     # `(ajw)`: both version findings joined on 2026-09-04 - core's from `core_findings`, the
     # app's added here because the settings screen renders `truestill_app.__version__` and core
     # cannot read it.
-    assert names[:8] == [
+    assert names[:9] == [
         "install",
         "version truestill-core",
+        # D16 §4: the artifact half of the epoch guard. It rides on core's findings, so the app's
+        # self-check - which is what the release job runs on the INSTALLED copy - carries it too.
+        "entitlement epoch",
         "exiftool",
         "trash",
         "catalog",
@@ -190,7 +193,7 @@ def test_app_findings_is_core_plus_the_assets_only_the_app_can_see() -> None:
         "version truestill-app",
     ]
     # `(ajv)`: the bundle joined the assets on 2026-09-03; a shipped v0.1.0 without it is why.
-    assert names[8:] == [
+    assert names[9:] == [
         f"font {FACES[0]}",
         f"font {FACES[1]}",
         "font licence",

@@ -133,6 +133,20 @@ LICENCE_FILENAME = "licence.token"
 #: from the other side.
 SIGNED_OUT_FILENAME = "licence.signed-out"
 
+#: The free tier's cumulative counter. `DECISIONS.md` D16 §1, §3.
+#:
+#: **Beside the token, NOT in the catalog, and the maintainer's own argument decides it**: a
+#: catalog travels when it is copied, so a counter living there would mean copying a library to a
+#: second machine carries the cap with it - punishing exactly the multi-drive behaviour this
+#: product exists for. Resetting when a catalog is rebuilt is acceptable under D16 §3; travelling
+#: is not.
+#:
+#: ``.json`` and plain: D16 §3 rules that enforcement is a speed bump rather than a wall, so this
+#: file is deliberately **not** signed, obfuscated or checksummed. Hardening it is the refused
+#: direction, because every mechanism that makes the count harder to reset makes it likelier to
+#: strand someone who paid.
+ALLOWANCE_FILENAME = "licence.usage.json"
+
 #: Where per-drive lock files live, under the data dir. `(aaw)`
 #:
 #: ⚠ **A subdirectory, not loose files beside the catalog.** These are runtime scratch that the OS
@@ -354,6 +368,11 @@ def licence_path() -> Path:
 def signed_out_path() -> Path:
     """The marker beside :func:`licence_path` that says a sign-out was deliberate."""
     return _data_dir() / SIGNED_OUT_FILENAME
+
+
+def allowance_path() -> Path:
+    """The free tier's cumulative usage counter, beside the token it belongs to."""
+    return _data_dir() / ALLOWANCE_FILENAME
 
 
 def default_cache_path() -> Path:

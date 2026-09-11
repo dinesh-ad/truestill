@@ -47,6 +47,7 @@ from truestill_core import __version__, app_paths, binaries
 from truestill_core.binaries import bundled_bin_dirs, is_bundled_install
 from truestill_core.cleanup import trash_backend
 from truestill_core.exif import ExiftoolMissingError, ensure_exiftool
+from truestill_core.licence import BUILD_EPOCH, EPOCH_OPENED_AT
 from truestill_core.safe_copy import staging_path
 from truestill_core.version import UNKNOWN_VERSION
 
@@ -364,10 +365,36 @@ def core_findings() -> list[Finding]:
     return [
         install_finding(),
         version_finding("truestill-core", __version__),
+        entitlement_epoch_finding(),
         exiftool_finding(),
         trash_finding(),
         *location_findings(),
     ]
+
+
+def entitlement_epoch_finding() -> Finding:
+    """Which entitlement period this build runs in. `DECISIONS.md` D16 §4.
+
+    **The artifact half of the epoch guard, and it reports rather than decides** - this module's
+    one rule. `test_the_entitlement_epoch_cannot_move_by_accident.py` holds the *checkout*
+    honest; this carries the number out of a frozen binary so
+    `packaging/compare_selfcheck.py` can answer the question the binary cannot ask itself:
+    whether the epoch it was built with is the epoch the tree declared.
+
+    Reached through the running module's own constant, never a re-read of a file, for
+    `version_finding`'s reason one function up: a lookup performed here would answer a different
+    question and could agree while the shipped behaviour disagreed.
+
+    `INFO`, never `DEGRADED`: an epoch is a fact about a build, not a fault in one, and the only
+    thing that can be wrong with it is a mismatch against a checkout - which is a comparison this
+    process cannot make.
+    """
+    return Finding(
+        "entitlement epoch",
+        Status.INFO,
+        f"epoch {BUILD_EPOCH}, opened at {EPOCH_OPENED_AT.get(BUILD_EPOCH, 'unrecorded')}",
+        {"epoch": BUILD_EPOCH},
+    )
 
 
 def not_checked_finding(name: str, run_instead: str) -> Finding:

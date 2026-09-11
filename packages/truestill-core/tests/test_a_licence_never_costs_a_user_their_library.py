@@ -402,9 +402,8 @@ def test_the_shipped_key_table_is_consulted_when_no_keys_are_passed() -> None:
     against an empty table for ever while the suite stayed green. This asserts the default path
     is the shipped table, and that the table is currently empty on purpose.
     """
-    assert licence.PUBLIC_KEYS == {}, "a key landed - update this test and say which release"
-
     signer = nacl.signing.SigningKey.generate()
+    assert KID not in licence.PUBLIC_KEYS, "the fixture kid must not collide with a shipped one"
     token = make_token(signer, covers_through=licence.BUILD_EPOCH)
     table = {KID: licence.b64url_encode(bytes(signer.verify_key))}
 
@@ -413,6 +412,27 @@ def test_the_shipped_key_table_is_consulted_when_no_keys_are_passed() -> None:
     # also pass on a verifier that ignored `keys` and refused everything.
     assert licence.verify_token(token, keys=table).state is LicenceState.ACTIVE
     assert licence.verify_token(token).state is LicenceState.UNREADABLE
+
+
+def test_every_shipped_key_is_a_usable_ed25519_public_key() -> None:
+    """What keeps the table honest, and it **runs now** where an identical loop did not.
+
+    ⚠ **This assertion was DELETED as vacuous when `PUBLIC_KEYS` was empty** - a loop over an
+    empty dict is the dead-assertion shape, green for ever against a body that never executes. It
+    is restored with the first real key because the risk it guards is now live: a typo in a pasted
+    key is silent. Every token signed by its partner reads as UNREADABLE, the suite stays green
+    because no test holds the matching private half, and the defect arrives as a support ticket
+    from someone who has already paid.
+
+    The count assertion is the anti-vacuity half: without it, a future edit emptying the table
+    would make this test pass by doing nothing again.
+    """
+    assert len(licence.PUBLIC_KEYS) >= 1
+
+    for kid, encoded in licence.PUBLIC_KEYS.items():
+        raw = licence.b64url_decode(encoded)
+        assert len(raw) == 32, kid
+        nacl.signing.VerifyKey(raw)
 
 
 def test_a_mistyped_key_in_the_table_is_refused_rather_than_crashing() -> None:

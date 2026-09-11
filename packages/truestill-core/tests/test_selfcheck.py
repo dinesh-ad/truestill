@@ -379,9 +379,12 @@ def test_core_findings_covers_every_check_core_can_answer_for() -> None:
 
     # `(ajw)`: the version joined core's findings on 2026-09-04. Two published releases that
     # could not name themselves is why - and this list is what makes adding one a decision.
+    # The entitlement epoch joined on 2026-09-11 (D16 §4): it is the artifact half of the epoch
+    # guard, and `packaging/compare_selfcheck.py` is what reads it back against the checkout.
     assert names == [
         "install",
         "version truestill-core",
+        "entitlement epoch",
         "exiftool",
         "trash",
         "catalog",

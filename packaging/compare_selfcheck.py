@@ -18,6 +18,7 @@ Exit code 0 when every artifact's self-check passed **and** matched the reposito
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import sys
@@ -267,7 +268,96 @@ def _compare(findings_path: Path, expect_version: str | None = None) -> list[str
                 f"repository {size} bytes / {digest[:12]}, artifact "
                 f"{evidence.get('bytes')} bytes / {str(evidence.get('sha256'))[:12]}"
             )
-    return [*problems, *_version_problems(findings_path, findings, expect_version)]
+    return [
+        *problems,
+        *_version_problems(findings_path, findings, expect_version),
+        *_epoch_problems(findings_path, findings),
+    ]
+
+
+def _declared_epoch() -> int | None:
+    """`BUILD_EPOCH` as the CHECKOUT declares it, read from the source rather than imported.
+
+    ⚠ **Deliberately parsed, for this module's own rule and for one practical reason.** The rule:
+    everything here compares against files in the repository - `_declared_versions` reads
+    `pyproject.toml` the same way rather than importing the package. The practical reason:
+    `truestill_core.licence` imports PyNaCl, so importing it would make this comparison fail on a
+    checkout where the product's dependencies are not installed, which is a needless way for a
+    release job to go red about something that is not wrong.
+
+    ``None`` when it cannot be found, which the caller reports as a checkout that cannot compare
+    rather than silently passing.
+    """
+    source = _ROOT / "packages/truestill-core/src/truestill_core/licence.py"
+    try:
+        tree = ast.parse(source.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return None
+    for node in ast.walk(tree):
+        target = getattr(node, "target", None)
+        if (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(target, ast.Name)
+            and target.id == "BUILD_EPOCH"
+            and isinstance(node.value, ast.Constant)
+        ):
+            value = node.value.value
+            return value if isinstance(value, int) and not isinstance(value, bool) else None
+    return None
+
+
+def _epoch_problems(findings_path: Path, findings: list[dict[str, object]]) -> list[str]:
+    """Does the built artifact run in the entitlement epoch this checkout declares?
+    `DECISIONS.md` D16 §4.
+
+    **The artifact half of the epoch guard.** `test_the_entitlement_epoch_cannot_move_by_accident.py`
+    holds the checkout honest - the epoch is the newest row in a table, and a row may only be
+    opened by a minor or major release. That test cannot see a binary. This can, and it asks the
+    one question a frozen build cannot ask itself: are these the bytes the tree meant to ship?
+
+    ⚠ **Why it matters more than it looks.** `BUILD_EPOCH` is compiled into the artifact, and a
+    binary carrying the wrong one is a commercial defect that no functional check would notice:
+    the product works perfectly and silently stops covering every unrenewed customer, or silently
+    keeps covering everyone for a year longer than was sold. It is exactly the class `(ajw)` was
+    - a fact about the build that nothing compared - so it is compared the same way, against the
+    checkout, on every path including a dry run with no tag.
+
+    A findings file with no epoch at all is a **failure**, not a skip: an artifact built before
+    this finding existed is an artifact this comparison cannot vouch for.
+    """
+    declared = _declared_epoch()
+
+    if declared is None:
+        return [
+            (
+                f"{findings_path.name}: THE CHECKOUT CANNOT COMPARE - BUILD_EPOCH could not be "
+                f"read from licence.py, so there is nothing to hold the artifact against"
+            )
+        ]
+
+    reported: object = None
+    for finding in findings:
+        if finding.get("name") == "entitlement epoch":
+            reported = _evidence(finding).get("epoch")
+            break
+
+    if reported is None:
+        return [
+            (
+                f"{findings_path.name}: THE ARTIFACT NEVER REPORTED ITS ENTITLEMENT EPOCH - this "
+                f"checkout declares epoch {declared} and nothing in the findings says which one "
+                f"the binary carries"
+            )
+        ]
+    if reported != declared:
+        return [
+            (
+                f"{findings_path.name}: THE ARTIFACT RUNS IN A DIFFERENT ENTITLEMENT EPOCH - "
+                f"repository {declared}, artifact {reported}. These bytes would give every "
+                f"licence a different answer from the tree they were built from"
+            )
+        ]
+    return []
 
 
 def _version_problems(

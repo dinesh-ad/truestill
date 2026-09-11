@@ -87,12 +87,28 @@ BUILD_EPOCH: Final = 1
 #: its only honest remedy is a release that drops the entry plus a re-issue to everyone affected.
 #: That is why where the private key lives matters more than how often it turns over.
 #:
-#: ⚠ **EMPTY, because no key has been generated yet.** Stage 1 ships the mechanism, not a
-#: keypair. Every real token therefore reads as :attr:`LicenceState.UNREADABLE` with an unknown
-#: ``kid`` until the maintainer runs ``scripts/mint_licence.py --new-key`` and pastes the line it
-#: prints in here. Nothing in the product consults this yet, so the gap costs nothing today and
-#: is named so it cannot be mistaken for an oversight.
-PUBLIC_KEYS: Final[dict[str, str]] = {}
+#: ``k1`` was generated 2026-09-11 by ``scripts/mint_licence.py --new-key``. **Its private half
+#: has never been in this repository and cannot be**: the script refuses to write a key inside a
+#: git work tree, asking git rather than looking for a ``.git`` directory. What is below is the
+#: *public* half, which is meant to be published - that is the whole point of an embedded
+#: verification key.
+PUBLIC_KEYS: Final[dict[str, str]] = {
+    "k1": "QjGET80IOexfMibpDrdui3aAf5e1C6yk5ZMyo9dkeBc",
+}
+
+#: **Which release opened each entitlement period.** The map is the mechanism by which bumping
+#: :data:`BUILD_EPOCH` stays a deliberate act, and it exists because a bare integer changing from
+#: ``1`` to ``2`` is a one-character diff that reads like a typo and costs every unrenewed
+#: customer their next update.
+#:
+#: ``test_the_entitlement_epoch_cannot_move_by_accident.py`` holds three properties against it:
+#: :data:`BUILD_EPOCH` is the highest key, an epoch may only be opened by a **minor or major**
+#: version (never a patch), and the running package version is at or beyond the version that
+#: opened the current epoch. So a release that means to open an epoch must add a row and bump a
+#: minor, and a release that does not mean to cannot open one at all.
+EPOCH_OPENED_AT: Final[dict[int, str]] = {
+    1: "0.1.0",
+}
 
 
 class LicenceState(StrEnum):

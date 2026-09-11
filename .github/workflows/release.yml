@@ -16,6 +16,18 @@
 # still needs a perl interpreter, which every distribution ships and the self-check proves rather
 # than assumes.
 #
+# BEFORE YOU TAG: DOES THIS RELEASE OPEN A NEW ENTITLEMENT PERIOD? `DECISIONS.md` D16 §4.
+# `truestill_core.licence.BUILD_EPOCH` is what decides whether a customer's token covers a build,
+# so moving it stops every unrenewed licence from covering NEW versions. That is a commercial act
+# with a price, and it is one character wide. THE RULE: an epoch may only be opened by a MINOR or
+# MAJOR release, never a patch, and it is opened by adding a row to `EPOCH_OPENED_AT` - not by
+# editing the integer. `test_the_entitlement_epoch_cannot_move_by_accident.py` refuses anything
+# else in `make check`, and `compare_selfcheck.py` (run below, on every path including a dry run)
+# refuses an artifact whose compiled epoch differs from this checkout's.
+# ⚠ AND NOTHING MAY AUTO-UPDATE ACROSS AN EPOCH BOUNDARY. D16 §4 rules that a build a token does
+# not cover is never INSTALLED rather than refused at runtime; an updater that pushed one out
+# would strand a paying customer behind a gate, which is the failure D16 exists to prevent.
+#
 # `id-token: write` lives on the publish job ALONE. It is what sigstore keyless signing needs,
 # GitHub refuses to issue it to pull-request runs from forks, and least privilege says the build
 # matrix has no business holding it.
