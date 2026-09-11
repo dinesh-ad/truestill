@@ -42,27 +42,54 @@ from truestill_core.destinations import LocalDestination
 from truestill_core.drive import DriveMarker
 from truestill_core.units import format_bytes
 
-#: ⚠ **WHAT A COUNT ON A DRIVE CARD IS, and it is not what it looks like.** A number beside a
-#: drive reads as a fact about that drive; this one is a fact about this catalog's RECORDS of it,
-#: with no stat and no read. `render` already says the long form - *"Counted from records, not
-#: from a fresh look at the drive"* - and this is the short form a card has room for.
-FROM_RECORDS = "from this catalog's records, not from a fresh look at the drive"
+# ⚠ **A CARD'S SENTENCE IS THREE PARTS, AND THE SPLIT IS THE POINT.** The first version was one
+# 84-character line - *"7 files your library does not record, from this catalog's records, not
+# from a fresh look at the drive"* - which is honest and which nobody reaches the end of.
+#
+# **The pattern is show-what-is-essential-first and invite the next step** (GitHub's Primer warns
+# to truncate sparingly, and only what is genuinely secondary). ⚠ **And the research does not
+# cover this case**: progressive disclosure is for advanced or rarely-used FEATURES, and this
+# caveat is neither - it stops a number being misread, so hiding it would be dishonest. So the
+# provenance is never hidden: a short form stays on screen and the full sentence is one click
+# away, for the reader who wants to know exactly what "records" means.
+
+#: The lead, with the caller's number in front of it. 27 characters.
+NOT_RECORDED_HERE = "not recorded in your library"
+
+#: ⚠ **ALWAYS VISIBLE beside the number.** 12 characters, and it is the whole reason the count is
+#: safe to print: it names where the figure came from. Never collapsed into the details below.
+FROM_RECORDS_SHORT = "from records"
+
+#: The full form, reachable rather than hidden. What "from records" actually means.
+FROM_RECORDS = "Counted from this catalog's records, not from a fresh look at the drive."
 
 #: The state that must never render as a count. `drives --init` writes a marker and does not walk,
 #: so `file_copies` is empty while the drive is full - and "0 to bring back" told to somebody who
 #: has just lost a library, about a drive holding all of it, is the worst sentence in the product.
-NOT_WALKED_YET = "not checked yet, so this catalog cannot say what is on it"
+NOT_WALKED_YET = "not checked yet"
+
+#: Why, for the reader who opens it. The remedy is the `Check now` button already on the card.
+NOT_WALKED_FULL = (
+    "This drive was registered but never checked, so this catalog has no record of what is on "
+    "it. That is not the same as it being empty. Check it to find out."
+)
+
+#: ⚠ **WHEN THE CATALOG CANNOT NAME THE LIBRARY, IT SAYS SO AND NAMES THE REMEDY.** Organizing
+#: into two folders makes two libraries, and `drives_organized_into` refuses to pick - which was
+#: right, and then the cards went blank with no explanation, which was not. **The remedy is real
+#: and was checked before this sentence was written**: Settings carries *"Where your library
+#: lives"*, which writes `library.root` and is reachable at any time - not gated on a first run.
+TWO_LIBRARIES = (
+    "Truestill has organized into more than one folder, so it cannot tell which is your "
+    "library. Say which in Settings, under 'Where your library lives'."
+)
 
 #: ⚠ **"RECORD", NEVER "HAVE", AND THE VERB IS THE HONESTY.** This count is records against
 #: records - no stat on either side - so a library that lost files from its disk still *records*
 #: them and this reads zero. `recover`'s own preview DOES stat the library and will find them, so
 #: "nothing your library does not already **have**" would put the card and the preview in flat
 #: contradiction. Measured: a library with 20 rows and 14 files on disk reads 0 here and 6 there.
-CARRIES_NOTHING_EXTRA = "nothing here that your library does not already record"
-
-#: The count's own phrase, for the same reason. The card renders this with the number and
-#: :data:`FROM_RECORDS` beside it; neither half is composed by a surface.
-CARRIES_UNRECORDED = "your library does not record"
+CARRIES_NOTHING_EXTRA = "nothing your library does not already record"
 
 
 @dataclass(frozen=True, slots=True)

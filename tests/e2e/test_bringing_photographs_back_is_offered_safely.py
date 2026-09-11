@@ -41,7 +41,7 @@ def _drive(label: str, uuid: str, path: str | None, **over: Any) -> dict[str, An
     return row
 
 
-def _show(ui: Page, drives: list[dict[str, Any]]) -> None:
+def _show(ui: Page, drives: list[dict[str, Any]], cannot_name: str = "") -> None:
     ui.route(
         "**/api/drives**",
         lambda r: r.fulfill(
@@ -59,6 +59,7 @@ def _show(ui: Page, drives: list[dict[str, Any]]) -> None:
                     },
                     "at_risk": [],
                     "drives": drives,
+                    "cannot_name_library": cannot_name,
                 }
             ),
         ),
@@ -158,7 +159,15 @@ def test_clicking_it_on_the_library_itself_says_so_instead_of_starting_a_job(ui:
 
 def _carrying(label: str, uuid: str, path: str | None, **over: Any) -> dict[str, Any]:
     row = _drive(label, uuid, path)
-    row.update({"is_library": False, "carried": None, "carried_note": "", "carried_label": ""})
+    row.update(
+        {
+            "is_library": False,
+            "carried": None,
+            "carried_lead": "",
+            "carried_short": "",
+            "carried_full": "",
+        }
+    )
     row.update(over)
     return row
 
@@ -175,15 +184,22 @@ def test_a_drive_carrying_files_says_how_many_and_where_the_number_came_from(ui:
                 "u1",
                 "/mnt/backup",
                 carried=7,
-                carried_label="your library does not record",
-                carried_note="from this catalog's records, not from a fresh look at the drive",
+                carried_lead="not recorded in your library",
+                carried_short="from records",
+                carried_full="Counted from this catalog's records, not from a fresh look at the drive.",
             )
         ],
     )
 
-    foot = ui.locator("#drives-list .drive-carried")
-    expect(foot).to_contain_text("7 files", timeout=30_000)
-    expect(foot).to_contain_text("not from a fresh look at the drive")
+    # The number and what it is about lead.
+    expect(ui.locator("#drives-list .drive-carried")).to_contain_text(
+        "7 files not recorded in your library", timeout=30_000
+    )
+    # ⚠ **The qualifier is on screen WITHOUT opening anything** - it is what stops the number
+    # being misread, so it is not behind a disclosure. A `<summary>` renders its own text.
+    expect(ui.locator("#drives-list .drive-why summary")).to_contain_text("from records")
+    # And the full sentence is reachable rather than absent.
+    expect(ui.locator("#drives-list .drive-why")).to_contain_text("not from a fresh look")
     expect(ui.locator(".drive-recover")).to_have_count(1)
 
 
@@ -199,13 +215,14 @@ def test_a_drive_carrying_nothing_says_so_and_is_offered_no_button(ui: Page) -> 
                 "u1",
                 "/mnt/backup",
                 carried=0,
-                carried_note="nothing here that your library does not already record",
+                carried_lead="nothing your library does not already record",
+                carried_short="from records",
             )
         ],
     )
 
     expect(ui.locator("#drives-list .drive-carried")).to_contain_text(
-        "nothing here that your library does not already record", timeout=30_000
+        "nothing your library does not already record", timeout=30_000
     )
     assert "0 file" not in ui.eval_on_selector("#drives-list", "el => el.innerText")
     expect(ui.locator(".drive-recover")).to_have_count(0)
@@ -223,7 +240,8 @@ def test_a_drive_nobody_walked_shows_no_number_at_all(ui: Page) -> None:
                 "u1",
                 "/mnt/backup",
                 carried=None,
-                carried_note="not checked yet, so this catalog cannot say what is on it",
+                carried_lead="not checked yet",
+                carried_full="This drive was registered but never checked.",
             )
         ],
     )
@@ -259,8 +277,8 @@ def test_the_library_field_is_filled_from_the_card_the_catalog_names(ui: Page) -
                 "u2",
                 "/mnt/backup",
                 carried=3,
-                carried_label="your library does not record",
-                carried_note="from records",
+                carried_lead="not recorded in your library",
+                carried_short="from records",
             ),
         ],
     )
@@ -282,8 +300,8 @@ def test_the_confirm_is_not_uppercased(ui: Page) -> None:
                 "u1",
                 "/mnt/backup",
                 carried=3,
-                carried_label="your library does not record",
-                carried_note="from records",
+                carried_lead="not recorded in your library",
+                carried_short="from records",
             )
         ],
     )
@@ -310,3 +328,48 @@ def test_the_confirm_is_not_uppercased(ui: Page) -> None:
     assert label.evaluate("el => getComputedStyle(el).color") == label.evaluate(
         "el => getComputedStyle(document.body).color"
     )
+
+
+def test_a_catalog_that_cannot_name_the_library_says_so_once_and_names_the_remedy(
+    ui: Page,
+) -> None:
+    """⚠ **Refusing to guess was right; going blank was not.**
+
+    Two organize destinations means the gap has no single subject, so no card carries a count.
+    The reason is a fact about the CATALOG, so it appears once above the cards rather than 148
+    characters on every one - and it names a remedy that exists: Settings writes `library.root`
+    and is reachable at any time, which was checked before the sentence was written.
+    """
+    _show(
+        ui,
+        [_carrying("Morrowkeep", "u1", "/mnt/a"), _carrying("Riverhold", "u2", "/mnt/b")],
+        cannot_name="Truestill has organized into more than one folder, so it cannot tell which "
+        "is your library. Say which in Settings, under 'Where your library lives'.",
+    )
+
+    expect(ui.locator("#drives-list")).to_contain_text("Morrowkeep", timeout=30_000)
+    expect(ui.locator("#drives-list")).to_contain_text("cannot tell which is your library")
+    expect(ui.locator("#drives-list")).to_contain_text("Settings")
+    # Once, not once per card.
+    assert ui.eval_on_selector("#drives-list", "el => el.innerText").count("Settings") == 1
+    expect(ui.locator(".drive-carried")).to_have_count(0)
+
+
+def test_an_ordinary_catalog_carries_no_such_banner(ui: Page) -> None:
+    """The cry-wolf half: a sentence that always rendered would be noise on every screen."""
+    _show(
+        ui,
+        [
+            _carrying(
+                "Morrowkeep",
+                "u1",
+                "/mnt/a",
+                carried=2,
+                carried_lead="not recorded in your library",
+                carried_short="from records",
+            )
+        ],
+    )
+
+    expect(ui.locator("#drives-list")).to_contain_text("Morrowkeep", timeout=30_000)
+    assert "cannot tell which" not in ui.eval_on_selector("#drives-list", "el => el.innerText")

@@ -20,7 +20,7 @@ from pathlib import Path
 from truestill_app import service
 from truestill_core import carried, recover
 from truestill_core.catalog import Catalog
-from truestill_core.drive import create_marker, read_marker
+from truestill_core.drive import create_marker, drive_path_hint, read_marker
 from truestill_core.hashing import sha256_file
 
 RELATIVE = "Camera/2014/p{:04d}.jpg"
@@ -281,7 +281,11 @@ def test_a_walked_drive_says_how_much_it_carries(tmp_path: Path) -> None:
     rows = _rows(db)
 
     assert rows["Backup Drive"]["carried"] == 3
-    assert rows["Backup Drive"]["carried_note"] == carried.FROM_RECORDS
+    assert rows["Backup Drive"]["carried_lead"] == carried.NOT_RECORDED_HERE
+    # ⚠ The qualifier is ALWAYS present beside the number - it is what makes the count safe to
+    # print, not an advanced detail - and the full sentence is reachable rather than hidden.
+    assert rows["Backup Drive"]["carried_short"] == carried.FROM_RECORDS_SHORT
+    assert rows["Backup Drive"]["carried_full"] == carried.FROM_RECORDS
 
 
 def test_a_drive_carrying_nothing_extra_says_so_rather_than_showing_three(
@@ -298,7 +302,8 @@ def test_a_drive_carrying_nothing_extra_says_so_rather_than_showing_three(
     rows = _rows(db)
 
     assert rows["Backup Drive"]["carried"] == 0
-    assert rows["Backup Drive"]["carried_note"] == carried.CARRIES_NOTHING_EXTRA
+    assert rows["Backup Drive"]["carried_lead"] == carried.CARRIES_NOTHING_EXTRA
+    assert rows["Backup Drive"]["carried_short"] == carried.FROM_RECORDS_SHORT
 
 
 def test_a_drive_nobody_walked_carries_no_number_at_all(tmp_path: Path) -> None:
@@ -320,7 +325,8 @@ def test_a_drive_nobody_walked_carries_no_number_at_all(tmp_path: Path) -> None:
     row = _rows(db)["Never Walked"]
 
     assert row["carried"] is None
-    assert row["carried_note"] == carried.NOT_WALKED_YET
+    assert row["carried_lead"] == carried.NOT_WALKED_YET
+    assert row["carried_full"] == carried.NOT_WALKED_FULL
 
 
 def test_with_two_libraries_no_card_claims_a_number(tmp_path: Path) -> None:
@@ -341,7 +347,12 @@ def test_with_two_libraries_no_card_claims_a_number(tmp_path: Path) -> None:
     # `all()` over an empty dict is True, so the population is pinned before it is judged.
     assert len(rows) == 2, "the fixture is not the shape this test is about"
     assert all(row["carried"] is None for row in rows.values())
-    assert all(row["carried_note"] == "" for row in rows.values())
+    assert all(row["carried_lead"] == "" for row in rows.values())
+    # ⚠ **It says WHY, and names the remedy - ONCE.** Refusing to guess was right; going blank
+    # was not. The sentence is a fact about the catalog, so it rides the payload root rather than
+    # repeating 148 characters on every card.
+    assert service.cannot_name_library(db) == carried.TWO_LIBRARIES
+    assert "Settings" in carried.TWO_LIBRARIES
 
 
 def test_the_note_never_travels_without_the_number_or_the_other_way(tmp_path: Path) -> None:
@@ -358,7 +369,40 @@ def test_the_note_never_travels_without_the_number_or_the_other_way(tmp_path: Pa
     judged = {label: row for label, row in rows.items() if not row["is_library"]}
     assert judged, "every drive is the library, so the loop below is free"
     for label, row in judged.items():
-        # A note always. Which note is the count's business; having one is the contract.
-        assert row["carried_note"], f"{label} shows a state with no words for it"
-        # And the two states that share the value `None` are told apart by the note.
-        assert (row["carried"] is None) == (row["carried_note"] == carried.NOT_WALKED_YET), label
+        # Words always. Which words is the count's business; having some is the contract.
+        assert row["carried_lead"] or row["carried_full"], f"{label} has a state and no words"
+        # And the two states that share the value `None` are told apart by the lead.
+        assert (row["carried"] is None) == (row["carried_lead"] == carried.NOT_WALKED_YET), label
+        # ⚠ A number never travels without the qualifier that says where it came from.
+        if row["carried"]:
+            assert row["carried_short"] == carried.FROM_RECORDS_SHORT, label
+
+
+def test_saying_which_folder_is_the_library_resolves_the_ambiguity(tmp_path: Path) -> None:
+    """⚠ **THE REMEDY THE SENTENCE NAMES, AND IT IS CHECKED RATHER THAN ASSERTED IN PROSE.**
+
+    Saying "Settings, under 'Where your library lives'" would be a lie if the control were gated
+    on a first run - the state this sentence appears in has files, so a first-run-only control
+    would leave the user reading an instruction they cannot follow. `set_library_root` writes
+    `library.root` unconditionally, and the payload prefers it over counting organize runs.
+
+    So: two libraries, cards blank and explained; declare one; cards work again.
+    """
+    db, drive, library = _world(tmp_path)
+    with Catalog(db) as catalog:
+        for root in (library, drive):
+            marker = read_marker(root)
+            assert marker is not None
+            catalog.start_organize_run(
+                drive_uuid=marker.uuid, run_id=f"r-{marker.uuid}", intended_total=1
+            )
+            catalog.set_setting(drive_path_hint(marker.uuid), str(root))
+    assert service.cannot_name_library(db) == carried.TWO_LIBRARIES
+
+    service.set_library_root(str(library), db)
+
+    rows = _rows(db)
+    assert rows["My Library"]["is_library"] is True
+    assert rows["Backup Drive"]["carried"] == 3, "the declared library did not settle it"
+    assert rows["Backup Drive"]["carried_short"] == carried.FROM_RECORDS_SHORT
+    assert service.cannot_name_library(db) == "", "the sentence outlived the ambiguity"

@@ -1158,10 +1158,13 @@
               }
             ]
           },
-          "carried_label": {
+          "carried_full": {
             "type": "string"
           },
-          "carried_note": {
+          "carried_lead": {
+            "type": "string"
+          },
+          "carried_short": {
             "type": "string"
           },
           "decisions": {
@@ -1245,8 +1248,9 @@
         "required": [
           "audio",
           "carried",
-          "carried_label",
-          "carried_note",
+          "carried_full",
+          "carried_lead",
+          "carried_short",
           "decisions",
           "files",
           "is_library",
@@ -1316,6 +1320,9 @@
             },
             "type": "array"
           },
+          "cannot_name_library": {
+            "type": "string"
+          },
           "drives": {
             "items": {
               "$ref": "#/components/schemas/DriveRow"
@@ -1325,6 +1332,7 @@
         },
         "required": [
           "at_risk",
+          "cannot_name_library",
           "drives"
         ],
         "title": "DrivesPayload",

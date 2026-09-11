@@ -397,6 +397,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         listing: DrivesPayload = {
             "drives": service.list_drives(_db()),
             "at_risk": service.at_risk(_db()),
+            "cannot_name_library": service.cannot_name_library(_db()),
         }
         return JSONResponse(listing)
 

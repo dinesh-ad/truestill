@@ -160,6 +160,7 @@ WhereCopy = _drives.WhereCopy
 WhereResult = _drives.WhereResult
 AtRiskRow = _drives.AtRiskRow
 list_drives = _drives.list_drives
+cannot_name_library = _drives.cannot_name_library
 where = _drives.where
 at_risk = _drives.at_risk
 LibraryStatus = _drives.LibraryStatus

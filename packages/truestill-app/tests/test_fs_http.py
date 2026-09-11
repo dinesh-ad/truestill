@@ -131,7 +131,7 @@ def test_library_status_splits_photos_and_videos(client: TestClient, tmp_path: P
 def test_drives_split_photos_and_videos(client: TestClient, tmp_path: Path) -> None:
     _seed_media(tmp_path / "c.sqlite")
     payload = client.get("/api/drives").json()
-    assert set(payload) == {"drives", "at_risk"}
+    assert set(payload) == {"drives", "at_risk", "cannot_name_library"}
     drives = payload["drives"]
     assert len(drives) == 1
     assert set(drives[0]) == {
@@ -163,8 +163,14 @@ def test_drives_split_photos_and_videos(client: TestClient, tmp_path: Path) -> N
         # look at the drive, and a count on a card without it reads as a fact about bytes.
         "is_library",
         "carried",
-        "carried_note",
-        "carried_label",
+        # ⚠ THREE STRINGS, and the split is a contract rather than a layout accident. The lead is
+        # what leads; `carried_short` is the twelve-character qualifier that must stay ON SCREEN
+        # beside the number, because it is what stops the count being misread; `carried_full` is
+        # the sentence behind it. Collapsing them into one key was an 84-character line nobody
+        # read to the end of.
+        "carried_lead",
+        "carried_short",
+        "carried_full",
     }
     assert drives[0]["photos"] == 2
     assert drives[0]["videos"] == 1

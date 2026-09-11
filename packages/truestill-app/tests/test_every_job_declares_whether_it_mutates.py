@@ -377,6 +377,10 @@ _DIRECT_ALLOWED: dict[str, str] = {
     # pure reads / payload builders
     "organize_inventory": "walk and count; writes nothing",
     "backup_preview": "read",
+    "cannot_name_library": (
+        "reads `organize_runs` and one setting to answer why no card carries a count; writes "
+        "nothing and touches no drive"
+    ),
     "clean_empty_preview": "plan_cleanup is pure - reads, never writes",
     "bake_preview": "read",
     "date_tier_files": "read",

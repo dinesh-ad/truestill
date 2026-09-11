@@ -11,9 +11,12 @@ from typing import Literal, NotRequired, TypedDict, cast
 from truestill_core import binaries
 from truestill_core.carried import (
     CARRIES_NOTHING_EXTRA,
-    CARRIES_UNRECORDED,
     FROM_RECORDS,
+    FROM_RECORDS_SHORT,
+    NOT_RECORDED_HERE,
+    NOT_WALKED_FULL,
     NOT_WALKED_YET,
+    TWO_LIBRARIES,
 )
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog, problem_key
@@ -536,10 +539,15 @@ class DriveRow(TypedDict):
     #: **From records. Nothing was read from the drive**, which is why `carried_note` travels
     #: beside it and the card must render both or neither.
     carried: int | None
-    #: Core's short form of what that number is, or of why there is no number. Never composed here.
-    carried_note: str
-    #: Core's phrase for what the number counts, empty when there is no number to count.
-    carried_label: str
+    #: The lead a card renders beside the number, from core. Empty where there is no state to
+    #: report - the library's own card, or a screen that cannot name a library at all.
+    carried_lead: str
+    #: ⚠ **The always-visible qualifier.** 12 characters, and it is what makes the count safe to
+    #: print: it names where the figure came from. **Never collapsed into `carried_full`** - the
+    #: provenance is not an advanced detail, it is what stops the number being misread.
+    carried_short: str
+    #: The full explanation, reachable rather than hidden. What the short form actually means.
+    carried_full: str
 
 
 class WhereCopy(TypedDict):
@@ -597,22 +605,99 @@ class DrivesPayload(TypedDict):
 
     drives: list[DriveRow]
     at_risk: list[AtRiskRow]
+    #: ⚠ **Why no card carries a count, said ONCE.** Empty in the ordinary case. It is a fact
+    #: about the catalog - it has organized into more than one folder - not about any one drive,
+    #: and the first version repeated all 148 characters of it on every card.
+    cannot_name_library: str
 
 
-def _carried_note(row: object, the_library: str | None, gaps: dict[str, int]) -> str:
-    """Core's short form for what this card's number is, or why there is not one.
+def cannot_name_library(db: Path) -> str:
+    """Why no drive card carries a count, or ``""`` when they all do. **Core's sentence.**
 
-    ⚠ **Every branch returns a core constant.** `IMPLEMENTATION_STANDARDS.md` §9: the CLI's
-    `carried` prints the long form of exactly these facts, and a card that worded them itself
-    would let the two surfaces disagree about what a count means.
+    ⚠ **Said once, because it is a fact about the CATALOG.** Organizing into two folders makes
+    two libraries and `drives_organized_into` refuses to pick between them - which is right, and
+    going silently blank was not. The first version returned this per drive and repeated all 148
+    characters of it on every card.
+
+    **The remedy it names was checked before the sentence was written**: Settings carries *"Where
+    your library lives"*, which writes `library.root` through `set_library_root` and is reachable
+    at any time - not gated on a first run, which is the state this sentence appears in.
+    """
+    with open_catalog(db) as catalog:
+        libraries = catalog.drives_organized_into()
+        declared = catalog.get_setting(LIBRARY_ROOT_KEY)
+        if _the_library(catalog, libraries, declared) is not None:
+            return ""
+        return TWO_LIBRARIES if len(libraries) > 1 else ""
+
+
+def _the_library(catalog: Catalog, libraries: set[str], declared: str | None) -> str | None:
+    """Which registered drive is THE library, or ``None`` when nothing can say.
+
+    **Three readings, in the order their evidence deserves:**
+
+    1. **The user said so.** `library.root` is written from Settings, so a declared root that
+       matches a drive's remembered path settles it even when two folders have been organized
+       into. This is what makes the ambiguous case actionable rather than permanent.
+    2. **Exactly one organize destination.** The usual case, and exact - `organize_runs` is
+       written by both organize surfaces and by neither backup nor recover.
+    3. ⚠ **Nothing.** Two destinations and no declaration is a real state, and picking one would
+       be right on one machine and wrong on another. The cards say so instead; see
+       `carried.TWO_LIBRARIES`.
+    """
+    if declared:
+        wanted = str(Path(declared).expanduser())
+        for uuid in libraries:
+            remembered = catalog.get_setting(drive_path_hint(uuid))
+            if remembered and str(Path(remembered).expanduser()) == wanted:
+                return uuid
+    return next(iter(libraries)) if len(libraries) == 1 else None
+
+
+class CarriedWords(TypedDict):
+    """The three strings a drive card renders about what it is carrying. **All from core.**
+
+    A type rather than a bare dict so `**`-expanding it into `DriveRow` is checked: the keys are
+    part of the payload contract, and a typo here would otherwise ship a card with a missing
+    sentence and no complaint from mypy.
+    """
+
+    carried_lead: str
+    carried_short: str
+    carried_full: str
+
+
+def _carried_words(row: object, the_library: str | None, gaps: dict[str, int]) -> CarriedWords:
+    """The three strings a card renders, each a core constant. Never composed here.
+
+    ⚠ **`IMPLEMENTATION_STANDARDS.md` §9**: the CLI's `carried` prints the long form of exactly
+    these facts, and a card that worded them itself would let the two surfaces disagree about what
+    a count means. The split into lead / short / full is a layout decision; the sentences are not.
     """
     uuid = str(row["uuid"])  # type: ignore[index]
-    if the_library is None or uuid == the_library:
-        return ""
+    if the_library is not None and uuid == the_library:
+        return CarriedWords(carried_lead="", carried_short="", carried_full="")
+    if the_library is None:
+        # ⚠ Speak, rather than going blank - but ONCE, at the top of the list. `DrivesPayload`
+        # carries the sentence, because "this catalog cannot tell which folder is your library"
+        # is a fact about the catalog and repeating it per card was 148 characters three times.
+        return CarriedWords(carried_lead="", carried_short="", carried_full="")
     if not int(row["file_count"] or 0):  # type: ignore[index]
         # No rows at all: nobody walked it. NOT "it carries nothing".
-        return NOT_WALKED_YET
-    return CARRIES_NOTHING_EXTRA if gaps.get(uuid, 0) == 0 else FROM_RECORDS
+        return CarriedWords(
+            carried_lead=NOT_WALKED_YET, carried_short="", carried_full=NOT_WALKED_FULL
+        )
+    if gaps.get(uuid, 0) == 0:
+        return CarriedWords(
+            carried_lead=CARRIES_NOTHING_EXTRA,
+            carried_short=FROM_RECORDS_SHORT,
+            carried_full=FROM_RECORDS,
+        )
+    return CarriedWords(
+        carried_lead=NOT_RECORDED_HERE,
+        carried_short=FROM_RECORDS_SHORT,
+        carried_full=FROM_RECORDS,
+    )
 
 
 def list_drives(db: Path) -> list[DriveRow]:
@@ -627,10 +712,12 @@ def list_drives(db: Path) -> list[DriveRow]:
         # 36 ms for one**, so the per-card alternative costs more and scales worse. No new index:
         # `idx_file_copies_drive` scans and `file_copies`' own primary key covers the lookup.
         libraries = catalog.drives_organized_into()
-        # ⚠ **Only when the catalog names exactly ONE library.** Two organize destinations is a
-        # real state and `drives_organized_into` refuses to pick between them, so the gap has no
-        # subject and every card says so rather than being measured against a guess.
-        the_library = next(iter(libraries)) if len(libraries) == 1 else None
+        # ⚠ **THE USER'S OWN ANSWER WINS, and checking for one is what makes the ambiguous case
+        # actionable.** Settings carries *"Where your library lives"*, which writes `library.root`
+        # and is reachable at any time. So two organize destinations is only ambiguous while the
+        # user has not said which - and when they have, the cards work again.
+        declared = catalog.get_setting(LIBRARY_ROOT_KEY)
+        the_library = _the_library(catalog, libraries, declared)
         gaps = catalog.gap_by_drive(the_library) if the_library is not None else {}
         for d in catalog.list_drives():
             breakdown = media_breakdown(names_by_drive.get(d["uuid"], []))
@@ -679,9 +766,7 @@ def list_drives(db: Path) -> list[DriveRow]:
                         if int(d["file_count"] or 0)
                         else None
                     ),
-                    "carried_note": _carried_note(d, the_library, gaps),
-                    #: Core's phrase for what the number counts. Empty where there is no number.
-                    "carried_label": CARRIES_UNRECORDED if gaps.get(str(d["uuid"])) else "",
+                    **_carried_words(d, the_library, gaps),
                     # Where it was last seen, so a card can offer "Check now" for the right
                     # folder. Absent when we have never had a path for it, or the hint was
                     # stale and cleared -- in which case the card states the fact without

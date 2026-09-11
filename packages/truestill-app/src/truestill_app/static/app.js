@@ -2848,22 +2848,28 @@ function driveReachBadge(reach) {
 
 // ⚠ **WHAT THE CARD SAYS IT IS CARRYING, AND WHAT THAT NUMBER IS.** A count beside a drive reads
 // as a fact about the drive; this one is a fact about the catalog's RECORDS of it - no stat, no
-// read. So the number never appears without core's `carried_note` beside it, and the two are
-// rendered by one function so neither can ship alone.
+// read. So the number never renders without its provenance beside it.
+//
+// ⚠ **THREE PARTS, AND THE SPLIT IS NOT A TRUNCATION.** The first version was one 84-character
+// line that was honest and unread. The number and the action lead; a TWELVE-character qualifier -
+// "from records" - stays on screen always, because it is what stops the number being misread and
+// is therefore not a secondary detail; and the full sentence is one click away for the reader who
+// wants to know exactly what "records" means. Progressive disclosure is for advanced features,
+// which this caveat is not, so nothing about the provenance is hidden - only expanded.
 //
 // ⚠ **AND A DRIVE NOBODY WALKED MUST NOT READ AS EMPTY.** `carried` is `null` there, never `0`,
 // because `drives --init` writes a marker and does not walk: "nothing to bring back" about a
 // drive holding a whole library is the worst sentence in the product.
-function carriedNote(d, libraryHere) {
-  if (d.is_library || !d.carried_note) return "";
-  // ⚠ **THE ZERO CASE IS THE NOTE ALONE.** Rendering the count as well produced "0 files your
-  // library does not record, nothing here that your library does not already record" - the same
-  // fact twice, and the second half is the readable one. A count is only worth printing when
-  // there is something to count.
-  const what = d.carried
-    ? `${plural(d.carried, "file")} ${esc(d.carried_label)}, ${esc(d.carried_note)}`
-    : esc(d.carried_note);
-  return `<span class="k drive-carried">${what}</span>`;
+function carriedNote(d) {
+  if (!d.carried_lead) return "";
+  const lead = d.carried === null || d.carried === 0
+    ? esc(d.carried_lead)
+    : `${plural(d.carried, "file")} ${esc(d.carried_lead)}`;
+  const why = d.carried_full
+    ? `<details class="more inline drive-why"><summary>${esc(d.carried_short || "why")}</summary>
+       <div class="k">${esc(d.carried_full)}</div></details>`
+    : "";
+  return `<span class="k drive-carried">${lead}</span>${why}`;
 }
 
 // The action, offered only where it can be honoured - `loadDrives`' own rule, and now with a
@@ -2876,7 +2882,7 @@ function carriedOffer(d, libraryHere) {
 }
 
 async function loadDrives() {
-  const [{ drives, at_risk }, lib] = await Promise.all([api("/api/drives"), get("/api/library/status")]);
+  const [{ drives, at_risk, cannot_name_library }, lib] = await Promise.all([api("/api/drives"), get("/api/library/status")]);
   const list = $("drives-list");
   if (!drives.length) {
     // Guide, do not merely report. The old text ("connect one and click Check now") pointed at
@@ -2970,7 +2976,7 @@ async function loadDrives() {
       <div class="mono" style="color:var(--success)">${strip}</div></div>
       <div class="drive-foot">
         <span class="k mono">last checked: ${(d.last_verified || "never").slice(0, 10)}</span>
-        ${carriedNote(d, libraryHere)}
+        ${carriedNote(d)}
         ${lastSeenNote(d)}
         ${driveDecisionsNote(d)}
         ${d.path
@@ -2979,7 +2985,14 @@ async function loadDrives() {
         ${carriedOffer(d, libraryHere)}
       </div></div>`;
   }).join("");
-  list.innerHTML = summary + cards + risk;
+  // ⚠ **SAID ONCE, ABOVE THE CARDS.** When the catalog has organized into more than one folder
+  // it cannot say which is the library, so no card carries a count - and going blank with no
+  // explanation was the defect. It is a fact about the catalog, not about any one drive, so it
+  // appears once rather than 148 characters on every card. Wording from core.
+  const cannotName = cannot_name_library
+    ? `<div class="card"><div class="banner warn"><div>${esc(cannot_name_library)}</div></div></div>`
+    : "";
+  list.innerHTML = summary + cannotName + cards + risk;
   // A stated fact should carry its remedy: "last checked: never" is only useful next to the
   // thing that changes it. Rendered only when we know where the drive is -- offering an action
   // we cannot honour would be worse than stating the fact plainly.

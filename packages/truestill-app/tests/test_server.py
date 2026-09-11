@@ -95,7 +95,10 @@ def test_stale_static_assets_render_a_restart_warning(
 
 def test_drives_and_where_empty(client: TestClient) -> None:
     drives = client.get(f"/api/drives?token={TOKEN}").json()
-    assert drives == {"drives": [], "at_risk": []}
+    # ⚠ `cannot_name_library` is EMPTY here rather than absent: an empty catalog has organized
+    # into nothing, so there is no ambiguity to explain. The key is always present so a reader
+    # never has to tell "no ambiguity" from "this build does not answer that".
+    assert drives == {"drives": [], "at_risk": [], "cannot_name_library": ""}
     where = client.get(f"/api/where?token={TOKEN}&term=x").json()
     assert set(where) == {"copies", "total", "page", "pages", "page_size"}
     assert where["copies"] == []
