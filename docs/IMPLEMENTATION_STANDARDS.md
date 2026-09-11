@@ -947,7 +947,7 @@ findable on the maintainer's machine.
 | when | run | cost, measured 2026-08-10 |
 |---|---|---|
 | inner loop, on an edit | the targeted test(s) only | seconds |
-| before every commit | **`make check`** | **under its 45 s ceiling** (`TEST_SECONDS_MAX`) |
+| before every commit | **`make check`** | **under its 90 s ceiling** (`TEST_SECONDS_MAX`) |
 | ⚠ a diff that reaches a screen - **ask first, since 2026-08-20** | **`make gate`** (check + e2e) | **+ under its 2000 s ceiling** (`E2E_SECONDS_MAX`); the lane's measured range lives in `PERFORMANCE.md` §5 |
 
 ⚠ **BOTH ROWS QUOTED DURATIONS AND BOTH WENT STALE, corrected 2026-08-15.** They read *"19-21 s"*
@@ -1039,7 +1039,7 @@ that stopped being true**, which is the sixty-second member and is why the sched
 one place.
 
 The two ceilings from the timing work already stop either lane drifting:
-`TEST_SECONDS_MAX ?= 45` and `E2E_SECONDS_MAX ?= 2000` (`Makefile`), with CI overriding the
+`TEST_SECONDS_MAX ?= 90` and `E2E_SECONDS_MAX ?= 2000` (`Makefile`), with CI overriding the
 second to 3600. ⚠ Both figures here said 600 until the ceiling was raised for the WebKit lane;
 the doc and the Makefile drifted apart the moment the lane grew a second engine.
 

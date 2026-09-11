@@ -829,7 +829,7 @@ the old volume.
 
 ### The ceilings
 
-`TEST_SECONDS_MAX = 45` and `E2E_SECONDS_MAX = 2000` in the Makefile, with CI overriding the
+`TEST_SECONDS_MAX = 90` and `E2E_SECONDS_MAX = 2000` in the Makefile, with CI overriding the
 second to **3600**: **limits that fail the build**, at roughly 2.5x and 1.8x the medians
 above. (This said `600` until 2026-08-14, a figure that predated WebKit by two engines' worth
 of work - the number in the doc and the number in the Makefile drifted apart the moment the

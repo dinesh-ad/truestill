@@ -99,7 +99,7 @@ def symbols_for(path: str) -> list[Span]:
     """`symbols()` for a tracked path, memoised on the file's content length.
 
     The corpus scan asks for the same handful of files hundreds of times; parsing `catalog.py`
-    once per citation cost 23 s in a suite with a 45 s ceiling.
+    once per citation cost 23 s in a suite whose ceiling was then 45 s (90 since 2026-09-11).
     """
     text = (ROOT / path).read_text(encoding="utf-8", errors="replace")
     key = (path, len(text))
@@ -178,7 +178,7 @@ def tracked_files() -> set[str]:
 
 
 #: Every path suffix of every tracked file, built once. A per-citation scan of the whole tree was
-#: 10 s over the corpus in a suite with a 45 s ceiling.
+#: 10 s over the corpus in a suite whose ceiling was then 45 s (90 since 2026-09-11).
 _SUFFIXES: dict[tuple[str, ...], list[str]] = {}
 
 

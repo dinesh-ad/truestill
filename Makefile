@@ -74,12 +74,40 @@ typecheck:
 # 45s still holds and no test changed verdict. What changed is the headroom this file was
 # calibrated on: ~2.5x -> ~2.0x, worst observed 27.02s. Stated HERE, beside the number it is
 # headroom against, because that is where somebody about to raise it will be standing.
+# ⚠ **THAT SENTENCE EXPIRED AND NOBODY NOTICED FOR NINETEEN DAYS.** By 2026-09-11 the worst
+# observed was 44s against the same 45s ceiling - 2% headroom, not 2.0x - and the ceiling was
+# raised to 90 rather than the measurement being argued with. The paragraph is kept because it
+# is the record of 2026-08-23 and its reasoning is why the raise was measured first.
 # `PERFORMANCE.md` §6 is the source for both readings; anything here is a copy.
 #
 # NOT enforced in CI, deliberately: the same Windows step measured 566s, 1009s, 1472s and 596s
 # on commits within 2% of each other, so a CI ceiling would fail on variance rather than on
 # drift and would be switched off within a week. See §4's eighteenth member.
-TEST_SECONDS_MAX ?= 45
+# ⚠ RAISED 45 -> 90 ON 2026-09-11, ON A FRESH MEASUREMENT, BECAUSE 45 HAD STOPPED MEASURING THE
+# CODE. The suite had grown into its own ceiling: five samples on a quiet machine, same commit,
+# `pytest -n auto` exactly as the recipe runs it, read 44 / 38 / 40 / 40 / 39 s - median 40,
+# worst 44, against a ceiling of 45. That is 2-11% headroom where the calibration above claims
+# ~2.0x, so the gate was firing on ordinary variance rather than on drift. It fired FOUR times in
+# one session on an identical suite, three of them under CPU contention from a second local run,
+# and the fourth was simply a 44 s sample.
+#
+# 90 is the worst observed (44) at the ~2.0x this file already argues for, and it is not a new
+# number: the override line above has offered `TEST_SECONDS_MAX=90` for a slow machine since
+# 2026-08-09. The 2026-08-09 calibration (15.7-18.8 s) and the 2026-08-23 one (median 22.96 s on
+# ext4) are left above as the record of what was true then.
+#
+# ⚠ **AND IT STAYS A WALL CLOCK. DO NOT PROPOSE CPU TIME AGAIN - it was measured and refused.**
+# The case for it is that CPU is immune to contention where wall is not. Measured 2026-09-11 with
+# bash's `times` builtin, which does see the xdist workers because they are forked children:
+# four uncontended runs cost 352.2 / 357.1 / 363.9 / 367.4 s of child CPU against 42-44 s of
+# wall, and one contended run cost 389.0 s against 48 s. So CPU moved 7.9% where wall moved 14% -
+# less sensitive, NOT immune, because contention costs real CPU in cache pressure and scheduling.
+# The deciding objection is the other one: **a CPU ceiling cannot see I/O wait**, and `(afy)`
+# measured exactly that cost when the suite's scratch left tmpfs for ext4 - median 19.38 s to
+# 22.96 s, **+18%**, every bit of it `fsync` this machine waits on and spends no CPU during. A
+# ceiling blind to an 18% regression in the thing the product actually does to a disk is a worse
+# instrument than a noisy one.
+TEST_SECONDS_MAX ?= 90
 # RAISED FROM 600 WITH WEBKIT, and the WebKit addition is the justification rather than an
 # excuse attached to one. The cost buys the engine the app actually ships in - WebKitGTK on
 # Linux, WKWebView on macOS - and Chromium-only was never a Tauri-specific gap: the .deb

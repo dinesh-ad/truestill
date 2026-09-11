@@ -368,3 +368,77 @@ def test_no_state_truncates_its_own_headline(
     assert overflow, "nothing was measured; the summary row rendered neither line"
     clipped = [row for row in overflow if row["over"] > 0]
     assert not clipped, f"{state}: truncated in the rail - {clipped}"
+
+
+# --- the state dot -------------------------------------------------------------------------------
+
+#: What each state's dot must be, as the browser computes it. `filled` carries the distinction a
+#: colour-blind user can still see; the hue separates the two filled states that are both fine.
+DOT = {
+    "active": ("rgb(92, 196, 127)", True),
+    "lapsed": ("rgb(253, 164, 175)", True),
+    "unreadable": ("rgb(224, 169, 74)", True),
+    "absent": ("rgba(0, 0, 0, 0)", False),
+    "signed_out": ("rgba(0, 0, 0, 0)", False),
+}
+
+
+@pytest.mark.parametrize("state", list(DOT))
+def test_the_dot_carries_fill_as_well_as_hue_in_every_state(
+    ui: Page, mint: Callable[..., str], state: str
+) -> None:
+    """**The defect was three of five states sharing one colour, not the colour being too dark.**
+
+    Measured before anything changed, every dot was between 8.07:1 and 9.00:1 against the rail -
+    two to three times WCAG 2.2 1.4.11's 3:1 floor. An indicator that says the same thing in the
+    majority case carries no information, so a person stops reading it and then misses the day it
+    turns amber.
+
+    So the assertion is on **both channels**: the fill, which a colour-blind user can still see,
+    and the hue, which separates the two filled states that are both fine. A change that
+    recoloured the dot but collapsed the fill distinction would still leave three states
+    indistinguishable to a large minority of people, and would pass a colour-only test.
+    """
+    if state == "active":
+        licence.write_licence(mint())
+    elif state == "lapsed":
+        licence.write_licence(mint(covers_through=licence.BUILD_EPOCH - 1))
+    elif state == "signed_out":
+        licence.write_licence(mint())
+        licence.sign_out()
+    elif state == "unreadable":
+        app_paths.licence_path().parent.mkdir(parents=True, exist_ok=True)
+        app_paths.licence_path().write_bytes(b"not a token")
+    _reload(ui)
+    _slot_state(ui, state)
+
+    seen = ui.eval_on_selector(
+        "#account-slot .account-dot",
+        """el => {
+            const s = getComputedStyle(el);
+            const box = el.getBoundingClientRect();
+            return {bg: s.backgroundColor, ring: s.boxShadow, w: box.width, h: box.height};
+        }""",
+    )
+    expected_bg, filled = DOT[state]
+
+    assert seen["bg"] == expected_bg, f"{state}: dot is {seen['bg']}"
+    assert (seen["ring"] == "none") is filled, f"{state}: fill channel is wrong - {seen['ring']}"
+    # The ring is an inset shadow rather than a border precisely so switching states cannot
+    # change the row's height. A border would make the hollow states 12px and the filled ones 8.
+    assert (seen["w"], seen["h"]) == (8, 8), seen
+
+
+def test_the_five_states_do_not_all_look_alike() -> None:
+    """**Anti-vacuity for the table above, and it is the whole point of the change.**
+
+    The parametrised test asserts each state matches its own row. If every row held the same
+    pair, all five would pass while the rail said one thing in five situations - which is exactly
+    the defect being fixed, surviving its own guard.
+
+    ⚠ **Four, not three** - three filled hues plus one hollow ring, across five states. The prose
+    first said three, conflating "three fills" with "three appearances"; this assertion is what
+    caught it, which is the cheapest possible place for that to happen.
+    """
+    assert len(set(DOT.values())) == 4, DOT
+    assert sum(1 for _, filled in DOT.values() if filled) == 3

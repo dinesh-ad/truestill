@@ -77,6 +77,26 @@ code,
      --rail-muted     7.05 ->  7.75:1
      --rail-success   8.27 ->  8.39:1
      --rail-accent    9.17 ->  9.57:1
+   ⚠ THE FOUR FIGURES DIRECTLY ABOVE ARE THE 2026-08-13 ONES AND ARE LEFT AS THEY ARE, because
+   this paragraph is the RECORD of that day's warming and was true against that day's ground
+   (#17150f). What was NOT true is that the declarations below carried the same numbers forward
+   after 2026-09-06 changed the ground to #101012 - six of the nine did, and the sentence
+   "EVERY VALUE IS RE-DERIVED AGAINST THE NEW GROUND, none carried over" described an intention
+   rather than the file. Corrected 2026-09-11, each against #101012:
+     --rail-border     1.24 ->  1.22:1
+     --rail-text      14.12 -> 14.70:1
+     --rail-muted      7.75 ->  8.07:1
+     --rail-success    8.39 ->  8.74:1
+     --rail-active-bg  1.42 ->  1.34:1
+     --rail-hover-bg   1.11 ->  1.10:1
+   ⚠ AND "every stale figure understates the contrast" - written here on 2026-09-11 before the
+   whole set had been swept - IS FALSE. It held for the three text colours and not for the two
+   structural ones: `--rail-active-bg` and `--rail-hover-bg` were recorded HIGHER than they are.
+   Neither changes an argument (both sit far below 3:1 and the note below already says the edge
+   is what carries the state), but a claim about all six made from three is the shape this block
+   keeps producing.
+   `test_the_rail_contrast_is_what_it_says.py` recomputes every one of these from the hex beside
+   it now, so the next ground change cannot leave a number behind.
    The three structural values carry no AA floor - they separate surfaces rather than paint text -
    and are re-derived for the same family at the same separation.
 
@@ -95,23 +115,21 @@ code,
      like a mistake beside the canvas. #101012 commits. Every --rail-* below is re-measured
      against it and each one gained contrast, so nothing here drops toward a floor. */
   --rail-bg: #101012;
-  --rail-border: #23232a; /* 1.24:1 vs the rail - a hairline, not text */
-  --rail-text: #e6e2d9; /* 14.12:1 on the rail */
-  --rail-muted: #b0a89a; /* 7.75:1 - replaces --fg-muted, which is 3.91:1 here */
-  --rail-success: #5cc47f; /* 8.39:1 - replaces --success, tuned for white at 5.30:1 */
+  --rail-border: #23232a; /* 1.22:1 vs the rail - a hairline, not text */
+  --rail-text: #e6e2d9; /* 14.70:1 on the rail */
+  --rail-muted: #b0a89a; /* 8.07:1 - replaces --fg-muted, which is 3.91:1 here */
+  --rail-success: #5cc47f; /* 8.74:1 - replaces --success, tuned for white at 5.30:1 */
   /* ADDED 2026-09-11 for the account slot's licence notice (D16 §5). Amber rather than red: an
      unreadable licence is a thing to fix and D16 §1 means nothing has stopped working, so the
      rail must not paint an alarm. Measured against #101012 at **9.00:1**, above `--rail-muted`
      so the one sentence that asks for action is not quieter than the prose around it.
-     ⚠ THREE OF THE FOUR RATIOS RECORDED IN THE BLOCK ABOVE ARE STALE, found while measuring
-     this one and reported rather than rewritten. Re-run against #101012 they read 14.70, 8.07
-     and 8.74 where the comment says 14.12, 7.75 and 8.39 - the 2026-08-13 figures, taken
-     against the OLD ground (#17150f) and carried over when 2026-09-06 changed it.
-     `--rail-accent` is the exception and agrees exactly at 10.05:1, because it was the one
-     re-measured that day. Every stale figure UNDERSTATES the contrast the rail actually has, so
-     none is a regression and none is urgent; they are three numbers a reader would trust. */
+     ⚠ FINDING THIS ONE'S RATIO IS WHAT EXPOSED SIX STALE ONES ABOVE, all now corrected and all
+     now recomputed by `test_the_rail_contrast_is_what_it_says.py`. It was reported as THREE
+     twice before the whole set was swept, and the count was wrong because only the text colours
+     had been checked - `--rail-border`, `--rail-active-bg` and `--rail-hover-bg` were stale too.
+     The correction lives in the block above, beside the record of the day they were taken. */
   --rail-warn: #e0a94a; /* 9.00:1 on the rail */
-  --rail-active-bg: #2a2a34; /* 1.42:1 - lifted with the canvas, see the note above */
+  --rail-active-bg: #2a2a34; /* 1.34:1 - lifted with the canvas, see the note above */
   /* THE ACTIVE ITEM'S EDGE. `--rail-active-bg` alone is **1.27:1** against the rail - a fill
      that has to be inferred rather than seen, which is `organize-preview-record.md`'s fourth
      finding in as many words: *"the current screen is legible at a glance rather than
@@ -121,7 +139,7 @@ code,
      group does: `test_rail_shell.py` records that the rail is theme-independent, so its tokens
      "sit outside the light/dark ladder" and splitting one off would break that grouping. */
   --rail-active-border: #a8465c; /* 3.34:1 vs the rail - see the note above */
-  --rail-hover-bg: #1a1a1f; /* 1.11:1 */
+  --rail-hover-bg: #1a1a1f; /* 1.10:1 */
   /* Also paints the wordmark's accent dot and the pillar T, so it moves with them. */
   --rail-accent: #fda4af; /* 10.05:1 on #101012 */
 }
@@ -453,9 +471,16 @@ code,
   overflow: hidden;
 }
 .account-acct > summary {
-  /* `list-style: none` plus the WebKit pseudo-element: Safari ignores the standard property on a
-     summary and keeps drawing its own triangle, which lands on top of the name. D15's engine
-     rule reaches here - what WebKit reports and what it paints are different questions. */
+  /* ⚠ **MEASURED 2026-09-11, AND IT CONTRADICTS WHAT THIS COMMENT SAID.** It claimed Safari
+     ignores `list-style` on a summary and keeps drawing its own triangle over the name. Run on
+     both engines at 480x800: WebKit honours `list-style-type: none`, paints no marker, and has
+     **no `::-webkit-details-marker` pseudo-element at all** (`getComputedStyle` returns an empty
+     display). Chromium reports the pseudo-element as `flex` and also paints no triangle, because
+     `list-style` already handled it there. So the rule below is inert on both engines available
+     here, and the original claim was asserted rather than checked.
+     **It is kept, and the reason is narrow**: Playwright's WebKit is not Safari, the marker
+     genuinely did require this on older Safari, and three lines of inert CSS is a smaller risk
+     than a triangle on a platform this project cannot test. What is corrected is the claim. */
   list-style: none;
   display: flex;
   align-items: center;
@@ -479,18 +504,52 @@ code,
 /* A DOT, NOT AN AVATAR. `(aam)` names Cursor as the model, which shows a photograph; there is no
    photograph here and inventing initials in a circle would be identity theatre for a local tool.
    One dot carrying the state colour says the same thing in 8px and can never be wrong. */
+/* ⚠ **CONTRAST WAS NEVER THIS DOT'S PROBLEM, AND MAKING GREY BRIGHTER WOULD HAVE SOLVED
+   NOTHING.** Measured against the rail before anything changed: every state's dot was already
+   between 8.07:1 and 9.00:1, against WCAG 2.2 1.4.11's 3:1 floor for non-text UI - two to three
+   times over. What was wrong is that THREE OF FIVE STATES SHARED ONE COLOUR. An indicator that
+   says the same thing in the majority case carries no information, so a person stops reading it
+   - and then does not notice the day it turns amber, which is the one day it matters.
+
+   So the fix is a second channel rather than more brightness. FILL says whether a licence is
+   installed and readable; HUE separates the two that are. That also satisfies WCAG 2.2 1.4.1 -
+   colour is never the only carrier - and it survives the red-green confusions that would make
+   green against rose against amber unreliable at 8px for a large minority of people.
+
+     filled green  #5cc47f  8.74:1  active      - entitled, covered
+     filled rose   #fda4af 10.05:1  lapsed      - entitled, updates ended
+     filled amber  #e0a94a  9.00:1  unreadable  - something to fix
+     hollow ring   #b0a89a  8.07:1  absent / signed out - no licence in play
+
+   ⚠ **EIGHT PIXELS CANNOT CARRY FIVE STATES AND IS NOT ASKED TO.** It carries FOUR
+   appearances - three filled hues and one hollow ring - and the headline beside it names the
+   state in words. (This said "three distinctions" until the e2e table's own count assertion
+   refused it: "three fills" and "three appearances" are not the same number.) Five hues at 8px would be five things to learn and remember about a 64-square-pixel
+   object, which is beyond what an icon of this size does for anyone. `absent` and `signed_out`
+   share the hollow ring deliberately: for this indicator's purpose they are the same condition,
+   and the two words next to it are what tell them apart. */
 .account-dot {
   flex: none;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--rail-muted);
+  /* The ring is the DEFAULT, so a state nobody styled reads as "no licence in play" rather than
+     as a filled claim that one is installed. `box-shadow` rather than `border`, so the 8px stays
+     8px and the dot cannot change the summary row's height by changing state. */
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--rail-muted);
 }
 .account-slot[data-state="active"] .account-dot {
   background: var(--rail-success);
+  box-shadow: none;
+}
+.account-slot[data-state="lapsed"] .account-dot {
+  background: var(--rail-accent);
+  box-shadow: none;
 }
 .account-slot[data-state="unreadable"] .account-dot {
   background: var(--rail-warn);
+  box-shadow: none;
 }
 .account-who {
   min-width: 0;

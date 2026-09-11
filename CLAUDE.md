@@ -285,7 +285,7 @@ exists to prevent.
 ### Practical reminders
 
 - **Inner loop: targeted tests only.** Never the full gate on an edit.
-- **`make check` before every commit** - it runs against a **45 s ceiling** (`TEST_SECONDS_MAX`),
+- **`make check` before every commit** - it runs against a **90 s ceiling** (`TEST_SECONDS_MAX`),
   which is not friction. ⚠ This said *"19-21 s"* until 2026-08-15; nine runs that day read
   **16.39-25.99 s**, outside the band at both ends. The ceiling is the durable number.
 - **The pre-commit hooks are NINE: ruff, ruff-format, mypy, three prose guards (`dash-style`,

@@ -48,7 +48,8 @@ set -uo pipefail
 #:
 #: ⚠ OVERRIDABLE FOR TESTS ONLY, and the reason is a real cost: the guard that exercises the
 #: retry path pays this pause on every `make check`, which took the suite from ~18 s to 37 s
-#: against a 45 s ceiling. A test proving the retry fires must not spend half the budget
+#: against the 45 s ceiling of the time (90 since 2026-09-11). A test proving the retry fires
+#: must not spend half the budget
 #: sleeping. CI never sets it, so CI always gets the real 30.
 PAUSE="${CI_BOUNDED_PAUSE:-30}"
 

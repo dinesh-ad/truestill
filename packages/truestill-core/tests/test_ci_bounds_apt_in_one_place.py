@@ -212,7 +212,8 @@ def test_the_bound_retries_a_hang_and_refuses_to_retry_a_real_failure() -> None:
     )
 
     # ⚠ The pause is zeroed HERE and only here. At its real 30 s this single assertion took the
-    # suite from ~18 s to 37 s against a 45 s ceiling - a guard that proves the retry fires must
+    # suite from ~18 s to 37 s against the 45 s ceiling of the time (90 since 2026-09-11) - a
+    # guard that proves the retry fires must
     # not spend half the budget asleep. CI never sets the variable, so CI gets the real pause.
     quick_pause = {**os.environ, "CI_BOUNDED_PAUSE": "0"}
     hung = subprocess.run(

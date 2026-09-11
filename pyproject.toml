@@ -272,7 +272,7 @@ python_functions = "test_*"
 # Steady state fell from ~1 GB (three retained green runs at ~336 MB) to ~0 on the suite's
 # ext4 scratch (`suite_scratch.py`).
 tmp_path_retention_policy = "failed"
-# `--durations=15` prints the slowest fifteen after every run. The 45 s ceiling
+# `--durations=15` prints the slowest fifteen after every run. The 90 s ceiling
 # (`TEST_SECONDS_MAX`) is enforced against the whole suite and says nothing about which test
 # spent it; this does, at no cost and with no plugin.
 #
