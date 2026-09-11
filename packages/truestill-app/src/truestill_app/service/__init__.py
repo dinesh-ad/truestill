@@ -25,6 +25,7 @@ from truestill_app.service import media_support as _media_support
 from truestill_app.service import migrate as _migrate
 from truestill_app.service import organize as _organize
 from truestill_app.service import organize_undo as _organize_undo
+from truestill_app.service import recover as _recover
 from truestill_app.service import rename as _rename
 from truestill_app.service import settings as _settings
 from truestill_app.service import stats as _stats
@@ -174,6 +175,15 @@ backup_preview = _backup.backup_preview
 BackupRunSummary = _backup.BackupRunSummary
 backup_run = _backup.backup_run
 _files_missing_on_target = _core_backup._files_missing_on_target
+
+# --- recover (restore stage 3) ---
+RecoverPreviewErr = _recover.RecoverPreviewErr
+RecoverPreviewOk = _recover.RecoverPreviewOk
+recover_preview = _recover.recover_preview
+RecoverRunSummary = _recover.RecoverRunSummary
+recover_run = _recover.recover_run
+RECOVER_NOTHING_IS_LOST = _recover.RECOVER_NOTHING_IS_LOST
+RECOVER_DRIVE_IS_READ_ONLY = _recover.RECOVER_DRIVE_IS_READ_ONLY
 
 # --- leftover_cleanup ---
 LeftoverEmptyFolders = _leftover_cleanup.LeftoverEmptyFolders

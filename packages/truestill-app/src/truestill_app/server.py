@@ -15,6 +15,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from functools import partial
+from html import escape
 from pathlib import Path
 from typing import TypeGuard
 
@@ -261,6 +262,11 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         html = html.replace("{{TOKEN}}", token)
         html = html.replace("{{STATIC_FINGERPRINT}}", started_fingerprint)
         html = html.replace("{{STALE_WARNING}}", _STALE_BANNER if stale else "")
+        # ⚠ **The recover reassurance is rendered HERE, from core**, so it is on screen before
+        # the user touches anything rather than arriving after a preview has run. `app.js` still
+        # words nothing: it only overwrites these two spans when a preview repeats them.
+        html = html.replace("{{NOTHING_IS_LOST}}", escape(service.RECOVER_NOTHING_IS_LOST))
+        html = html.replace("{{DRIVE_IS_READ_ONLY}}", escape(service.RECOVER_DRIVE_IS_READ_ONLY))
         return HTMLResponse(html.replace("{{VERSION}}", __version__))
 
     async def organize_inventory(request: Request) -> JSONResponse:
@@ -456,6 +462,37 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             await run_in_threadpool(service.backup_run, source, target_path, _db()),
             paths=[source, target_path],
             operation="backup",
+            mutating=True,
+        )
+
+    async def recover_preview(request: Request) -> JSONResponse:
+        # ⚠ **A JOB, unlike `backup_preview`'s plain POST, and the difference is measured.**
+        # This walks the whole library to answer - 85% of 896 ms over 40,000 files on local
+        # ext4, so seconds on USB. The recorded complaint about Time Machine's restore is that
+        # exact window of silence, and a plain POST would reproduce it.
+        # `mutating=False`: it stats the library and writes nothing, so it takes no drive lock -
+        # the same declaration `rescan` and `carried` carry.
+        body = await request.json()
+        drive, library = Path(body["drive"]), Path(body["library"])
+        return await run_in_threadpool(
+            _start_drive_job,
+            await run_in_threadpool(service.recover_preview, drive, library, _db()),
+            paths=[library],
+            operation="recover-preview",
+            mutating=False,
+        )
+
+    async def recover_run(request: Request) -> JSONResponse:
+        body = await request.json()
+        drive, library = Path(body["drive"]), Path(body["library"])
+        return await run_in_threadpool(
+            _start_drive_job,
+            await run_in_threadpool(service.recover_run, drive, library, _db()),
+            # ⚠ **The LIBRARY is what is written into**, which is what the lock must hold -
+            # `_LOCKS_DRIVE_AT` declares `"recover": "library"` on the CLI for the same reason.
+            # The drive is read only, so locking it would block a verify for no gain.
+            paths=[library],
+            operation="recover",
             mutating=True,
         )
 
@@ -1083,6 +1120,8 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         Route("/api/thumb/{sha256}", thumb),
         Route("/api/backup/preview", backup_preview, methods=["POST"]),
         Route("/api/backup/run", backup_run, methods=["POST"]),
+        Route("/api/recover/preview", recover_preview, methods=["POST"]),
+        Route("/api/recover/run", recover_run, methods=["POST"]),
     ]
 
     class StampStaticFingerprint:

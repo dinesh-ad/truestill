@@ -393,8 +393,14 @@
       <!-- BACKUPS -->
       <section class="screen" id="screen-backups" data-ready="loading" aria-busy="true">
         <header><h1>Backups</h1>
+          <!-- ⚠ THE LEDE PROMISED ONLY OUTWARD until restore stage 3. "Copy your library to a
+               second drive" describes half a backup: the half that puts photos on a drive. A
+               person who has just lost a library reads that and learns this screen is not for
+               them. Both directions are named now, and the inward one is named in the words
+               somebody in trouble would use. -->
           <p class="lede">Keep your photos safe in more than one place. Copy your library to a
-            second drive, and check your backups stay healthy.</p></header>
+            second drive, check your backups stay healthy, and bring photos back from a drive
+            if your library has lost them.</p></header>
         <div class="card">
           <h2>Check a connected backup drive</h2>
           <p class="lede">Already have a backup? Re-verify every file on it is still perfect.</p>
@@ -426,6 +432,42 @@
           <div id="bk-result"></div>
           <!-- shared progress block: see createProgress() in app.js -->
           <div class="run-mount" data-run="bk"></div>
+        </div>
+        <div class="card" id="recover-card">
+          <h2>Bring photos back from a drive</h2>
+          <p class="lede">Lost photos from your library? If a backup drive has them, copy them
+            back.</p>
+          <!-- ⚠ THE REASSURANCE IS ABOVE THE FIELDS, NOT BESIDE THE BUTTON, and that placement
+               is the whole point. The user arriving here has met restores that destroy things -
+               UrBackup ships restore DISABLED by default;
+               Backblaze tells people to make another backup first.
+               That fear is inherited and reasonable, and it is wrong
+               about this operation. It is answered before they touch a field, not after they
+               have decided to be brave. The sentences come from `truestill_core.recover` so the
+               terminal says them identically; `app.js` fills them in and words nothing itself. -->
+          <div class="banner safe" id="recover-safety"><div>
+            <div class="b-title">This only adds files</div>
+            <!-- ⚠ SERVER-RENDERED, NOT FILLED IN BY JAVASCRIPT, and the difference is when it
+                 is readable. The reassurance has to be on screen BEFORE the user touches a
+                 field - a sentence that appears only after a preview has run is a sentence they
+                 read after deciding to be brave. Substituted from `truestill_core.recover` at
+                 `home()`, so the markup still carries no wording of its own. -->
+            <span id="recover-nothing-lost">{{NOTHING_IS_LOST}}</span>
+            <span id="recover-read-only">{{DRIVE_IS_READ_ONLY}}</span>
+          </div></div>
+          <div class="field"><label for="rcv-drive">From (the backup drive)</label>
+            <div class="row"><input class="input" id="rcv-drive" placeholder="e.g. /media/BackupA">
+              <button class="btn btn-secondary" data-browse="rcv-drive" data-kind="dest">Browse…</button></div>
+            <span class="hint" id="rcv-drive-hint"></span></div>
+          <div class="field"><label for="rcv-library">To (your library)</label>
+            <div class="row"><input class="input" id="rcv-library" placeholder="e.g. /home/you/Photos">
+              <button class="btn btn-secondary" data-browse="rcv-library" data-kind="dest">Browse…</button></div>
+            <span class="hint" id="rcv-library-hint"></span></div>
+          <div class="actions"><button class="btn btn-secondary" id="rcv-preview">See what is missing</button></div>
+          <div id="rcv-result"></div>
+          <div id="rcv-confirm"></div>
+          <!-- shared progress block: see createProgress() in app.js -->
+          <div class="run-mount" data-run="rcv"></div>
         </div>
         <!-- BELOW THE CONTROLS, DELIBERATELY - `(acd)`. loadDrives writes this region on arrival,
              and anything above a control moves it: measured at +142px with no drives and +563px

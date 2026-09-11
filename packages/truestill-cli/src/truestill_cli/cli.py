@@ -10,6 +10,7 @@ import argparse
 import re
 import sqlite3
 import sys
+import textwrap
 import threading
 import time
 import uuid
@@ -244,6 +245,9 @@ from truestill_core.organizer import (
 from truestill_core.progress import Progress, ProgressCallback
 from truestill_core.reclaim import ReclaimPlan, plan_reclaim, run_reclaim
 from truestill_core.recover import (
+    DRIVE_IS_READ_ONLY,
+    NEVER_WALKED,
+    NOTHING_IS_LOST,
     RecoverOutcome,
     RecoverPair,
     RecoverStoppedError,
@@ -1164,12 +1168,9 @@ def _cmd_recover(args: argparse.Namespace) -> int:
         # marker and does not walk, so `file_copies` is empty while the drive is full. Telling
         # somebody who has just lost a library that there is nothing to bring back, about a drive
         # holding all of it, is the most expensive sentence in the product.
-        print(
-            f"This catalog has no record of anything on '{plan.drive_label}', so there is "
-            f"nothing\nit can bring back. That is not the same as the drive being empty: a drive"
-            f"\nregistered with `truestill drives --init <path> --label <name>` has a marker"
-            f"\nand was never walked."
-        )
+        # Core owns the sentence; the terminal adds the drive's name and the exact command,
+        # which a screen would not print.
+        print(f"'{plan.drive_label}': " + "\n".join(textwrap.wrap(NEVER_WALKED, width=78)))
         print(f"\nWalk it first:  truestill rescan {args.drive}")
         return 1
 
@@ -1181,11 +1182,12 @@ def _cmd_recover(args: argparse.Namespace) -> int:
     # operation is a sync run in the wrong direction overwriting newer files with older ones, and
     # the reassurance a person needs before letting a tool write into their library is that the
     # library cannot lose anything. Stated up front, on the preview, before they type anything.
-    print(
-        "       Copies only. Nothing in the library is deleted or replaced - a file already\n"
-        "       at the same path is skipped and named, never overwritten. The drive is read\n"
-        "       and left exactly as it is."
-    )
+    # ⚠ **The words come from core** - `IMPLEMENTATION_STANDARDS.md` §9. The app says the same
+    # two sentences on the drive card, and a reassurance that differs between surfaces is one
+    # the user cannot rely on. The terminal owns only the wrapping.
+    for sentence in (NOTHING_IS_LOST, DRIVE_IS_READ_ONLY):
+        for line in textwrap.wrap(sentence, width=72):
+            print(f"       {line}")
     if not plan.count:
         print(
             f"\nNothing to bring back - every file this catalog records on "

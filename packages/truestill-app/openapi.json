@@ -1001,6 +1001,15 @@
                 "$ref": "#/components/schemas/OrganizeUndoJobSummary"
               },
               {
+                "$ref": "#/components/schemas/RecoverPreviewErr"
+              },
+              {
+                "$ref": "#/components/schemas/RecoverPreviewOk"
+              },
+              {
+                "$ref": "#/components/schemas/RecoverRunSummary"
+              },
+              {
                 "$ref": "#/components/schemas/RenamePreviewPayload"
               },
               {
@@ -3686,6 +3695,138 @@
         "title": "ProposedReviewCardsPayload",
         "type": "object"
       },
+      "RecoverPreviewErr": {
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "ok": {
+            "const": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "error",
+          "ok"
+        ],
+        "title": "RecoverPreviewErr",
+        "type": "object"
+      },
+      "RecoverPreviewOk": {
+        "properties": {
+          "audio": {
+            "type": "integer"
+          },
+          "bytes": {
+            "type": "integer"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "drive": {
+            "type": "string"
+          },
+          "drive_is_read_only": {
+            "type": "string"
+          },
+          "drive_walked": {
+            "type": "boolean"
+          },
+          "library": {
+            "type": "string"
+          },
+          "never_walked": {
+            "type": "string"
+          },
+          "nothing_is_lost": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "photos": {
+            "type": "integer"
+          },
+          "videos": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "audio",
+          "bytes",
+          "count",
+          "drive",
+          "drive_is_read_only",
+          "drive_walked",
+          "library",
+          "never_walked",
+          "nothing_is_lost",
+          "ok",
+          "photos",
+          "videos"
+        ],
+        "title": "RecoverPreviewOk",
+        "type": "object"
+      },
+      "RecoverRunSummary": {
+        "properties": {
+          "audio": {
+            "type": "integer"
+          },
+          "bytes_copied": {
+            "type": "integer"
+          },
+          "copied": {
+            "type": "integer"
+          },
+          "drive": {
+            "type": "string"
+          },
+          "elapsed_seconds": {
+            "type": "number"
+          },
+          "failed": {
+            "type": "integer"
+          },
+          "finished_clean": {
+            "type": "boolean"
+          },
+          "library": {
+            "type": "string"
+          },
+          "nothing_is_lost": {
+            "type": "string"
+          },
+          "photos": {
+            "type": "integer"
+          },
+          "skipped": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "videos": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "audio",
+          "bytes_copied",
+          "copied",
+          "drive",
+          "failed",
+          "finished_clean",
+          "library",
+          "nothing_is_lost",
+          "photos",
+          "skipped",
+          "videos"
+        ],
+        "title": "RecoverRunSummary",
+        "type": "object"
+      },
       "RenamePreviewPayload": {
         "properties": {
           "moves": {
@@ -6300,6 +6441,74 @@
               }
             },
             "description": "DriveBusyPayload | JobStarted | OrganizeUndoStateArmed | OrganizeUndoStateDisarmed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/recover/preview": {
+      "post": {
+        "operationId": "recover_preview",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | JobStarted"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/recover/run": {
+      "post": {
+        "operationId": "recover_run",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | JobStarted"
           },
           "503": {
             "content": {

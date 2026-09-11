@@ -77,6 +77,16 @@ from truestill_core.run_record import RUN_RECORD_FORMAT, RunHeader, build_run_re
 #: uniform in their verdict and still carry five different policies; only the prose says so.
 MUTATING_RUNS: dict[str, tuple[bool, str]] = {
     "organize": (True, "has a per-file ActionResult list; `(afu)` wires it"),
+    "recover": (
+        True,
+        (
+            "records under `kind: recover` with one entry per file the run REACHED - copied, "
+            "skipped or failed - and `intended_total` beside them for what it planned. ⚠ **A "
+            "SKIP IS AN ENTRY, not an omission**: 'already in your library at that exact place' "
+            "is the never-overwrite rule working, and a record that only listed copies would "
+            "leave a person unable to tell a file that was protected from one that vanished"
+        ),
+    ),
     "backup": (
         True,
         (
@@ -441,6 +451,17 @@ OPERATIONS: dict[str, tuple[str, str, bool, str]] = {
     "organize": ("organize", "organize_run", True, "`(afu)`; per-file `ActionResult` list"),
     "undo organize": ("organize_undo", "organize_undo", True, "`(afw)`; per-file outcomes"),
     "backup": ("backup", "backup_run", True, "`(afw)` stage 3, under `kind: backup` via core"),
+    "recover": (
+        "recover",
+        "recover_run",
+        True,
+        (
+            "restore stage 3, under `kind: recover` via `truestill_core.recover`. It writes into "
+            "the LIBRARY, which is the one tree a user cannot replace, so a run that copied "
+            "files back and left no account of which ones would be the worst record to be "
+            "missing in the product"
+        ),
+    ),
     "set dates": ("bake", "bake_run", True, "`(agm)`: an index line and no detail, via core"),
     "rename": ("rename", "rename_run", True, "`(aix)`; `_record_migration` with `kind: rename`"),
     "migrate": ("migrate", "migration_apply", True, "the forward path, via `_record_migration`"),

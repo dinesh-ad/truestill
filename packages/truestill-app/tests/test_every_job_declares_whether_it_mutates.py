@@ -142,6 +142,9 @@ _EXPECTED: dict[str, Decision] = {
     # Writes user files on the drive. The four `(aaw)` was measured on.
     "organize": Decision(True, surface="organize"),
     "backup": Decision(True, surface="backup"),
+    # Copies into the LIBRARY from a drive. Adds only - nothing is deleted or replaced - but it
+    # writes user files, so it holds the library for the run exactly as a backup holds its target.
+    "recover": Decision(True, surface="recover"),
     "migrate": Decision(True, surface="migrate-layout"),
     "undo": Decision(True, surface="migrate-layout"),  # `--undo`
     "undo organize": Decision(True, surface="undo-organize"),
@@ -175,6 +178,12 @@ _EXPECTED: dict[str, Decision] = {
     "undo organize preview": Decision(False),
     # Previews an already-extracted folder - the route `"archive unpack"` was confused with.
     "import preview": Decision(False),
+    # ⚠ **A PREVIEW THAT IS A JOB, and unlike `backup`'s it had to be.** Answering what a drive
+    # is carrying stats the whole library - 85% of a measured 896 ms over 40,000 files on local
+    # ext4, so seconds on USB. `backup preview` is a plain request because its own comparison is
+    # catalog-only; this one would have been a silent minute, which is the recorded complaint
+    # about Time Machine's restore.
+    "recover-preview": Decision(False),
     # Re-reads bytes and compares; writes nothing.
     "verify": Decision(False),
 }

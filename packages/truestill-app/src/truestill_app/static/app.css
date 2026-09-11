@@ -1981,6 +1981,26 @@ details.more.inline {
   font-size: var(--type-sm);
 }
 
+/* ⚠ **A REASSURANCE IS NOT A WARNING AND IS NOT AN ASIDE, and this repo had only those two.**
+   `:not(.warn)` above deliberately demotes every non-warning banner to muted small text, which is
+   right for a first-run diagnostic and wrong for the sentence that answers a fear. Restore stage
+   3's banner told the user nothing is deleted or replaced, and it rendered grey and quiet - the
+   one sentence on the screen that has to be believed, styled as the one that can be skipped.
+
+   NOT `--warning-subtle`, and not `--success` either: amber says danger, which is the inherited
+   fear this is correcting, and a green success wash claims an outcome before anything has run.
+   A plain surface with a real border is the calm register - present, readable, and making no
+   promise about a run that has not happened. */
+.banner.safe {
+  background: var(--surface-sunken);
+  color: var(--fg);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--corner-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  font-size: inherit;
+}
+
 .banner.warn {
   background: var(--warning-subtle);
   color: var(--fg);

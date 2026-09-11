@@ -64,6 +64,33 @@ from truestill_core.safe_copy import staged_copy
 _FREE_SPACE_MARGIN = 1.1
 
 
+#: ⚠ **THE SENTENCE A FRIGHTENED PERSON READS BEFORE THEY PRESS ANYTHING, and it is in core
+#: because both surfaces must say it identically.** The user arriving here has met restores that
+#: destroy things: UrBackup ships restore **disabled by default** and treats it as the dangerous
+#: direction; Backblaze tells people to make another backup first. That fear is
+#: inherited from other software and it is entirely reasonable - but it is wrong about this
+#: operation, and **the remedy is a sentence, not a smaller button**. So it is stated plainly,
+#: up front, in words that do not require knowing what a catalog is.
+NOTHING_IS_LOST = (
+    "Nothing in your library is deleted or replaced. Files are only added. If something is "
+    "already there, it is left exactly as it is."
+)
+
+#: The drive is read and not written to - the other half of the reassurance, and separately
+#: worded because it answers a different fear: not "will I lose my library" but "will this
+#: damage my backup too".
+DRIVE_IS_READ_ONLY = "The drive is only read from. Nothing on it is changed."
+
+#: Why a drive nobody has walked cannot be recovered from, and what to do instead. The worst
+#: wrong answer in the product is telling somebody who has just lost a library that there is
+#: nothing to bring back, about a drive holding all of it.
+NEVER_WALKED = (
+    "This catalog has no record of anything on this drive, so it cannot say what is on it. "
+    "That is not the same as the drive being empty: a drive that was registered but never "
+    "checked has no record yet. Check it first, then come back."
+)
+
+
 class Skipped(Enum):
     """Why one recorded file was not copied. **Skips are not failures**, and the split matters.
 
@@ -76,6 +103,19 @@ class Skipped(Enum):
     ALREADY_THERE = "already_there"
     #: The drive's row is a claim the drive did not honour - the file is not on it. `(aiz)`
     NOT_ON_THE_DRIVE = "not_on_the_drive"
+
+
+#: One sentence per skip class, for whichever surface is reporting. ⚠ **Keyed on the enum rather
+#: than on its string value**, so adding a member and forgetting to word it is a `KeyError` at
+#: the call site rather than a skip that renders as nothing.
+SKIP_REASONS: dict[Skipped, str] = {
+    Skipped.ALREADY_THERE: (
+        "already in your library at that exact place, and left exactly as it is"
+    ),
+    Skipped.NOT_ON_THE_DRIVE: (
+        "recorded as being on this drive, but not actually there when we looked"
+    ),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,7 +204,9 @@ class RecoverStoppedError(OSError):
         self.detail = str(cause)
 
 
-def plan_recovery(pair: RecoverPair, db: Path) -> RecoverPlan:
+def plan_recovery(
+    pair: RecoverPair, db: Path, *, progress: ProgressCallback | None = None
+) -> RecoverPlan:
     """What is on the drive and not in the library. **Reads two tables and stats the library.**
 
     The gap is `backup._files_missing_on_target` with the arguments in the recovering direction -
@@ -172,7 +214,17 @@ def plan_recovery(pair: RecoverPair, db: Path) -> RecoverPlan:
     Reused rather than rewritten: it is the same comparison, it already runs the library's rows
     through `credible_copies`, and a second implementation of the product's most safety-critical
     set difference is a second thing to get wrong.
+
+    ⚠ **``progress`` announces the phase; it does not tick through it, and that limit is real.**
+    The stat pass is one call inside the reused helper - measured at **85% of 896 ms** over a
+    40,000-file library on local ext4, which is seconds on USB or a network mount. The recorded
+    complaint about Time Machine's restore is exactly this window: *a minute with no indication
+    anything is happening*. A named, visible phase is not a per-file bar, but it is the
+    difference between waiting and wondering, and it is what can be had without a second
+    implementation of the comparison.
     """
+    if progress is not None:
+        progress(Progress(0, 0, Phase.SCANNING, pair.library_marker.label))
     with open_catalog(db) as catalog:
         gaps = _files_missing_on_target(
             catalog, pair.drive_marker.uuid, pair.library_marker.uuid, pair.library

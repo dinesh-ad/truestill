@@ -931,6 +931,7 @@ const migProgress = createProgress("mig");
 const undoProgress = createProgress("undo");
 const rcProgress = createProgress("rc");
 const bakeProgress = createProgress("bake");
+const rcvProgress = createProgress("rcv");
 
 // ---------- typed confirm (reusable) ----------
 // Destructive actions that currently demand a typed word on the CLI (undo, and soon oo/rr)
@@ -2902,6 +2903,15 @@ async function loadDrives() {
   // `(acr)` writes "Morrowkeep at /mnt/photos".
   const sharedLabel = new Map();
   drives.forEach((d) => sharedLabel.set(d.label, (sharedLabel.get(d.label) || 0) + 1));
+  // ⚠ **WHICH CARD IS THE LIBRARY ITSELF**, so "Bring these back" is not offered on it.
+  // Recovering a drive into itself is refused by the engine, so a button there is exactly the
+  // un-honourable offer the rule below forbids - the refusal would be correct and the button
+  // would still have been a lie. `library_root` is the user's stated intent and survives the
+  // drive being unplugged; `library_path` is the live hint. Either identifies the card.
+  const libraryHere = lib.library_root || lib.library_path || null;
+  // Filled in once, here, because this is the only place that knows it. A person who clicks
+  // "Bring these back" should not then have to type where their own library is.
+  if (libraryHere && !$("rcv-library").value.trim()) $("rcv-library").value = libraryHere;
   const cards = drives.map((d) => {
     // `(aiy)`. **This counted REGISTRATIONS and called them places.** Two folders on one USB
     // stick filled two pips in success green on both cards. A proven shared device is ONE
@@ -2928,6 +2938,9 @@ async function loadDrives() {
         ${d.path
           ? `<button class="btn btn-ghost drive-check" data-path="${esc(d.path)}">Check now</button>`
           : ""}
+        ${d.path && d.path !== libraryHere
+          ? `<button class="btn btn-ghost drive-recover" data-path="${esc(d.path)}">Bring these back</button>`
+          : ""}
       </div></div>`;
   }).join("");
   list.innerHTML = summary + cards + risk;
@@ -2942,6 +2955,41 @@ async function loadDrives() {
       field.focus();
     };
   }
+  // ⚠ **THE SAME RULE AS "Check now", OBEYED RATHER THAN RESTATED**: rendered only when we know
+  // where the drive is, because offering an action we cannot honour would be worse than stating
+  // the fact plainly. `d.path` is `null` unless the drive is CONNECTED (`service/drives.py`
+  // sets it from `reach`), so an offline drive gets neither button.
+  //
+  // ⚠ **AND NOT ON THE LIBRARY'S OWN CARD.** Recovering a drive into itself is refused by the
+  // engine, so a button there is exactly the un-honourable offer the rule forbids - the refusal
+  // would be correct and the button would still have been a lie.
+  //
+  // It opens the PREVIEW, never the copy. "Check now" runs its verify immediately because a
+  // verify only reads; this one leads to writing, so the button's job is to fill the form and
+  // ask the question, and the typed word is what starts anything.
+  list.querySelectorAll(".drive-recover").forEach((btn) => {
+    btn.onclick = () => {
+      const library = $("rcv-library").value.trim();
+      // ⚠ **THE SECOND PLACE THE RULE IS OBEYED, and it exists because the first one can only
+      // fail open.** `libraryHere` is `null` on a catalog the CLI built - `LIBRARY_PATH_HINT` is
+      // written by the app's own organize flow - so the button above renders on every connected
+      // drive including the library's own card. Here the library IS known, because the user has
+      // typed it, so the un-honourable click is answered at the moment it becomes answerable
+      // rather than by starting a job that can only refuse.
+      if (library && library === btn.dataset.path) {
+        $("rcv-result").innerHTML = card(`<div class="banner warn"><div>
+          That is your library. Pick the backup drive you want to bring photos back FROM.
+          </div></div>`);
+        $("recover-card").scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      $("rcv-drive").value = btn.dataset.path;
+      $("rcv-drive").dispatchEvent(new Event("change"));
+      $("recover-card").scrollIntoView({ behavior: "smooth", block: "center" });
+      if (library) $("rcv-preview").click();
+      else $("rcv-library").focus();
+    };
+  });
   list.querySelectorAll(".drive-check").forEach((btn) => {
     btn.onclick = () => {
       const field = $("verify-path");
@@ -3856,6 +3904,131 @@ $("bk-run").onclick = guarded(async () => {
     after: () => { refreshDriveState(); },
   });
 });
+
+// ---------- Bring photos back from a drive (restore stage 3) ----------
+//
+// ⚠ **THE PREVIEW IS A JOB, NOT A REQUEST, AND THAT IS THE WHOLE REASON THIS BLOCK EXISTS.**
+// Answering "what is this drive carrying that I do not have" walks the entire library -
+// measured at 85% of 896 ms over 40,000 files on local ext4, so seconds on USB or a network
+// mount. The recorded complaint about Time Machine's restore is not the restore: it is a
+// minute of silence during preparation, with no indication anything is happening. A plain POST
+// behind a busy label would reproduce that exactly, so this one drives the same run block eight
+// other operations already share, and the phase is named while it works.
+//
+// ⚠ **NO SENTENCE HERE IS WRITTEN HERE.** The reassurances come from `truestill_core.recover`
+// as payload keys, because the terminal and this card must say the same thing to a frightened
+// person. `app.js` renders text it was handed.
+let rcvJob = null;
+let rcvPlan = null;
+
+function recoverSafety(r) {
+  $("recover-nothing-lost").textContent = r.nothing_is_lost || "";
+  $("recover-read-only").textContent = r.drive_is_read_only || "";
+}
+
+// The word is "recover" - the same word `truestill recover --apply` demands. One operation, one
+// word, so a person who learned it in either place knows it in the other, and documentation
+// written for one surface is not wrong about the other.
+const RECOVER_WORD = "recover";
+
+$("rcv-preview").onclick = guarded(async () => {
+  const drive = $("rcv-drive").value.trim(), library = $("rcv-library").value.trim();
+  $("rcv-confirm").innerHTML = "";
+  rcvPlan = null;
+  await runJob({
+    button: $("rcv-preview"),
+    busyLabel: "Looking…",
+    start: () => api("/api/recover/preview", { drive, library }),
+    setJob: (id) => { rcvJob = id; },
+    progress: rcvProgress,
+    progressLabel: "checking",
+    // Shown BEFORE the start request returns, because the wait begins there. Without this the
+    // card is silent for exactly the window this whole design is about.
+    progressBeforeStart: true,
+    statusForProgress: (p, setStatus) => {
+      // One phase, and it is announced rather than ticked - the gap computation is a single
+      // blocking call inside the shared engine, so there is no per-file count to report
+      // without a second implementation of the comparison. Naming the library being read is
+      // what makes it legible: the user can see WHICH side is slow.
+      if (p.phase === "scanning") setStatus(`Reading what ${p.item || "your library"} already has…`);
+    },
+    onRefuse: (started) => { $("rcv-result").innerHTML = startRefusedCard(started, "rcv-drive"); },
+    onError: (d) => { $("rcv-result").innerHTML = jobErrorCard(d); },
+    onCancelled: () => { $("rcv-result").innerHTML = card(`<div class="k">Stopped. Nothing was copied.</div>`); },
+    onSuccess: (d) => { renderRecoverPlan(d.summary, drive, library); },
+  });
+});
+
+function renderRecoverPlan(r, drive, library) {
+  if (r.ok === false) {
+    $("rcv-result").innerHTML = card(`<div class="banner warn"><div>${esc(r.error)}</div></div>`);
+    return;
+  }
+  recoverSafety(r);
+  if (!r.drive_walked) {
+    // ⚠ THE WORST WRONG ANSWER IN THE PRODUCT, and it is one registration away. A drive that
+    // was registered but never checked has no rows, so a naive answer is "0 to bring back" -
+    // told to somebody who has just lost a library, about a drive holding all of it. The
+    // number is withheld and core's sentence is shown instead.
+    $("rcv-result").innerHTML = card(`<div class="banner warn"><div>
+      <div class="b-title">Nothing recorded for ${esc(r.drive)} yet</div>${esc(r.never_walked)}
+      </div></div>`);
+    return;
+  }
+  if (r.count === 0) {
+    $("rcv-result").innerHTML = card(`<div class="headline">Nothing to bring back.</div>
+      <div class="k">Everything recorded on ${esc(r.drive)} is already in ${esc(r.library)}.</div>`);
+    return;
+  }
+  rcvPlan = { drive, library, count: r.count };
+  $("rcv-result").innerHTML = card(`<div class="headline">${mediaCount(r)} · ${fmtBytes(r.bytes)} to bring back</div>
+    <div class="k">On ${esc(r.drive)} and not in ${esc(r.library)}.</div>
+    <div class="hint">${esc(r.nothing_is_lost)} ${esc(r.drive_is_read_only)}</div>`);
+  typedConfirm($("rcv-confirm"), {
+    word: RECOVER_WORD,
+    label: `Type ${RECOVER_WORD} to copy ${plural(r.count, "file")} into ${r.library}`,
+    buttonLabel: "Bring them back",
+    onConfirm: runRecover,
+  });
+}
+
+async function runRecover() {
+  if (!rcvPlan) return;
+  const { drive, library } = rcvPlan;
+  $("rcv-confirm").innerHTML = "";
+  await runJob({
+    busyLabel: "Copying…",
+    start: () => api("/api/recover/run", { drive, library }),
+    setJob: (id) => { rcvJob = id; },
+    progress: rcvProgress,
+    progressLabel: "copying",
+    statusVerb: "Copying",
+    onRefuse: (started) => { $("rcv-result").innerHTML = startRefusedCard(started, "rcv-library"); },
+    onError: (d) => { $("rcv-result").innerHTML = jobErrorCard(d); },
+    // Cancel leaves what already landed - the same honesty the completion card carries, and
+    // the run is resumable because it only ever copies what is still missing.
+    onCancelled: (d) => { $("rcv-result").innerHTML = recoverCompletion({ ...d.summary, cancelled: true }); },
+    onSuccess: (d) => { $("rcv-result").innerHTML = recoverCompletion(d.summary); },
+    after: () => { refreshDriveState(); },
+  });
+}
+
+function recoverCompletion(s) {
+  // ⚠ SKIPS ARE REPORTED AND ARE NOT FAILURES. A person who asked for six and got four must be
+  // told which rule accounts for the other two, or the shortfall reads as a defect. The reason
+  // sentences are core's, keyed by core, so neither surface invents wording for a skip class.
+  const skipped = Object.entries(s.skipped || {});
+  const skipLines = skipped.length
+    ? `<ul class="k">${skipped.map(([why, n]) => `<li>${plural(n, "file")} ${esc(why)}</li>`).join("")}</ul>`
+    : "";
+  const failed = s.failed
+    ? `<div class="banner warn"><div>${plural(s.failed, "file")} could not be copied.</div></div>`
+    : "";
+  const head = s.cancelled ? "Stopped - this is what landed." : "";
+  return card(`<div class="headline">${mediaCount(s)} brought back · ${fmtBytes(s.bytes_copied)}</div>
+    <div class="k">${esc(head)} From ${esc(s.drive)} into ${esc(s.library)}.</div>
+    <div class="hint">${esc(s.nothing_is_lost || "")}</div>${skipLines}${failed}`);
+}
 
 // ---------- Settings ----------
 function renderLayoutPreview(rows) {

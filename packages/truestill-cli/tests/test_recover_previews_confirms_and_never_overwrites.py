@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 from truestill_cli import cli
 from truestill_cli.cli import main
+from truestill_core import recover
 from truestill_core.app_paths import RUN_RECORD_FILENAME
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker, read_marker
@@ -85,7 +86,11 @@ def test_a_preview_writes_nothing_and_says_what_it_would_do(
     out = capsys.readouterr().out
     assert "6 file(s) to copy" in out
     assert "Preview only. Nothing was copied." in out
-    assert "skipped and named, never overwritten" in out
+    # ⚠ Asserted against the CORE constant, not a copy of it. A literal here would go stale
+    # the moment the sentence is reworded, and the reason the sentence lives in core is that
+    # the drive card must say the same thing.
+    assert recover.NOTHING_IS_LOST.split(". ")[0] in out.replace("\n       ", " ")
+    assert "left exactly as it is" in out.replace("\n       ", " ")
     assert _snapshot(library) == before
     assert not (db.parent / RUN_RECORD_FILENAME).exists(), "a preview wrote a run record"
 
@@ -241,8 +246,8 @@ def test_a_drive_nobody_walked_refuses_and_names_the_command_that_fills_it(
     assert main(["recover", str(fresh), str(library), "--db", str(db), "--apply"]) == 1
 
     out = capsys.readouterr().out
-    assert "no record of anything on 'Never Walked'" in out
-    assert "not the same as the drive being empty" in out
+    assert "'Never Walked'" in out
+    assert "not the same as the drive being empty" in out.replace("\n", " ")
     assert f"truestill rescan {fresh}" in out
     assert "file(s) to copy" not in out
 

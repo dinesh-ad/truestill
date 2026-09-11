@@ -161,6 +161,19 @@ ALLOWED: tuple[tuple[str, str], ...] = (
         "the literal git identity the commit-identity policy checks against; a value, not prose",
     ),
     (
+        r"Backblaze tells people to make another backup first",
+        (
+            "the field evidence behind restore stage 3's reassurance, in `truestill_core."
+            "recover`, the Backups markup and their test. THE NAME IS THE EVIDENCE: the design "
+            "ruling is that a restore button must say, before anything is pressed, that nothing "
+            "is deleted or replaced - and that ruling rests on real products treating restore as "
+            "the dangerous direction. Genericised to 'some backup software', the justification "
+            "becomes an unsourced claim, which is the summary-instead-of-the-line failure "
+            "CLAUDE.md records. Same standing as the (jj) export-format table: a vendor named to "
+            "make a ruling checkable. Scoped to the exact sentence so the name cannot spread."
+        ),
+    ),
+    (
         r"rclone supports[^.]*",
         (
             "rclone.py documents which remotes a real dependency actually supports - the list "

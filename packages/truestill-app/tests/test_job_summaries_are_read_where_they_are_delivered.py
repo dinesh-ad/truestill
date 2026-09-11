@@ -56,6 +56,7 @@ APP_JS = APP / "static/app.js"
 #: bound today" would shrink silently. 7 of the 16 `runJob` blocks; the other 9 are below.
 BOUND: dict[str, str] = {
     "/api/backup/run": "BackupRunSummary",
+    "/api/recover/run": "RecoverRunSummary",
     "/api/dates/bake/run": "BakeSummary",
     "/api/migrate/preview": "MigrationPreviewOk",
     "/api/migrate/undo/preview": "UndoJobSummary",
@@ -75,6 +76,9 @@ UNBOUND: dict[str, str] = {
     "/api/migrate/run": "as above",
     "/api/ingest/archives/run": "zero reads, and its factory returns a UNION of three payloads",
     "/api/ingest/preview": "zero reads, and a union of two",
+    "/api/recover/preview": "the factory returns `RecoverPreviewOk | RecoverPreviewErr`; a read "
+    "set cannot be attributed to one arm of a union, and the refusal arm is rendered by the same "
+    "block that renders the answer",
     "/api/organize/preview": "the factory returns `OrganizePreviewEmpty | OrganizePreviewSummary`; "
     "a read set cannot be attributed to one arm of a union",
     "/api/organize/run": "as above, `CompletionBase | OrganizeDoneSummary`",
@@ -106,6 +110,18 @@ UNREAD: dict[str, dict[str, str]] = {
         "failed": "⚠ a run that could not copy a file says so nowhere on this screen, though "
         "`(afw)` Stage 4 exists to count it. A candidate for RENDERING",
         "target_path": "the screen already names the drive by label (`to`)",
+    },
+    "RecoverRunSummary": {
+        "copied": "the headline counts with `mediaCount(s)` - photos + videos + audio - so the "
+        "total is computed there and this copy is unused. A candidate for DELETION, and the same "
+        "shape `BackupRunSummary` already carries",
+        "finished_clean": "⚠ READ BY `jobs.py`, NOT BY THIS SCREEN. `_terminal_status` turns it "
+        "into the terminal event's `status`, which every screen consumes through `streamJob`, so "
+        "the fact reaches the user as the outcome word rather than as a field. ⚠ **And a SKIP "
+        "does not clear it**: leaving a file alone because something is already at its path is "
+        "the never-overwrite rule working, not unfinished work",
+        "elapsed_seconds": "injected for every dict summary by `jobs.py`; this screen shows no "
+        "duration",
     },
     "MigrationPreviewOk": {
         "elapsed_seconds": "a preview shows no duration",
@@ -283,8 +299,14 @@ def test_the_subset_and_its_exclusions_are_both_declared() -> None:
     # could have been excluded with a reason like the nine below; binding them means their keys
     # are checked as read, which is what caught `resumed`, `kind`, `row_id` and a five-move
     # `sample` being computed for a card that renders none of them.
-    assert len(BOUND) == 9, "the bound subset changed size without a ruling"
-    assert len(set(BOUND.values())) == 8, (
+    # ⚠ **10 since restore stage 3, and BINDING `/api/recover/run` was the ruling.** It could
+    # have been excluded like the nine below - its factory returns a single TypedDict, so it did
+    # not have to be. Binding it means its keys are checked as read, and that is worth having on
+    # the one screen that writes into a user's library: a summary key nobody renders there is a
+    # fact about a recovery the person who ran it never sees.
+    assert len(BOUND) == 10, "the bound subset changed size without a ruling"
+    # Nine types over ten routes: the one pair that shares a type is the organize-undo pair.
+    assert len(set(BOUND.values())) == 9, (
         "seven routes over six types - `/api/organize/undo/preview` and `.../apply` share "
         "`OrganizeUndoJobSummary`, and a key either screen reads is read"
     )
