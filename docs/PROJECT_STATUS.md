@@ -604,6 +604,14 @@ home is `(afg)`, itself undecided as to whether it blocks). It is detailed below
 - **Attorney clearance is required before MONETIZATION, not before a tag.** §1 above: *"attorney
   clearance is still required before monetization"*. A free release does not wait on it. What is
   live now is the trademark residual as a **pre-monetization obligation**.
+- **The free tier must be stated on the download page before anyone downloads** - a second
+  pre-monetization obligation, ruled 2026-09-11 (`DECISIONS.md` **D16 §5**), and it lands on
+  `(afg)`'s page rather than being a task of its own. ⚠ **A cap discovered at file 1,001 reads as
+  a trick**, and D6 §3's whole subject is not tricking people: D16 §5 deliberately keeps the
+  remaining-files number out of the interface except where the account lives, and that only works
+  if the limit was published before the download. Plain words, the same bar D9 already sets for
+  the SmartScreen warning. **No code attaches to this** - the licensing mechanism is built and
+  the website is not.
 - ✅ **`truestill.app` and the download page are `(afg)`, filed 2026-08-22 by this section.**
   Whether it blocks a first tag is **not decided** and the entry deliberately does not assume -
   it records the arguments both ways so the ruling is made against them. The domain is bought

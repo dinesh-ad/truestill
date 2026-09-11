@@ -50,6 +50,15 @@ FREE_FILE_ALLOWANCE: Final = 1_000
 #: The counter file's format version, so a later shape change is a migration rather than a reset.
 USAGE_VERSION: Final = 1
 
+#: The sentence that makes an early refusal worth making. **Public, and imported rather than
+#: retyped**, because `licence_notice` needs the identical words for a run stopped by a licence
+#: it could not read - two spellings of one reassurance is the drift §9 exists to prevent.
+#:
+#: A user told only that something was refused has to go and look at their library to find out
+#: what state it is in. D16 §4's whole reason for asking the question before anything moves is
+#: worthless if the message does not say that is what happened.
+RUN_DID_NOT_START: Final = "Nothing has moved - truestill does not start a run it cannot finish."
+
 #: ``None`` as an allowance means **uncapped**, and it is a distinct value rather than a very
 #: large number on purpose: a sentinel integer invites arithmetic that quietly reintroduces a
 #: ceiling, and there is no number here that is "effectively unlimited" for a library of photos.
@@ -192,12 +201,11 @@ def _refusal(will_organize: int, remaining: int) -> str:
     if remaining == 0:
         return (
             f"This run would organize {will_organize:,} files, and the free allowance of "
-            f"{FREE_FILE_ALLOWANCE:,} is used up. Nothing has moved. Finding, browsing and "
+            f"{FREE_FILE_ALLOWANCE:,} is used up. {RUN_DID_NOT_START} Finding, browsing and "
             "exporting your library stay free - organizing more files needs a licence."
         )
     return (
         f"This run would organize {will_organize:,} files, and {remaining:,} of the free "
-        f"allowance of {FREE_FILE_ALLOWANCE:,} remain. Nothing has moved - truestill does not "
-        "start a run it cannot finish. Organize a smaller folder, or buy a licence to lift the "
-        "limit."
+        f"allowance of {FREE_FILE_ALLOWANCE:,} remain. {RUN_DID_NOT_START} Organize a smaller "
+        "folder, or buy a licence to lift the limit."
     )

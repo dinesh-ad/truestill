@@ -332,6 +332,20 @@ CATALOG_UNWRITABLE_EXIT = 7
 #: crashed process leaves nothing to force past.
 DRIVE_BUSY_EXIT = 8
 
+#: The free allowance cannot cover this run, so it did not start. `DECISIONS.md` D16 §5.
+#:
+#: **Its own family, because a caller acts differently from all eight above.** `5` and `8` mean
+#: *wait*; `7` means *run `rescan`*; `6` and `4` mean *fix a path*; `3` means *install
+#: something*. This one means **the work is still there and no amount of retrying, repairing or
+#: waiting will do it** - a script that sees it should stop looping and tell a person. Folding it
+#: into `1` would be the worst of the options: `1` is this CLI's "the run finished and something
+#: is wrong with the library", and here the run did not begin and nothing is wrong with anything.
+#:
+#: ⚠ **It is never a partial run** (D16 §4). The code is emitted before the first byte moves, so
+#: a caller that sees it knows the library is exactly as it was - which is the property that
+#: makes an automated caller able to act on it at all.
+ALLOWANCE_EXHAUSTED_EXIT = 9
+
 #: The drive-lock policy for **every** subcommand, and the value is the `args` attribute naming
 #: the drive. `(aaw)`
 #:

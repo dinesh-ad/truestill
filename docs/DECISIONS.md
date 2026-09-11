@@ -1098,7 +1098,66 @@ artifact-versus-checkout machinery, extended rather than duplicated, because a b
 the wrong epoch is exactly `(ajw)`'s class: a fact about the build that nothing compared, and a
 product that works perfectly while being commercially wrong.
 
-### 5. Two corrections made in the same commit
+### 5. What the user is told, and when (2026-09-11, third pass)
+
+Five rulings, made after the cap was built, because building it made clear that *having* a
+correct answer and *saying* it well are different problems. Each is a decision about the moment
+of contact, and four of them are about **not** saying something.
+
+**The check runs at Apply, never live.**
+
+The preview stays complete and **silent about the cap**. The refusal appears when the user asks
+for the run - once, with both numbers, before anything moves.
+
+⚠ **A number that updates as the user types is a countdown, and D6 §3 forbids countdowns** by
+name. A remaining-files figure ticking down beside a form is the most effective sales pressure
+available and it is exactly the thing this product promised not to build. It would also be
+*wrong* half the time, because a preview is re-run on every change.
+
+**The licence problem outranks the cap. One message at a time.**
+
+A user can have two true problems at once - a token that will not verify, and a run over the free
+allowance. **These are not independent**: `allowance.remaining_for` cannot treat an unverifiable
+token as an entitlement, because it has no way to tell one from no token at all. So a customer
+whose file was truncated by a sync client is, by the arithmetic, capped.
+
+⚠ **Lead with the cap and they are told to buy a thing they already own.** An unreadable token is
+a thing the user can fix and must know about; the cap is a thing they chose by using the product.
+`licence_notice.notice_for` is the one place that decides, and a licence notice comes in two
+forms - blocking and not - because a damaged file on someone well inside the allowance must be
+said without stopping their work.
+
+**The remaining allowance is shown where the account is, always, and nowhere else.**
+
+Not beside the form, not beside the run button, and **not "when it gets low"** - that last one is
+a countdown wearing a different hat, and it is the version a well-meaning person will propose.
+
+A user who wants to know looks at their account, where it is always visible and never moves. A
+user who does not never meets it until Apply. This is what makes the Apply-time refusal legible
+rather than a surprise: the number was never hidden, it was simply never pushed.
+
+**The free tier is announced before download. Launch requirement, not code.**
+
+The download page says what the free tier is, in the same plain words D9 already requires for the
+SmartScreen warning.
+
+⚠ **A cap discovered at file 1,001 reads as a trick, and D6 §3's whole subject is not tricking
+people.** The ruling above keeps the number out of the interface; that only works if the number
+was stated before the download. Stated up front it is a published limit; discovered at the point
+of refusal it is a bait-and-switch, and the two are the same number.
+
+**The website does not exist**, so this is recorded as a launch requirement blocking monetization
+- alongside `(afg)`'s download page and the attorney trademark clearance
+(`PROJECT_STATUS.md:604`), not as work with code attached.
+
+**The CLI gets exit code `9`.**
+
+A refused run is its own family, because a caller acts differently from every other code: `5` and
+`8` mean wait, `7` means run `rescan`, `3` means install something, and `9` means **the work is
+still there and no amount of retrying will do it** - stop looping and tell a person. Allocated in
+`truestill_cli.cli` beside the others, with the reason, and `9` never means a partial run.
+
+### 6. Two corrections made in the same commit
 
 - ⚠ **D6 §2 still described key-with-no-server and read as current.** D5 §3 superseded that
   mechanism on 2026-07-28 - *"the offline-verified-key mechanism described there becomes
@@ -1113,5 +1172,8 @@ product that works perfectly while being commercially wrong.
 
 **Status:** Settled as a decision, partially built. Supersedes D6 §3's and §4's open free/Pro
 split with the volume cap; confirms D6 §1 unchanged and withdraws the lapsed-read-only framing;
-records the enforcement trade. Stage 1 of the licensing arc - the token format and its verifier -
-is built against this ruling; the cap itself, the gate, the server and payment are not.
+records the enforcement trade. **Built:** the token format and its verifier, the cumulative
+counter, the cap as a pure function, the precedence between a licence problem and the cap, the
+epoch's two guards, and exit code `9`. **Not built:** any screen, route or rail slot; the counter
+is not wired to the organizer; the licensing server and payment do not exist. §5's free-tier
+announcement is a **website** deliverable and the website does not exist.
