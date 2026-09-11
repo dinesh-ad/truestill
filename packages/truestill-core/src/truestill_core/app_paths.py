@@ -107,6 +107,32 @@ CACHE_FILENAME = "hashes.cache.sqlite"
 #: it is doing so because something went wrong, and it must open in whatever they double-click.
 SESSION_URL_FILENAME = "session-url.txt"
 
+#: The licence token, and the marker that says a sign-out was deliberate. `DECISIONS.md` D5, D16.
+#:
+#: **In the DATA directory and NOT in the catalog**, which is two decisions rather than one:
+#:
+#: - Not the *cache*, for `session_url_path`'s reason one line down: a cache may be cleared at any
+#:   moment by the OS, and losing a licence to a disk-cleanup tool is not a cost anyone signed up
+#:   for.
+#: - Not the **catalog**, and that one is measured rather than preferred. `catalog.set_setting`
+#:   marks the catalog dirty and its value travels with the file; `_LOCAL_SETTING_PREFIXES`
+#:   allows only `path_hint.`, `decisions.` and `catalog.` to opt out. So a licence stored there
+#:   would ride along when a catalog is copied to a second machine, and a catalog that had to be
+#:   rebuilt would take the licence with it. A token belongs to the *installation*, not to a
+#:   library, and a user may hold several libraries.
+#:
+#: ``.token`` rather than ``.json``: it is one line of base64url, and the extension says "this is
+#: an opaque thing to be copied whole" to the one person who ever looks at it.
+LICENCE_FILENAME = "licence.token"
+
+#: Empty, and its **existence** is the whole signal. `(aam)`
+#:
+#: It separates "never activated" from "signed out", which changes nothing about what the product
+#: may do and everything about what it should say - greeting a returning customer as a stranger
+#: is the small rudeness that `(aam)`'s ruling against a one-click Logout was guarding against
+#: from the other side.
+SIGNED_OUT_FILENAME = "licence.signed-out"
+
 #: Where per-drive lock files live, under the data dir. `(aaw)`
 #:
 #: ⚠ **A subdirectory, not loose files beside the catalog.** These are runtime scratch that the OS
@@ -313,6 +339,21 @@ def session_url_path() -> Path:
     platform, not three differently-shaped ones.
     """
     return _data_dir() / SESSION_URL_FILENAME
+
+
+def licence_path() -> Path:
+    """The licence token for this installation. `DECISIONS.md` D5, D16.
+
+    Per **installation**, not per library: one token covers whatever libraries a user keeps, and
+    `TRUESTILL_DATA_DIR` still moves it, which is what makes a portable install and a hermetic
+    test suite work here exactly as they do for the catalog.
+    """
+    return _data_dir() / LICENCE_FILENAME
+
+
+def signed_out_path() -> Path:
+    """The marker beside :func:`licence_path` that says a sign-out was deliberate."""
+    return _data_dir() / SIGNED_OUT_FILENAME
 
 
 def default_cache_path() -> Path:

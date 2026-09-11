@@ -161,6 +161,11 @@ unfixable = []
 "packages/truestill-core/src/truestill_core/organizer.py" = [
     "PLR0913", # execute() and its write-path helpers take many keyword-only opt-in flags
 ]
+# verify_token refuses separately for each way a licence file can be wrong - wrong shape, bad
+# base64, non-JSON, unknown key, bad signature, unreadable fields - and each return carries its
+# own wording. Collapsing them would make one refusal stand for several, which is the exact
+# argument `_cmd_ingest` above is exempted on, one surface over.
+"packages/truestill-core/src/truestill_core/licence.py" = ["PLR0911"]
 # scan.compute_hashes / verify.verify_copies expose pool/workers/progress/cancel as kw-only.
 "packages/truestill-core/src/truestill_core/scan.py" = ["PLR0913"]
 "packages/truestill-core/src/truestill_core/verify.py" = ["PLR0913"]
@@ -354,5 +359,12 @@ module = [
     # was `additional_dependencies: [playwright]` on the hook, which would pull a browser driver
     # into every commit for one import line. Per module, never a blanket flag (§6).
     "playwright.*",
+    # NOT a stub gap either - pynacl ships `py.typed` (verified in the venv), and under `uv run`
+    # mypy finds and uses it. Same isolated-environment case as playwright one line up: the
+    # pre-commit hook installs mypy alone, so it cannot resolve an import of a package it never
+    # installed, and `make check` was green while the hook was red. The alternative,
+    # `additional_dependencies: [pynacl]` on the hook, would compile a libsodium binding into
+    # every commit for three import lines. Per module, never a blanket flag (§6).
+    "nacl.*",
 ]
 ignore_missing_imports = true

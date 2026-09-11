@@ -41,6 +41,34 @@ dependencies = [
     # Pure `py3-none-any` wheel, BSD-3-Clause, no required dependencies of its own. Argued in
     # §7 of IMPLEMENTATION_STANDARDS.md.
     "send2trash>=2.1.0",
+    # Ed25519 signature VERIFICATION for licence tokens (`licence.py`). D6 §2 chose the
+    # algorithm; this is the choice of binding, and it is a D7 decision because D7 forbids a
+    # copyleft dependency in a published package without an explicit superseding one.
+    #
+    # **Apache-2.0** (PyPI metadata, checked 2026-09-11) - the same licence as this project, so
+    # D7 is satisfied outright rather than by argument. The alternative, `cryptography`, is
+    # `Apache-2.0 OR BSD-3-Clause` and also clears D7; the choice between them was made on
+    # surface, not licence:
+    #
+    #   - **42 advisories against 2.** OSV, 2026-09-11: `cryptography` carries 42, `pynacl` 2 -
+    #     and both of pynacl's are the same libsodium issue, fixed in 1.6.2, which is this floor.
+    #     The asymmetry is structural rather than a run of luck: `cryptography`'s wheels
+    #     statically link OpenSSL, so every OpenSSL advisory becomes a `cryptography` advisory
+    #     and a `pip-audit` red here. This lane already went red on transitive CVEs on
+    #     2026-09-09; taking on a bundled TLS stack to verify a 64-byte signature buys that
+    #     class of red for ever.
+    #   - **1.4 MB against 4.7 MB** (manylinux x86_64 wheels of the current releases). Both ship
+    #     abi3 wheels covering 3.14 on every platform D9 publishes.
+    #   - **The surface is the primitive.** libsodium's signing API is what is needed; an X.509
+    #     parser, a PKCS12 loader and a TLS implementation are not, and every one of them is a
+    #     place `cryptography` has had a CVE.
+    #
+    # ⚠ The honest counter-argument, recorded rather than omitted: **pynacl went 3.5 years
+    # between 1.5.0 (2022-01) and 1.6.0 (2025-09)**, which is the risk in choosing it. It is
+    # maintained by PyCA - the same organisation that maintains `cryptography` - and has shipped
+    # three releases in the four months since, so it is not abandoned. If it stalls again the
+    # exit is cheap, because `licence.py` touches exactly two calls of it.
+    "pynacl>=1.6.2",
 ]
 
 [project.urls]
