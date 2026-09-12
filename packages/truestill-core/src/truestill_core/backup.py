@@ -102,6 +102,19 @@ EJECT_BEFORE_UNPLUGGING = (
     "Then run: truestill verify"
 )
 
+#: ⚠ **THE FILE COUNT IS TRUE; THE BYTE COUNT IS NOT YET A CLAIM ABOUT THE DRIVE.** Measured on a
+#: real exFAT drive over USB, 2026-09-12: `backup` printed *"Copied 161 file(s), 297 MB"* after
+#: **2.36 s**, and at that moment **240 MB of it was still dirty in RAM** - `sync` needed another
+#: **4.28 s** to put it on the medium. Every write call had returned and every staged file had
+#: taken its real name, so the count is honest; what the sentence cannot support is the reader's
+#: fair inference that the bytes are now on the drive.
+#:
+#: Said as its own line rather than folded into the count, because the count is what a person
+#: came for. :data:`EJECT_BEFORE_UNPLUGGING` is the remedy and this is the reason for it.
+WRITES_MAY_STILL_BE_IN_FLIGHT = (
+    "Some of it may still be in memory - the system finishes writing in the background."
+)
+
 
 #: ⚠ **The claim this exists to correct is *"every photo on X is already on Y"*.** That sentence
 #: is computed from `file_copies` rows, and a file under a folder the attach could not list never

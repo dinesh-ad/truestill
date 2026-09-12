@@ -36,6 +36,7 @@ from truestill_core.archive_extract import extract_archive_set, record_extractio
 from truestill_core.archive_ingest import archives_at, precheck_archives
 from truestill_core.backup import (
     EJECT_BEFORE_UNPLUGGING,
+    WRITES_MAY_STILL_BE_IN_FLIGHT,
     BackupPair,
     BackupStoppedError,
     _files_missing_on_target,
@@ -155,6 +156,7 @@ from truestill_core.exif import ExiftoolMissingError, read_metadata
 from truestill_core.filesystem import DestinationPreflight
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import (
+    CAN_READ_FROM_THE_MEDIUM,
     DEFAULT_PHASH_THRESHOLD,
     HEIF_AVAILABLE,
     HEIF_EXTENSIONS,
@@ -291,7 +293,13 @@ from truestill_core.undo import (
     plan_undo,
     run_undo,
 )
-from truestill_core.verify import VERIFY_WORDING, CopyStatus, CopyToVerify, verify_copies
+from truestill_core.verify import (
+    MEDIUM_READ_UNAVAILABLE,
+    VERIFY_WORDING,
+    CopyStatus,
+    CopyToVerify,
+    verify_copies,
+)
 
 from truestill_cli import __version__
 from truestill_cli.events_review import Prompt, album_prompt, run_event_stage
@@ -2133,6 +2141,12 @@ def _cmd_verify(args: argparse.Namespace) -> int:
             suffix = f" ({result.detail})" if result.detail else ""
             print(f"  {result.status.value.upper():<10} {result.copy.relative}{suffix}")
     print("\n  (read-only: Truestill never repairs; re-copy the source to restore a bad file.)")
+    # ⚠ **A VERIFY THAT COULD NOT REACH THE DEVICE HAS CHECKED SOMETHING WEAKER THAN IT CLAIMS**,
+    # and the only honest thing to do about a platform limit is name it. Linux forces the read;
+    # macOS has no `posix_fadvise` and Windows no unbuffered equivalent that does not demand
+    # sector-aligned I/O, so there the pages a `backup` just wrote can still answer the read.
+    if not CAN_READ_FROM_THE_MEDIUM:
+        print(f"\n  NOTE: {MEDIUM_READ_UNAVAILABLE}")
     return 1 if (counts.get("missing") or counts.get("mismatch") or counts.get("unreadable")) else 0
 
 
@@ -2293,7 +2307,15 @@ def _recheck_route(catalog: Catalog, holding: list[Any]) -> str | None:
     # fresh drive because it is reachable would be a real path, a working command, and no answer
     # at all to the sentence above it. Only when nothing is unchecked does the route fall to the
     # oldest dated place.
-    never = [d for d in holding if not d["last_verified"]]
+    # ⚠ **THE SAME PREDICATE AS THE SENTENCE, AND IT WAS NOT.** `drive.custody_freshness` excludes
+    # a drive that `was_ever_checked` even when `last_verified` is NULL - the stamp is NULL both
+    # when nobody looked and when a verify looked and found gaps, `(aes)`. This read
+    # `not d["last_verified"]` alone, so it offered a drive the sentence above had deliberately
+    # left out: on 2026-09-12 a real two-drive run printed *"Never checked: 'Library'"* and then
+    # *"Re-check: truestill verify <the AD_2TB path>"*, two consecutive lines naming different
+    # drives. Core's own comment reads "One predicate, four surfaces"; this route was a fifth that
+    # never got it.
+    never = [d for d in holding if not d["last_verified"] and not was_ever_checked(d)]
     candidates = never or sorted(holding, key=lambda d: str(d["last_verified"]))
     if not candidates:
         return None
@@ -4815,8 +4837,11 @@ def _cmd_backup(args: argparse.Namespace) -> int:
     _end_of_tier()
 
     print(f"\nCopied {outcome.copied} file(s), {_gb(outcome.bytes_copied)}.")
-    # `(ajf)`: the count above is unqualified and true; this is what to do next if the drive
-    # is one that gets unplugged. Wording from core so the app says the same thing.
+    # ⚠ **THIS COMMENT READ "the count above is unqualified and true" UNTIL 2026-09-12.** The FILE
+    # count is; the BYTE count was measured on a real drive as 79% still in RAM when this line
+    # printed. The qualifier says so and the eject note says what to do about it - both from core,
+    # so the app can adopt the same words without a second wording.
+    print(f"  {WRITES_MAY_STILL_BE_IN_FLIGHT}")
     print(f"  {EJECT_BEFORE_UNPLUGGING}")
     for relative, why in outcome.failures:
         print(f"  failed: {relative} -- {why}", file=sys.stderr)

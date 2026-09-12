@@ -15,7 +15,9 @@ fast. pHash is available in :func:`perceptual_hash` via ``algorithm="phash"`` if
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -103,12 +105,71 @@ Algorithm = Literal["dhash", "phash"]
 
 
 def sha256_file(path: Path) -> str:
-    """Return the hex SHA-256 of a file, read in streaming chunks."""
+    """Return the hex SHA-256 of a file, read in streaming chunks.
+
+    ⚠ **This reads whatever the page cache holds, which is the right answer for every caller
+    except one.** Organize and dedup hash files they are about to read anyway, and evicting them
+    would make the next read pay twice. :func:`sha256_from_the_medium` is the verify-only form.
+    """
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         while chunk := handle.read(_HASH_CHUNK):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+#: Whether this platform can be made to read a file from the device rather than from RAM.
+#: ⚠ **Linux only.** `posix_fadvise` is in POSIX but **macOS does not implement it** and CPython
+#: therefore does not expose `os.posix_fadvise` there; Windows has no equivalent that does not
+#: require sector-aligned unbuffered I/O. Callers must say so rather than let a verify claim more
+#: than it checked - see `verify.MEDIUM_READ_UNAVAILABLE`.
+CAN_READ_FROM_THE_MEDIUM = hasattr(os, "posix_fadvise")
+
+
+def sha256_from_the_medium(path: Path) -> str:
+    """SHA-256 of a file, read from the DEVICE rather than from the page cache.
+
+    ⚠ **MEASURED, AND THE DIFFERENCE IS THE WHOLE POINT.** On a real exFAT drive over USB, the
+    same 200 MB file hashed in **0.16 s warm and 1.88 s after eviction** - a 12x gap, because the
+    warm read never reached the platters. A `verify` satisfied by RAM answers *"are the bytes I
+    just wrote still the bytes I just wrote"*, which is not the question anybody runs verify to
+    ask. Two reads of the drive's own copies, `2026-09-12`: **1.33 s warm against 6.51 s cold**,
+    both printing `verified: 161`.
+
+    **`fsync` first, and it is not belt-and-braces.** `POSIX_FADV_DONTNEED` drops only CLEAN
+    pages, so a file the medium has not taken yet cannot be evicted and the read falls straight
+    back to RAM - which is exactly the state `backup` leaves: **240 MB of a 297 MB copy still
+    dirty** when it printed its summary. Without this line the change would be inert for the one
+    case that motivated it. Measured at 5.40 s for a 200 MB file written and not synced, against
+    1.88 s for the same file already on the medium; the extra is the write this forces, paid once.
+    The fd is opened read-only and `fsync` on it is permitted - **this never modifies content**,
+    it only makes durable what was already written, so verify stays the read-only command it
+    documents itself to be.
+
+    Best effort by construction: every failure here falls back to an ordinary cached read rather
+    than failing a verify, because a hash that could not be forced cold is still a hash.
+    """
+    _evict_from_cache(path)
+    return sha256_file(path)
+
+
+def _evict_from_cache(path: Path) -> bool:
+    """Push this file to the device and drop its pages. True when both steps ran."""
+    if not CAN_READ_FROM_THE_MEDIUM:
+        return False
+    try:
+        handle = os.open(path, os.O_RDONLY)
+    except OSError:
+        return False
+    try:
+        with contextlib.suppress(OSError):
+            os.fsync(handle)
+        os.posix_fadvise(handle, 0, 0, os.POSIX_FADV_DONTNEED)
+    except OSError:
+        return False
+    finally:
+        os.close(handle)
+    return True
 
 
 def perceptual_hash(path: Path, algorithm: Algorithm = "dhash") -> str | None:

@@ -33,7 +33,10 @@ def test_verify_unreadable_copy_is_counted_not_raised(
             raise OSError(errno.EIO, "Input/output error", str(path))
         return real_sha(path)
 
-    monkeypatch.setattr("truestill_core.verify.sha256_file", boom)
+    # ⚠ **`sha256_from_the_medium` since 2026-09-12**, when verify stopped reading the page
+    # cache. Patching the old name silently patched nothing - `verify` imports the evicting form
+    # now, so the raise never fired and this test passed without exercising its subject.
+    monkeypatch.setattr("truestill_core.verify.sha256_from_the_medium", boom)
 
     copies = [
         CopyToVerify("1", "good.bin", sha256_file(good)),
