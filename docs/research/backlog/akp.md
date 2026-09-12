@@ -1,7 +1,13 @@
 # (akp) THE AT-RISK REMEDY ON BACKUPS CANNOT FIX THE FILE IT IS SHOWN ABOUT.
 
-*Body of entry `(akp)`, in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with
-[`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(akp)`, now in [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared
+with [`BACKLOG.md`](../../BACKLOG.md).*
+
+> ✅ **CLOSED 2026-09-12 by `4e1305a`.** `reach` is on `AtRiskRow` and `WhereCopy`,
+> `app.js:atRiskBanner` splits the three cases, and the button is withheld when there is nothing
+> to copy from. **Everything below is what was observed BEFORE that commit and is left as it was
+> written** - a record edited to stay correct stops being one. `SHIPPED.md`'s entry is what says
+> what shipped.
 
 - **(akp)** Filed 2026-09-12, observed on a real external drive that had been ejected.
   **No work attached.**

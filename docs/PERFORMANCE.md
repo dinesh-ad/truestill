@@ -589,8 +589,19 @@ total is what tempts, the tail is what decides.
 |---|---|---|
 | `check (windows-latest)` | **6.2 min** | 2x |
 | `check (ubuntu-latest)` | 2.3 min | 1x |
-| `e2e (chromium + webkit, ubuntu)` | **19.5-23.2 min** (8 runs, 2026-08-15) | 1x |
+| `e2e (chromium, ubuntu)` | **8:38 of pytest** (run 34689313525) | 1x |
+| `e2e (webkit, ubuntu)` | **23:40 of pytest** (run 34689313525) | 1x |
 | `check (macos-latest)` | 1.8 min | 10x |
+
+⚠ **The two e2e rows are PYTEST runtimes, not job wall-clock, and the other rows are job
+wall-clock** - so they are not comparable down the column. `(aee)` measured **43%** of a browser
+lane outside what `E2E_SECONDS_MAX` can see (queueing, checkout, browser install, frontend build),
+so each job is materially longer than its row. ⚠ **This was ONE row, `e2e (chromium + webkit,
+ubuntu)` at 19.5-23.2 min over 8 runs (2026-08-15), until 2026-09-12**, when the lane became a
+two-leg matrix and a single row stopped being able to name it. Serial on one runner the same suite
+took **31:54**; the split buys **26% of wall-clock** and costs **+24 s** of runner time, which is
+the 37 engine-independent tests paid twice. Re-read rather than trusting the figures:
+`gh run view <id> --json jobs --jq '.jobs[] | {name, startedAt, completedAt}'`.
 
 Two things follow, and both point away from self-hosting as the first move.
 

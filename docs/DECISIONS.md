@@ -930,9 +930,13 @@ codebases. **`filter: blur()` DOES work in WebKit**; it is the *backdrop* varian
 `backdrop-filter` doing nothing** - §5's sentence, unchanged - and NOT that the property may not
 appear. It may remain as a progressive enhancement on chrome that already stands without it.
 
-⚠ **THIS SECTION IS NOT RETROACTIVE. IT BINDS NEW SURFACES.** The two declarations in `app.css` -
-`.modal-backdrop` and `.panel`, both chrome - **comply and are not deleted**, because each carries
-a real `--glass-bg` that stands alone and the filter only adds to it. The literal reading would
+⚠ **THIS SECTION IS NOT RETROACTIVE. IT BINDS NEW SURFACES.** ⚠ **THIS SAID "the two declarations … `.modal-backdrop` and `.panel`" UNTIL 2026-09-12, AND THERE
+IS ONLY ONE.** `.panel` carries no `backdrop-filter` at all; the single pair lives in
+`app.css`'s `.modal-backdrop` rule. Count it rather than trusting this line -
+`grep -cE '^\s*(-webkit-)?backdrop-filter:' packages/truestill-app/src/truestill_app/static/app.css`
+answers **2**, which is the `-webkit-` prefix and the standard property of one declaration. That
+one **complies and is not deleted**, because it carries a real `--glass-bg` that stands alone and
+the filter only adds to it. The literal reading would
 have put the tree in violation of a rule on the day that rule was written, which is not what was
 decided. A NEW surface is judged by the three tests above: chrome rather than content, complete
 without the filter, and not supplied by a library.
@@ -1273,10 +1277,15 @@ product could show a user exactly what an import would do and could not do it.
 
 **`truestill ingest --apply` already organizes** - `cli.py:_cmd_ingest` runs the ordinary pipeline
 (`_run_pipeline`, passing `takeout=scan.sidecars`) and calls `execute(apply=args.apply)`. The
-engine was never missing. What is missing is one service function and one route: there is no
-`/api/ingest/run` (`server.py`'s three ingest routes are `preview`,
-`archives/precheck`, `archives/run`), and `service/takeout.py:archive_ingest_run` unpacks, records
-the extraction, and then **ends in a preview**.
+engine was never missing. What was missing when this was written was one service function and one
+route: there was no `/api/ingest/run` (`server.py` carried three ingest routes - `preview`,
+`archives/precheck`, `archives/run`), and `service/takeout.py:archive_ingest_run` unpacked,
+recorded the extraction, and then **ended in a preview**.
+
+⚠ **BOTH SHIPPED 2026-09-11, AND THIS PARAGRAPH IS THE PREMISE RATHER THAN THE STATE.**
+`service/organize.ingest_run` is `organize_run` with `takeout=` set, behind `/api/ingest/run` and
+a typed confirm. Count the routes rather than reading this line:
+`grep -c 'api/ingest' packages/truestill-app/src/truestill_app/server.py` answers **4**.
 
 ⚠ **THE ABSENCE OF A REASON IS THE EVIDENCE, and it is the project's own rule that makes it so.**
 `BACKLOG.md`'s *App-surface deferrals* register exists precisely to stop a single-surface contract
@@ -1321,5 +1330,10 @@ function. Both rulings then hold at once.
 - **`--tz`, `--prefer-takeout-dates`, `--map-albums`**, which `cli-app-parity.md` records as
   unimplemented in the app.
 
-**Status:** Settled as a decision, partially built. **Built:** the destination-scoped promise on
-both Import previews. **Not built:** the apply route, the screen's control, or the three flags.
+**Status:** Settled as a decision, and built except for the flags. **Built:** the
+destination-scoped promise on both Import previews (2026-09-11), then the apply route
+`/api/ingest/run` and the screen's typed confirm the same day, then the completion card's counts.
+**Not built:** `--tz`, `--prefer-takeout-dates` and `--map-albums`, which is what
+`cli-app-parity.md`'s ingest row also says. ⚠ **This read "Not built: the apply route, the
+screen's control, or the three flags" until 2026-09-13**, two days after the first two shipped -
+a status line that contradicted the parity table it shares a subject with.

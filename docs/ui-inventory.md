@@ -95,8 +95,10 @@ Dead space each side at the old 1080 cap: **144px at 1920** (never the complaint
 2560**, **720px at 3072**.
 
 Now: column ceiling **1600px** (defended by the widest real element - a Find row with a full
-event-folder path, measured at ~1030px natural width), panel `clamp(320px, 20vw, 440px)` with its
-floor unmoved so the 1336px threshold still means something, and the type scale fluid via
+event-folder path, measured at ~1030px natural width), panel `clamp(248px, 15vw, 320px)` ⚠ (**narrowed
+2026-09-06; this said `clamp(320px, 20vw, 440px)` with its floor unmoved "so the 1336px threshold
+still means something" until 2026-09-13, and BOTH halves had moved - the floor went 320 -> 248 and
+the rail 232 -> 272, so the threshold is now HELD rather than derived, which is `(akm)`**), and the type scale fluid via
 `clamp()` with **rem bounds** so the root still governs. **Fluid type stops at the rail** - `vw`
 asks how wide the window is and the rail is 272px at every window size.
 
@@ -136,7 +138,7 @@ Most of what an older copy said is **stale rather than merely absent**. Since it
   use; its *lifecycle* is not. Two of its cards are themselves complete run flows.
 - **The sidebar** became a dark rail with a collapse control on the boundary, a custody strip,
   and a real top bar below 720px.
-- **The palette** replaced black-and-white with warm neutrals and indigo; amber and green are
+- **The palette** replaced black-and-white with warm neutrals and indigo ⚠ (**rose since 2026-09-06 - `--accent-strong` is `#9f1239`**); amber and green are
   status-only. Measuring found a pre-existing AA failure (amber 2.94:1, green 3.42:1).
 - **The type scale** became rem, so a raised browser default reaches the app; a text-size
   setting was then added on top of it as percentages of that default (`16fcdd7`).

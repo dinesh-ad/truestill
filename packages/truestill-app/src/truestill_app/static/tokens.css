@@ -223,7 +223,14 @@
      sit - so a compact metric now reads at the same weight as the title above it, and the one
      metric that must outrank everything keeps `--type-3xl` alone.
 
-     The scale is now SIX steps, which is the ruling's ceiling: 13 / 14 / 16 / 18 / 32 / 40. */
+     ⚠ THIS READ "SIX steps ... 13 / 14 / 16 / 18 / 32 / 40" UNTIL 2026-09-12, AND 13 IS NOT
+     ONE OF THEM - the paragraph fifteen lines above this one removed `--type-xs` on the same
+     day and folded everything it carried into `--type-sm`. Two comments in one file disagreeing
+     about the file's own scale is the stale-literal class in the place a design tool reads
+     first. The scale is FIVE steps - 14 / 16 / 18 / 32 / 40, fluid to 15.75 / 18 / 20.25 / 36 /
+     45 - and it is still under the ruling's ceiling of six.
+     Count it rather than reading this line:
+       grep -cE -- '--type-(sm|base|lg|display|3xl):' tokens.css */
   /* THE DISPLAY ROLE - page titles, and a SEPARATE role rather than a bigger heading.
      `--type-3xl` is the metric's, reserved by `test_only_the_metric_uses_the_metric_size`, and
      the argument that guard makes is sound: if a title takes the metric's size the metric stops

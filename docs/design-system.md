@@ -21,8 +21,8 @@ go. **Not covered, and each is load-bearing**:
 | absent | what the preview does that this document never asks for |
 |---|---|
 | **composition** | one full-width card per section, not several stacked bordered boxes |
-| **hierarchy** | a ~40px near-black headline over a large lede; ours is ~24px indigo |
-| **iconography** | an icon in every mode option and beside the rail alert. **Measured: 8 `<svg>` in the rail, 0 across all seven screens** |
+| **hierarchy** | a ~40px near-black headline over a large lede; ours is ~24px ⚠ **rose, not indigo - `--accent-strong` is `#9f1239` since 2026-09-06; `grep -n 'accent-strong' tokens.css`** |
+| **iconography** | an icon in every mode option and beside the rail alert. **Measured 2026-09-06: 8 `<svg>` in the rail, 0 across all seven screens.** ⚠ **The screens figure is no longer 0** - three `.mode-badge` SVGs shipped into `#screen-organize` with the mode cards, which is the row below this one arriving. Count it: `grep -c '<svg' packages/truestill-app/src/truestill_app/templates/index.html` |
 | **control treatment** | mode options as full-width selectable cards with circular icon badges; ours are native radio dots |
 | **the panel as a dashboard** | large numerals, a pill chip, an amber count; ours is `.panel-title` + `.panel-fact` + `.panel-k`, a text list |
 | **the rail's identity** | mark **and** wordmark together. Ours has a mark - `.brand-monogram` - and `display: none` hides it unless the rail is collapsed |

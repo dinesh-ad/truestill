@@ -855,7 +855,9 @@ and they are not product defects; keeping them in one drawer stops them competin
   impossible and leaves the rare one unguarded - the shape that survives longest, because everyone
   knows the token is enforced so nobody re-reads what enforces it. **The pattern exists**:
   `test_every_job_declares_whether_it_mutates.py` walks the routes, and its `assert len(declared)
-  >= 12, "the scan is broken"` floor is the load-bearing half to copy with it. 50 routes today.
+  >= 12, "the scan is broken"` floor is the load-bearing half to copy with it. **58 routes**
+  on 2026-09-12 (`grep -c '^        Route(' packages/truestill-app/src/truestill_app/server.py`);
+  it said 50 until then.
   [Full entry](research/backlog/agh.md)
 
 - **(afz) `mutation_matrix.py` LEAKS A TEMPORARY DIRECTORY PER MUTANT, IN A SCRIPT NO GATE
@@ -880,14 +882,25 @@ and they are not product defects; keeping them in one drawer stops them competin
   1169-1506 s** and both local readings report an identical `973 passed, 3 skipped`, so the lane
   had not grown. **Real headroom is ~493 s, not 3.79 s.** 🔑 **Do NOT raise the ceiling** - now
   because there is nothing to accommodate.
-  ⚠ **The defect is the ASYMMETRY, not the number.** CI overrides to **3600** (`ci.yml:554`), so
-  CI stays green while `make e2e` fails locally - and local is what a person runs before
+  ⚠ **The defect is the ASYMMETRY, not the number.** CI used to override to a flat **3600**, so
+  CI stayed green while `make e2e` failed locally - and local is what a person runs before
   committing, so **the red lands on whoever is doing the right thing** and the person who skips
   the lane sees nothing. ⚠ **It is `(aec)`'s bill**: 62 waits across 20 files, re-counted 2026-08-22
   and unchanged, whose total nobody was watching once the lane went nightly. ⚠ And the ceiling
   times **pytest only** - `make frontend` runs outside it, and `(aee)` measured 43% of a CI lane
   outside what it can see. `pytest-xdist` is the obvious lever and is deliberately **not**
-  proposed: this suite protects a UI `(adi)` is replacing. [Full entry](research/backlog/afx.md)
+  proposed: this suite protects a UI `(adi)` is replacing.
+  ⚠ **CLOSED BY THE ASYMMETRY BEING REMOVED, 2026-09-12 (`7d55f92`), and the close is the
+  opposite of what this entry asked for - the ceiling WAS raised.** The entry's *"do NOT raise"*
+  rested on the 493 s of headroom being real, and it was, for a **serial single-engine** lane.
+  Both halves then changed underneath it: the lane grew a second engine and CI split it into two
+  matrix legs. `E2E_SECONDS_MAX` is now **per selection** in the `Makefile` - 900 s chromium,
+  1850 s webkit, 2750 s both - and CI passes a **per-leg** value at `ci.yml`'s `make e2e` step
+  (`${{ matrix.browser == 'webkit' && 2700 || 1000 }}`), so neither side has a number the other
+  does not. **The asymmetry this entry is named for no longer exists.** What made it urgent was
+  the reading the `(afx)` premise could not see: a local **1991.00 s against 2000** - **0.45 %**,
+  not 3.79 s of contention - which is the same class one more time. `(akm)` is where that class
+  is recorded. [Full entry](research/backlog/afx.md)
 
 - **(afs) A DESTRUCTIVE MIGRATION MAY NOT RUN WITHOUT A PRE-UPGRADE COPY, AND NOTHING SAYS WHICH
   ONE IS DESTRUCTIVE.** Recorded 2026-08-22, split out of `(ady)` while building it - **a policy
@@ -1337,7 +1350,6 @@ here because a lost answer key corrupts every measurement taken against it, whic
 - **(ako) THREE DELETES DIVERGE FROM THE RE-READ-BEFORE-DELETE STANDARD, AND ONE OVERWRITES ON A CATALOG ROW ALONE.** Filed 2026-09-12 from a census of every path that removes or overwrites bytes, run with a real external drive ejected. ⚠ **The headline answer is clean**: nothing deletes on the strength of a copy on an unreachable drive - fifteen paths were read and every unlink of a user's file re-reads the bytes on a CONNECTED medium first. Three diverge for other reasons. **(1)** `organizer.py:_free_relative`'s `reclaimable` bypass (call site `:1825`) skips collision resolution when `catalog.copy_relative` says this content already occupies that path - **the only place in the product where a catalog row alone authorises destroying existing bytes**. The design is `(aja)`'s and is sound; the sharp edge is what routes there - `dedup.credible_copies` judges by SIZE and warns so itself, *"⚠ Size, not content. A copy whose size matches and whose bytes are wrong survives this filter"* - so a different file at that path has a different size, is judged not credible, and is overwritten without its bytes ever being read. **(2)** `migrate.py:_apply_move` deletes the old copy on a catalog read alone, with no live check, while the main branch four lines down at `:1095` re-verifies. **(3)** `migrate.py:_matches` accepts existence-only when `copy_sha256` is NULL, where `reclaim.py:plan_reclaim` refuses that class outright. **No work attached** - filed because one standard with three undocumented exceptions is how the fourth gets added.
   [Full entry](research/backlog/ako.md)
 
-- **(akp) THE AT-RISK REMEDY ON BACKUPS CANNOT FIX THE FILE IT IS SHOWN ABOUT.** Filed 2026-09-12, observed on a real ejected drive. One photograph recorded on `AD_2TB` and nowhere else, the drive unplugged - so the file was in zero reachable places - and the screen offered *"1 file exist in only one place / A second copy is what makes them safe. Copy your library to another drive above."* ⚠ **That file is not in the library**, so following the advice backs up the other 161 and leaves the named one untouched; measured, `reclaim` against the library lists 161 candidates and mentions it zero times. Being told what to do, doing it and remaining unprotected is worse than silence. Also *"1 file exist"* does not agree. **The screen already knows the case** - `service/drives.py:DriveRow` carries `reach`, which is why the card above correctly reads *"not plugged in"* - but `AtRiskRow` (`:570`) is `name` and `drive` only, so the remedy is composed without the fact that decides it. The body records what the right remedy would be for each of the three cases; **it deliberately does not propose wording**, because the state is now reproducible and the sentence should be written against it. **No work attached.**
   [Full entry](research/backlog/akp.md)
 
 - **(akn) AN ORPHANED STAGING TREE HAS NO OWNER RECORDED, SO NOTHING CAN SWEEP ONE SAFELY - AND THE KEPT TREE IS NOT REUSED.** Filed 2026-09-12, closing `(aht)`. `(aht)`'s ruling made a clean import delete its own extraction, so the only trees that survive now are the ones deliberately KEPT after a cancel, a failure or a refusal - plus whatever a crash leaves. ⚠ **THAT IS WHY NO ORPHAN SWEEP WAS BUILT**: a sweep at startup, where PaperCut's runs, cannot tell a tree kept on purpose from a tree orphaned by a crash, because `_write_journal`'s payload records the tree and its sources and **nothing about the run that owns it**. It would delete the retry material this ruling just promised to keep - GitLab's age-based cron in a different costume. **What would make one possible**: the journal recording its run's outcome, so a sweep could remove only trees whose run finished. That is a design change to the journal, not a cleanup. ⚠ **And the second half, measured in `(aht)` and still true**: previewing again **re-extracts into the same path** (*"the second run unpacked all 534 files again"*), so a kept tree costs the user nothing and saves them nothing either. The completion card deliberately does NOT promise reuse. Both halves want the same thing - a journal that knows whose it is - which is why they are one entry.

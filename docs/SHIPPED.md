@@ -22,6 +22,31 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(akp) THE AT-RISK REMEDY ON BACKUPS COULD NOT FIX THE FILE IT WAS SHOWN ABOUT.**
+  ✅ **CLOSED 2026-09-12 by `4e1305a`**, filed and closed the same day - the entry was written
+  with **no work attached** precisely so the wording would be authored against a reproducible
+  state, and it was.
+  **What was wrong**: one photograph recorded on `AD_2TB` and nowhere else, the drive ejected -
+  the file in **zero reachable places** - and the screen said *"1 file exist in only one place /
+  A second copy is what makes them safe. Copy your library to another drive above."* That file
+  is not in the library, so following the advice backed up the other 161 and left the named one
+  untouched. Being told what to do, doing it, and remaining unprotected is worse than silence.
+  **Why it could not be right**: `service/drives.py:AtRiskRow` carried `name` and `drive` only,
+  so the remedy was composed without the fact that decides it - while `DriveRow` beside it
+  already carried `reach`, which is why the card above it correctly read *"not plugged in"*.
+  **What shipped**: `reach` on `AtRiskRow` and `WhereCopy`, computed **once per drive** by
+  `service/drives.py:_reach_per_drive` rather than once per row, and `app.js:atRiskBanner`
+  splitting the rows into three cases - copies that are here get the remedy **and** the button
+  with the drive named; copies that are away get *"...which is not connected. Connect it to make
+  a second copy - there is nothing to copy from until you do"* and **no button**, because a
+  button that cannot work is the defect restated; both get both lines. The grammar is agreed at
+  the same seam (`exists`/`exist`). `data-testid="at-risk-here"` and `at-risk-away` are what
+  `test_every_app_surface_differs_when_a_drive_is_absent.py` reads.
+  ⚠ **The verification is a DIFFERENCE, not a string**: the same fixture catalog is rendered with
+  the drive present and absent and the two outputs are required to differ - the standard set
+  because `where` and `status` were byte-identical in both states, which was the whole defect in
+  one sentence. [Full entry](research/backlog/akp.md)
+
 - **(ajm) A BROWSER TEST MEASURED THE MACHINE'S TEMP PATH, NOT THE PRODUCT.**
   ✅ **CLOSED 2026-09-04 (P217).** The product was correct on every run that ever failed this.
   `app.js:fitCatalogPath` states its contract in one line -

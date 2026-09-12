@@ -948,7 +948,7 @@ findable on the maintainer's machine.
 |---|---|---|
 | inner loop, on an edit | the targeted test(s) only | seconds |
 | before every commit | **`make check`** | **under its 90 s ceiling** (`TEST_SECONDS_MAX`) |
-| ⚠ a diff that reaches a screen - **ask first, since 2026-08-20** | **`make gate`** (check + e2e) | **+ under its 2000 s ceiling** (`E2E_SECONDS_MAX`); the lane's measured range lives in `PERFORMANCE.md` §5 |
+| ⚠ a diff that reaches a screen - **ask first, since 2026-08-20** | **`make gate`** (check + e2e) | **+ under the `E2E_SECONDS_MAX` ceiling for the engines you selected** - **900 s** chromium alone, **1850 s** webkit alone, **2750 s** both (2026-09-12; it was a flat 2000 s until then, which is the stale-literal class one level up). Read it, never quote it: `make -f Makefile -pn E2E_BROWSERS=webkit 2>/dev/null | grep -m1 '^E2E_SECONDS_MAX'`. The lane's measured range lives in `PERFORMANCE.md` §5 |
 
 ⚠ **BOTH ROWS QUOTED DURATIONS AND BOTH WENT STALE, corrected 2026-08-15.** They read *"19-21 s"*
 and *"+ ~6:50"*. Nine `make check` runs on 2026-08-15 read **16.39-25.99 s** - outside the stated
@@ -1039,9 +1039,19 @@ that stopped being true**, which is the sixty-second member and is why the sched
 one place.
 
 The two ceilings from the timing work already stop either lane drifting:
-`TEST_SECONDS_MAX ?= 90` and `E2E_SECONDS_MAX ?= 2000` (`Makefile`), with CI overriding the
-second to 3600. ⚠ Both figures here said 600 until the ceiling was raised for the WebKit lane;
-the doc and the Makefile drifted apart the moment the lane grew a second engine.
+`TEST_SECONDS_MAX ?= 90` and `E2E_SECONDS_MAX` (`Makefile`). ⚠ **The second is no longer one
+number, corrected 2026-09-12**: it is set per engine selection - **900 s** for chromium alone,
+**1850 s** for webkit alone, **2750 s** for both - and CI no longer overrides it with a single
+3600, because the e2e job is a **matrix of two legs** and each passes its own
+(`ci.yml`, `E2E_SECONDS_MAX: ${{ matrix.browser == 'webkit' && 2700 || 1000 }}`). ⚠ Both figures
+here said 600 until the ceiling was raised for the WebKit lane, then 2000 until the lane was
+split; the doc and the Makefile have now drifted apart twice, at exactly the two moments the lane
+changed shape. **Read them rather than quoting them:**
+
+```sh
+grep -n 'SECONDS_MAX ?=' Makefile
+grep -n 'E2E_SECONDS_MAX' .github/workflows/ci.yml
+```
 
 ### 6.2 The prose convention: hyphens, not em-dashes
 
@@ -1093,17 +1103,35 @@ is the point of the gate: **no other gate we have can see prose.**
   - **`check`** - matrix **{ubuntu, macos, windows} × Python 3.14**; steps = sync (`--locked`)
     → ruff (lint) → ruff (format --check) → mypy → pytest → **dependency audit** (Linux only);
     exiftool installed per-OS.
-  - **`e2e`** - the browser lane, **chromium and webkit** on ubuntu (below). **A separate job, not a matrix
-    entry**, so a browser-layer failure is distinguishable at a glance and never masks a Python
-    one. **When it runs is §6.1's, not this row's** - this row names the job and its shape.
+  - **`e2e`** - the browser lane on ubuntu (below). **A separate job from `check`**, so a
+    browser-layer failure is distinguishable at a glance and never masks a Python one.
+    ⚠ **It is itself a matrix since 2026-09-12** - `browser: [chromium, webkit]`,
+    `fail-fast: false`, one leg each, each with its own ceiling and its own artifact name - and
+    this row read *"chromium and webkit ... not a matrix entry"* until then, which described
+    both halves of the shape wrongly once one engine could go red alone. **When it runs is
+    §6.1's, not this row's** - this row names the job and its shape.
     ⚠ **It said `if: false`, *"disabled since 2026-08-20"*, and *"the first migrated screen
     restores it"* until 2026-08-22** - a condition §6.1 records as unfireable, restated here where
     nothing would notice it going stale.
-  - ⚠ **They do NOT all cover the same set, and this line used to claim they did.** `make
-    typecheck` and the CI mypy step both run five targets (`$(CORE) $(CLI) $(APP) $(SCRIPTS)
-    $(PACKAGING)`); the `.pre-commit-config.yaml` mypy hook's `files:` pattern covers the three
-    `src` trees and `scripts/` and **omits `packaging/`**. Keep them in step - and until they
-    are, the hook is the weaker of the two and CI is what catches a `packaging/` type error.
+  - ⚠ **The SET agrees; the PLATFORM does not, and this row has now been wrong in both
+    directions.** All three run the same **six** source targets - `$(CORE) $(CLI) $(APP)
+    $(SCRIPTS) $(PACKAGING) $(ROOT_CODE)` - and the `.pre-commit-config.yaml` regex reaches
+    `packaging/` and the two root modules
+    (`^(packages/(truestill-core|truestill-cli|truestill-app)/src/|scripts/|packaging/|[^/]+\.py$)`).
+    This row said *"five targets"* and *"omits `packaging/`"* until 2026-09-12, having been
+    written against a divergence that has since been closed. **What diverges now is the
+    platform**: `make typecheck` runs every target under `--platform linux darwin win32`
+    (2026-09-12, after `os.posix_fadvise` type-checked green on Linux and red on the other two),
+    while CI's source step runs the host platform only and gets its coverage from the
+    `{ubuntu, macos, windows}` matrix instead, and the hook runs the host platform alone with no
+    matrix behind it. **The hook is therefore the weakest of the three, and a local `make check`
+    is what catches a platform-conditional type error before CI does.** Read the sets rather
+    than trusting this row:
+
+    ```sh
+    grep -nE '^(CORE|CLI|APP|SCRIPTS|PACKAGING|ROOT_CODE|MYPY_PLATFORMS) :?=' Makefile
+    grep -n 'mypy' .github/workflows/ci.yml
+    ```
 - **The lockfile must be current.** CI syncs with **`uv sync --all-packages --group dev
   --locked`**, which fails if `uv.lock` has drifted from the `pyproject.toml` manifests
   instead of silently re-resolving. `uv.lock` is the source of truth for what ships (§7), so

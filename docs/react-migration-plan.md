@@ -19,7 +19,7 @@ how the screens look. Nothing in `truestill-core` or `service/` is in scope.
 | The type scale and text colours are separate | `--type-*` and `--fg-*`. `--text-*` was carrying both, and it is Tailwind's font-size namespace. |
 | The browser lane covers the shipped engine | `(9cdd85d)`. WebKit is what the Tauri shell renders in on Linux and macOS. |
 | The migration's test cost | **3 of 55 e2e files** touch `app.js` internals: two reach into `organizeCompletion`, one calls `showScreen()`. The other 52 assert on rendered words, so they survive a renderer swap and become the acceptance test for each migrated screen. |
-| ⚠ **Corrected 2026-09-03 (P200)** - the row above is the 2026-08-14 record and is ten times off | Measured on the tree: **60 files, 510 tests**; **31 files reach into the page through `evaluate`**, none calls `organizeCompletion` or `showScreen`, and two call `fmtBytes` and `fmtDuration` as globals, which break the day the formatters move into a module. Selection is **84 unique `#id` selectors, 2 `data-testid`, 4 text or role calls** - ids, not words - and **19 files assert computed styles**. Plan the cutover against these, not the row above. |
+| ⚠ **Corrected 2026-09-03 (P200)** - the row above is the 2026-08-14 record and is ten times off | Measured on the tree: **60 files, 510 tests**; **31 files reach into the page through `evaluate`**, none calls `organizeCompletion` or `showScreen`, and two call `fmtBytes` and `fmtDuration` as globals, which break the day the formatters move into a module. Selection is **84 unique `#id` selectors, 2 `data-testid`, 4 text or role calls** - ids, not words - and **19 files assert computed styles**. Plan the cutover against these, not the row above. ⚠ **RE-COUNTED 2026-09-13 and every figure has moved: 74 files, 634 tests on one engine, 42 unique `data-testid`, 23 files asserting computed styles.** Run them rather than reading them - `ls tests/e2e/test_*.py | wc -l`, `uv run pytest tests/e2e --collect-only -q | tail -1`, `grep -ohE "data-testid=['\"][a-z0-9-]+" tests/e2e/*.py | sort -u | wc -l`, `grep -rlE 'getComputedStyle|getPropertyValue' tests/e2e | wc -l`. |
 | ⚠ **Corrected 2026-09-05 (P223)** - the row above is right on the counts and wrong on two names | `showScreen` **is** called from a test: `tests/e2e/test_sidebar_stays_put.py:73`, `ui.evaluate("showScreen('settings')")`, and `window.fitCatalogPath` at `test_narrow_top_bar.py:186,190` is a third global the row does not name. The `fmtBytes` caller is `test_one_byte_formatter.py`, **not an Organize file**; `fmtDuration`'s is `test_a_fast_run_does_not_claim_it_took_no_time.py:35`, which is. Five files drive the island through `window.organizeResult.set`, and that bridge must survive every slice unchanged. Organize's own share, by ids driven: **15 files / 110 tests Organize-only, 10 mixed, ~174 / 25 first-order** on one engine. |
 
 That last row is the reason this is checkable at all, and it is a rule being cashed in rather than
@@ -131,7 +131,7 @@ in `tokens.css` plus Tailwind utilities."* **Building the rail first means rebui
 not like, in a new framework, and then restyling it - two passes.**
 
 🔑 **And it makes the cutover SAFER rather than later.** P194's oracle is the unchanged e2e suite,
-which asserts appearance in 19 files; a cutover that also restyled could not tell a migration bug
+which asserts appearance in 19 files (**23 on 2026-09-13** - count it, do not quote it); a cutover that also restyled could not tell a migration bug
 from an intended change. Restyling first means **the appearance is not moving during the cutover**,
 so the oracle holds exactly as P194 requires - and the cutover then preserves the *good* look
 instead of the current one.
@@ -145,7 +145,7 @@ paragraphs under *Which tests move* still say "Organize last"; they are kept as 
 maintainer's reason: Organize is the only screen with a design (`design-system.md`, the six gaps
 above), so converting any other screen first means building a look that gets rebuilt later. **The
 cutover is two commits per slice**: a pure renderer swap - same DOM, same ids, same `data-*`
-hooks, the unchanged e2e suite green - and then the appearance, because 19 e2e files assert
+hooks, the unchanged e2e suite green - and then the appearance, because 23 e2e files assert
 computed styles and moving renderer and appearance together makes every style failure ambiguous.
 **The form goes last within Organize**: `app.js` binds `#org-preview`, `#org-dedup`, the radios
 and the library-root save at parse time, so React drawing the form breaks `app.js` before it wires
@@ -187,7 +187,7 @@ so. **This is what each gap actually costs, and where it belongs.**
 | 1 | mode options are native radio dots; the preview has full-width cards with circular icon badges and a tinted active card | **markup + icon data** | **cutover** |
 | 2 | **0 `<svg>` across all seven screens** against 8 in the rail | **markup + icon data** | **cutover** (the data is reusable now) |
 | 3 | the rail's mark exists and is hidden - `.brand-monogram { display: none; }` - so only the wordmark shows expanded; the preview shows mark **and** wordmark | **CSS** | **now** |
-| 4 | the heading is `--type-2xl` (24->27px) in `--accent-strong` #2a3b8c; the preview is ~40px near-black | **CSS** | **now**, but see the guard below |
+| 4 | the heading is `--type-2xl` (24->27px) in `--accent-strong` #2a3b8c; the preview is ~40px near-black ⚠ **both stale: `--accent-strong` is `#9f1239` (rose since 2026-09-06) and `--type-2xl` was deleted with the six-step scale - `grep -nE 'accent-strong|type-2xl' packages/truestill-app/src/truestill_app/static/tokens.css`** | **CSS** | **now**, but see the guard below |
 | 5 | the panel is `.panel-title` + `.panel-fact` + `.panel-k`, a text list; the preview is a dashboard with large numerals, a pill and an amber count | **JS** - `app.js:renderRestingPanel` builds those strings | **cutover** |
 | 6 | the rail's alert is `▫ ▫ ▫` pips and a text line; the preview is a card with a warning triangle | **markup + icon data** | **cutover** |
 

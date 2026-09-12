@@ -43,6 +43,28 @@ were checked against Feather's own set on 2026-08-15.
 The radio-group indicator is a plain filled circle authored here, not copied
 from any set, so it carries no third-party notice.
 
+UNCOVERED - THREE ORGANIZE MODE BADGES, FOUND 2026-09-12
+--------------------------------------------------------
+`templates/index.html` ships THREE more inline SVGs that no row above covers:
+the `.mode-badge` glyphs beside Copy, Move and Reorganize in place. The template
+already points at this file for them ("provenance in `static/LICENSE-icons.txt`")
+and the pointer resolves to nothing.
+
+Count the shipped icons against the rows here rather than trusting either:
+
+  grep -c '<svg' packages/truestill-app/src/truestill_app/templates/index.html
+
+answers 12 - eight nav icons above, one brand mark (ours, `brand/`), and these
+three.
+
+They are NOT recorded as MIT or ISC here, because that would be a licence claim
+nobody has checked. What is known: all three use the 24-box, `stroke-width="2"`,
+round-cap conventions the eight above use, so the likeliest origin is the same
+set - and the eight above needed a PER-ICON Feather check precisely because the
+blanket answer was wrong for six of them. **The check is outstanding**: compare
+each path against Feather's own set, then add a row with the licence that check
+supports. Until then this section is the honest state, not an omission.
+
 
 ISC License - Lucide
 --------------------

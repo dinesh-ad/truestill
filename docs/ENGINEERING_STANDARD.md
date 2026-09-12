@@ -121,8 +121,10 @@ binding.
 own bill:** if the batch is what CI sees, the batch is what the gate must read, or a batch whose
 last commit is a docs edit skips a lane its third-from-last commit reached.
 The justification for skipping the client layer must be output you can paste. **Cite the ceiling,
-not a duration**: check against a 90 s ceiling, e2e against a 2000 s one, both named in the
-`Makefile`. ⚠ This line quoted *"19-21 s"* and *"e2e ~6:50"*, measured 2026-08-10, and both were
+not a duration**: check against a 90 s ceiling, e2e against the ceiling for the engines you
+selected - **900 s** chromium, **1850 s** webkit, **2750 s** both - all named in the `Makefile`
+and read with `grep -n 'SECONDS_MAX ?=' Makefile`. ⚠ **This said *"a 2000 s one"* until
+2026-09-12**, when the lane was split into two matrix legs and one flat number stopped existing. ⚠ This line quoted *"19-21 s"* and *"e2e ~6:50"*, measured 2026-08-10, and both were
 wrong by 2026-08-15 - `make check` read **16.39-25.99 s** over nine runs and the browser lane
 **1169-1391 s**, against a 410 s claim. **Seconds, not test counts** was the right correction and
 did not go far enough: a duration rots as surely as a count, just more slowly. The lane's measured

@@ -232,7 +232,10 @@ worse than a wrong line - `MISSING` drives `mark_copy_missing`, so it also wrote
 was**, which is the number `(aiy)` had just fixed.
 
 ⚠ **LANE FRESHNESS IS A COMMAND HERE, NEVER A SHA.** The lane runs on `schedule` and
-`workflow_dispatch` only (`ci.yml:509`), so a green push run says nothing about it, and a sha
+`workflow_dispatch` only - the `e2e` job's own
+`if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'` in `ci.yml`,
+cited by its condition rather than by a line number because the line has already moved (this read
+`ci.yml:509`, which is now a prose comment) - so a green push run says nothing about it, and a sha
 written into this file cannot report what has landed since. Ask:
 
 ```sh
@@ -391,9 +394,11 @@ what stops is changing *what a route returns* under a consumer that already read
     so a payload census cannot see it from either end. `(abm)` reached two of the five by hand.
 
   Both need **payload granularity** - which JavaScript variable holds which route's response - and
-  that is `(ahn)`'s route-to-payload join, measured absent: **50 routes, and not one names a
-  payload type**. ⚠ **This said *"all 50 handlers annotated `-> JSONResponse`"* until 2026-08-29;
-  it is **46 of 50**, the other four returning HTML, SSE or bytes. The claim the number supports -
+  that is `(ahn)`'s route-to-payload join, measured absent: **58 routes, and not one names a
+  payload type** (`grep -c '^        Route(' packages/truestill-app/src/truestill_app/server.py`,
+  2026-09-12 - it read **50** from 2026-08-29 until then, and the number is a count, not a
+  constant). ⚠ **This said *"all 50 handlers annotated `-> JSONResponse`"* until 2026-08-29;
+  it was **46 of 50** then, the other four returning HTML, SSE or bytes. The claim the number supports -
   that nothing declares which payload a route returns - is unaffected, which is why the wording
   now carries the claim rather than the arithmetic.** Until it exists the honest answer is a floor, so the condition names its
   blocker rather than a number that cannot reach zero.
