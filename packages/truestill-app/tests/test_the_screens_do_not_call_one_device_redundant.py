@@ -65,10 +65,29 @@ def test_every_screen_reads_the_verdict_rather_than_composing_one() -> None:
 
 
 def test_the_pips_report_failure_domains_not_registrations() -> None:
-    """Two folders on one stick filled two green pips on both cards."""
+    """Two folders on one stick filled two green pips on both cards.
+
+    ⚠ **AND A DRIVE THAT IS NOT PLUGGED IN FILLED ONE TOO, until 2026-09-12.** `(aiy)` fixed the
+    shared-device fold and left the other half: ejecting a drive changed nothing on either card -
+    measured on real hardware, `▪ ▪ ▫` before and after. A place you cannot reach is not a place
+    you can restore from today, so the count is of REACHABLE drives.
+    """
+    assert 'const reachable = drives.filter((x) => x.reach !== "offline").length;' in _APP_JS
     assert (
-        'const pips = lib.independence === "not_independent" ? 1 : Math.min(drives.length, 3);'
+        'const pips = lib.independence === "not_independent" ? 1 : Math.min(reachable, 3);'
         in _APP_JS
+    )
+    assert "Math.min(drives.length, 3)" not in _APP_JS, "the registration count is back"
+
+
+def test_an_unknown_drive_still_fills_a_pip() -> None:
+    """⚠ **`unknown` COUNTS, and that is `DriveReach`'s ruling rather than an oversight.** A drive
+    whose location was never recorded is the NORMAL state for a CLI-only user, not a missing
+    drive, and the alarming fold is the worse one for a custody tool. Only `offline` - *we know
+    where it was and it is not there* - takes a pip away."""
+    assert '!== "offline"' in _APP_JS
+    assert '=== "connected"' not in _APP_JS.split("const reachable")[1][:120], (
+        "the filter narrowed to connected-only, which dresses `unknown` as an alarm"
     )
 
 

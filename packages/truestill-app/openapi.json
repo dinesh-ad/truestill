@@ -174,11 +174,15 @@
           },
           "name": {
             "type": "string"
+          },
+          "reach": {
+            "type": "string"
           }
         },
         "required": [
           "drive",
-          "name"
+          "name",
+          "reach"
         ],
         "title": "AtRiskRow",
         "type": "object"
@@ -2431,6 +2435,9 @@
               }
             ]
           },
+          "reach": {
+            "type": "string"
+          },
           "size": {
             "type": "integer"
           },
@@ -2442,6 +2449,7 @@
           "files",
           "label",
           "last_verified",
+          "reach",
           "size",
           "was_checked"
         ],
@@ -4835,6 +4843,9 @@
           "name": {
             "type": "string"
           },
+          "reach": {
+            "type": "string"
+          },
           "relative": {
             "type": "string"
           }
@@ -4843,6 +4854,7 @@
           "drive",
           "last_verified",
           "name",
+          "reach",
           "relative"
         ],
         "title": "WhereCopy",

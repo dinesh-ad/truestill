@@ -2057,6 +2057,19 @@ def _discard_to_drive(root: Path, catalog: object, *, apply: bool) -> int:
     return 0
 
 
+#: ⚠ **ONE WORDING FOR "can you reach this drive", used by every CLI surface that names one.**
+#: `CONNECTED` gets nothing: a reachable drive is the unremarkable case, and annotating it would
+#: make the annotation noise rather than news. The other two are the news.
+_REACH_NOTE = {
+    DriveReach.OFFLINE: " (not connected)",
+    DriveReach.UNKNOWN: " (Truestill has never recorded where this drive lives)",
+}
+
+
+def _reach_note(reach: DriveReach) -> str:
+    return _REACH_NOTE.get(reach, "")
+
+
 def _cmd_where(args: argparse.Namespace) -> int:
     with _catalog(args.db) as catalog:
         total = catalog.count_copies(args.term)
@@ -2065,12 +2078,25 @@ def _cmd_where(args: argparse.Namespace) -> int:
         print(f"No catalogued copies match '{args.term}'.")
         return 0
     print(f"Copies matching '{args.term}':")
+    # ⚠ **REACH, BECAUSE THIS IS THE COMMAND WHOSE HELP SAYS "even when unplugged".** It printed a
+    # path on an ejected drive identically to one on a connected drive - measured 2026-09-12, the
+    # output was BYTE-IDENTICAL with the drive present and absent - and the absent copy carried
+    # the verification stamp while the present one did not, so the unreachable copy read as the
+    # healthier of the two. One lookup per DRIVE: `reach_of` is O(1) but touches the filesystem,
+    # and a page of results is many rows over a handful of drives.
+    seen: dict[str, DriveReach] = {}
+    with _catalog(args.db) as catalog:
+        for r in rows:
+            uuid = str(r["drive_uuid"])
+            if uuid not in seen:
+                seen[uuid] = reach_of(catalog, uuid)
     for r in rows:
         verified = (
             f"verified {r['last_verified'][:19]}" if r["last_verified"] else "not yet verified"
         )
+        where_it_is = _reach_note(seen[str(r["drive_uuid"])])
         print(f"  {r['original_name'] or r['relative']}")
-        print(f"      drive '{r['drive_label']}'  ->  {r['relative']}   ({verified})")
+        print(f"      drive '{r['drive_label']}'{where_it_is}  ->  {r['relative']}   ({verified})")
     if total > len(rows):
         # Never a silent truncation: a search that quietly showed the first N would let someone
         # conclude a file is not on any drive when it is simply further down the list.
@@ -2401,10 +2427,35 @@ def _cmd_status(args: argparse.Namespace) -> int:
         print("\n".join(age))
         return 0
     print(f"At risk: {len(singles)} file(s) exist on only ONE drive (3-2-1 wants >=2):")
+    # ⚠ **REACH, BECAUSE THIS IS THE MOMENT IT MATTERS MOST.** A file on one drive is at risk; a
+    # file on one drive that is NOT HERE is in zero reachable places, and the line said the same
+    # thing for both - measured 2026-09-12, byte-identical with the drive present and ejected.
+    # `single_copy_shas` now carries the uuid, and this is one lookup per DRIVE.
+    at_risk_reach: dict[str, DriveReach] = {}
+    with _catalog(args.db) as catalog:
+        for r in singles[:_STATUS_PREVIEW]:
+            uuid = str(r["drive_uuid"])
+            if uuid not in at_risk_reach:
+                at_risk_reach[uuid] = reach_of(catalog, uuid)
     for r in singles[:_STATUS_PREVIEW]:
-        print(f"  {r['original_name'] or r['sha256'][:12]}   only on '{r['drive_label']}'")
+        note = _reach_note(at_risk_reach[str(r["drive_uuid"])])
+        print(f"  {r['original_name'] or r['sha256'][:12]}   only on '{r['drive_label']}'{note}")
     if len(singles) > _STATUS_PREVIEW:
         print(f"  ... and {len(singles) - _STATUS_PREVIEW} more.")
+    # ⚠ **THE DEVICE VERDICT WAS COMPUTED AND THROWN AWAY HERE.** `library_independence` runs
+    # above for both branches, and only the `not singles` branch printed it - so the sentence that
+    # says whether the copies are on separate devices vanished exactly when a file was at risk,
+    # which is when it is worth most. `(aiy)` put it on the healthy branch; this is the other one.
+    # Said only when there is more than one place to compare: with every copy on one drive the
+    # line above has already told the whole story.
+    if independence is not CopyIndependence.NOT_INDEPENDENT or affected:
+        detail = LIBRARY_REDUNDANCY[independence]
+        if independence is CopyIndependence.POSSIBLY_INDEPENDENT:
+            print(f"  The copies that do have a second place are {detail}.")
+        elif independence is CopyIndependence.UNKNOWN:
+            print(f"  {detail}.")
+        else:
+            print(f"  WARNING: {affected:,} file(s) {detail}.", file=sys.stderr)
     print("\n".join(age))
     return 0
 

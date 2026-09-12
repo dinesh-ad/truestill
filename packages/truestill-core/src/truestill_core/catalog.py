@@ -2694,7 +2694,7 @@ class Catalog:
         return list(
             self._conn.execute(
                 """
-                SELECT fc.sha256, f.original_name, d.label AS drive_label
+                SELECT fc.sha256, f.original_name, d.label AS drive_label, d.uuid AS drive_uuid
                 FROM file_copies fc
                 JOIN files f ON f.sha256 = fc.sha256
                 JOIN drives d ON d.uuid = fc.drive_uuid

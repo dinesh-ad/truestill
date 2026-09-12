@@ -722,6 +722,13 @@ const dayOf = (iso) => (iso ? String(iso).slice(0, 10) : "never");
 // so it sends `was_checked` beside it and this reads that instead. Same wording as the CLI's
 // `drives` column, which has been right since `(aej)`.
 const verifiedCell = (d) => (d.last_verified ? dayOf(d.last_verified) : d.was_checked ? "checked, gaps" : "never");
+// ⚠ **THE SAME SHAPE AS `verifiedCell`, ONE FACT OVER.** A drive's reachability is a filesystem
+// truth the browser cannot derive, so the server sends it - exactly as it sends `was_checked`
+// because a null date means two different things. `connected` gets no marker: the reachable case
+// is the unremarkable one, and annotating it would turn the annotation into noise instead of news.
+// `DriveReach`'s three values; never folded to a boolean, because UNKNOWN lies read either way.
+const REACH_NOTE = { offline: "not plugged in", unknown: "location never recorded" };
+const reachNote = (reach) => REACH_NOTE[reach] || "";
 // The age BESIDE the date, never instead of it. `abg.md:280` - a date that only gets older
 // cannot mislead, and a bare "34 days ago" is not such a value: it changes while the fact
 // behind it does not, which is the failure `(abg)` is named after. What legitimately changes
@@ -843,7 +850,16 @@ function renderStatsSummary(stats) {
     .map((name) => `<div class="mono">${esc(name)}</div>`)
     .join("");
   const drives = (safety.drives || []).length
-    ? safety.drives.map((d) => `<tr><td>${esc(d.label)}</td><td class="num">${nfmt(d.files)}</td><td class="num">${fmtBytes(d.size)}</td><td class="mono">${esc(verifiedCell(d))}</td></tr>`).join("")
+    ? safety.drives.map((d) => {
+        // ⚠ **THIS TABLE RENDERED AN EJECTED DRIVE IDENTICALLY TO A CONNECTED ONE** - and with the
+        // MORE recent verification date, so the absent drive read as the better-maintained of the
+        // two, under a heading that says "a verified record of where every file is safe".
+        // Measured on a real drive 2026-09-12: zero of twelve absence phrasings appeared anywhere
+        // on this screen.
+        const away = reachNote(d.reach);
+        const label = away ? `${esc(d.label)} <span class="k">- ${esc(away)}</span>` : esc(d.label);
+        return `<tr data-reach="${esc(d.reach || "")}"><td>${label}</td><td class="num">${nfmt(d.files)}</td><td class="num">${fmtBytes(d.size)}</td><td class="mono">${esc(verifiedCell(d))}</td></tr>`;
+      }).join("")
     : `<tr><td colspan="4" class="k">No registered backup drives yet.</td></tr>`;
   return [
     card(
@@ -2917,15 +2933,52 @@ async function loadDrives() {
   // A stated risk with no way to act on it is a complaint. Stats offers a button for this
   // exact fact; Backups stated the count and stopped. The remedy lives on THIS screen, so the
   // action points at it rather than navigating away.
-  const risk = at_risk.length
-    ? `<div class="banner warn" data-testid="backups-at-risk"><div>
-         <div class="b-title">${plural(at_risk.length, "file")} exist in only one place</div>
-         <div class="k">A second copy is what makes them safe. Copy your library to another
-         drive above.</div>
-         <button class="btn btn-secondary" data-risk-action="copy">Copy to another drive</button>
-       </div></div>`
-    : "";
-  // A PATH IS SHOWN UNASKED ONLY WHEN IT IS DOING IDENTITY WORK. `(acs)`.
+  const risk = at_risk.length ? atRiskBanner(at_risk) : "";
+  // ⚠ **THE REMEDY HAS TO NAME THE DRIVE THE FILE IS ACTUALLY ON.** `(akp)`. This said *"Copy your
+// library to another drive above"* for every at-risk file - and a file at risk on a drive that is
+// NOT the library is not in the library, so following that advice backs up a set the file is not
+// in and leaves it exactly as it was. Measured on a real ejected drive 2026-09-12: one photograph
+// on AD_2TB alone, and `reclaim` against the library listed 161 candidates and mentioned it zero
+// times. Being told what to do, doing it, and remaining unprotected is worse than silence.
+//
+// Three cases, which is what `reach` on the row buys:
+//   - the only copy is on a drive that is NOT HERE -> there is no copy action at all until it is
+//     connected, and offering one would be inert;
+//   - the only copy is on a connected drive -> name THAT drive, which is right whether or not it
+//     happens to be the library;
+//   - both -> say both, because they need different steps.
+function atRiskBanner(rows) {
+  const names = (list) => [...new Set(list.map((r) => r.drive).filter(Boolean))].sort();
+  const away = rows.filter((r) => r.reach && r.reach !== "connected");
+  const here = rows.filter((r) => !r.reach || r.reach === "connected");
+  const lines = [];
+  if (here.length) {
+    lines.push(`<div class="k" data-testid="at-risk-here">A second copy is what makes
+      ${plural(here.length, "file")} safe. Copy ${listOf(names(here))} to another drive above.</div>`);
+  }
+  if (away.length) {
+    lines.push(`<div class="k" data-testid="at-risk-away">${plural(away.length, "file")}
+      ${away.length === 1 ? "has" : "have"} their only copy on ${listOf(names(away))}, which
+      ${names(away).length === 1 ? "is" : "are"} not connected. Connect
+      ${names(away).length === 1 ? "it" : "them"} to make a second copy - there is nothing to copy
+      from until you do.</div>`);
+  }
+  return `<div class="banner warn" data-testid="backups-at-risk"><div>
+      <div class="b-title">${plural(rows.length, "file")}
+        ${rows.length === 1 ? "exists" : "exist"} in only one place</div>
+      ${lines.join("")}
+      ${here.length ? `<button class="btn btn-secondary" data-risk-action="copy">Copy to another drive</button>` : ""}
+    </div></div>`;
+}
+
+//: "A", "A and B", "A, B and C" - the drive names read as a sentence rather than a join.
+function listOf(names) {
+  const quoted = names.map((n) => `'${esc(n)}'`);
+  if (quoted.length <= 1) return quoted[0] || "that drive";
+  return `${quoted.slice(0, -1).join(", ")} and ${quoted[quoted.length - 1]}`;
+}
+
+// A PATH IS SHOWN UNASKED ONLY WHEN IT IS DOING IDENTITY WORK. `(acs)`.
   //
   // This card was the one place a full absolute path - a provider's name, a username, a folder
   // layout - appeared on screen every time Backups opened, asked for by nobody. It is now behind
@@ -2968,7 +3021,17 @@ async function loadDrives() {
     // the worse one for a custody tool - `DriveReach`'s own ruling.
     // `(aiy)`: the FIELD survives the React migration and this LINE does not - the full
     // stopgap note is on `backupCompletion`'s `sub`. Port the payload, not the renderer.
-    const pips = lib.independence === "not_independent" ? 1 : Math.min(drives.length, 3);
+    //
+    // ⚠ **AND IT STILL COUNTED REGISTRATIONS, JUST NOT SHARED ONES.** `(aiy)` fixed the two-folders
+    // -on-one-stick fold and left the other half: a drive that is not plugged in filled a pip
+    // exactly as a connected one did, so ejecting a drive changed nothing on either card.
+    // Measured 2026-09-12 on a real ejected drive - `▪ ▪ ▫` before and after, unchanged.
+    // A place you cannot reach is not a place you can restore from today, so only reachable
+    // drives fill pips. `unknown` COUNTS, deliberately: `DriveReach`'s own ruling is that the
+    // alarming fold is the worse one for a custody tool, and a drive whose location was never
+    // recorded is the normal state for a CLI-only user, not a missing drive.
+    const reachable = drives.filter((x) => x.reach !== "offline").length;
+    const pips = lib.independence === "not_independent" ? 1 : Math.min(reachable, 3);
     const strip = [0, 1, 2].map((i) => (i < pips ? "▪" : "▫")).join(" ");
     const collides = (sharedLabel.get(d.label) || 0) > 1;
     return `<div class="card"><div class="tally" style="grid-template-columns:1fr auto">
@@ -3185,7 +3248,17 @@ async function runWhere(term, page) {
     : `<div class="k">${plural(r.total, "match", "es")}</div>`;
   $("where-result").innerHTML = card(
     `<table class="table"><thead><tr><th>File</th><th>Drive</th><th>Location</th></tr></thead><tbody>${
-      r.copies.map((c) => `<tr><td>${esc(c.name)}</td><td>${esc(c.drive || "-")}</td><td class="path">${esc(c.relative)}</td></tr>`).join("")
+      // ⚠ **THE SCREEN'S OWN LEDE PROMISES THIS WORKS "even when the drives are unplugged"** - and
+      // it then printed a location on an unplugged drive identically to one on a connected drive,
+      // which is where a wrong answer sends a person to a file manager at a path that does not
+      // exist. Measured 2026-09-12: byte-identical output with the drive present and ejected.
+      r.copies.map((c) => {
+        const away = reachNote(c.reach);
+        const drive = away
+          ? `${esc(c.drive || "-")} <span class="k">- ${esc(away)}</span>`
+          : esc(c.drive || "-");
+        return `<tr data-reach="${esc(c.reach || "")}"><td>${esc(c.name)}</td><td>${drive}</td><td class="path">${esc(c.relative)}</td></tr>`;
+      }).join("")
     }</tbody></table>${pager}`);
   const prev = $("where-prev"), next = $("where-next");
   if (prev) prev.onclick = guarded(() => runWhere(term, wherePage - 1));

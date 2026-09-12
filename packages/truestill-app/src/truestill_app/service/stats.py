@@ -8,7 +8,7 @@ from typing import TypedDict
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog
 from truestill_core.date_explain import explain, explain_evidence
-from truestill_core.drive import library_independence, was_ever_checked
+from truestill_core.drive import library_independence, reach_of, was_ever_checked
 from truestill_core.organizer import (
     AUDIO_EXTENSIONS,
     IMAGE_EXTENSIONS,
@@ -61,6 +61,9 @@ class LibraryStatsDrive(TypedDict):
     #: cannot say - it is NULL both when nobody looked and when a verify found gaps. Sent because
     #: the browser cannot recover the distinction from a null date.
     was_checked: bool
+    #: Whether this drive is here right now. `drive.DriveReach`'s three values as a string -
+    #: never a boolean, because UNKNOWN folds into a lie either way.
+    reach: str
 
 
 class LibraryStatsSafety(TypedDict):
@@ -183,6 +186,11 @@ def library_stats(db: Path) -> LibraryStats:
         # the open handle. The first cut called it from the return dict, outside - which raised
         # `Cannot operate on a closed database` in eleven tests rather than shipping quietly.
         independence, _ = library_independence(catalog)
+        # ⚠ **INSIDE THE BLOCK, FOR THE REASON THE LINE ABOVE ALREADY GIVES.** `reach_of` reads
+        # each drive's hint from the catalog, so computing it in the return dict below - where the
+        # handle is closed - raises `Cannot operate on a closed database`. The first draft of this
+        # field did exactly that. One lookup per drive, never per file.
+        reach_by_uuid = {str(d["uuid"]): reach_of(catalog, str(d["uuid"])).value for d in drives}
 
     image_exts = {ext.lstrip(".").lower() for ext in IMAGE_EXTENSIONS}
     video_exts = {ext.lstrip(".").lower() for ext in VIDEO_EXTENSIONS}
@@ -214,6 +222,14 @@ def library_stats(db: Path) -> LibraryStats:
                     # verify looked and found gaps, and the table rendered "never" for both.
                     # The distinction cannot be recovered in the browser, so it is sent.
                     "was_checked": was_ever_checked(row),
+                    # ⚠ **THE SAME ARGUMENT, ONE FIELD OVER.** This table rendered an ejected
+                    # drive identically to a connected one - and with the MORE recent verification
+                    # date, so the absent drive read as the better-maintained one, under a heading
+                    # that says *"a verified record of where every file is safe"*. Measured on a
+                    # real drive 2026-09-12: zero of twelve absence phrasings appeared anywhere on
+                    # the screen. Reachability is a filesystem fact the browser cannot derive, so
+                    # it is sent - exactly as `was_checked` above is.
+                    "reach": reach_by_uuid[str(row["uuid"])],
                 }
                 for row in drives
             ],

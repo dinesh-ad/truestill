@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, NotRequired, TypedDict, cast
@@ -556,6 +557,12 @@ class WhereCopy(TypedDict):
     drive: str
     relative: str
     last_verified: str | None
+    #: ⚠ **Whether that path can be opened RIGHT NOW.** Find's own lede promises it *"works even
+    #: when the drives are unplugged"*, and it then rendered a location on an unplugged drive
+    #: identically to one on a connected drive - so the screen that keeps its promise about
+    #: searching broke it about the answer. `DriveReach`'s three values, never a boolean: see
+    #: `drive.DriveReach` for why UNKNOWN cannot be folded into either of the others.
+    reach: str
 
 
 class WhereResult(TypedDict):
@@ -569,6 +576,11 @@ class WhereResult(TypedDict):
 class AtRiskRow(TypedDict):
     name: str
     drive: str
+    #: ⚠ **Without this the remedy cannot be right.** `(akp)`: a file at risk on a drive that is
+    #: not the library was told to *"copy your library to another drive"*, which backs up a set
+    #: the file is not in. The action depends on where the one copy actually is and whether it
+    #: can be reached, and neither was sent.
+    reach: str
 
 
 def _drive_decisions(
@@ -785,6 +797,24 @@ def list_drives(db: Path) -> list[DriveRow]:
         return drives
 
 
+def _reach_per_drive(catalog: Catalog) -> Callable[[str], str]:
+    """`reach_of` memoised for one request. ⚠ **ONE filesystem check PER DRIVE, NEVER PER ROW.**
+
+    `drive.library_independence` states the same rule for its own stat, and for the same reason:
+    a page of results holds up to `Catalog.FIND_PAGE_SIZE` rows and a library holds a handful of
+    drives. Asking per row would put a `stat` on a possibly-absent USB mount in a loop, which is
+    slow when the drive is there and slower when it is not.
+    """
+    seen: dict[str, str] = {}
+
+    def reach(uuid: str) -> str:
+        if uuid not in seen:
+            seen[uuid] = reach_of(catalog, uuid).value
+        return seen[uuid]
+
+    return reach
+
+
 def where(term: str, db: Path, *, page: int = 1) -> WhereResult:
     """One page of search results, plus what the caller needs to render a pager.
 
@@ -797,12 +827,14 @@ def where(term: str, db: Path, *, page: int = 1) -> WhereResult:
     with open_catalog(db) as catalog:
         total = catalog.count_copies(term)
         rows = catalog.find_copies(term, limit=size, offset=(page - 1) * size)
+        reach = _reach_per_drive(catalog)
         copies: list[WhereCopy] = [
             {
                 "name": r["original_name"] or r["relative"],
                 "drive": r["drive_label"],
                 "relative": r["relative"],
                 "last_verified": r["last_verified"],
+                "reach": reach(str(r["drive_uuid"])),
             }
             for r in rows
         ]
@@ -817,8 +849,13 @@ def where(term: str, db: Path, *, page: int = 1) -> WhereResult:
 
 def at_risk(db: Path) -> list[AtRiskRow]:
     with open_catalog(db) as catalog:
+        reach = _reach_per_drive(catalog)
         return [
-            {"name": r["original_name"] or r["sha256"][:12], "drive": r["drive_label"]}
+            {
+                "name": r["original_name"] or r["sha256"][:12],
+                "drive": r["drive_label"],
+                "reach": reach(str(r["drive_uuid"])),
+            }
             for r in catalog.single_copy_shas()
         ]
 
