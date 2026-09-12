@@ -118,12 +118,20 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+#: ⚠ **FETCHED WITH `getattr`, AND THAT IS FOR THE TYPE CHECKER, NOT FOR STYLE.** `os.posix_fadvise`
+#: does not exist on macOS or Windows, so `os.posix_fadvise(...)` guarded by a runtime `hasattr`
+#: still fails `mypy` on those platforms - *"Module has no attribute"* - and `ci.yml`'s `Mypy` step
+#: runs on each runner's own platform, so a linux-only `make check` cannot see it. It went red on
+#: `main` on 2026-09-12. Binding the attribute once keeps the runtime truth and types everywhere.
+_FADVISE = getattr(os, "posix_fadvise", None)
+_DONTNEED = getattr(os, "POSIX_FADV_DONTNEED", None)
+
 #: Whether this platform can be made to read a file from the device rather than from RAM.
 #: ⚠ **Linux only.** `posix_fadvise` is in POSIX but **macOS does not implement it** and CPython
 #: therefore does not expose `os.posix_fadvise` there; Windows has no equivalent that does not
 #: require sector-aligned unbuffered I/O. Callers must say so rather than let a verify claim more
 #: than it checked - see `verify.MEDIUM_READ_UNAVAILABLE`.
-CAN_READ_FROM_THE_MEDIUM = hasattr(os, "posix_fadvise")
+CAN_READ_FROM_THE_MEDIUM = _FADVISE is not None and _DONTNEED is not None
 
 
 def sha256_from_the_medium(path: Path) -> str:
@@ -155,7 +163,7 @@ def sha256_from_the_medium(path: Path) -> str:
 
 def _evict_from_cache(path: Path) -> bool:
     """Push this file to the device and drop its pages. True when both steps ran."""
-    if not CAN_READ_FROM_THE_MEDIUM:
+    if _FADVISE is None or _DONTNEED is None:
         return False
     try:
         handle = os.open(path, os.O_RDONLY)
@@ -164,7 +172,7 @@ def _evict_from_cache(path: Path) -> bool:
     try:
         with contextlib.suppress(OSError):
             os.fsync(handle)
-        os.posix_fadvise(handle, 0, 0, os.POSIX_FADV_DONTNEED)
+        _FADVISE(handle, 0, 0, _DONTNEED)
     except OSError:
         return False
     finally:
