@@ -5326,6 +5326,39 @@ no composition refactor to schedule.
     The round-trip was run against a copy of the real 6.4 MB catalog as part of the fix: two
     trips, 5 settings and 6 skipped clusters out and back identical, 1,353 bytes, no `path_hint`.
 
+- **(aht) THE ARCHIVE STAGING TREE IS REMOVED BY NOTHING THAT RUNS - `clear_staging` EXISTS AND HAS NO CALLER.** ⚠ **Retitled 2026-09-02 (P190)**: `archive_extract.py:clear_staging` removes a tree and `archive_extract.py:pending_staging` finds one; both are tested and neither is called from `cli.py` or `service/takeout.py`. The missing piece is the policy (delete after a verified organize, keep as a cache, or keep and say so), which is a ruling. Population: 2 trees on this machine, 537 files, 1.6 GB. Filed 2026-08-25 (P98), found in `(ahp)`'s
+  artifact. A 1.61 GB archive leaves **535 files, 1.6 GB** under `.truestill-staging/` beside the
+  organized copy, and **nothing removes it** (`grep -iE "rmtree|unlink|clean"` against
+  `archive_ingest.py` returns nothing).
+  ⚠ **Measured, and it changes the rank**: a second ingest of the same archive **does not stage
+  again** - still 535 files, one directory - so N ingests cost **1x, not Nx**. Untidiness, not a
+  disk a user runs out of. **But the work repeats**: 534 files unpacked again. Cost is per
+  distinct archive.
+  ⚠ **RANKED UP 2026-09-12: the app can now APPLY an import, and "untidiness" was an assessment
+  of a PREVIEW.** While the archive path only previewed, the staging tree sat on a drive the user
+  had not committed anything to. It now sits beside the photographs a successful import just
+  wrote, on the drive they chose, at ~2x the export - measured on a walk-through: 362 photographs
+  imported, **963 files / 14.3 MB still staged**, with the completion card silent about every
+  byte of it. **The card names it since D17** (`rcCompletion`'s `rc-staging` line, with the path,
+  because there is no in-product remedy to offer) - which makes it a stated cost rather than a
+  surprise, and does NOT settle this entry. The policy is still the ruling: delete after a
+  verified organize, keep as a cache, or keep and say so. Naming it is the third option's
+  cheapest half, chosen because a writer that silently doubles disk use could not ship without
+  one.
+  Defensible as it stands - copy mode never deletes a source, and the staging tree *is* that run's
+  source.
+  [Full entry](research/backlog/aht.md)
+  ⚠ **RULED AND BUILT 2026-09-12.** **Delete on success**, because the product made the tree and
+  the photographs are in the library. **Keep on cancel, failure or refusal**, and say where it is,
+  because re-extracting a 200 GB export is not a way to retry. **Scoped by identity, never by
+  age** - only the record whose `staging_root` is the path this run imported from, which is the
+  mistake GitLab's 24-hour cron made. **"Is anyone using it" is answered by the per-drive lock**
+  the run already holds, so nothing new answers it. `clear_staging` refuses any record that does
+  not describe a direct child of a `.truestill-staging` directory, resolved first, and returns
+  False rather than raising - a tampered journal must not fail a successful import.
+  **No orphan sweep was built, deliberately**: `(akn)`.
+
+
 ## Shipped (kept for provenance)
 
 - **BUILT 2026-08-13: truestill can show a photograph. Organize's result is the photos.**

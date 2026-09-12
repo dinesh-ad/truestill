@@ -251,33 +251,29 @@ def test_the_import_says_what_it_is_doing_while_it_does_it(ui: Page, tmp_path: P
     assert "Import them" not in seen, "the button never changed, so nothing was driving it"
 
 
-def test_the_card_names_the_copy_the_unpack_left_behind(ui: Page, tmp_path: Path) -> None:
-    """⚠ **A SUCCESSFUL IMPORT LEAVES A SECOND FULL COPY OF THE EXPORT, and said nothing.**
+def test_a_finished_import_takes_its_unpacked_copy_with_it(ui: Page, tmp_path: Path) -> None:
+    """⚠ **THE 200 GB.** Until 2026-09-12 a successful import left a second full copy of the
+    export on the user's photo drive, where no OS cleaner will ever reach it, and the card said
+    nothing. `(aht)`'s *"untidiness, not a disk a user runs out of"* was written about a preview.
 
-    Measured on a 362-photograph walk-through: everything imported, and 963 files still sitting
-    in `.truestill-staging` on the same drive. Nothing removes them - `clear_staging` exists, is
-    tested and has no production caller, `(aht)`. On a 200 GB Takeout that is 200 GB of silence.
-
-    This asserts the sentence AND the bytes on disk, so it cannot pass on a card that says
-    something reassuring about a tree that is not there.
+    Clicked, and asserted on the bytes: the tree has to exist after the unpack, or the deletion
+    afterwards would prove nothing.
     """
     source, destination = tmp_path / "src", tmp_path / "dest"
     _export(source, 6)
+    staging = destination / ".truestill-staging"
 
     _preview(ui, source, destination)
     ui.click("[data-testid='rc-unpack']")
     expect(ui.locator("[data-testid='rc-summary']")).to_be_visible(timeout=60_000)
+    assert [p for p in staging.rglob("*") if p.is_file()], "the unpack staged nothing"
+
     _apply(ui)
     expect(ui.locator("[data-testid='rc-done']")).to_be_visible(timeout=60_000)
 
-    staging = destination / ".truestill-staging"
-    left = [p for p in staging.rglob("*") if p.is_file()]
-    assert left, "nothing was left staged, so the sentence below would be a lie either way"
-
-    note = ui.locator("[data-testid='rc-staging']")
-    expect(note).to_be_visible()
-    expect(note).to_contain_text(str(staging))
-    expect(note).to_contain_text("You can delete that folder")
+    assert len(_imported(destination)) == 6, "nothing was imported, so deleting staging is wrong"
+    assert [p for p in staging.rglob("*") if p.is_file()] == []
+    expect(ui.locator("[data-testid='rc-staging']")).to_have_count(0)
 
 
 def test_a_plain_folder_import_says_nothing_about_staging(ui: Page, tmp_path: Path) -> None:
@@ -297,3 +293,30 @@ def test_a_plain_folder_import_says_nothing_about_staging(ui: Page, tmp_path: Pa
     expect(ui.locator("[data-testid='rc-done']")).to_be_visible(timeout=60_000)
     assert not (destination / ".truestill-staging").exists()
     expect(ui.locator("[data-testid='rc-staging']")).to_have_count(0)
+
+
+def test_a_cancelled_import_keeps_the_unpacked_copy_and_says_why(ui: Page, tmp_path: Path) -> None:
+    """⚠ **THE HALF THAT KEEPS THIS FROM BECOMING GitLab's SECOND MISTAKE.**
+
+    Their cron swept backup temporaries by age and ate imports that were still running. Here the
+    rule is ownership, not age - and a run the user stopped keeps its extraction, because
+    unpacking a 200 GB export again is not a way to retry. The sentence has to say so, or a user
+    looking at a half-finished import and a folder full of files cannot tell which is rubbish.
+    """
+    source, destination = tmp_path / "src", tmp_path / "dest"
+    _export(source, 200, parts=2)
+    staging = destination / ".truestill-staging"
+
+    _preview(ui, source, destination)
+    ui.click("[data-testid='rc-unpack']")
+    expect(ui.locator("[data-testid='rc-summary']")).to_be_visible(timeout=120_000)
+    _apply(ui)
+    ui.click("#rc-cancel")
+
+    expect(ui.locator("[data-testid='rc-done']")).to_be_visible(timeout=120_000)
+    assert [p for p in staging.rglob("*") if p.is_file()], "the cancel threw the extraction away"
+
+    note = ui.locator("[data-testid='rc-staging']")
+    expect(note).to_be_visible()
+    expect(note).to_contain_text(str(staging))
+    expect(note).to_contain_text("kept because this run did not finish")

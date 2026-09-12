@@ -312,29 +312,6 @@ rather than treated as a triage failure.
   building; that is a real possible answer.
   Body: [`research/backlog/aip.md`](research/backlog/aip.md).
 
-- **(aht) THE ARCHIVE STAGING TREE IS REMOVED BY NOTHING THAT RUNS - `clear_staging` EXISTS AND HAS NO CALLER.** ⚠ **Retitled 2026-09-02 (P190)**: `archive_extract.py:clear_staging` removes a tree and `archive_extract.py:pending_staging` finds one; both are tested and neither is called from `cli.py` or `service/takeout.py`. The missing piece is the policy (delete after a verified organize, keep as a cache, or keep and say so), which is a ruling. Population: 2 trees on this machine, 537 files, 1.6 GB. Filed 2026-08-25 (P98), found in `(ahp)`'s
-  artifact. A 1.61 GB archive leaves **535 files, 1.6 GB** under `.truestill-staging/` beside the
-  organized copy, and **nothing removes it** (`grep -iE "rmtree|unlink|clean"` against
-  `archive_ingest.py` returns nothing).
-  ⚠ **Measured, and it changes the rank**: a second ingest of the same archive **does not stage
-  again** - still 535 files, one directory - so N ingests cost **1x, not Nx**. Untidiness, not a
-  disk a user runs out of. **But the work repeats**: 534 files unpacked again. Cost is per
-  distinct archive.
-  ⚠ **RANKED UP 2026-09-12: the app can now APPLY an import, and "untidiness" was an assessment
-  of a PREVIEW.** While the archive path only previewed, the staging tree sat on a drive the user
-  had not committed anything to. It now sits beside the photographs a successful import just
-  wrote, on the drive they chose, at ~2x the export - measured on a walk-through: 362 photographs
-  imported, **963 files / 14.3 MB still staged**, with the completion card silent about every
-  byte of it. **The card names it since D17** (`rcCompletion`'s `rc-staging` line, with the path,
-  because there is no in-product remedy to offer) - which makes it a stated cost rather than a
-  surprise, and does NOT settle this entry. The policy is still the ruling: delete after a
-  verified organize, keep as a cache, or keep and say so. Naming it is the third option's
-  cheapest half, chosen because a writer that silently doubles disk use could not ship without
-  one.
-  Defensible as it stands - copy mode never deletes a source, and the staging tree *is* that run's
-  source.
-  [Full entry](research/backlog/aht.md)
-
 - **(afg) THE DOWNLOAD PAGE HAS NO HOME IN THIS REPOSITORY, AND `truestill.app` EXISTS ONLY IN
   CONVERSATION.** The
   domain is bought; **nothing about it is in this repository** - `grep -ri truestill.app` matches
@@ -1356,6 +1333,9 @@ here because a lost answer key corrupts every measurement taken against it, whic
   two-drive fixture, a fresh second drive received all six. Both previews are scoped now; the entry
   stays as the record of the question. [Full entry](research/backlog/akg.md)
 
+
+- **(akn) AN ORPHANED STAGING TREE HAS NO OWNER RECORDED, SO NOTHING CAN SWEEP ONE SAFELY - AND THE KEPT TREE IS NOT REUSED.** Filed 2026-09-12, closing `(aht)`. `(aht)`'s ruling made a clean import delete its own extraction, so the only trees that survive now are the ones deliberately KEPT after a cancel, a failure or a refusal - plus whatever a crash leaves. ⚠ **THAT IS WHY NO ORPHAN SWEEP WAS BUILT**: a sweep at startup, where PaperCut's runs, cannot tell a tree kept on purpose from a tree orphaned by a crash, because `_write_journal`'s payload records the tree and its sources and **nothing about the run that owns it**. It would delete the retry material this ruling just promised to keep - GitLab's age-based cron in a different costume. **What would make one possible**: the journal recording its run's outcome, so a sweep could remove only trees whose run finished. That is a design change to the journal, not a cleanup. ⚠ **And the second half, measured in `(aht)` and still true**: previewing again **re-extracts into the same path** (*"the second run unpacked all 534 files again"*), so a kept tree costs the user nothing and saves them nothing either. The completion card deliberately does NOT promise reuse. Both halves want the same thing - a journal that knows whose it is - which is why they are one entry.
+  [Full entry](research/backlog/akn.md)
 
 - **(akl) THE IMPORT PREVIEW NAMES NO DRIVE, AND `app.js` ALREADY ASKS IT TO.** Filed 2026-09-11
   while building D17's apply. `app.js` calls `orgMarkup().matchList(r.duplicate_matches, ...)` and

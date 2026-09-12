@@ -12,7 +12,7 @@ from typing import Any, Literal, NotRequired, TypedDict, cast
 
 from truestill_core import decode_noise
 from truestill_core.allowance import files_written_by, record_files_written
-from truestill_core.archive_extract import STAGING_DIRNAME, pending_staging
+from truestill_core.archive_extract import STAGING_DIRNAME, clear_staging, pending_staging
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_busy import REQUEST_BUSY_ATTEMPTS, retry_while_busy
 from truestill_core.catalog_session import open_catalog
@@ -1517,7 +1517,19 @@ def organize_run(
             single_copy = catalog.single_copy_count()
         return _with_ingest_counts(
             effective_destination,
-            _done_summary(
+            # ⚠ **THE TREE THIS RUN IMPORTED FROM, never "every tree on the drive" and never
+            # anything chosen by age.** For an ingest `source` IS the staging root, because
+            # `ingest_run` resolved it before calling here. Passed unconditionally: the `ingest is
+            # None` return inside is the ONE thing that keeps an organize out, and a second
+            # condition here was proved redundant by a mutation that survived - it could not be
+            # reached, so it could not be tested, so it was not a guard.
+            imported_from=source,
+            # **KEEP unless the run left nothing to want.** `finished_clean` is `(aiq)`'s own
+            # verdict - no FAILED and no MOVE_KEPT - and a cancel keeps by the same rule. A user
+            # whose import stopped part way needs the extraction to retry from; re-unpacking
+            # 200 GB to have another go is not a remedy.
+            keep=cancel.is_set() or not base["finished_clean"],
+            done=_done_summary(
                 base,
                 mode=chosen_mode,
                 mechanism=mechanism,
@@ -1527,9 +1539,9 @@ def organize_run(
                 leftover=leftover,
                 left_behind=left_behind,
             ),
-            results,
-            ingest,
-            known_shas,
+            results=results,
+            ingest=ingest,
+            known_shas=known_shas,
         )
 
     return target
@@ -1559,6 +1571,9 @@ def _seeded_index(catalog: Catalog, *, for_ingest: bool) -> tuple[DedupIndex, Ab
 
 def _with_ingest_counts(
     destination: Path,
+    *,
+    imported_from: Path,
+    keep: bool,
     done: OrganizeDoneSummary,
     results: list[ActionResult],
     ingest: IngestContext | None,
@@ -1574,6 +1589,10 @@ def _with_ingest_counts(
     `already_in_library` is the library's answer where `duplicates` is the destination's, and on a
     fresh second drive a file is honestly both.
     """
+    # ⚠ **THIS RETURN IS WHAT KEEPS AN ORGANIZE OUT OF ALL OF IT - the counts AND the deletion.**
+    # `(aht)`'s own defence is that copy mode never deletes a source, and an organize pointed at a
+    # staging tree chose that folder rather than unpacking it. One mechanism, tested by
+    # `test_an_organize_pointed_straight_at_a_staging_tree_still_leaves_it`.
     if ingest is None:
         return done
     organized = [r for r in results if r.status in _ORGANIZED_STATUSES]
@@ -1588,10 +1607,36 @@ def _with_ingest_counts(
             "already_in_library": sum(1 for r in organized if r.sha256 in known_shas),
         },
     )
+    if not keep:
+        _clear_the_staging_this_run_used(destination, imported_from)
     staged = _staging_left(destination)
     if staged is not None:
         summary["staging_bytes"], summary["staging_path"] = staged
     return summary
+
+
+def _clear_the_staging_this_run_used(destination: Path, imported_from: Path) -> None:
+    """Delete the one staging tree this run imported from. `(aht)`, ruled 2026-09-12.
+
+    ⚠ **SCOPED BY IDENTITY, NEVER BY AGE.** GitLab swept backup temporaries older than 24 hours
+    and ate imports that were still running, because age says nothing about ownership. The match
+    here is the path the run actually read: `pending_staging` answers from the destination, and
+    only the record whose `staging_root` **is** that path is touched. A second export staged
+    beside it is not this run's business and is left alone.
+
+    ⚠ **AND "IS ANYONE USING THIS" IS ALREADY ANSWERED, so nothing new answers it.** This runs
+    inside `organize_run`'s job, which the route holds the per-drive lock on for its whole life -
+    so no other run can be reading this drive, let alone this tree, while these lines execute. A
+    freshness heuristic here would be a second, weaker answer to a question the lock settles.
+
+    `clear_staging` refuses a record that does not describe a tree this product made, and returns
+    False rather than raising: a tampered journal must not turn a successful import into a failed
+    one. Whatever survives is reported by `_staging_left` either way, so a refusal is visible to
+    the user as a tree that is still there rather than as silence.
+    """
+    for record in pending_staging(destination):
+        if record.staging_root == imported_from:
+            clear_staging(record)
 
 
 def _staging_left(destination: Path) -> tuple[int, str] | None:

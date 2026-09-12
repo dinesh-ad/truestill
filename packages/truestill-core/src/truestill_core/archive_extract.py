@@ -300,14 +300,50 @@ def record_extraction(
     return record_organize(db, payload)
 
 
-def clear_staging(record: StagingRecord) -> None:
-    """Remove a staging tree and its journal. The tree goes first.
+def is_our_staging(record: StagingRecord) -> bool:
+    """Whether this record describes a tree **this product made**, from the shape alone.
+
+    ⚠ **`staging_root` IS A STRING OUT OF A FILE, and the file is on a drive anyone can write.**
+    A journal naming ``/home/you/Photos`` is two lines in a text editor, and the only thing
+    standing between that and `shutil.rmtree` is this function. Nothing here trusts the payload:
+    both halves are structural facts about where the record was found.
+
+    * the journal must live in a directory named :data:`STAGING_DIRNAME`;
+    * the tree must be a **direct child** of that same directory, which is exactly and only what
+      :func:`_write_journal` creates (``root / archive_set.stem``).
+
+    Resolved before comparing, so a ``staging_root`` that is a symlink out of the staging
+    directory is refused rather than followed - and so a destination reached through a symlink
+    (`/home/you/Library` -> `/data/Library`) still matches itself.
+    """
+    staging_dir = record.journal_path.parent
+    if staging_dir.name != STAGING_DIRNAME:
+        return False
+    try:
+        relative = record.staging_root.resolve().relative_to(staging_dir.resolve())
+    except (OSError, ValueError):
+        return False
+    # Exactly one component: not the staging directory itself, not something deeper, not `..`.
+    return len(relative.parts) == 1
+
+
+def clear_staging(record: StagingRecord) -> bool:
+    """Remove a staging tree and its journal, or refuse. The tree goes first.
 
     If the journal went first, a crash between the two would leave the tree unattributable
     again - the same ordering argument as writing the journal before the bytes, in reverse.
+
+    ⚠ **Returns False and removes NOTHING when :func:`is_our_staging` refuses it**, rather than
+    raising: the caller is a run that has just finished successfully, and a tampered journal must
+    not turn that into a failure. The tree stays, the caller says where it is, and the user is
+    the one who decides. A silent skip would be the worse half of this trade; the boolean is what
+    makes it visible.
     """
+    if not is_our_staging(record):
+        return False
     shutil.rmtree(record.staging_root, ignore_errors=True)
     record.journal_path.unlink(missing_ok=True)
+    return True
 
 
 def _refuse_over_budget(part_name: str, budget: int) -> NoReturn:

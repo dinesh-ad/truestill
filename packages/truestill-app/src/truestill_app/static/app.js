@@ -3370,8 +3370,10 @@ async function rcRun() {
     },
     // A refusal is the one outcome the block SURVIVES: the run never started, so the typed word
     // is still good and the user can fix the destination and press the same button again.
-    onRefuse: (started) => { $("rc-result").innerHTML = startRefusedCard(started, "rc-dest"); },
-    onError: (d) => finish(jobErrorCard(d)),
+    onRefuse: (started) => {
+      $("rc-result").innerHTML = startRefusedCard(started, "rc-dest") + rcStagingAfterError();
+    },
+    onError: (d) => finish(jobErrorCard(d) + rcStagingAfterError()),
     // A cancelled import keeps what landed - the same honesty the completion card carries, and
     // re-running copies only what is still missing.
     onCancelled: (d) => finish(rcCompletion(d.summary, true)),
@@ -3392,6 +3394,38 @@ async function rcRun() {
 // A zero row is omitted rather than drawn - four numbers where one is 0 makes a reader stop and
 // work out whether it means "none" or "not measured" - except `imported` itself, which is the
 // answer to the question and is shown at zero because its absence would be worse.
+// ⚠ **A CLEAN IMPORT DELETES ITS OWN STAGING TREE SINCE `(aht)` WAS RULED (2026-09-12), so this
+// sentence now describes an EXCEPTION rather than the normal case.** It appears when the run did
+// not finish cleanly - cancelled, or files failed - because the extraction is then the one thing
+// a retry should not have to pay for again; and it appears on a clean run only if `clear_staging`
+// REFUSED the record, which means the journal does not describe a tree this product made.
+//
+// ⚠ **It does NOT promise the retry will reuse the tree, because it will not.** Previewing again
+// re-extracts into the same path - `(aht)` measured that directly ("the second run unpacked all
+// 534 files again"). Keeping it costs the user nothing and deleting it would cost a second
+// extraction of the whole export; reuse is a separate piece of work and is not claimed here.
+function rcStagingNote(s, cancelled) {
+  if (!s.staging_bytes) return "";
+  const unfinished = cancelled || s.finished_clean === false;
+  const why = unfinished
+    ? " It is kept because this run did not finish, so nothing that was unpacked has been thrown away."
+    : "";
+  return `<p class="k" data-testid="rc-staging">The unpacked copy of the export is still on this
+    drive, ${fmtBytes(s.staging_bytes)} in <span class="mono">${esc(s.staging_path)}</span>.${why}
+    You can delete that folder when you no longer need it.</p>`;
+}
+
+// Where the extraction is when the run ENDED IN AN ERROR, which carries no summary to read it
+// from. The screen knows: `rcPlan.takeout` is the tree the preview scanned and the run was
+// pointed at. Silence here was the gap - a refused run sent the user back to the beginning
+// without saying that 200 GB of unpacked export was still sitting on their drive.
+function rcStagingAfterError() {
+  if (!rcPlan || !rcPlan.takeout || !rcPlan.takeout.includes(".truestill-staging")) return "";
+  return `<p class="k" data-testid="rc-staging-error">Nothing was imported, and the unpacked copy
+    of the export is still at <span class="mono">${esc(rcPlan.takeout)}</span>. It has been left
+    alone so you can try again without unpacking everything from scratch.</p>`;
+}
+
 function rcCompletion(s, cancelled) {
   const rows = [
     [s.organized || 0, "imported", true],
@@ -3410,17 +3444,7 @@ function rcCompletion(s, cancelled) {
   // with the total it came from; `(ajl)` is the shape, and organize renders the same thing.
   // ⚠ **NEVER A FLAT FAILURE THAT HIDES WHICH FILES** - `(ajl)`. The same component the organize
   // island uses, through the markup facade, so the two surfaces cannot name files differently.
-  // ⚠ **THE COST THE RUN LEAVES BEHIND, NAMED.** The unpack writes a full second copy of the
-  // export onto this drive and nothing removes it - `clear_staging` has no production caller,
-  // `(aht)`. Measured on a real walk-through: 362 photographs imported and **963 files, 14.3 MB**
-  // left in staging, with the card silent about all of it. On a 200 GB Takeout that is 200 GB.
-  // The path is given because there is no in-product remedy to offer, and "this can be removed"
-  // without saying from where is worse than saying nothing.
-  const staging = s.staging_bytes
-    ? `<p class="k" data-testid="rc-staging">The unpacked copy of the export is still on this
-       drive, ${fmtBytes(s.staging_bytes)} in <span class="mono">${esc(s.staging_path)}</span>.
-       You can delete that folder once you are happy with the import.</p>`
-    : "";
+  const staging = rcStagingNote(s, cancelled);
   const why = Number(s.failed) > 0
     ? `<div class="banner warn"><div>${plural(s.failed, "file")} could not be imported.
        ${orgMarkup().namedFiles(s.failed_files)}</div></div>`
