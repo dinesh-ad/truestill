@@ -20,11 +20,17 @@ ROOT_CODE := conftest.py suite_scratch.py
 # them: the four `conftest.py` files share a module name, and mypy refuses a run that sees two.
 TEST_TREES := packages/truestill-core/tests packages/truestill-cli/tests packages/truestill-app/tests tests/e2e
 MYPY_TESTS := --config-file mypy-tests.toml
-# BOTH platforms, because mypy resolves `sys.platform` for the HOST and prunes the other arm.
-# A correct cross-platform helper therefore looks unreachable on exactly one of them, and on
+# EVERY platform CI runs, because mypy resolves `sys.platform` for the HOST and prunes the other
+# arms. A correct cross-platform helper therefore looks unreachable on all but one of them, and on
 # 2026-08-25 the Windows lane was the only thing that saw it - three minutes after the push.
-# Checking win32 here costs about four seconds and moves that finding to the inner loop.
-MYPY_PLATFORMS := linux win32
+#
+# ⚠ **`darwin` ADDED 2026-09-12, AND THE SOURCE TREE JOINED THE LOOP THE SAME DAY.** This list was
+# `linux win32` and the `typecheck` recipe below applied it to the TEST trees alone - the source
+# mypy ran with no `--platform` at all, so it only ever saw the host. `hashing.py` then reached
+# `os.posix_fadvise` behind a runtime `hasattr` guard; the attribute does not exist off Linux, and
+# **macOS and Windows both went red on `main`** while every local gate was green. The comment above
+# had already made this exact argument about the tests, three weeks earlier.
+MYPY_PLATFORMS := linux darwin win32
 
 .PHONY: install lint format format-check typecheck dash-check name-check redirect-check test test-order check build dryrun e2e e2e-install e2e-fast e2e-loop look
 
@@ -46,8 +52,21 @@ format:
 format-check:
 	$(PYTHON) ruff format --check --target-version py313 .
 
+# ⚠ **WHAT THIS CATCHES AND WHAT IT DOES NOT, because half a remedy sold as a whole one is worse
+# than none.** It catches anything mypy can see from a platform's type stubs: a missing attribute,
+# a signature that differs by OS, a `sys.platform` arm that only compiles on the host. That is the
+# first of the two red builds of 2026-09-12.
+#
+# It does NOT catch the second, and nothing static can. A test compared `str(Path("/some/copy.jpg"))`
+# to a POSIX literal; Windows renders `\some\copy.jpg`. `ruff`, `mypy --platform win32` and the
+# whole suite were green on that file - a `str` is a `str` whatever the separator. **Only RUNNING
+# the tests on Windows sees it**, which is what the `check` matrix is for. This target moves one
+# class of finding inward; it does not make the matrix optional, and a push before all three lanes
+# report is the mistake that produced both.
 typecheck:
-	$(PYTHON) mypy $(CORE) $(CLI) $(APP) $(SCRIPTS) $(PACKAGING) $(ROOT_CODE)
+	@for plat in $(MYPY_PLATFORMS); do \
+		$(PYTHON) mypy --platform $$plat $(CORE) $(CLI) $(APP) $(SCRIPTS) $(PACKAGING) $(ROOT_CODE) || exit 1; \
+	done
 	@for plat in $(MYPY_PLATFORMS); do for tree in $(TEST_TREES); do $(PYTHON) mypy $(MYPY_TESTS) --platform $$plat $$tree || exit 1; done; done
 
 # `-n auto` here rather than in `addopts`, deliberately: addopts would sweep in `test-order`
