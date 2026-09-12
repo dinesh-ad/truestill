@@ -490,8 +490,15 @@ jobs:
   # **The failing test is right and is NOT to be adjusted.** It reports that the configuration
   # cannot meet the budget. Raising its timeout would launder exactly the nondeterminism the
   # `Makefile`'s "No retries, on purpose" note exists to expose, and would do it on the one test
-  # that walks the whole product end to end. The lane stays serial because 1.44x does not buy
-  # the 8-minute condition that was retired anyway - not because the test is fragile.
+  # that walks the whole product end to end.
+  #
+  # ⚠ **AND IT DOES NOT FAIL EVERY TIME - run 34689255031, the same `-n auto` on the same commit
+  # three hours later, was GREEN: 1224 passed in 1443.29s (0:24:03).** So the sentence above is
+  # true of the failure it describes and false as a prediction. A contention failure is
+  # load-dependent by nature, which is the strongest evidence that contention is what it is - and
+  # it is also why `-n auto` cannot be adopted on the strength of one green run. Two samples,
+  # 1330.72s red and 1443.29s green, 1.44x and 1.33x. The lane stays serial-per-leg: the split
+  # above buys more wall-clock than this does, and buys it deterministically.
   #
   # The replacement is TWO STAGES, and `IMPLEMENTATION_STANDARDS.md` 6.1 is the binding form:
   # FAST every push (`make check`, ~40 s over the whole suite, plus contract guards that catch browser
@@ -532,8 +539,39 @@ jobs:
   e2e:
     # Nightly and on demand. NOT on push - see the banner above for the measurement behind that.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    name: e2e (chromium + webkit, ubuntu)
+    name: e2e (${{ matrix.browser }}, ubuntu)
     runs-on: ubuntu-latest
+    # ⚠ SPLIT BY ENGINE 2026-09-12, and it splits ENGINES rather than TESTS - which is the whole
+    # reason this shape was chosen over `pytest-split`. That plugin needs a committed
+    # `.test_durations`, and a derived measurement stored as a literal is the class this repo has
+    # now found three times in one week (`(akm)`, the rail; `(akm)` again, the panel threshold;
+    # `E2E_SECONDS_MAX` itself). A file that rots on every test added is not a speed-up, it is a
+    # maintenance tax with a clock on it.
+    #
+    # MEASURED BY RUNNING IT, run 34689313525, each leg alone on its own runner:
+    #
+    #     chromium   518.30s (0:08:38)    webkit  1420.39s (0:23:40)
+    #
+    # against 1914.84s (0:31:54) serial on the same runner class. **Wall-clock 31:54 -> 23:40,
+    # 26% off**, and the two legs sum to 1938.69s - so +24s of runner time, which is the 37
+    # engine-independent tests paid twice. On a public repo those minutes are free; WALL-CLOCK is
+    # the only thing being bought.
+    #
+    # ⚠ **AN EARLIER ESTIMATE PUT WEBKIT AT 19.3 MIN AND IT IS 23:40.** That figure came from
+    # attributing the serial log by the gap between consecutive test completions, which
+    # under-counts whatever a leg pays outside a test body. The per-leg ceilings below were set
+    # from the estimate first and are set from the measurement now - the estimate was 18% low,
+    # which is exactly the size of error that makes a ceiling either useless or a false alarm.
+    # The ceilings are that measurement x1.88, the proportion this job's own 3600 already carried
+    # against the serial lane: 518 -> 1000, 1420 -> 2700.
+    #
+    # `fail-fast: false` so one engine's red does not cancel the other's evidence. It does NOT
+    # make a leg optional: a failed job fails the run, which is the property
+    # `test_a_red_e2e_leg_fails_the_run` exists to pin.
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
     # ⚠ A MEASUREMENT DISPATCH MUST NOT PAINT `main` RED, added 2026-09-12 after it did.
     # `e2e_extra` exists so a configuration can be TRIED without editing the lane, and a tried
     # configuration that does not work is the experiment succeeding. On 2026-09-12 the `-n auto`
@@ -682,8 +720,15 @@ jobs:
       # `inputs.e2e_extra` is empty on schedule and on a plain dispatch, so this is the same
       # command it has always been unless somebody deliberately asked otherwise. It is appended
       # AFTER the junit flag so a measurement run still uploads its results.
+      # ⚠ `E2E_BROWSERS` IS THE ONE SELECTION MECHANISM and it drives `--browser`, not `-k`.
+      # Deselecting with `-k chromium` (what `make e2e-loop` does) would also drop the 37 tests
+      # that are parameterised by no engine at all - a leg that skipped them would be a hole.
+      # They therefore run in BOTH legs, deliberately: 0.5 min measured, against a selection
+      # mechanism for "unparameterised" that does not exist and would fail silently if it did.
       - name: E2E
-        run: make e2e E2E_EXTRA="--junitxml=test-results.xml ${{ inputs.e2e_extra }}" E2E_SECONDS_MAX=3600
+        run: |
+          make e2e E2E_BROWSERS=${{ matrix.browser }} E2E_SECONDS_MAX=${{ matrix.browser == 'webkit' && 2700 || 1000 }} \
+            E2E_EXTRA="--junitxml=test-results.xml ${{ inputs.e2e_extra }}"
 
       # 510 browser tests on 2026-09-02; the floor is a fraction (P189, Q1213).
       - name: The lane actually ran
@@ -699,7 +744,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: test-results-e2e
+          name: test-results-e2e-${{ matrix.browser }}
           path: test-results.xml
           if-no-files-found: error
           retention-days: 30
@@ -721,7 +766,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-failure-artifacts
+          name: e2e-failure-artifacts-${{ matrix.browser }}
           path: tests/e2e/.artifacts
           include-hidden-files: true
           if-no-files-found: error

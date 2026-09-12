@@ -141,7 +141,28 @@ TEST_SECONDS_MAX ?= 90
 # ⚠ **CI DOES NOT USE THIS NUMBER AND NEVER HAS.** `.github/workflows/ci.yml`'s E2E step passes
 # `E2E_SECONDS_MAX=3600` explicitly. This default governs a local `make e2e` only. A comment in
 # that file claimed the job "enforces its own 2000 s ceiling" until 2026-09-12; it did not.
+# ⚠ **AND IT MOVES WITH `E2E_BROWSERS`, because a ceiling calibrated for a 33-minute run is not
+# a ceiling on a 10-minute one - it is a number that would let the chromium leg TRIPLE before
+# saying anything.** Each is the same 1.38 proportion applied to that selection's own measurement,
+# taken 2026-09-12 on this machine (AMD Ryzen 7 4800H, 16 cores, ext4), serial, all green:
+#
+#     chromium   638.55s (0:10:38), 632 tests     x1.38 ->  881  -> 900
+#     webkit    1320.67s (0:22:01), 632 tests     x1.38 -> 1823  -> 1850
+#     both      1991.00s (0:33:11), 1227 tests    x1.38 -> 2748  -> 2750
+#
+# The two legs sum to 1959s against 1991s for the combined lane, so splitting costs no real
+# runner time - it buys WALL-CLOCK, and only in CI where the legs run on separate machines.
+#
+# ⚠ **A selection this does not know gets the combined ceiling**, deliberately: too loose is a
+# quiet gate, and too tight is a red run on a configuration nobody calibrated. The first is
+# recoverable by reading; the second gets the ceiling raised in a panic.
+ifeq ($(strip $(E2E_BROWSERS)),chromium)
+E2E_SECONDS_MAX ?= 900
+else ifeq ($(strip $(E2E_BROWSERS)),webkit)
+E2E_SECONDS_MAX ?= 1850
+else
 E2E_SECONDS_MAX ?= 2750
+endif
 
 # `$$` throughout: this is one shell line per recipe, so the variables are the shell's, not
 # make's. The test's own exit status is preserved - a ceiling must not turn a red suite green.
@@ -246,8 +267,17 @@ e2e-install:
 # CI used to run its own `pytest tests/e2e --browser chromium ...`, so when this target gained
 # WebKit and a frontend build, CI silently kept running neither - the coverage existed only on
 # the machine that added it. One definition, and CI passes only its own reporting flags.
+# ⚠ ONE WAY TO SELECT ENGINES, AND IT IS `--browser`. `e2e-loop` below uses `-k chromium`, which
+# DESELECTS - a different thing that also drops the 37 tests parameterised by no engine at all.
+# This variable drives the real flag, so a leg that asks for one engine gets that engine's cases
+# plus the engine-independent ones, which is what a leg has to run to be worth splitting out.
+E2E_BROWSERS ?= chromium webkit
+# Built here rather than inline: `$(call ...)` splits its arguments on commas, and a `foreach`
+# written inside the call below would be read as three arguments.
+e2e_browser_flags = $(foreach browser,$(E2E_BROWSERS),--browser $(browser))
+
 e2e: frontend
-	@$(call time_ceiling,$(PYTHON) pytest tests/e2e --browser chromium --browser webkit \
+	@$(call time_ceiling,$(PYTHON) pytest tests/e2e $(e2e_browser_flags) \
 		--tracing retain-on-failure --video retain-on-failure \
 		--output tests/e2e/.artifacts $(E2E_EXTRA),$(E2E_SECONDS_MAX),the browser lane,E2E_SECONDS_MAX)
 
