@@ -468,6 +468,31 @@ jobs:
   # needs no budget to fire. Re-run the `-n auto` experiment before citing this record as the
   # reason the lane stays serial. Nothing above is deleted; it is what was measured.
   #
+  # ⚠ RE-RUN 2026-09-12 (run 34678648530, both engines, `-n auto`, commit efe9ec3), AND THE
+  # BUDGET *WAS* THE CAUSE - the 2026-09-05 doubt is answered and it was wrong.
+  # **1 failed, 1223 passed, 3 skipped in 1330.72 s (22:10)** against 1914.84 s serial on the
+  # same commit forty minutes earlier (run 34676698335, all green): **1.44x**, the same order as
+  # the 1.43x/1.79x above. The single failure was
+  # `test_golden_path.py::test_organize_then_back_up_then_check[webkit]`, and the TRACE settles
+  # the mechanism rather than leaving it inferred: at the moment the 30 s assertion expired the
+  # page read *"Copying for 8 files... elapsed 29s - 0.3 files/sec"*. The run was executing, not
+  # hung and not refused; `/api/backup/run` had returned 200 and its job was streaming events.
+  # The organize step earlier in the same test took **20.0 s for 8 files (1.0 files/sec)** and
+  # very nearly failed the same way. Eight files of ~2 KB.
+  #
+  # WHY, AND IT IS NOT "the runner is slow": `-n auto` is `os.cpu_count()` = 4 workers, and
+  # `tests/e2e/conftest.py:app_server` is FUNCTION-scoped - so each worker cycles its own uvicorn
+  # per test, drives its own browser, and shells out to `exiftool` per chunk. Four of those on
+  # four cores is a dozen-odd processes competing, and ~1 file/sec is the signature of process
+  # spawn contention rather than of I/O. A per-assertion budget of 30 s is generous on an
+  # uncontended machine and cannot absorb that, which is the whole finding.
+  #
+  # **The failing test is right and is NOT to be adjusted.** It reports that the configuration
+  # cannot meet the budget. Raising its timeout would launder exactly the nondeterminism the
+  # `Makefile`'s "No retries, on purpose" note exists to expose, and would do it on the one test
+  # that walks the whole product end to end. The lane stays serial because 1.44x does not buy
+  # the 8-minute condition that was retired anyway - not because the test is fragile.
+  #
   # The replacement is TWO STAGES, and `IMPLEMENTATION_STANDARDS.md` 6.1 is the binding form:
   # FAST every push (`make check`, ~40 s over the whole suite, plus contract guards that catch browser
   # classes with no browser - `test_the_json_client_is_only_used_on_json_routes.py` does it in
@@ -509,9 +534,32 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     name: e2e (chromium + webkit, ubuntu)
     runs-on: ubuntu-latest
-    # The browser lane runs ~24 min of real work and enforces its own 2000 s ceiling inside the
-    # step. This is the outer bound for the case that ceiling cannot see: a hang before pytest
-    # ever starts. 45 leaves the internal ceiling as the thing that reports a slow suite.
+    # ⚠ A MEASUREMENT DISPATCH MUST NOT PAINT `main` RED, added 2026-09-12 after it did.
+    # `e2e_extra` exists so a configuration can be TRIED without editing the lane, and a tried
+    # configuration that does not work is the experiment succeeding. On 2026-09-12 the `-n auto`
+    # dispatch below went red on a commit whose ordinary lane was green forty minutes earlier,
+    # and the Actions tab showed the two side by side with nothing to tell them apart - a red
+    # main that was not one. The job still runs, still uploads its artifacts and still shows as
+    # failed on its own row; only the RUN's conclusion is spared, and only when somebody asked
+    # for a non-default configuration. An empty `e2e_extra` - schedule, and any ordinary
+    # dispatch - is unaffected and fails the run exactly as it always has.
+    #
+    # ⚠ THE `event_name` CONJUNCT IS NOT DECORATION. On a `schedule` every input is **null**,
+    # types then differ, and GitHub coerces to number - null and '' both become 0, so
+    # `inputs.e2e_extra != ''` is false and the nightly is unaffected. That is the documented
+    # behaviour and it is also the whole nightly resting on a coercion rule. The first conjunct
+    # makes the schedule case impossible to reach by construction instead, so the guard does not
+    # depend on a reading of the expression language being right.
+    continue-on-error: ${{ github.event_name == 'workflow_dispatch' && inputs.e2e_extra != '' }}
+    # The browser lane runs 32 min of real work MEASURED 2026-09-12 on this runner (`nproc = 4`),
+    # against the 3600 s ceiling the E2E step passes below - NOT the 2000 s default in the
+    # Makefile, which governs a local `make e2e` and never applied here.
+    # ⚠ This read "~24 min ... enforces its own 2000 s ceiling" until 2026-09-12 and was wrong
+    # twice over: the lane had grown to 31:54 and the step has overridden the ceiling to 3600
+    # since it was written. A comment carrying a constant it does not own is the same class as
+    # `(akm)` - a derived number stored as a literal, which cannot go red when its derivation
+    # moves. Count it rather than trusting this line; the summary line of any run prints it.
+    # 45 is the outer bound for what no ceiling can see: a hang before pytest ever starts.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7

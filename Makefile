@@ -113,13 +113,35 @@ TEST_SECONDS_MAX ?= 90
 # Linux, WKWebView on macOS - and Chromium-only was never a Tauri-specific gap: the .deb
 # already opens in whatever browser the user has.
 #
-# MEASURED, and the first number here was an estimate that came in 7% low. Chromium 434s,
+# MEASURED 2026-08-22, and the first number was an estimate that came in 7% low. Chromium 434s,
 # WebKit 897s alone; the combined lane measured **1431s**, not the 1330 those two suggested.
-# The headroom is deliberately the same PROPORTION the previous ceiling carried (600 against a
-# 434s lane, 1.38x) rather than a new tolerance invented for the occasion: 1431 x 1.38 ~= 1975.
-# A 1500 ceiling would have left 4.8% margin and tripped on the first slow run, which is how a
-# ceiling gets raised in a panic instead of on evidence.
-E2E_SECONDS_MAX ?= 2000
+# The headroom was deliberately the same PROPORTION the previous ceiling carried (600 against a
+# 434s lane, 1.38x) rather than a new tolerance invented for the occasion: 1431 x 1.38 ~= 1975,
+# taken to 2000. A 1500 ceiling would have left 4.8% margin and tripped on the first slow run,
+# which is how a ceiling gets raised in a panic instead of on evidence.
+#
+# ⚠ **RECALIBRATED 2026-09-12 TO 2750, AND 2000 HAD 9 SECONDS LEFT IN IT.** The lane grew from
+# 1431s to 1991s in three weeks - the same suite plus the import, recover and rail work - and
+# nothing said so, because a ceiling only speaks when it is crossed. Measured twice back to back
+# on this machine (AMD Ryzen 7 4800H, 16 cores, 30 GiB, ext4, load avg ~3.5 from an editor and a
+# browser):
+#
+#     1991.00s (0:33:10)   1984.85s (0:33:04)      `make e2e`, both engines, serial, 1224 passed
+#     1914.84s (0:31:54)   CI, run 34676698335     ubuntu-latest, nproc = 4, same commit
+#
+# ⚠ **0.45% of headroom against 2000.** The next run was going to be red on the clock while
+# every test passed, and the diagnosis would have been "the browser lane is broken" rather than
+# "the suite grew 39%". That is `(akm)`'s class arriving a third time: a number derived from a
+# measurement, stored as a literal, unable to go red when its derivation moves.
+#
+# 2750 is the SAME 1.38 proportion applied to the new worst sample - 1991 x 1.38 = 2748 - and
+# not a round number chosen to feel safe. It is deliberately derived the way the line above it
+# was, so the next person recalibrating has one method rather than two.
+#
+# ⚠ **CI DOES NOT USE THIS NUMBER AND NEVER HAS.** `.github/workflows/ci.yml`'s E2E step passes
+# `E2E_SECONDS_MAX=3600` explicitly. This default governs a local `make e2e` only. A comment in
+# that file claimed the job "enforces its own 2000 s ceiling" until 2026-09-12; it did not.
+E2E_SECONDS_MAX ?= 2750
 
 # `$$` throughout: this is one shell line per recipe, so the variables are the shell's, not
 # make's. The test's own exit status is preserved - a ceiling must not turn a red suite green.
