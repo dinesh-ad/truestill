@@ -122,7 +122,7 @@ def test_declining_after_the_precheck_writes_nothing(ui: Page, tmp_path: Path) -
     before = _fingerprint(destination)
 
     _preview(ui, source, destination)
-    expect(ui.locator("[data-testid='rc-confirm']")).to_be_visible()
+    expect(ui.locator("[data-testid='rc-unpack']")).to_be_visible()
 
     assert _fingerprint(destination) == before, "the precheck wrote to the destination"
 
@@ -139,7 +139,7 @@ def test_confirming_unpacks_and_reports(ui: Page, tmp_path: Path) -> None:
     _part(source, 2, {f"{folder}/IMG_0001.jpg.json": _SIDECAR})
 
     _preview(ui, source, tmp_path / "dest")
-    ui.click("[data-testid='rc-confirm']")
+    ui.click("[data-testid='rc-unpack']")
 
     expect(ui.locator("[data-testid='rc-summary']")).to_be_visible(timeout=60_000)
     expect(ui.locator("[data-testid='rc-summary']")).to_contain_text("1")
@@ -159,7 +159,7 @@ def test_cancelling_leaves_a_staging_tree_the_next_run_can_clear(ui: Page, tmp_p
     _zip(source / "photos.zip", entries)
 
     _preview(ui, source, destination)
-    ui.click("[data-testid='rc-confirm']")
+    ui.click("[data-testid='rc-unpack']")
     ui.click("#rc-cancel")
 
     expect(ui.locator("[data-testid='rc-cancelled']")).to_be_visible(timeout=60_000)
@@ -216,7 +216,7 @@ def test_a_cancel_clicked_before_the_job_is_named_is_honoured_and_shows_no_error
         held.append(route)
 
     ui.route("**/api/ingest/archives/run", hold)
-    ui.click("[data-testid='rc-confirm']")
+    ui.click("[data-testid='rc-unpack']")
     expect(ui.locator("#rc-cancel")).to_be_enabled()
     ui.click("#rc-cancel")
     expect(ui.locator("#rc-cancel")).to_have_text("Stopping…")

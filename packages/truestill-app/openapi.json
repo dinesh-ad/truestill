@@ -977,6 +977,9 @@
                 "$ref": "#/components/schemas/CompletionBase"
               },
               {
+                "$ref": "#/components/schemas/IngestDoneSummary"
+              },
+              {
                 "$ref": "#/components/schemas/IngestPreviewEmpty"
               },
               {
@@ -1854,6 +1857,164 @@
         "title": "InferredLocalShiftPayload",
         "type": "object"
       },
+      "IngestDoneSummary": {
+        "properties": {
+          "already_in_library": {
+            "type": "integer"
+          },
+          "audio": {
+            "type": "integer"
+          },
+          "bytes_near_dup": {
+            "type": "integer"
+          },
+          "bytes_organized": {
+            "type": "integer"
+          },
+          "bytes_saved": {
+            "type": "integer"
+          },
+          "dates_from_sidecar": {
+            "type": "integer"
+          },
+          "drive_label": {
+            "type": "string"
+          },
+          "duplicate_matches": {
+            "$ref": "#/components/schemas/DuplicateReport"
+          },
+          "duplicates": {
+            "type": "integer"
+          },
+          "elapsed_seconds": {
+            "type": "number"
+          },
+          "failed": {
+            "type": "integer"
+          },
+          "failed_files": {
+            "$ref": "#/components/schemas/FailedReport"
+          },
+          "finished_clean": {
+            "type": "boolean"
+          },
+          "folders": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "left_in_source": {
+            "$ref": "#/components/schemas/LeftInSource"
+          },
+          "leftover_empty_folders": {
+            "$ref": "#/components/schemas/LeftoverEmptyFolders"
+          },
+          "mechanism": {
+            "$ref": "#/components/schemas/ModeMechanism"
+          },
+          "metadata_files": {
+            "$ref": "#/components/schemas/FailedReport"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "moved_by_copy": {
+            "type": "integer"
+          },
+          "moved_in_place": {
+            "type": "integer"
+          },
+          "near_dup": {
+            "type": "integer"
+          },
+          "near_dup_matches": {
+            "$ref": "#/components/schemas/DuplicateReport"
+          },
+          "newest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "oldest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "organized": {
+            "type": "integer"
+          },
+          "organized_sample": {
+            "$ref": "#/components/schemas/OrganizedSample"
+          },
+          "outcomes": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "photos": {
+            "type": "integer"
+          },
+          "record_error": {
+            "type": "string"
+          },
+          "single_copy": {
+            "type": "integer"
+          },
+          "staging_bytes": {
+            "type": "integer"
+          },
+          "staging_path": {
+            "type": "string"
+          },
+          "videos": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "already_in_library",
+          "audio",
+          "bytes_near_dup",
+          "bytes_organized",
+          "bytes_saved",
+          "dates_from_sidecar",
+          "drive_label",
+          "duplicate_matches",
+          "duplicates",
+          "failed",
+          "failed_files",
+          "finished_clean",
+          "folders",
+          "mechanism",
+          "metadata_files",
+          "mode",
+          "moved_by_copy",
+          "moved_in_place",
+          "near_dup",
+          "near_dup_matches",
+          "newest",
+          "oldest",
+          "organized",
+          "organized_sample",
+          "outcomes",
+          "photos",
+          "single_copy",
+          "videos"
+        ],
+        "title": "IngestDoneSummary",
+        "type": "object"
+      },
       "IngestPreviewEmpty": {
         "properties": {
           "files": {
@@ -1864,11 +2025,15 @@
           },
           "record_error": {
             "type": "string"
+          },
+          "source": {
+            "type": "string"
           }
         },
         "required": [
           "files",
-          "missing_sidecar"
+          "missing_sidecar",
+          "source"
         ],
         "title": "IngestPreviewEmpty",
         "type": "object"
@@ -1920,6 +2085,9 @@
           "sentinel_rejected": {
             "type": "integer"
           },
+          "source": {
+            "type": "string"
+          },
           "suspect_default": {
             "type": "integer"
           },
@@ -1943,6 +2111,7 @@
           "missing_sidecar",
           "reclaimed_mb",
           "sentinel_rejected",
+          "source",
           "suspect_default",
           "undated",
           "unreadable"

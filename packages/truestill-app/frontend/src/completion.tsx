@@ -142,7 +142,7 @@ function ResultGrid({ sample }: { sample: Sample | null | undefined }): React.JS
 
 /** A collapsed per-file list, stated rather than implied. Shared by the failure and the
  *  metadata notes, which print the same shape over different fields. */
-function NamedFiles({
+export function NamedFiles({
   files,
 }: {
   files: { total: number; shown?: { name: string; detail: string }[] } | null | undefined;

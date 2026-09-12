@@ -943,10 +943,17 @@ svg.ico {
   margin: 0 auto;
 }
 /* Long-form text inside a card. Not `.card` itself: the card holds fields and tables that
-   should use the full column. */
+   should use the full column.
+
+   ⚠ **AND INSIDE A TYPED CONFIRM, which is neither a card nor a banner.** `.k` is a MEASURE
+   class - it sets this cap and no colour at all - so a `.k` outside these containers silently
+   gets nothing, which is what the Import confirm's note did on 2026-09-12: it rendered at the
+   full width of a 1600px column. Every typed confirm is a host `typedConfirm` owns, so the rule
+   is widened once here rather than special-cased per screen. */
 .screen .card .k,
 .screen .card .hint,
-.screen .banner .k {
+.screen .banner .k,
+.screen .confirm-block .k {
   max-width: 68ch;
 }
 .screen.active {

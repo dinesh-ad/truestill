@@ -93,7 +93,7 @@ def _to_the_confirm(ui: Page, tmp_path: Path, *, photos: int = 60) -> None:
     ui.fill("#rc-takeout", str(source))
     ui.fill("#rc-dest", str(destination))
     ui.click("#rc-preview")
-    expect(ui.locator("[data-testid='rc-confirm']")).to_be_visible(timeout=30_000)
+    expect(ui.locator("[data-testid='rc-unpack']")).to_be_visible(timeout=30_000)
 
 
 def test_a_cancel_clicked_before_the_job_exists_is_still_sent(ui: Page, tmp_path: Path) -> None:
@@ -102,7 +102,7 @@ def test_a_cancel_clicked_before_the_job_exists_is_still_sent(ui: Page, tmp_path
     sent = _cancels(ui)
     _hold_the_start_response(ui, 1_500)
 
-    ui.click("[data-testid='rc-confirm']")
+    ui.click("[data-testid='rc-unpack']")
     expect(ui.locator("#rc-cancel")).to_be_visible()  # the card is up; the job has no name yet
     ui.click("#rc-cancel")
 
@@ -122,7 +122,7 @@ def test_the_click_is_acknowledged_before_the_cancel_can_land(ui: Page, tmp_path
     _to_the_confirm(ui, tmp_path)
     _hold_the_start_response(ui, 4_000)
 
-    ui.click("[data-testid='rc-confirm']")
+    ui.click("[data-testid='rc-unpack']")
     ui.click("#rc-cancel")
 
     expect(ui.locator("#rc-cancel")).to_have_text("Stopping…", timeout=2_000)

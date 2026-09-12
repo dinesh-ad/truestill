@@ -62,9 +62,10 @@ table being read rather than quoted.
 *six* until 2026-08-30**, while `CLAUDE.md`'s map said five; counted from the table below it is
 **five** - `clean-empty`, `ingest`, `drives`, `analyze`, `catalog`. Two documents holding one
 number and disagreeing is the drift this file exists to make checkable, and the checkable half is
-the table, not either sentence. The one that is
-partial in a way a user would notice is **`ingest`: the app can preview an import and can never
-apply one.**
+the table, not either sentence. ⚠ **The one that was partial in a way a user would notice -
+*"the app can preview an import and can never apply one"* - CLOSED on 2026-09-12**: D17 shipped
+`/api/ingest/run` and the Import screen's typed confirm. What stays partial there is the three
+flags, `--tz`, `--prefer-takeout-dates` and `--map-albums`.
 
 ---
 
@@ -100,7 +101,7 @@ because somebody went looking, and this table still cannot show an app-only capa
 | `backup` | `cli.py` `add_parser("backup"` | `/api/backup/{preview,run}` | **covered**, preview and apply. ⚠ The CLI **refuses** an unregistered drive where the app auto-attaches - a ruling, not a gap: registering is a distinct act with its own ghost guard. `(ahf)` |
 | `bake` | `cli.py` `add_parser("bake"` | `/api/dates/bake/{preview,run}` `server.py:create_app.events_apply_to_disk` | **covered**, preview and apply. ⚠ The *input* is not: confirming a date is app-only by recorded deferral, so a CLI bake writes only what the app recorded or `truestill restore` brought back. `(ahd)` |
 | `clean-empty` | `cli.py` `add_parser("clean-empty"` | `/api/clean-empty/{preview,apply}` `server.py:create_app.events_merge` | **partial** - `--permanent` deliberately absent (`service/clean_empty.py:clean_empty_apply`), app refuses and points at the CLI |
-| `ingest` | `cli.py` `add_parser("ingest"` | `/api/ingest/{preview,archives/precheck,archives/run}` `server.py:create_app.events_preview` | ⚠ **partial - preview only.** `service/takeout.py:archive_ingest_run.target` returns `ingest_preview(...)`; there is no apply endpoint. `--tz`, `--prefer-takeout-dates`, `--map-albums` unimplemented |
+| `ingest` | `cli.py` `add_parser("ingest"` | `/api/ingest/{preview,archives/precheck,archives/run,run}` `server.py:create_app.events_preview` | ⚠ **partial - FLAGS ONLY since 2026-09-12.** The apply shipped with D17: `service/organize.ingest_run` is `organize_run` with `takeout=` set, behind a typed confirm. `--tz`, `--prefer-takeout-dates`, `--map-albums` are still unimplemented |
 | `drives` | `cli.py` `add_parser("drives"` | `/api/drives` `server.py:create_app.events_apply_to_disk` | **partial - list only.** Every marker-writing flag (`--init`, `--label`, `--uuid`, `--adopt-existing`, `--force-new-identity`, `--migrate-marker`) has no route |
 | `analyze` | `cli.py` `add_parser("analyze"` | `/api/organize/inventory` `server.py:create_app.events_apply` | **partial** - same walk-and-stat tier; `--all-files` missing |
 | `catalog` | `cli.py` `add_parser("catalog"` | `/api/library/status` `server.py:create_app` | **partial - read half only.** `--move` has no route |

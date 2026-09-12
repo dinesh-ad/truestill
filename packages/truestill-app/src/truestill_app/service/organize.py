@@ -5,13 +5,14 @@ from __future__ import annotations
 import threading
 import uuid
 from collections import Counter
+from collections.abc import Set as AbstractSet
 from itertools import islice
 from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict, cast
 
 from truestill_core import decode_noise
 from truestill_core.allowance import files_written_by, record_files_written
-from truestill_core.archive_extract import pending_staging
+from truestill_core.archive_extract import STAGING_DIRNAME, pending_staging
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_busy import REQUEST_BUSY_ATTEMPTS, retry_while_busy
 from truestill_core.catalog_session import open_catalog
@@ -82,7 +83,7 @@ from truestill_core.run_record import (
     record_organize,
     stop_block,
 )
-from truestill_core.takeout import ingest_context, scan_takeout
+from truestill_core.takeout import IngestContext, ingest_context, scan_takeout
 from truestill_core.thumbnails import upright_size
 
 from truestill_app.jobs import JobTarget
@@ -1297,7 +1298,7 @@ def _open_organize_run(
 
 def ingest_run(
     takeout: Path, destination: Path, db: Path
-) -> JobTarget[CompletionBase | OrganizeDoneSummary]:
+) -> JobTarget[CompletionBase | IngestDoneSummary]:
     """Apply a Takeout rescue. **The organize pipeline with the sidecars handed to it.** D17.
 
     ⚠ **IT LIVES HERE, NEXT TO WHAT IT CALLS, and the placement was forced rather than chosen.**
@@ -1397,7 +1398,7 @@ def organize_run(
             # nothing; the marker itself waits for the space check below. `(aek)`
             _approve_registration(effective_destination, catalog)
 
-            index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
+            index, known_shas = _seeded_index(catalog, for_ingest=scan is not None)
             on_destination = scope_to_marker(effective_destination, catalog)
             resolutions = resolve(
                 decisions,
@@ -1514,18 +1515,98 @@ def organize_run(
             # The custody nudge, counted rather than assumed: how much of the library really
             # does exist in only one place right now.
             single_copy = catalog.single_copy_count()
-        return _done_summary(
-            base,
-            mode=chosen_mode,
-            mechanism=mechanism,
-            drive_label=marker.label,
-            single_copy=single_copy,
-            record_error=record_error,
-            leftover=leftover,
-            left_behind=left_behind,
+        return _with_ingest_counts(
+            effective_destination,
+            _done_summary(
+                base,
+                mode=chosen_mode,
+                mechanism=mechanism,
+                drive_label=marker.label,
+                single_copy=single_copy,
+                record_error=record_error,
+                leftover=leftover,
+                left_behind=left_behind,
+            ),
+            results,
+            ingest,
+            known_shas,
         )
 
     return target
+
+
+def _seeded_index(catalog: Catalog, *, for_ingest: bool) -> tuple[DedupIndex, AbstractSet[str]]:
+    """The dedup index, and for an ingest the catalog's own sha set beside it.
+
+    ⚠ **MATERIALISED FOR INGEST ONLY, and only so one number can be counted honestly.** The run
+    resolves with ``on_destination``, so every verdict it produces is THIS DESTINATION's -
+    correct, and it means the library's own answer is simply not in the results. An import onto a
+    fresh second drive would then read *"42 imported, 0 repeats"* while the catalog held all 42,
+    which a user reads as "it copied them twice". `(aei)`, D14, D17: both answers are true and the
+    completion card owes both. A set of hex strings over rows already being walked to build the
+    index; an ordinary organize streams them exactly as it did and pays nothing.
+    """
+    if not for_ingest:
+        return DedupIndex.from_catalog_rows(
+            catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD
+        ), frozenset()
+    rows = list(catalog.seed_rows())
+    return (
+        DedupIndex.from_catalog_rows(rows, DEFAULT_PHASH_THRESHOLD),
+        {sha for _, sha, _ in rows},
+    )
+
+
+def _with_ingest_counts(
+    destination: Path,
+    done: OrganizeDoneSummary,
+    results: list[ActionResult],
+    ingest: IngestContext | None,
+    known_shas: AbstractSet[str],
+) -> OrganizeDoneSummary | IngestDoneSummary:
+    """The two facts an import owes that an organize does not, counted from what the run did.
+
+    ⚠ **`dates_from_sidecar` IS THE ONE THAT PROVES THE FEATURE WORKED.** Everything else on the
+    card an ordinary copy could have produced. This counts files that were **organized** AND whose
+    bake plan carried a rescued capture time - the intersection, not `len(ingest.writes)`, because
+    a plan entry for a file the run skipped or failed on describes a date nothing on disk carries.
+
+    `already_in_library` is the library's answer where `duplicates` is the destination's, and on a
+    fresh second drive a file is honestly both.
+    """
+    if ingest is None:
+        return done
+    organized = [r for r in results if r.status in _ORGANIZED_STATUSES]
+    rescued = {path for path, write in ingest.writes.items() if write.taken_at_local is not None}
+    summary = cast(
+        "IngestDoneSummary",
+        {
+            **done,
+            "dates_from_sidecar": sum(
+                1 for r in organized if str(r.resolution.decision.source) in rescued
+            ),
+            "already_in_library": sum(1 for r in organized if r.sha256 in known_shas),
+        },
+    )
+    staged = _staging_left(destination)
+    if staged is not None:
+        summary["staging_bytes"], summary["staging_path"] = staged
+    return summary
+
+
+def _staging_left(destination: Path) -> tuple[int, str] | None:
+    """The unpacked copy still sitting on the drive, sized, or ``None`` when there is none.
+
+    One stat per staged file at the end of a run that has just copied every one of them - the
+    tree is already warm in the page cache and nothing is read. A plain-folder import unpacked
+    nothing and gets ``None``, which is why the sentence is absent rather than zero.
+    """
+    records = pending_staging(destination)
+    if not records:
+        return None
+    root = destination / STAGING_DIRNAME
+    total = sum(p.stat().st_size for p in root.rglob("*") if p.is_file())
+    return total, str(root)
 
 
 class CompletionBase(TypedDict):
@@ -1605,6 +1686,32 @@ class OrganizeDoneSummary(CompletionBase):
     #: Present ONLY when the run record could not be written. `(afu)`: the record is automatic, so
     #: its absence is the news - and the CLI prints the same fact rather than swallowing it.
     record_error: NotRequired[str]
+
+
+class IngestDoneSummary(OrganizeDoneSummary):
+    """An import's completion: everything organize reports, plus the two facts only it can.
+
+    Both are counted from the finished run rather than carried over from the preview - a preview
+    number on a completion card is a claim wearing an observation's clothes, and this project has
+    been caught by that shape before.
+    """
+
+    #: Organized copies that carry a capture time rescued from a sidecar. The feature's proof.
+    dates_from_sidecar: int
+    #: How many of the organized files the catalog ALREADY held, anywhere. Different from
+    #: ``duplicates``, which is this destination's answer, and both are true at once.
+    already_in_library: int
+    #: ⚠ **What the unpack left on the drive, in bytes**, present only when there is one.
+    #: `clear_staging` exists, is tested, and has **no production caller** - `(aht)`, whose own
+    #: body says the policy is undecided. That was survivable while the app could only PREVIEW an
+    #: archive; an import that writes the photographs and silently leaves a second full copy of a
+    #: 200 GB export beside them is not. Naming it is not the cleanup and does not pre-empt the
+    #: ruling - it is the difference between a cost and a surprise.
+    staging_bytes: NotRequired[int]
+    #: Where that copy is, so the remedy is one a person can actually carry out. There is no
+    #: in-product one to offer: saying "this can be removed" without saying where would be worse
+    #: than silence.
+    staging_path: NotRequired[str]
 
 
 def _tile(result: ActionResult, metadata: dict[Path, dict[str, Any]] | None) -> OrganizedTile:

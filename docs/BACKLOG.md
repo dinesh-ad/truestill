@@ -320,6 +320,17 @@ rather than treated as a triage failure.
   again** - still 535 files, one directory - so N ingests cost **1x, not Nx**. Untidiness, not a
   disk a user runs out of. **But the work repeats**: 534 files unpacked again. Cost is per
   distinct archive.
+  ⚠ **RANKED UP 2026-09-12: the app can now APPLY an import, and "untidiness" was an assessment
+  of a PREVIEW.** While the archive path only previewed, the staging tree sat on a drive the user
+  had not committed anything to. It now sits beside the photographs a successful import just
+  wrote, on the drive they chose, at ~2x the export - measured on a walk-through: 362 photographs
+  imported, **963 files / 14.3 MB still staged**, with the completion card silent about every
+  byte of it. **The card names it since D17** (`rcCompletion`'s `rc-staging` line, with the path,
+  because there is no in-product remedy to offer) - which makes it a stated cost rather than a
+  surprise, and does NOT settle this entry. The policy is still the ruling: delete after a
+  verified organize, keep as a cache, or keep and say so. Naming it is the third option's
+  cheapest half, chosen because a writer that silently doubles disk use could not ship without
+  one.
   Defensible as it stands - copy mode never deletes a source, and the staging tree *is* that run's
   source.
   [Full entry](research/backlog/aht.md)

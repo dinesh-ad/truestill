@@ -28,7 +28,7 @@ import { StrictMode, useEffect, useRef, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 
 import type { components } from "./generated/api";
-import { CompletionCard, type CompletionSeam, type OrganizeDone } from "./completion";
+import { CompletionCard, NamedFiles, type CompletionSeam, type OrganizeDone } from "./completion";
 import {
   ByFormat,
   InventoryCard,
@@ -584,6 +584,11 @@ const markup = {
     toHtml(<MatchList report={report} label={label} />),
   dateQuality: (s: DateQualityCounts): string => toHtml(<DateQualityNotes s={s} />),
   inferredShifts: (s: InferredShifts): string => toHtml(<InferredShiftNote s={s} />),
+  // Import's completion names its failures with the SAME component the organize island uses -
+  // `(ajl)`'s "never a flat failure that hides which files" is one behaviour, so it is one
+  // definition rather than a second list built in `app.js` that can drift from this one.
+  namedFiles: (files: Parameters<typeof NamedFiles>[0]["files"]): string =>
+    toHtml(<NamedFiles files={files} />),
 };
 (window as unknown as Record<string, unknown>).truestillMarkup = markup;
 

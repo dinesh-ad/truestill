@@ -47,11 +47,21 @@ class InferredLocalShiftPayload(TypedDict):
 class IngestPreviewEmpty(TypedDict):
     files: int
     missing_sidecar: int
+    #: The tree that was actually scanned - see :class:`IngestPreviewSummary`.
+    source: str
     #: The unpack WORKED and its record did not. `(ahi)`; the same key organize and undo carry.
     record_error: NotRequired[str]
 
 
 class IngestPreviewSummary(TypedDict):
+    #: ⚠ **THE TREE THAT WAS ACTUALLY SCANNED, WHICH IS NOT WHAT THE USER TYPED.** For a folder of
+    #: archives, `archive_ingest_run` unpacks first and previews the STAGING tree, so the path in
+    #: the box is a `.zip` and the numbers below it describe something else entirely. The screen
+    #: echoes this back when it starts the run, which is what stops it asking `discover()` to walk
+    #: an archive file and answer **"0 imported"** - a clean, confident, wrong answer that shipped
+    #: and was found by opening the browser. `organize.ingest_run` still recovers the staging root
+    #: on its own, so the two are belt and braces rather than one fix in two places.
+    source: str
     files: int
     #: What will be written INTO THIS DESTINATION. `(aei)`, D14, D17.
     kept: int
@@ -111,7 +121,7 @@ def ingest_preview(
     scan = scan_takeout(takeout)
     files = discover(takeout)
     if not files:
-        return {"files": 0, "missing_sidecar": 0}
+        return {"files": 0, "missing_sidecar": 0, "source": str(takeout)}
     with open_catalog(db) as catalog, HashCache.beside(db) as cache:
         metadata = read_metadata(files, progress=progress, cancel=cancel, cache=cache)
         scheme = resolve_scheme(catalog)
@@ -149,6 +159,8 @@ def ingest_preview(
     reclaimed = sum(_safe_size(r.decision.source) for r in dups)
     quality = date_quality(uploads)
     return {
+        # The tree this report is ABOUT, so the run cannot be pointed at a different one.
+        "source": str(takeout),
         "files": len(resolutions),
         "kept": len(uploads),
         "dup_collapsed": len(dups),

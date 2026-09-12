@@ -936,9 +936,15 @@ const rcvProgress = createProgress("rcv");
 // ---------- typed confirm (reusable) ----------
 // Destructive actions that currently demand a typed word on the CLI (undo, and soon oo/rr)
 // need the same gate in the app. One helper so each surface does not invent its own.
-function typedConfirm(host, { word, label, buttonLabel, onConfirm }) {
+// `note` is optional and renders ABOVE the field: what a person needs to know to answer the
+// question, in the place they are answering it. One confirm shape, not a second one - a caller
+// that passes nothing gets exactly what it got before.
+function typedConfirm(host, { word, label, buttonLabel, onConfirm, note = "" }) {
+  // The host is named so its prose gets the same 68ch measure a card's does - `.k` carries the
+  // cap and nothing else, so outside a known container it does nothing at all.
+  host.classList.add("confirm-block");
   host.innerHTML =
-    `<div class="field"><label class="confirm-ask">${esc(label)}</label>
+    `${note}<div class="field"><label class="confirm-ask">${esc(label)}</label>
        <input class="input" data-typed-confirm autocomplete="off" spellcheck="false"
               placeholder="type ${esc(word)}"></div>
      <div class="actions">
@@ -3285,7 +3291,13 @@ function rcRenderSummary(d) {
   // DESTINATION's since D17 - so a drive that already holds everything is offered nothing to do
   // rather than a button that would import nothing.
   $("rc-confirm").innerHTML = "";
-  if (r.kept > 0) rcConfirm(r, $("rc-takeout").value.trim(), $("rc-dest").value.trim());
+  // ⚠ **`r.source`, NEVER THE INPUT BOX.** For a folder of archives the box holds a `.zip` and
+  // the numbers above describe the unpacked staging tree - a different path entirely. Reading the
+  // box here is what produced **"0 imported"**: `discover()` walked an archive FILE, found no
+  // photographs, and said so confidently. The preview now reports the tree it actually scanned
+  // and the run is given that; if it is ever absent the control is not drawn at all, because a
+  // guess about which tree to import is the one thing this must not make.
+  if (r.kept > 0 && r.source) rcConfirm(r, r.source, $("rc-dest").value.trim());
 }
 
 let rcJob = null;
@@ -3307,37 +3319,118 @@ function rcConfirm(r, takeout, destination) {
     label: `Type import to bring ${plural(r.kept, "file")} into this library`,
     buttonLabel: "Import them",
     onConfirm: rcRun,
+    note: rcRepeatsNote(r),
   });
+}
+
+// ⚠ **THE FEAR THEY ARRIVE WITH, ANSWERED WHERE THEY DECIDE.** An export puts the same photograph
+// in the folder of every album it belongs to, so a Takeout is full of copies and people open one
+// braced for a mess. Truestill already collapses them - this says so BEFORE the run rather than
+// only in the completion card, which is where the reassurance is worth nothing.
+//
+// The count is stated only when there IS one: "and 0 of them are repeats" on an export with no
+// duplicates reads as a product that did not look.
+function rcRepeatsNote(r) {
+  const collapsed = Number(r.dup_collapsed) > 0
+    ? ` Here that is ${plural(r.dup_collapsed, "file")}, already counted above.`
+    : "";
+  return `<p class="k" data-testid="rc-repeats">An export usually contains the same photo once for
+    every album it is in. Only one copy of each is kept.${collapsed}</p>`;
 }
 
 async function rcRun() {
   if (!rcPlan) return;
   const { takeout, destination } = rcPlan;
-  $("rc-confirm").innerHTML = "";
+  // ⚠ **THE TRIGGER IS THE STATUS LINE, and clearing the block first made this dead code.** The
+  // block was emptied here, so `runJob` had no button, `setStatus` wrote nowhere, and the phase
+  // wording below never reached a screen - found by watching a 482-file import rather than by
+  // any test, because a label nothing reads still passes. Organize does not clear its confirm
+  // either: `orgRun` takes `[data-typed-go]` as its button for exactly this. The block is cleared
+  // in each outcome instead, where the run is actually over.
+  const trigger = $("rc-confirm").querySelector("[data-typed-go]");
+  const finish = (html) => { $("rc-confirm").innerHTML = ""; $("rc-result").innerHTML = html; };
   await runJob({
+    button: trigger,
     busyLabel: "Importing…",
     start: () => api("/api/ingest/run", { takeout, destination }),
     setJob: (id) => { rcJob = id; },
     progress: rcProgress,
     progressLabel: "importing",
     statusVerb: "Importing",
+    // ⚠ **THE LONGEST OPERATION IN THE PRODUCT, so it names the phase it is in.** The same three
+    // verbs the unpack and the preview already use, through the same `scaleStatus` and the same
+    // progress block - `statusVerb` alone would say "Importing 412 of 2,275" through a hashing
+    // pass that writes nothing, and a user watching a counter crawl with no idea what it is
+    // doing is what "insanely slow" reports are actually made of.
+    statusForProgress: (p, setStatus) => {
+      if (!p.total) setStatus("Preparing…");
+      else if (p.phase === "scanning") setStatus(scaleStatus("Reading photos", p.done, p.total, "files"));
+      else if (p.phase === "hashing") setStatus(scaleStatus("Checking for duplicates", p.done, p.total, "files"));
+      else setStatus(scaleStatus("Copying", p.done, p.total, "files"));
+    },
+    // A refusal is the one outcome the block SURVIVES: the run never started, so the typed word
+    // is still good and the user can fix the destination and press the same button again.
     onRefuse: (started) => { $("rc-result").innerHTML = startRefusedCard(started, "rc-dest"); },
-    onError: (d) => { $("rc-result").innerHTML = jobErrorCard(d); },
+    onError: (d) => finish(jobErrorCard(d)),
     // A cancelled import keeps what landed - the same honesty the completion card carries, and
     // re-running copies only what is still missing.
-    onCancelled: (d) => { $("rc-result").innerHTML = rcCompletion(d.summary, true); },
-    onSuccess: (d) => { $("rc-result").innerHTML = rcCompletion(d.summary, false); },
+    onCancelled: (d) => finish(rcCompletion(d.summary, true)),
+    onSuccess: (d) => finish(rcCompletion(d.summary, false)),
   });
 }
 
+// ⚠ **NUMBERS, NOT PROSE - and "I'd love to see a results.json that lists all the stats once
+// completed" is a real request from a real person importing a Takeout.** What happened to a
+// 40,000-file export is a set of counts, and a sentence that summarises them is the thing people
+// go looking for the stats *instead of*.
+//
+// ⚠ **`dates_from_sidecar` IS THE ROW THAT PROVES THE FEATURE WORKED.** Any copy tool can report
+// "12,000 imported". Only this one can say how many of those carry a capture time that existed
+// nowhere but a JSON file beside them, and that is the whole reason a person chose to import
+// through Truestill rather than drag the folder across.
+//
+// A zero row is omitted rather than drawn - four numbers where one is 0 makes a reader stop and
+// work out whether it means "none" or "not measured" - except `imported` itself, which is the
+// answer to the question and is shown at zero because its absence would be worse.
 function rcCompletion(s, cancelled) {
-  const failed = s.failed
-    ? `<div class="banner warn"><div>${plural(s.failed, "file")} could not be imported.</div></div>`
+  const rows = [
+    [s.organized || 0, "imported", true],
+    [s.dates_from_sidecar, "dates rescued from the export"],
+    [s.duplicates, "repeats - one copy kept"],
+    [s.already_in_library, "already elsewhere in your library"],
+    [s.failed, "could not be imported"],
+  ].filter(([n, , always]) => always || Number(n) > 0);
+
+  const metrics = rows
+    .map(([n, label]) => `<div class="metric"><div class="metric-value">${nfmt(Number(n) || 0)}</div>
+         <div class="metric-label">${esc(label)}</div></div>`)
+    .join("");
+
+  // The WHY for the only row a user cannot act on without it. `failures` is core's named list
+  // with the total it came from; `(ajl)` is the shape, and organize renders the same thing.
+  // ⚠ **NEVER A FLAT FAILURE THAT HIDES WHICH FILES** - `(ajl)`. The same component the organize
+  // island uses, through the markup facade, so the two surfaces cannot name files differently.
+  // ⚠ **THE COST THE RUN LEAVES BEHIND, NAMED.** The unpack writes a full second copy of the
+  // export onto this drive and nothing removes it - `clear_staging` has no production caller,
+  // `(aht)`. Measured on a real walk-through: 362 photographs imported and **963 files, 14.3 MB**
+  // left in staging, with the card silent about all of it. On a 200 GB Takeout that is 200 GB.
+  // The path is given because there is no in-product remedy to offer, and "this can be removed"
+  // without saying from where is worse than saying nothing.
+  const staging = s.staging_bytes
+    ? `<p class="k" data-testid="rc-staging">The unpacked copy of the export is still on this
+       drive, ${fmtBytes(s.staging_bytes)} in <span class="mono">${esc(s.staging_path)}</span>.
+       You can delete that folder once you are happy with the import.</p>`
+    : "";
+  const why = Number(s.failed) > 0
+    ? `<div class="banner warn"><div>${plural(s.failed, "file")} could not be imported.
+       ${orgMarkup().namedFiles(s.failed_files)}</div></div>`
     : "";
   return card(
-    `<div class="headline" data-testid="rc-done">${nfmt(s.organized || 0)} imported</div>
-     <div class="k">${cancelled ? "Stopped - this is what landed. " : ""}Their dates came from the
-     export's own records where the files had none.</div>${failed}`);
+    `<div class="headline" data-testid="rc-done">${cancelled ? "Import stopped" : "Import finished"}</div>
+     ${cancelled ? `<div class="k" data-testid="rc-stopped">This is what landed before it stopped. Importing again copies only what is still missing.</div>` : ""}
+     <div class="metrics" data-testid="rc-done-tally" data-imported="${Number(s.organized) || 0}">
+       ${metrics}
+     </div>${staging}${why}`);
 }
 
 // Every refusal carries its CODE in data-refusal, and the tests key on that rather than on the
@@ -3356,12 +3449,12 @@ function archiveReadyCard(d) {
   return card(
     `<div class="headline" data-testid="rc-ready">${nfmt(d.media_entries)} photos and videos in ${nfmt(d.parts)} file(s)</div>
      <div class="k" data-testid="rc-claim">${esc(d.detail)}</div>
-     <button class="btn" id="rc-confirm" data-testid="rc-confirm">Unpack and scan</button>`);
+     <button class="btn" id="rc-unpack" data-testid="rc-unpack">Unpack and scan</button>`);
 }
 
 async function rcRunArchives(source, destination) {
   await runJob({
-    button: $("rc-confirm"),
+    button: $("rc-unpack"),
     busyLabel: "Unpacking…",
     start: () => api("/api/ingest/archives/run", { takeout: source, destination }),
     setJob: (id) => { rcJob = id; },
@@ -3397,7 +3490,7 @@ $("rc-preview").onclick = guarded(async () => {
   if (pre && pre.parts > 0) {
     if (!pre.ok) { $("rc-result").innerHTML = archiveRefusalCard(pre); return; }
     $("rc-result").innerHTML = archiveReadyCard(pre);
-    $("rc-confirm").onclick = guarded(() => rcRunArchives(takeout, destination));
+    $("rc-unpack").onclick = guarded(() => rcRunArchives(takeout, destination));
     return;
   }
 
