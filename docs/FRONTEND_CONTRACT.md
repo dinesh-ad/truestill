@@ -40,7 +40,35 @@ screen looks finished and nothing on it works below the break.**
 
 ```sh
 grep -cE '^\$\(' packages/truestill-app/src/truestill_app/static/app.js   # 25 on 2026-09-12
+grep -nE '^\$\(' packages/truestill-app/src/truestill_app/static/app.js | sed -n '1p;$p'
 ```
+
+### This is measured, not argued
+
+Renaming exactly one id - `sidebar-toggle`, which the **first** of the twenty-five bindings
+reads - and running two browser tests that never touch the rail:
+
+```
+$ uv run python scripts/mutate_once.py \
+    --file packages/truestill-app/src/truestill_app/templates/index.html \
+    --old-file old.txt --new-file new.txt \
+    -- uv run pytest tests/e2e/test_the_screens_say_when_a_drive_is_not_there.py -q --browser chromium
+
+ERROR ...::test_find_and_stats_both_say_a_drive_is_not_plugged_in[chromium]
+  - AssertionError: Locator expected to have attribute 'ready'
+ERROR ...::test_the_at_risk_remedy_does_not_offer_a_copy_it_cannot_make[chromium]
+  - AssertionError: Locator expected to have attribute 'ready'
+2 errors in 61.45s
+mutation caught: rename ONE id the first top-level binding reads
+```
+
+**Both failed in setup, on a screen the renamed id has nothing to do with**, and the failure dump
+shows the whole Organize form rendered perfectly - every radio, every label, every placeholder.
+`app.js:settleScreen` is the only writer of `data-ready`, it is **defined above** the break and
+**called from below it**, so the page draws, marks nothing ready, and wires nothing.
+
+That is the shape to expect from this class: **not a broken-looking screen, a finished-looking
+one that does nothing.**
 
 ### The binding list is a command, never a list
 
