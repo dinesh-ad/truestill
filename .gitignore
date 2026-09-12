@@ -22,6 +22,21 @@ reports/
 requirements-audit.txt
 # Playwright traces/video kept from failed E2E runs, and its browser download marker.
 tests/e2e/.artifacts/
+# ⚠ THE JUNIT REPORT, AND ITS ABSENCE HERE TOOK DOWN A NIGHTLY. `ci.yml` writes this at the repo
+# root with `--junitxml` in the `Pytest` step, and `Pytest (different collection order)` - the
+# step that follows in the SAME job - then ran a whole-repo census over it. A report names every
+# test it ran, and the decommissioned-layout guard in `test_layout_scheme.py` forbids strings that
+# three of those test IDs spell out on purpose to prove they are rejected. So the second run read
+# the first run's report and failed. Run 34681980628, 2026-09-12, on a commit whose five pushes
+# were all green - that step runs on schedule and pull_request only.
+#
+# ⚠ **And this comment may not quote the string it is about**, which is the same guard working
+# one level up: the first draft of these lines spelled it and went red on the spot.
+#
+# Invisible before `1867be3` widened the census from `git ls-files` to `--others`. THIS FILE IS
+# THE DESIGNATED MECHANISM for "a census must not see this" - `repo_sources`'s own docstring
+# says so - and a generated report was simply never added to it.
+test-results.xml
 # Local scratch notes and throwaway files; never tracked.
 .scratch/
 
