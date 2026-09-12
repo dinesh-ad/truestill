@@ -312,7 +312,7 @@ Three of these are guarded, and the guards are worth knowing before you propose 
   the nav icons are Unicode glyphs whose size happens to be a `font-size`. They reached 13px once
   by silently inheriting `--type-sm` from their row.
 
-### The spacing scale - seven steps, and they are **px**, not rem
+### The spacing scales - and there are TWO of them, one px and one rem
 
 ```sh
 grep -nE -- '--space-[0-9]+:' packages/truestill-app/src/truestill_app/static/tokens.css
@@ -322,12 +322,39 @@ grep -nE -- '--space-[0-9]+:' packages/truestill-app/src/truestill_app/static/to
 `--space-6: 32px`, `--space-7: 48px`.
 
 ⚠ **Stated explicitly because it is the natural thing to assume wrongly, and it changes what your
-design does at the user's text size**: type is rem and follows the browser's font setting;
-**spacing is px and does not**. A user who raises their text size gets larger type inside
-unchanged padding. **Do not "fix" this by converting the scale to rem as part of a visual
-change** - it is a real question with a real answer somewhere, and it is a behaviour change to
-every one of the seven screens, so it belongs in its own commit with its own argument, not as a
-side effect of a redesign.
+design does at the user's text size**: type is rem and follows the root font size;
+**`--space-*` is px and does not**. A user who raises their text size gets larger type inside
+unchanged padding.
+
+⚠ **AND THERE IS A SECOND SPACING SCALE, WHICH IS REM, FOUND WRITING THIS DOCUMENT ON
+2026-09-12.** Every other Tailwind namespace is aliased to `tokens.css` in the theme block -
+`--color-*`, `--text-*`, `--radius-*`, `--font-*`, `--leading-*`, `--shadow-*`, the easings -
+and **`--spacing` is the one that is not**. So the React and shadcn components run Tailwind's
+own default, in rem, proved from the shipped bundle rather than from the source:
+
+```sh
+grep -oE -- '--spacing:[^;]*;|\.p-4\{[^}]*\}' \
+  packages/truestill-app/src/truestill_app/static/dist/main.css
+#   --spacing:.25rem;
+#   .p-4{padding:calc(var(--spacing) * 4)}
+```
+
+**The two scales agree at 1x and only at 1x.** `--space-1` through `--space-4` are 4/8/12/16px
+and `p-1` through `p-4` compute to the same four values at a 16px root, which is why nothing has
+ever looked wrong. The app ships a **text-size setting** that sets `:root { font-size: 75% }` and
+`125%` (`tokens.css`, `:root[data-text-size="small"]` and `"large"`), so at **large** a shadcn
+`p-4` renders **20px** beside an `app.css` `--space-4` of **16px**, and at **small**, **12px**
+beside 16px. Past step 4 even the names stop lining up: `--space-5` is 24px, `p-5` is 20px.
+
+**What this means for you**: a React component you add takes the rem scale unless you write
+`var(--space-n)` explicitly, and it will drift from the vanilla surface beside it the moment the
+user touches the text-size setting. **Do not resolve this by converting `--space-*` to rem as
+part of a visual change** - that is a behaviour change to all seven screens and belongs in its
+own commit with its own argument. Until it is resolved, prefer `var(--space-n)` over a `p-*`
+utility on anything that sits next to vanilla markup.
+
+One related gap, same block: **`--type-display` has no `--text-*` alias**, so a React component
+cannot reach the page-title step through a utility at all - only by writing the var.
 
 ---
 
@@ -385,7 +412,7 @@ ls tests/e2e/test_*.py | wc -l                                                  
 
 ---
 
-## 7. The five things most likely to go wrong, in order
+## 7. The six things most likely to go wrong, in order
 
 1. **A renamed id.** Silent, kills everything below it in `app.js`, invisible to `make check`.
    Section 1.
@@ -397,3 +424,5 @@ ls tests/e2e/test_*.py | wc -l                                                  
    the screen stops working rather than the form. Section 2.
 5. **Moving the renderer and the appearance in one commit.** Twenty-three e2e files assert
    computed styles, and every failure becomes ambiguous. Section 2.
+6. **Spacing a React component with `p-*` next to vanilla markup.** Correct at the shipped text
+   size, 25% out at the other two. Section 5.
