@@ -39,16 +39,21 @@ def test_verify_hashes_through_the_medium_reader(monkeypatch: pytest.MonkeyPatch
     """⚠ **The wiring, which is the whole defect.** `verify` used `sha256_file` and therefore read
     whatever RAM held. This asserts the call actually goes through the evicting form - a test that
     only compared digests would pass against the defect, because both produce the same hash."""
-    seen: list[str] = []
+    seen: list[Path] = []
 
     def _record(path: Path) -> str:
-        seen.append(str(path))
+        seen.append(path)
         return "deadbeef"
 
     monkeypatch.setattr(verify_module, "sha256_from_the_medium", _record)
 
     assert verify_module._hash_path("/some/copy.jpg") == "deadbeef"
-    assert seen == ["/some/copy.jpg"], "verify did not hash through the medium reader"
+    # ⚠ **`Path`, NOT `str(path)` AGAINST A POSIX LITERAL - that took `main` red on Windows.**
+    # `_hash_path` builds a `Path`, and `str()` of one renders `\some\copy.jpg` off POSIX, so the
+    # comparison failed on the one platform nobody here can run. Path equality is
+    # separator-correct everywhere, and the assertion is about WHICH path was hashed rather than
+    # about how it is spelled.
+    assert seen == [Path("/some/copy.jpg")], "verify did not hash through the medium reader"
 
 
 def test_eviction_is_attempted_for_every_file(
