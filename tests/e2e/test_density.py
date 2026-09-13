@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 
+from e2e_support import open_screen
 from playwright.sync_api import Page
 
 #: Measured at 1920x1080 on a real library: 721px before, 642px after.
@@ -151,8 +152,8 @@ def test_the_groups_are_still_separated_from_each_other(ui: Page) -> None:
 def test_nothing_collides_at_the_large_text_size(ui: Page) -> None:
     """Tighter gaps plus bigger type is where overlap appears, so it is asserted rather than
     assumed - and at the compound worst case, not just at the default root."""
-    ui.click('.nav-item[data-screen="settings"]')
-    ui.click('input[name="text-size"][value="large"]')
+    open_screen(ui, "settings")
+    ui.locator("#text-size").fill("4")  # xl
     ui.wait_for_timeout(300)
     _organize(ui)
 

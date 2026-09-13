@@ -3,13 +3,16 @@
 `tokens.css` said it plainly - "NO root font-size is declared: the root is the user's ... which
 is why there is no font-size setting in the product." That reasoning holds against an ABSOLUTE
 setting and only against one. Somebody who raised their browser default to 24px and then picks
-"Large" must not be handed 18px; that is not a preference, it is a reset.
+the largest stop must not be handed 18px; that is not a preference, it is a reset.
 
 So the steps are PERCENTAGES of whatever the root already is, and `medium` declares nothing at
 all. The setting nudges the browser's answer; it never replaces it. That is also why this needs
 no new layout mechanism: it moves the same lever a raised browser default already moves, and
 `test_type_scale_follows_the_browser_default.py` has proved the app follows that lever since
 `d8f4f4e`.
+
+Five discrete slider stops (xs / sm / medium / lg / xl), not a continuous range: arbitrary
+values put type at sizes nothing was designed or measured for.
 
 WHAT EACH STEP COSTS THE FIXED FRAME is asserted rather than assumed. `--sidebar-width`
 (272/64px), `--icon-size` (16px), `--space-*` and the 720px breakpoint are all px ON PURPOSE, and
@@ -23,6 +26,7 @@ import re
 from pathlib import Path
 
 import pytest
+from e2e_support import open_screen
 from playwright.sync_api import Page, expect
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -40,6 +44,9 @@ TOKENS = ROOT / "packages/truestill-app/src/truestill_app/static/tokens.css"
 RAISED_DEFAULT_PX = 24
 COMPOUND_WORST_CASE_PX = 30
 
+#: Slider stop names, smallest-first. Matches `TEXT_SIZES` / the range's stop table.
+STOPS = ("xs", "sm", "medium", "lg", "xl")
+
 
 def _body_px(ui: Page) -> float:
     return ui.eval_on_selector("body", "el => parseFloat(getComputedStyle(el).fontSize)")
@@ -49,7 +56,7 @@ def _pick(ui: Page, size: str) -> None:
     """Choose a size and wait for the WRITE, not for a fixed number of milliseconds.
 
     ⚠ **This waited 200 ms, and that is what made `test_the_choice_survives_a_reload` the most
-    repeated failure in `(ado)`'s census.** Picking a radio applies the attribute locally and then
+    repeated failure in `(ado)`'s census.** Picking a stop applies the attribute locally and then
     POSTs to `/api/text-size/settings` (`app.js`), which `run_in_threadpool`s a **catalog write**
     (`server.py`) - the very operation `(adt)` measured at **6,558 ms** on a CI runner. A reload
     that happens before that write lands reads the old setting and renders medium, and the test
@@ -59,18 +66,20 @@ def _pick(ui: Page, size: str) -> None:
     takes and no longer. Playwright's own guidance: *"Never wait for timeout... Tests that wait
     for time are inherently flaky."*
     """
-    ui.click('.nav-item[data-screen="settings"]')
-    radio = ui.locator(f'input[name="text-size"][value="{size}"]')
-    if radio.is_checked():
-        # ⚠ Already the chosen size, so clicking fires no `change` and there is no POST to wait
-        # for. Waiting anyway times out after 15 s and fails a test that asked for nothing -
-        # which is what the first version of this helper did to two tests that pick `medium`
+    open_screen(ui, "settings")
+    slider = ui.locator("#text-size")
+    index = STOPS.index(size)
+    current = int(slider.input_value())
+    if current == index:
+        # ⚠ Already the chosen size, so changing the value fires no `change` and there is no POST
+        # to wait for. Waiting anyway times out after 15 s and fails a test that asked for nothing
+        # - which is what the first version of this helper did to two tests that pick `medium`
         # on a page whose default is already medium.
         return
     with ui.expect_response(
         lambda r: "/api/text-size/settings" in r.url and r.request.method == "POST"
     ):
-        radio.click()
+        slider.fill(str(index))
 
 
 # --------------------------------------------------- where the "relative" claim is settled
@@ -102,7 +111,7 @@ def _steps() -> dict[str, str]:
 
 
 def test_no_step_is_declared_as_a_length() -> None:
-    """THE TEST THIS FILE EXISTS FOR. `font-size: 18px` for large hands a 24px reader 18px and
+    """THE TEST THIS FILE EXISTS FOR. `font-size: 18px` for xl hands a 24px reader 18px and
     calls it Large - not a preference, a reset."""
     steps = _steps()
     assert steps, "no text-size rules found at all"
@@ -119,11 +128,16 @@ def test_medium_declares_no_rule_at_all() -> None:
     assert "medium" not in _steps(), "medium declares a root size; it must declare nothing"
 
 
+def test_the_slider_is_discrete_five_stops() -> None:
+    """Continuous values are refused: the control steps by 1 across five named stops."""
+    assert set(_steps()) == {"xs", "sm", "lg", "xl"}
+
+
 def test_medium_is_expressed_as_the_absence_of_the_attribute(ui: Page) -> None:
     """The client half of the same rule - the JS must REMOVE the attribute, not set it to
     `medium`, or the missing rule above would simply do nothing and look identical."""
-    _pick(ui, "large")
-    assert ui.evaluate("() => document.documentElement.dataset.textSize") == "large"
+    _pick(ui, "xl")
+    assert ui.evaluate("() => document.documentElement.dataset.textSize") == "xl"
 
     _pick(ui, "medium")
     assert ui.evaluate("() => document.documentElement.dataset.textSize") is None
@@ -132,48 +146,31 @@ def test_medium_is_expressed_as_the_absence_of_the_attribute(ui: Page) -> None:
 # --------------------------------------------------------------- the steps do what they say
 
 
-def test_small_is_smaller_and_large_is_larger_than_medium(ui: Page) -> None:
-    """The maintainer's own case is the SMALL one: browser zoom handles shrinking badly because
-    it scales the layout with the type, and this must not."""
-    _pick(ui, "medium")
-    medium = _body_px(ui)
-    _pick(ui, "small")
-    small = _body_px(ui)
-    _pick(ui, "large")
-    large = _body_px(ui)
+def test_the_stops_are_ordered_and_the_extremes_are_visible(ui: Page) -> None:
+    """Ordering across all five, and the extremes still clear the 20% visibility bar that made
+    the first three-stop band feel broken."""
+    sizes = {}
+    for stop in STOPS:
+        _pick(ui, stop)
+        sizes[stop] = _body_px(ui)
 
-    assert small < medium, f"small ({small}px) is not below medium ({medium}px)"
-    assert large > medium, f"large ({large}px) is not above medium ({medium}px)"
-
-
-def test_each_step_is_big_enough_to_be_seen(ui: Page) -> None:
-    """THE HALF THE FIRST BAND WAS MISSING, and the reason it shipped feeling broken.
-
-    +/-12.5% (14/16/18) satisfies "small < medium < large" perfectly and reads as nothing
-    happening - the maintainer changed the setting and reported no effect. "There is an
-    ordering" was the only thing asserted, so a band too small to perceive passed.
-
-    >= 20% either way. Chrome's own Small and Large are 12 and 20 against a 16 medium (25%);
-    this leaves room to tune without letting it collapse back to invisible.
-    """
-    _pick(ui, "medium")
-    medium = _body_px(ui)
-    _pick(ui, "small")
-    small = _body_px(ui)
-    _pick(ui, "large")
-    large = _body_px(ui)
-
-    assert small <= medium * 0.8, f"small is {small}px against {medium}px - not a visible step"
-    assert large >= medium * 1.2, f"large is {large}px against {medium}px - not a visible step"
+    ordered = [sizes[s] for s in STOPS]
+    assert ordered == sorted(ordered), sizes
+    medium = sizes["medium"]
+    assert sizes["xs"] <= medium * 0.8, (
+        f"xs is {sizes['xs']}px against {medium}px - not a visible step"
+    )
+    assert sizes["xl"] >= medium * 1.2, (
+        f"xl is {sizes['xl']}px against {medium}px - not a visible step"
+    )
 
 
 def test_the_step_is_a_nudge_and_not_a_multiplier_that_compounds() -> None:
     """The other half of relative: it must not mean unbounded.
 
-    The band was WIDENED from +/-12.5% to 75%/125% - 12 / 16 / 20px at the common default, which
-    is Chrome's own Small and Large. The first band was too timid to read as a setting: the
-    maintainer changed it and saw nothing. Bounded still, because these are percentages: a 24px
-    default gives 18 / 24 / 30, large by choice rather than by accident.
+    Extremes stay 75%/125% - Chrome's own Small and Large at a 16px default. Mid stops sit
+    halfway. Bounded still, because these are percentages: a 24px default gives 18 / 21 / 24 /
+    27 / 30, large by choice rather than by accident.
     """
     for name, value in _steps().items():
         percent = float(value.strip().rstrip("%"))
@@ -189,7 +186,7 @@ def test_the_collapsed_rail_stays_64px_at_every_size(ui: Page) -> None:
     ui.click("#sidebar-toggle")
     ui.wait_for_timeout(200)
     widths = {}
-    for size in ("small", "medium", "large"):
+    for size in STOPS:
         _pick(ui, size)
         widths[size] = ui.eval_on_selector("#sidebar", "el => el.getBoundingClientRect().width")
 
@@ -198,7 +195,7 @@ def test_the_collapsed_rail_stays_64px_at_every_size(ui: Page) -> None:
 
 def test_the_icon_size_does_not_move_either(ui: Page) -> None:
     sizes = {}
-    for size in ("small", "medium", "large"):
+    for size in STOPS:
         _pick(ui, size)
         sizes[size] = ui.eval_on_selector(".nav-item .ico", "el => getComputedStyle(el).fontSize")
 
@@ -209,7 +206,7 @@ def test_the_720px_breakpoint_fires_at_the_same_width_at_every_size(ui: Page) ->
     """A media query in px is not affected by the root font-size, so the top-bar switch happens
     at the same window width whatever the reader chose. Asserted because the alternative - `em`
     in the query - would move the breakpoint and surprise someone mid-resize."""
-    for size in ("small", "medium", "large"):
+    for size in STOPS:
         _pick(ui, size)
         ui.set_viewport_size({"width": 700, "height": 900})
         ui.wait_for_timeout(150)
@@ -223,7 +220,7 @@ def test_the_720px_breakpoint_fires_at_the_same_width_at_every_size(ui: Page) ->
 def test_the_custody_strip_does_not_overflow_the_rail_at_the_compound_worst_case(
     ui: Page,
 ) -> None:
-    """Large ON TOP OF an already-raised default is the biggest root the app can be asked for,
+    """XL ON TOP OF an already-raised default is the biggest root the app can be asked for,
     and it is past the 24px that `test_type_scale_follows_the_browser_default` proves.
 
     The ROOT is set directly to the resulting 30px rather than composed from a default and a
@@ -251,7 +248,7 @@ def test_the_custody_strip_does_not_overflow_the_rail_at_the_compound_worst_case
 
 def test_the_choice_survives_a_reload(ui: Page) -> None:
     """Per catalog, like the sidebar's collapse - so it travels with the library."""
-    _pick(ui, "large")
+    _pick(ui, "xl")
     chosen = _body_px(ui)
 
     ui.reload()
@@ -266,5 +263,5 @@ def test_the_choice_survives_a_reload(ui: Page) -> None:
     )
 
     assert _body_px(ui) == pytest.approx(chosen, abs=0.5)
-    ui.click('.nav-item[data-screen="settings"]')
-    expect(ui.locator('input[name="text-size"][value="large"]')).to_be_checked()
+    open_screen(ui, "settings")
+    expect(ui.locator("#text-size")).to_have_value("4")

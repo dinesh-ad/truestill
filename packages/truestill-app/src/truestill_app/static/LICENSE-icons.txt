@@ -65,6 +65,12 @@ blanket answer was wrong for six of them. **The check is outstanding**: compare
 each path against Feather's own set, then add a row with the licence that check
 supports. Until then this section is the honest state, not an omission.
 
+THREE BACKUPS JOB BADGES, ADDED 2026-09-13
+------------------------------------------
+`#screen-backups` ships three more inline SVGs on `.bak-job-badge` - check
+(shield with tick), copy (two sheets), recover (history arrow). Same outstanding
+Feather check as the Organize mode badges above; same count command applies.
+
 
 ISC License - Lucide
 --------------------

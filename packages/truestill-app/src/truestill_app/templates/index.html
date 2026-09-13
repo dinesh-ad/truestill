@@ -137,6 +137,8 @@
            casual logout can strand a paying user on an offline machine". `<details>` is that
            sentence in markup - the destructive action is unreachable without one deliberate
            expand - and it is keyboard-operable and screen-reader-labelled with no JS.
+           AT REST: one compact row (state + what remains). Path, picker and sign-out live only
+           inside the disclosure - a raw filesystem path is never the resting state.
            EMPTY UNTIL THE FETCH LANDS. `.account-slot:empty` still hides it, so the rail never
            flashes a guessed state before `/api/account` answers - the same defect the Organize
            bar had with data-library="unknown". -->
@@ -340,6 +342,7 @@
           <p class="lede">A multi-day run of camera photos is grouped into one TRIP; a single busy
             day is its own EVENT. Split apart anything grouped wrong, or merge two runs that
             should have been one, then name what you want to keep.</p></header>
+        <p class="section-label">Library</p>
         <div class="card">
           <div class="field"><label for="ev-source">Your organized library (a connected backup drive)</label>
             <div class="row"><input class="input" id="ev-source" placeholder="e.g. /media/BackupA">
@@ -374,6 +377,7 @@
           <p class="lede">Bring in a folder of photos, or the archives any service gave you - a
             phone export, an old backup, a shared folder. Truestill recovers the real photo dates
             and removes duplicates.</p></header>
+        <p class="section-label">Source and destination</p>
         <div class="card">
           <div class="field"><label for="rc-takeout">Photos folder or archives</label>
             <div class="row"><input class="input" id="rc-takeout" placeholder="e.g. /home/you/Downloads/Takeout or a folder of .zip files">
@@ -405,23 +409,60 @@
           <p class="lede">Keep your photos safe in more than one place. Copy your library to a
             second drive, check your backups stay healthy, and bring photos back from a drive
             if your library has lost them.</p></header>
-        <div class="card">
-          <h2>Check a connected backup drive</h2>
-          <p class="lede">Already have a backup? Re-verify every file on it is still perfect.</p>
+        <!-- SAFETY BAND. Fixed-height from first paint so loadDrives cannot move the forms
+             below ((acd)). Height is reserved for the LONGEST state - at-risk with both
+             "here" and "away" lines plus a button - not for whatever is true today. The
+             at-risk banner inside #drives-list stays; this is the headline, that is the
+             detail beside the drives it names. Written by renderBakSafety in app.js. -->
+        <div class="bak-safety" id="bak-safety" data-testid="bak-safety" data-tone="neutral"
+             aria-live="polite">
+          <!-- Frost layer: a blurred COPY of the canvas behind the band (filter:blur paints;
+               backdrop-filter does not). At-risk keeps solid warning fill - notices stay opaque. -->
+          <div class="bak-safety-frost" aria-hidden="true"></div>
+          <div class="bak-safety-body">
+            <div class="bak-safety-lead">
+              <div class="metric">
+                <div class="metric-value" id="bak-safety-value">-</div>
+                <div class="metric-label" id="bak-safety-label">Checking…</div>
+              </div>
+              <div class="bak-safety-headline">
+                <span class="bak-safety-chip" id="bak-safety-chip" hidden></span>
+                <p class="bak-safety-title" id="bak-safety-title"></p>
+              </div>
+            </div>
+            <div class="bak-safety-detail" id="bak-safety-detail"></div>
+            <div class="bak-safety-action" id="bak-safety-action"></div>
+          </div>
+        </div>
+        <p class="bak-section-label">What to do</p>
+        <div class="card bak-job" data-job="check">
+          <div class="bak-job-head">
+            <span class="bak-job-badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3 4.5 6.5v5c0 4.5 3.2 8.4 7.5 9.5 4.3-1.1 7.5-5 7.5-9.5v-5L12 3z"/><path d="m9 12 2 2 4-4"/></svg></span>
+            <div class="bak-job-copy">
+              <h2>Check a connected backup drive</h2>
+              <p class="lede">Already have a backup? Re-verify every file on it is still perfect.</p>
+            </div>
+          </div>
           <div class="field"><label for="verify-path">Drive folder</label>
             <div class="row"><input class="input" id="verify-path" placeholder="e.g. /media/BackupA">
               <button class="btn btn-secondary" data-browse="verify-path" data-kind="dest">Browse…</button></div>
             <span class="hint" id="verify-path-hint"></span>
             <span class="carried hidden" id="verify-path-carried">carried over from below - edit if this isn’t right</span></div>
-          <div class="actions"><button class="btn btn-primary" id="verify-run">Check now</button></div>
+          <!-- Empty-library guidance points at Copy; Check is available but not the loudest control. -->
+          <div class="actions"><button class="btn btn-secondary" id="verify-run">Check now</button></div>
           <div id="verify-result"></div>
           <!-- shared progress block: see createProgress() in app.js -->
           <div class="run-mount" data-run="verify"></div>
         </div>
-        <div class="card">
-          <h2>Copy your library to another drive</h2>
-          <p class="lede">No backup yet, or adding another? Copy your library to a second drive,
-            so your photos are safe in more than one place (3-2-1).</p>
+        <div class="card bak-job" data-job="copy">
+          <div class="bak-job-head">
+            <span class="bak-job-badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg></span>
+            <div class="bak-job-copy">
+              <h2>Copy your library to another drive</h2>
+              <p class="lede">No backup yet, or adding another? Copy your library to a second drive,
+                so your photos are safe in more than one place (3-2-1).</p>
+            </div>
+          </div>
           <div class="field"><label for="bk-source">From (a connected drive with your library)</label>
             <div class="row"><input class="input" id="bk-source" placeholder="e.g. /media/BackupA">
               <button class="btn btn-secondary" data-browse="bk-source" data-kind="dest">Browse…</button></div>
@@ -431,16 +472,21 @@
               <button class="btn btn-secondary" data-browse="bk-target" data-kind="dest">Browse…</button></div>
             <span class="hint" id="bk-target-hint"></span>
             <span class="carried hidden" id="bk-target-carried">carried over from above - edit if this isn’t right</span></div>
-          <div class="actions"><button class="btn btn-secondary" id="bk-preview">Preview copy</button>
+          <div class="actions"><button class="btn btn-primary" id="bk-preview">Preview copy</button>
             <button class="btn btn-primary hidden" id="bk-run">Copy the library</button></div>
           <div id="bk-result"></div>
           <!-- shared progress block: see createProgress() in app.js -->
           <div class="run-mount" data-run="bk"></div>
         </div>
-        <div class="card" id="recover-card">
-          <h2>Bring photos back from a drive</h2>
-          <p class="lede">Lost photos from your library? If a backup drive has them, copy them
-            back.</p>
+        <div class="card bak-job" id="recover-card" data-job="recover">
+          <div class="bak-job-head">
+            <span class="bak-job-badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 8v5l3 2"/></svg></span>
+            <div class="bak-job-copy">
+              <h2>Bring photos back from a drive</h2>
+              <p class="lede">Lost photos from your library? If a backup drive has them, copy them
+                back.</p>
+            </div>
+          </div>
           <!-- ⚠ THE REASSURANCE IS ABOVE THE FIELDS, NOT BESIDE THE BUTTON, and that placement
                is the whole point. The user arriving here has met restores that destroy things -
                UrBackup ships restore DISABLED by default;
@@ -477,13 +523,13 @@
              and anything above a control moves it: measured at +142px with no drives and +563px
              with three, while the control was visible and enabled, so a click at the old position
              landed on an <h2> and was silently swallowed.
-             The cost is real and accepted: the Backups pass put state above remedy on purpose, so
-             the at-risk banner pointed DOWN at the copy form. It now points up, and a user with
-             files in one place meets the forms before the warning. A control that cannot be
-             reliably clicked was judged the worse product.
-             Reserving space instead was built and measured and is why this is a move rather than
-             a min-height: a card's height is content-driven, so a skeleton left 30-91px and
-             introduced a -316px SHRINK that the empty region could never produce. -->
+             THE SAFETY BAND ABOVE is the one reserved region this screen allows: its height is
+             fixed from first paint for the longest state, so it answers "am I safe?" first
+             without moving `#bk-preview`. The at-risk banner still lands here as the detail
+             beside the drives it names - two surfaces, one fact.
+             Reserving `#drives-list` itself was built and measured and refused: a card's height
+             is content-driven, so a skeleton left 30-91px and introduced a -316px SHRINK. -->
+        <p class="bak-section-label">Your drives</p>
         <div id="drives-list"></div>
       </section>
 
@@ -497,8 +543,9 @@
              substring LIKE over three columns - no whitespace split, no AND - so "beach 2019"
              matches only that literal string, and a photo in `2019-07-04 - Beach/` never has
              it. Teaching a query the search cannot answer is worse than teaching none. -->
+        <p class="section-label">Search</p>
         <div class="field search-hero">
-          <label for="where-term">Search</label>
+          <label for="where-term">Query</label>
           <div class="row">
             <input class="input" id="where-term" placeholder="e.g. Wayanad">
             <button class="btn btn-primary" id="where-go">Search</button>
@@ -512,6 +559,7 @@
       <section class="screen" id="screen-stats" data-ready="loading" aria-busy="true">
         <header><h1>Library stats</h1>
           <p class="lede">Custody - a verified record of where every file is safe. Start there, then check completeness and shape.</p></header>
+        <p class="section-label">Report</p>
         <div id="stats-result"></div>
       </section>
 
@@ -522,6 +570,7 @@
             laid out on disk, and how Truestill looks.</p></header>
         <!-- One-time is not irreversible: the first-run question is asked once, and this is where
              the answer is changed. `(abx)`. -->
+        <p class="section-label">Library</p>
         <div class="card" id="settings-library-root">
           <h2>Where your library lives</h2>
           <p class="lede">The folder Truestill sorts into.
@@ -576,6 +625,7 @@
           <!-- shared progress block: see createProgress() in app.js -->
           <div class="run-mount" data-run="mig"></div>
         </div>
+        <p class="section-label">Suggestions</p>
         <div class="card">
           <h2>Trip &amp; event suggestions</h2>
           <div class="field"><label for="events-min-files">Minimum photos in a suggestion</label>
@@ -586,6 +636,7 @@
           <div class="actions"><button class="btn btn-primary" id="events-settings-save">Save suggestion setting</button>
             <span class="why" id="events-settings-status"></span></div>
         </div>
+        <p class="section-label">Dates</p>
         <div class="card" id="settings-bake">
           <h2>Dates you have corrected</h2>
           <p class="k">Write the dates you confirmed into the photo files themselves, so other
@@ -600,19 +651,34 @@
           <!-- shared progress block: see createProgress() in app.js -->
           <div class="run-mount" data-run="bake"></div>
         </div>
+        <p class="section-label">Appearance</p>
         <div class="card">
           <h2>Appearance</h2>
           <fieldset class="field"><legend>Theme</legend>
             <div class="checkline"><label><input type="radio" name="theme" value="light"> Light</label>
               <label><input type="radio" name="theme" value="dark"> Dark</label>
               <label><input type="radio" name="theme" value="system" checked> Match system</label></div></fieldset>
-          <fieldset class="field"><legend>Text size</legend>
-            <div class="checkline"><label><input type="radio" name="text-size" value="small"> Small</label>
-              <label><input type="radio" name="text-size" value="medium" checked> Medium</label>
-              <label><input type="radio" name="text-size" value="large"> Large</label></div></fieldset>
+          <div class="field">
+            <label for="text-size">Text size</label>
+            <div class="text-size-control">
+              <input type="range" id="text-size" name="text-size" min="0" max="4" step="1" value="2"
+                     list="text-size-stops" aria-valuetext="Medium">
+              <datalist id="text-size-stops">
+                <option value="0" label="XS"></option>
+                <option value="1" label="S"></option>
+                <option value="2" label="M"></option>
+                <option value="3" label="L"></option>
+                <option value="4" label="XL"></option>
+              </datalist>
+              <div class="text-size-stops" aria-hidden="true">
+                <span>XS</span><span>S</span><span>M</span><span>L</span><span>XL</span>
+              </div>
+            </div>
+          </div>
           <p class="hint">This adjusts your browser’s own text size rather than replacing it, so
-            if you have already made text bigger everywhere, Medium keeps that and Large is one
-            step above it. Spacing, icons and the sidebar stay put - only the reading size moves.</p>
+            if you have already made text bigger everywhere, Medium keeps that and XL is one
+            step above it. Spacing, icons and the sidebar stay put - only the reading size moves.
+            Five stops, not a free dial - sizes in between were never designed.</p>
         </div>
         <p class="k mono" id="app-version">truestill {{VERSION}}</p>
       </section>

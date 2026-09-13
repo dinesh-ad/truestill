@@ -103,10 +103,12 @@ ORGANIZE_MODE_KEY = "ui.organize.mode"
 ORGANIZE_MODES = frozenset({"copy", "move", "inplace"})
 SIDEBAR_COLLAPSED_KEY = "ui.sidebar.collapsed"
 TEXT_SIZE_KEY = "ui.text.size"
-#: Named steps rather than a number. A free px field invites a value that breaks the layout, and
-#: the answer to "how big" already belongs to the browser - this only nudges it. Ordered
-#: smallest-first because the stylesheet and the radio group read in the same order.
-TEXT_SIZES = ("small", "medium", "large")
+#: Named discrete stops rather than a free number. A continuous px field invites sizes nothing
+#: was designed for; five stops keep the nudge fine-grained while staying on measured steps.
+#: Ordered smallest-first - the stylesheet, the slider and this tuple read the same way.
+#: ``small``/``large`` are accepted as aliases of the extremes so older catalogs keep working.
+TEXT_SIZES = ("xs", "sm", "medium", "lg", "xl")
+_TEXT_SIZE_ALIASES = {"small": "xs", "large": "xl"}
 DEFAULT_TEXT_SIZE = "medium"
 
 
@@ -857,8 +859,12 @@ def _normalize_text_size(value: object) -> str:
     time it is read back - a hand-edited catalog, a downgrade, a step that no longer exists -
     and an unknown one written onto the root element would be an invalid ``font-size`` the
     browser drops silently, leaving a page that looks like the setting was ignored.
+
+    Legacy ``small``/``large`` map onto the new extremes so a catalog written before the five-
+    stop slider still renders the size the reader chose.
     """
     text = str(value if isinstance(value, str) else "").strip().lower()
+    text = _TEXT_SIZE_ALIASES.get(text, text)
     return text if text in TEXT_SIZES else DEFAULT_TEXT_SIZE
 
 

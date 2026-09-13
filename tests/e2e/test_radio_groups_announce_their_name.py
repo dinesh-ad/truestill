@@ -1,11 +1,12 @@
 """A radio set announces the question it answers, not just its options.
 
-**The defect, and why it was worth fixing rather than noting.** Three radio groups carried their
-heading in a bare `<label>` with no `for` and no wrapped control - `How to organize`, `Theme`,
-`Text size`. A screen reader announced the options with no idea what they were options *for*:
-"Copy into an organized folder, radio, 1 of 3" with the question missing. That sits beside code
-that already sets `aria-current`, `aria-busy`, `role="alert"` and an `aria-label` on the wordmark,
-so the surrounding surface pays attention to this and these three were the gap.
+**The defect, and why it was worth fixing rather than noting.** Radio groups carried their
+heading in a bare `<label>` with no `for` and no wrapped control - `How to organize`, `Theme`
+(and formerly `Text size`, now a discrete slider). A screen reader announced the options with
+no idea what they were options *for*: "Copy into an organized folder, radio, 1 of 3" with the
+question missing. That sits beside code that already sets `aria-current`, `aria-busy`,
+`role="alert"` and an `aria-label` on the wordmark, so the surrounding surface pays attention to
+this and these were the gap.
 
 **Asserted by ROLE and ACCESSIBLE NAME, never by tag.** `get_by_role("group", name=...)` is what a
 screen reader actually resolves; a test for `<fieldset>` would pass on markup that is nested wrong
@@ -15,6 +16,9 @@ is the current means; the announcement is the requirement.
 **Provenance:** found by a one-off `biome lint` run (Biome 2.5.7, 2026-08-10) that was measured
 and **not adopted** - see `BACKLOG.md`, *Consciously out of scope*. The findings were real; the
 tool is not a dependency.
+
+**Text size left this table** when the three radios became a five-stop range input: it is no
+longer a radio group. Its accessible name is asserted separately below.
 """
 
 from __future__ import annotations
@@ -27,7 +31,6 @@ from playwright.sync_api import Page, expect
 _GROUPS = [
     ("organize", "How to organize", "org-mode"),
     ("settings", "Theme", "theme"),
-    ("settings", "Text size", "text-size"),
 ]
 
 
@@ -70,3 +73,14 @@ def test_the_group_does_not_change_what_is_on_screen(
     )
     assert box["border"] == "0px", f"{question}: the fieldset is drawing a border: {box}"
     assert box["pad"] == "0px", f"{question}: the fieldset kept its default padding: {box}"
+
+
+def test_the_text_size_slider_is_labelled(ui: Page) -> None:
+    """Five-stop range, not radios - still needs an accessible name for the question it answers."""
+    open_screen(ui, "settings")
+    control = ui.get_by_label("Text size")
+    expect(control).to_have_count(1)
+    expect(control).to_have_attribute("type", "range")
+    expect(control).to_have_attribute("min", "0")
+    expect(control).to_have_attribute("max", "4")
+    expect(control).to_have_attribute("step", "1")

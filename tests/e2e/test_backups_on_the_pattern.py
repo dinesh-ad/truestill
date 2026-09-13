@@ -220,11 +220,18 @@ def test_an_offline_drive_offers_no_check_button(ui: Page) -> None:
 
 
 def test_the_at_risk_banner_offers_the_action_that_fixes_it(ui: Page) -> None:
-    """It stated a count and offered nothing, while Stats gives the same fact a button."""
+    """It stated a count and offered nothing, while Stats gives the same fact a button.
+
+    The banner is the INVENTORY (which drive, which files), not a second copy of the safety
+    band's headline - so it names the file rather than repeating "A second copy is what makes…".
+    """
     _open(ui, [_drive("BackupA", "connected")], at_risk=[{"name": "IMG_1.jpg", "drive": "BackupA"}])
     banner = ui.locator("[data-testid='backups-at-risk']")
     expect(banner).to_be_visible()
     expect(banner).to_contain_text("1 file")
+    expect(banner).to_contain_text("IMG_1.jpg")
+    expect(banner).to_contain_text("BackupA")
+    expect(banner).not_to_contain_text("A second copy is what makes")
 
     action = banner.locator("[data-risk-action='copy']")
     expect(action).to_be_visible()

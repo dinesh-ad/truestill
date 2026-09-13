@@ -221,7 +221,7 @@ def test_every_settings_setter_goes_through_the_retried_write(
 
     organize_service.set_organize_mode("move", Path("/x"))
     organize_service.set_sidebar_collapsed(True, Path("/x"))
-    organize_service.set_text_size("large", Path("/x"))
+    organize_service.set_text_size("xl", Path("/x"))
 
     assert len(seen) == 3, f"a setter bypassed the retried write: {seen}"
 

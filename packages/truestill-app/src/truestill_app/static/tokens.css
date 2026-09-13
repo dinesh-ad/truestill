@@ -86,29 +86,18 @@
      and the third stop is the existing `--accent` hue desaturated to a whisper - no second
      accent. Every text token clears AA against the WORST stop; the weakest, `--fg-muted`, is
      4.68:1 there. */
-  /* ⚠ WHITE, RULED BY THE MAINTAINER 2026-09-06, overruling `design-system.md` §1. The three
-     stops are kept as tokens rather than collapsed to one colour: the gradient's machinery still
-     works, the dark theme still uses its own ramp, and reversing this is three hex values rather
-     than a rewrite. Glass over white is nearly invisible, which §1 was right about - the answer
-     is that the surfaces which needed to be glass on Organize are now solid, not that the ground
-     stays tinted to justify them. */
-  --canvas-from: #ffffff;
-  --canvas-mid: #ffffff;
-  --canvas-to: #ffffff;
+  /* ⚠ TONE RESTORED 2026-09-13. Flat white made light-mode glass arithmetic-invisible (white
+     fill over #ffffff composites to white). Elevated warm neutrals give glass something to read
+     against, soften the light↔dark jump, and keep form cards solid (D15). The 2026-09-06 white
+     overrule is reversed for that reason - not to make every surface glass. Worst-stop AA:
+     `--fg-muted` on `--canvas-to` is 4.68:1. */
+  --canvas-from: #faf8f5;
+  --canvas-mid: #f1ebe1;
+  --canvas-to: #e8e9f3;
   --canvas: linear-gradient(135deg, var(--canvas-from), var(--canvas-mid) 45%, var(--canvas-to));
 
-  /* GLASS. ⚠ The look is translucency, a hairline and a shadow - it does NOT depend on
-     `backdrop-filter`, which WebKit reports as supported and does not paint (`(ake)`), and which
-     over a smooth gradient contributes almost nothing anyway. Contrast is computed against the
-     COMPOSITE: white at 0.62 over `--canvas-to` is `#f6f6fb`, where `--fg-muted` is 5.30:1.
-     0.45 is the floor; 0.62 is chosen. */
-  /* ⚠ THE ONLY GLASS TOKEN LEFT, 2026-09-06. `--glass-bg`, `--glass-border` and `--glass-shadow`
-     were deleted when the canvas went white: measured in a browser, every `.card` carrying them
-     composited to exactly rgb(255,255,255) on the white body - 1:1 against the ground and 1:1
-     border - so twelve cards across four screens were invisible but for a shadow. Cards are solid
-     now. This one survives because `.modal-backdrop` still uses it, and the rail, the panel and
-     the custody card paint their own layered translucency with literal values rather than a
-     shared token, because each is tuned against a different ground. */
+  /* GLASS blur only - fill/border live on chrome that needs them (Backups safety band). Cards
+     stay solid. Never `backdrop-filter` (WebKit paints none). */
   --glass-blur: 14px;
   --surface: var(--gray-0);
   --surface-sunken: var(--gray-100);
@@ -307,39 +296,78 @@
      than an instant swap, so it suits colour and small state; 180ms is long enough for an 8px
      travel to be perceived and short enough never to be waited on. Anything slower belongs to
      progress, which is driven by data rather than by a token. */
+  /* Motions: each curve has one job. --ease / --motion-out = entrances and settling (GUIDE/SMOOTH).
+     --motion-in = exits. --motion-spring = object-like feedback (CONFIRM) - mild, not bounce theatre.
+     Prefer transform/opacity; never layout. Decorative motion is cut under prefers-reduced-motion.
+     ⚠ NOT `--ease-*`: that is Tailwind v4's easing namespace; unlayered tokens would silently
+     redefine its utilities (`test_no_token_sits_in_a_tailwind_namespace`). */
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion-out: var(--ease);
+  --motion-in: cubic-bezier(0.4, 0, 1, 1);
+  --motion-spring: cubic-bezier(0.22, 1.15, 0.36, 1);
   --dur-fast: 120ms;
   --dur: 180ms;
+  --dur-enter: 280ms;
+  --dur-exit: 160ms;
   /* The stagger between adjacent result cards. Six steps at 40ms is 240ms end to end - a sequence
      you notice as one arrival, not as a queue. Capped in app.css at the sixth child for that
      reason: past it the last card would be waiting on the animation rather than on the data. */
   --stagger: 40ms;
+
+  /* Pre-2022 glass - solid-first translucency. No backdrop-filter (WebKit paints none). D15 / §5b.
+     Used on chrome accents over --canvas only; never behind form fields or warning notices. */
+  --bak-glass-fill: rgba(255, 255, 255, 0.78);
+  --bak-glass-sheen: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.72) 0%,
+    rgba(255, 255, 255, 0.18) 42%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  --bak-glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+
+  /* Resting panel card - solid-first glass chrome. Must flip with theme (was hardcoded white). */
+  --panel-fill: rgba(255, 255, 255, 0.78);
+  --panel-sheen: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.2) 100%
+  );
+  --panel-border: color-mix(in srgb, #fff 55%, var(--border));
+  --panel-inset: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  --panel-shadow: 0 12px 32px rgba(28, 26, 23, 0.09);
 }
 
 /* TEXT SIZE - a nudge to the root, never a replacement for it.
-   `medium` has no rule on purpose: the absence of a declaration is what lets a raised browser
-   default through untouched, and writing `100%` would look equivalent while quietly making
-   `medium` a value the app asserts rather than one it declines to.
-   75% / 125%, which is 12 / 16 / 20px at the common 16px default - Chrome's own Small and Large
-   presets. It started at +/-12.5% (14/16/18) out of caution about compounding on an already
-   raised default, and that was too timid to read as a setting at all: the maintainer changed it
-   and saw nothing. Compounding is still bounded because these are PERCENTAGES - a 24px default
-   gives 18 / 24 / 30, which is large by choice rather than by accident, where an absolute step
-   would have handed that reader 20px and called it Large. */
-/* ⚠ AT SMALL, `--type-sm` RENDERS ~10.5px on a 16px default. That is not a
+   Five discrete stops on a slider (not a continuous range): arbitrary values put type at sizes
+   nothing was designed or measured for. `medium` has no rule on purpose: the absence of a
+   declaration is what lets a raised browser default through untouched, and writing `100%` would
+   look equivalent while quietly making `medium` a value the app asserts rather than one it
+   declines to.
+   Extremes stay 75% / 125% (Chrome's own Small and Large at a 16px default). Two mid stops
+   (87.5% / 112.5%) sit halfway - finer control without leaving the measured band. Compounding
+   is still bounded because these are PERCENTAGES - a 24px default gives 18 / 21 / 24 / 27 / 30.
+   Legacy aliases `small`→`xs` and `large`→`xl` are accepted by the server; CSS only names the
+   five stops the attribute may carry. */
+/* ⚠ AT XS, `--type-sm` RENDERS ~10.5px on a 16px default. That is not a
    defect and it is not new - it predates the 2026-08-15 type pass and is arithmetic, since 75% of
    a 12px step is 9px. **It is deliberately NOT clamped, and the reason is the same one that
    refused `document.body.zoom`:** a floor here would override a preference the user set on
-   purpose. Someone choosing Small is choosing smaller text; an app that agrees to the setting and
-   then quietly declines the bottom of it is not honouring the choice, it is overruling it while
-   appearing to comply.
+   purpose. Someone choosing the smallest stop is choosing smaller text; an app that agrees to
+   the setting and then quietly declines the bottom of it is not honouring the choice, it is
+   overruling it while appearing to comply.
    The 12px floor this project observes is therefore a floor at MEDIUM, which is the size the
    product ships at and the one an accessibility claim is made about. Written down because the
    9px is easy to find, easy to read as a bug, and "fixing" it would break the setting. */
-:root[data-text-size="small"] {
+:root[data-text-size="xs"] {
   font-size: 75%;
 }
-:root[data-text-size="large"] {
+:root[data-text-size="sm"] {
+  font-size: 87.5%;
+}
+:root[data-text-size="lg"] {
+  font-size: 112.5%;
+}
+:root[data-text-size="xl"] {
   font-size: 125%;
 }
 
@@ -374,11 +402,38 @@
 
     --elevation-sm: none;
     --elevation-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+    --bak-glass-fill: rgba(36, 34, 32, 0.72);
+    --bak-glass-sheen: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0.04) 45%,
+      rgba(255, 255, 255, 0.02) 100%
+    );
+    --bak-glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+    --panel-fill: rgba(36, 34, 32, 0.92);
+    --panel-sheen: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.06) 0%,
+      rgba(255, 255, 255, 0.02) 100%
+    );
+    --panel-border: #3a352e;
+    --panel-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    --panel-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
   }
 }
 
 /* explicit theme override (Settings toggle stamps data-theme on <html>) */
 :root[data-theme="light"] {
+  /* Must override EVERY token `@media (prefers-color-scheme: dark)` sets. A token omitted
+     here keeps the media-dark value when the OS is dark and the user chooses Light - measured
+     2026-09-13: `--canvas-from` and `--warning-subtle` stayed dark while `--fg` flipped to
+     ink, so the Backups page title painted at 1.12:1 and the at-risk band at 1.04:1.
+     `test_light_theme_toggle_overrides_every_media_dark_token` holds the pair. */
+  --canvas-from: #faf8f5;
+  --canvas-mid: #f1ebe1;
+  --canvas-to: #e8e9f3;
   --accent: #e11d48;
   --accent-hover: #be123c;
   --accent-subtle: #fff1f2;
@@ -388,17 +443,37 @@
   --accent-ring: rgba(225, 29, 72, 0.45);
   --success: #1f7a41;
   --warning: #8a5f0a;
+  --warning-subtle: #fdf3e0;
   --bg: #faf8f5;
   --surface: #ffffff;
   --surface-sunken: #f2efe9;
   --surface-raised: #ffffff;
   --border: #e8e3db;
   --border-strong: #d6cfc3;
+  --divider: rgba(28, 26, 23, 0.08);
   --fg: #1c1a17;
   --fg-secondary: #5f574c;
   --fg-muted: #6e665a;
   --on-accent: #ffffff;
   --elevation-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --elevation-md: 0 4px 12px rgba(16, 24, 40, 0.08);
+  --bak-glass-fill: rgba(255, 255, 255, 0.78);
+  --bak-glass-sheen: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.72) 0%,
+    rgba(255, 255, 255, 0.18) 42%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  --bak-glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --panel-fill: rgba(255, 255, 255, 0.78);
+  --panel-sheen: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.2) 100%
+  );
+  --panel-border: color-mix(in srgb, #fff 55%, var(--border));
+  --panel-inset: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  --panel-shadow: 0 12px 32px rgba(28, 26, 23, 0.09);
 }
 :root[data-theme="dark"] {
   /* Must mirror the @media (prefers-color-scheme: dark) palette above in full -- any token
@@ -432,4 +507,21 @@
   --on-accent: #12110f;
   --elevation-sm: none;
   --elevation-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --bak-glass-fill: rgba(36, 34, 32, 0.72);
+  --bak-glass-sheen: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.14) 0%,
+    rgba(255, 255, 255, 0.04) 45%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  --bak-glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --panel-fill: rgba(36, 34, 32, 0.92);
+  --panel-sheen: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  --panel-border: #3a352e;
+  --panel-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --panel-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }

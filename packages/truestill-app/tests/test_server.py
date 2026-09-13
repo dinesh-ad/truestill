@@ -511,6 +511,28 @@ def test_dark_theme_toggle_defines_every_media_dark_token(client: TestClient) ->
     assert not missing, f"[data-theme=dark] is missing tokens (fall back to light): {missing}"
 
 
+def test_light_theme_toggle_overrides_every_media_dark_token(client: TestClient) -> None:
+    """The opposite of the dark-toggle guard, and the same failure class.
+
+    When the OS is dark and the user chooses Light, ``[data-theme="light"]`` must redefine every
+    token the media-dark block set. A token omitted keeps its dark media value while neighbours
+    flip to light - measured 2026-09-13 on Backups: ``--fg`` became ink while ``--canvas-from``
+    and ``--warning-subtle`` stayed dark, so the page title painted at 1.12:1 and the at-risk
+    band at 1.04:1.
+    """
+    css = client.get(f"/static/tokens.css?token={TOKEN}").text
+    media = re.search(r"@media \(prefers-color-scheme: dark\).*?:root\s*\{(.*?)\}", css, re.S)
+    toggle = re.search(r':root\[data-theme="light"\]\s*\{(.*?)\}', css, re.S)
+    assert media is not None
+    assert toggle is not None
+    media_tokens = set(re.findall(r"(--[\w-]+):", media.group(1)))
+    toggle_tokens = set(re.findall(r"(--[\w-]+):", toggle.group(1)))
+    missing = media_tokens - toggle_tokens
+    assert not missing, (
+        f"[data-theme=light] is missing tokens (keep media-dark under a Light choice): {missing}"
+    )
+
+
 def test_catalog_db_is_created(client: TestClient, tmp_path: Path) -> None:
     client.get(f"/api/drives?token={TOKEN}")  # opening the catalog creates it
     with Catalog(tmp_path / "c.sqlite") as catalog:

@@ -304,15 +304,16 @@ def test_the_fluid_bounds_are_rem_so_the_root_still_governs() -> None:
 def test_the_text_size_setting_still_moves_type_on_a_wide_screen(ui: Page) -> None:
     """The two mechanisms compose: the setting scales the root, the clamp bounds are rem."""
     ui.set_viewport_size(UHD)
-    ui.click('.nav-item[data-screen="settings"]')
+    open_screen(ui, "settings")
 
     sizes = {}
-    for size in ("small", "medium", "large"):
-        ui.click(f'input[name="text-size"][value="{size}"]')
+    for index, size in enumerate(("xs", "sm", "medium", "lg", "xl")):
+        ui.locator("#text-size").fill(str(index))
         ui.wait_for_timeout(200)
         sizes[size] = ui.eval_on_selector("body", "el => parseFloat(getComputedStyle(el).fontSize)")
 
-    assert sizes["small"] < sizes["medium"] < sizes["large"], sizes
+    assert sizes["xs"] < sizes["medium"] < sizes["xl"], sizes
+    assert sizes["xs"] < sizes["sm"] < sizes["medium"] < sizes["lg"] < sizes["xl"], sizes
 
 
 def test_type_grows_with_the_viewport_between_the_bounds(ui: Page) -> None:

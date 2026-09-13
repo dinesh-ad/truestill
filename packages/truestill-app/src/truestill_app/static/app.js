@@ -2903,9 +2903,179 @@ function carriedOffer(d, libraryHere) {
   return `<button class="btn btn-ghost drive-recover" data-path="${esc(d.path)}">Bring these back</button>`;
 }
 
+// Split at-risk rows the way `(akp)` requires: a copy action is only honest when the only
+// copy is on a drive that is HERE. Shared by the reserved safety band and the detail banner.
+function atRiskParts(rows) {
+  const names = (list) => [...new Set(list.map((r) => r.drive).filter(Boolean))].sort();
+  const away = rows.filter((r) => r.reach && r.reach !== "connected");
+  const here = rows.filter((r) => !r.reach || r.reach === "connected");
+  return { here, away, hereNames: names(here), awayNames: names(away) };
+}
+
+//: "A", "A and B", "A, B and C" - the drive names read as a sentence rather than a join.
+function listOf(names) {
+  const quoted = names.map((n) => `'${esc(n)}'`);
+  if (quoted.length <= 1) return quoted[0] || "that drive";
+  return `${quoted.slice(0, -1).join(", ")} and ${quoted[quoted.length - 1]}`;
+}
+
+// Inventory for the DETAIL banner under the drive list - names which drives hold the only
+// copies, and samples the files. Must NOT repeat the safety band's headline ("A second copy
+// is what makes N files safe…"). The band stays the headline; this is the ledger.
+function atRiskByDrive(rows) {
+  const map = new Map();
+  for (const r of rows) {
+    const drive = r.drive || "unknown";
+    if (!map.has(drive)) map.set(drive, []);
+    map.get(drive).push(r.name || "(unnamed)");
+  }
+  return map;
+}
+
+function atRiskSampleLine(drive, names, { away }) {
+  const shown = names.slice(0, 3).map((n) => esc(n));
+  const more = names.length > 3 ? `, and ${names.length - 3} more` : "";
+  const reach = away ? " (not connected)" : "";
+  return `On '${esc(drive)}'${reach}: ${shown.join(", ")}${more}.`;
+}
+
+function atRiskInventoryLines(parts) {
+  const lines = [];
+  const hereMap = atRiskByDrive(parts.here);
+  const awayMap = atRiskByDrive(parts.away);
+  if (hereMap.size) {
+    const bits = [...hereMap.entries()].map(([d, names]) => atRiskSampleLine(d, names, { away: false }));
+    lines.push(`<div class="k" data-testid="at-risk-here">${bits.join(" ")}</div>`);
+  }
+  if (awayMap.size) {
+    const bits = [...awayMap.entries()].map(([d, names]) => atRiskSampleLine(d, names, { away: true }));
+    lines.push(`<div class="k" data-testid="at-risk-away">${bits.join(" ")}
+      Connect ${parts.awayNames.length === 1 ? "that drive" : "those drives"} before anything can be
+      copied from ${parts.awayNames.length === 1 ? "it" : "them"}.</div>`);
+  }
+  return lines;
+}
+
+function atRiskBanner(rows) {
+  const parts = atRiskParts(rows);
+  return `<div class="banner warn" data-testid="backups-at-risk"><div>
+      <div class="b-title">${plural(rows.length, "file")} with no second copy - by drive</div>
+      ${atRiskInventoryLines(parts).join("")}
+      ${parts.here.length ? `<button class="btn btn-secondary" data-risk-action="copy">Copy to another drive</button>` : ""}
+    </div></div>`;
+}
+
+// THE HEADLINE ABOVE THE FORMS. Verdict and next step; the banner under `#drives-list` is the
+// inventory (which drives, which files). Reserved-height so answering "am I safe?" first cannot
+// move a control. Writes into slots that already exist in the markup - never rebuilds the
+// band's outer box. Detail lines here omit the banner's data-testids so e2e can address one
+// surface.
+function setBakSafetyChip(text) {
+  const chip = $("bak-safety-chip");
+  if (!text) {
+    chip.hidden = true;
+    chip.textContent = "";
+    return;
+  }
+  chip.hidden = false;
+  chip.textContent = text;
+}
+
+function renderBakSafety(at_risk, drives, lib) {
+  const band = $("bak-safety");
+  const value = $("bak-safety-value");
+  const label = $("bak-safety-label");
+  const title = $("bak-safety-title");
+  const detail = $("bak-safety-detail");
+  const action = $("bak-safety-action");
+  const focusCopy = () => {
+    const field = $("bk-source");
+    field.scrollIntoView({ behavior: "smooth", block: "center" });
+    field.focus();
+  };
+  const anyDrive = ((lib && lib.places) || 0) > 0;
+  const heldFloor = (lib && lib.held_floor) || 0;
+  const hasFiles = !!(lib && lib.files);
+  const rows = at_risk || [];
+
+  value.classList.remove("at-risk", "safe");
+  action.innerHTML = "";
+
+  if (rows.length) {
+    const parts = atRiskParts(rows);
+    band.dataset.tone = "at-risk";
+    setBakSafetyChip("Needs a second copy");
+    value.textContent = nfmt(rows.length);
+    value.classList.add("at-risk");
+    label.textContent = rows.length === 1 ? "file in only one place" : "files in only one place";
+    title.textContent = `${plural(rows.length, "file")} ${rows.length === 1 ? "exists" : "exist"} in only one place`;
+    const lines = [];
+    if (parts.here.length) {
+      lines.push(`<div class="k">A second copy is what makes ${plural(parts.here.length, "file")} safe.
+        Copy ${listOf(parts.hereNames)} to another drive below.</div>`);
+    }
+    if (parts.away.length) {
+      lines.push(`<div class="k">${plural(parts.away.length, "file")}
+        ${parts.away.length === 1 ? "has its" : "have their"} only copy on ${listOf(parts.awayNames)}, which
+        ${parts.awayNames.length === 1 ? "is" : "are"} not connected. Connect
+        ${parts.awayNames.length === 1 ? "it" : "them"} first - there is nothing to copy from until you do.</div>`);
+    }
+    detail.innerHTML = lines.join("");
+    if (parts.here.length) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-primary";
+      btn.textContent = "Copy to another drive";
+      btn.onclick = focusCopy;
+      action.appendChild(btn);
+    }
+    return;
+  }
+
+  if (!hasFiles) {
+    band.dataset.tone = "neutral";
+    setBakSafetyChip("Waiting");
+    value.textContent = "-";
+    label.textContent = "nothing organized yet";
+    title.textContent = "Nothing to back up yet";
+    detail.innerHTML = `<div class="k">Organize some photos first, then come back here to put them in more than one place.</div>`;
+    return;
+  }
+
+  if (!drives.length || !anyDrive) {
+    band.dataset.tone = "neutral";
+    setBakSafetyChip("One place only");
+    value.textContent = "1";
+    label.textContent = "place so far";
+    title.textContent = "Not on a backup drive yet";
+    detail.innerHTML = `<div class="k">You have ${mediaCount(lib)} organized and no second copy of them.
+      Connect a drive, then use Copy your library to another drive below.</div>`;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-primary";
+    btn.textContent = "Copy to another drive";
+    btn.onclick = focusCopy;
+    action.appendChild(btn);
+    return;
+  }
+
+  // Safe: every file that has a home is in at least two places. Match the custody strip's
+  // wording - "everything is in N places" - rather than inventing a second dialect.
+  band.dataset.tone = "safe";
+  setBakSafetyChip("Custody holds");
+  value.textContent = nfmt(Math.max(heldFloor, 2));
+  value.classList.add("safe");
+  label.textContent = heldFloor === 1 ? "place every file is in" : "places every file is in";
+  title.textContent = heldFloor <= 2
+    ? "Everything is in two places"
+    : `Everything is in ${plural(heldFloor, "place")}`;
+  detail.innerHTML = `<div class="k">Every file that is on a drive has a second copy. Check a drive below when you want to be sure those copies are still perfect.</div>`;
+}
+
 async function loadDrives() {
   const [{ drives, at_risk, cannot_name_library }, lib] = await Promise.all([api("/api/drives"), get("/api/library/status")]);
   const list = $("drives-list");
+  renderBakSafety(at_risk, drives, lib);
   if (!drives.length) {
     // Guide, do not merely report. The old text ("connect one and click Check now") pointed at
     // the wrong section for the commonest state -- a library with no backup yet -- where
@@ -2934,49 +3104,7 @@ async function loadDrives() {
   // exact fact; Backups stated the count and stopped. The remedy lives on THIS screen, so the
   // action points at it rather than navigating away.
   const risk = at_risk.length ? atRiskBanner(at_risk) : "";
-  // ⚠ **THE REMEDY HAS TO NAME THE DRIVE THE FILE IS ACTUALLY ON.** `(akp)`. This said *"Copy your
-// library to another drive above"* for every at-risk file - and a file at risk on a drive that is
-// NOT the library is not in the library, so following that advice backs up a set the file is not
-// in and leaves it exactly as it was. Measured on a real ejected drive 2026-09-12: one photograph
-// on AD_2TB alone, and `reclaim` against the library listed 161 candidates and mentioned it zero
-// times. Being told what to do, doing it, and remaining unprotected is worse than silence.
-//
-// Three cases, which is what `reach` on the row buys:
-//   - the only copy is on a drive that is NOT HERE -> there is no copy action at all until it is
-//     connected, and offering one would be inert;
-//   - the only copy is on a connected drive -> name THAT drive, which is right whether or not it
-//     happens to be the library;
-//   - both -> say both, because they need different steps.
-function atRiskBanner(rows) {
-  const names = (list) => [...new Set(list.map((r) => r.drive).filter(Boolean))].sort();
-  const away = rows.filter((r) => r.reach && r.reach !== "connected");
-  const here = rows.filter((r) => !r.reach || r.reach === "connected");
-  const lines = [];
-  if (here.length) {
-    lines.push(`<div class="k" data-testid="at-risk-here">A second copy is what makes
-      ${plural(here.length, "file")} safe. Copy ${listOf(names(here))} to another drive above.</div>`);
-  }
-  if (away.length) {
-    lines.push(`<div class="k" data-testid="at-risk-away">${plural(away.length, "file")}
-      ${away.length === 1 ? "has" : "have"} their only copy on ${listOf(names(away))}, which
-      ${names(away).length === 1 ? "is" : "are"} not connected. Connect
-      ${names(away).length === 1 ? "it" : "them"} to make a second copy - there is nothing to copy
-      from until you do.</div>`);
-  }
-  return `<div class="banner warn" data-testid="backups-at-risk"><div>
-      <div class="b-title">${plural(rows.length, "file")}
-        ${rows.length === 1 ? "exists" : "exist"} in only one place</div>
-      ${lines.join("")}
-      ${here.length ? `<button class="btn btn-secondary" data-risk-action="copy">Copy to another drive</button>` : ""}
-    </div></div>`;
-}
-
-//: "A", "A and B", "A, B and C" - the drive names read as a sentence rather than a join.
-function listOf(names) {
-  const quoted = names.map((n) => `'${esc(n)}'`);
-  if (quoted.length <= 1) return quoted[0] || "that drive";
-  return `${quoted.slice(0, -1).join(", ")} and ${quoted[quoted.length - 1]}`;
-}
+  // ⚠ **THE REMEDY HAS TO NAME THE DRIVE THE FILE IS ACTUALLY ON.** `(akp)`. See atRiskParts.
 
 // A PATH IS SHOWN UNASKED ONLY WHEN IT IS DOING IDENTITY WORK. `(acs)`.
   //
@@ -3032,19 +3160,37 @@ function listOf(names) {
     // recorded is the normal state for a CLI-only user, not a missing drive.
     const reachable = drives.filter((x) => x.reach !== "offline").length;
     const pips = lib.independence === "not_independent" ? 1 : Math.min(reachable, 3);
-    const strip = [0, 1, 2].map((i) => (i < pips ? "▪" : "▫")).join(" ");
+    const strip = [0, 1, 2].map((i) =>
+      `<i class="drive-pip${i < pips ? " filled" : ""}" aria-hidden="true"></i>`).join("");
     const collides = (sharedLabel.get(d.label) || 0) > 1;
-    return `<div class="card"><div class="tally" style="grid-template-columns:1fr auto">
-      <div><b>${esc(d.label)}</b> ${driveReachBadge(d.reach)}<div class="k mono">${mediaCount(d)} · ${fmtBytes(d.size)}</div>
-        ${driveNotFoundNote(d)}
-        ${d.path
-          ? `<details class="more inline"${collides ? " open" : ""}>
-             <summary>Show location ▾</summary>
-             <div class="k mono"><a href="#" data-open="${esc(d.path)}" title="Open in file manager">${esc(d.path)}</a></div></details>`
-          : ""}</div>
-      <div class="mono" style="color:var(--success)">${strip}</div></div>
+    const checked = (d.last_verified || "never").slice(0, 10);
+    const neverChecked = !d.last_verified;
+    const missing = d.not_found || 0;
+    const health = d.reach === "offline"
+      ? "offline"
+      : (neverChecked || missing > 0 ? "warn" : "ok");
+    const healthChip = d.reach === "offline"
+      ? `<span class="drive-health-chip" data-kind="offline">Offline</span>`
+      : missing > 0
+        ? `<span class="drive-health-chip" data-kind="warn">${nfmt(missing)} missing</span>`
+        : neverChecked
+          ? `<span class="drive-health-chip" data-kind="warn">Never checked</span>`
+          : `<span class="drive-health-chip" data-kind="ok">Checked</span>`;
+    return `<div class="card drive-card" data-reach="${esc(d.reach || "unknown")}" data-health="${health}">
+      <div class="drive-top">
+        <div><span class="drive-label">${esc(d.label)}</span> ${driveReachBadge(d.reach)}
+          <div class="k mono">${mediaCount(d)} · ${fmtBytes(d.size)}</div>
+          <div class="drive-health">${healthChip}</div>
+          ${driveNotFoundNote(d)}
+          ${d.path
+            ? `<details class="more inline"${collides ? " open" : ""}>
+               <summary>Show location ▾</summary>
+               <div class="k mono"><a href="#" data-open="${esc(d.path)}" title="Open in file manager">${esc(d.path)}</a></div></details>`
+            : ""}</div>
+        <div class="drive-pips" title="reachable places that hold a copy">${strip}</div>
+      </div>
       <div class="drive-foot">
-        <span class="k mono">last checked: ${(d.last_verified || "never").slice(0, 10)}</span>
+        <span class="k mono drive-checked" data-never="${neverChecked ? "1" : "0"}">last checked: ${checked}</span>
         ${carriedNote(d)}
         ${lastSeenNote(d)}
         ${driveDecisionsNote(d)}
@@ -4552,31 +4698,54 @@ document.querySelectorAll('input[name="theme"]').forEach((r) => {
 // REMOVES THE ATTRIBUTE rather than setting a value, because the absence of a declaration is
 // precisely what lets a raised browser default through untouched.
 //
-// Nothing here validates the value: the server normalises on both directions of the wire, and a
-// second vocabulary in the browser is how the two drift.
+// Five discrete slider stops (xs / sm / medium / lg / xl). Continuous values are refused at
+// the control (`step=1`) and again at the server. Nothing here validates the value beyond the
+// stop table: the server normalises on both directions of the wire, and a second vocabulary in
+// the browser is how the two drift.
+const TEXT_SIZE_STOPS = ["xs", "sm", "medium", "lg", "xl"];
+const TEXT_SIZE_LABELS = { xs: "XS", sm: "S", medium: "Medium", lg: "L", xl: "XL" };
+
+function textSizeIndex(size) {
+  const i = TEXT_SIZE_STOPS.indexOf(size);
+  return i < 0 ? 2 : i;
+}
+
 function applyTextSize(size) {
   const root = document.documentElement;
-  if (!size || size === "medium") root.removeAttribute("data-text-size");
-  else root.setAttribute("data-text-size", size);
-  const chosen = document.querySelector(`input[name="text-size"][value="${size || "medium"}"]`);
-  if (chosen) chosen.checked = true;
+  const stop = TEXT_SIZE_STOPS.includes(size) ? size : "medium";
+  if (stop === "medium") root.removeAttribute("data-text-size");
+  else root.setAttribute("data-text-size", stop);
+  const slider = $("text-size");
+  if (slider) {
+    slider.value = String(textSizeIndex(stop));
+    slider.setAttribute("aria-valuetext", TEXT_SIZE_LABELS[stop] || stop);
+  }
 }
 
 async function loadTextSize() {
-  // KNOWN COST, recorded rather than hidden: this lands after first paint, so a reader on small
-  // or large sees one reflow on load. Same shape as the sidebar's collapse, which is the pattern
-  // this follows. Removing it means rendering the attribute into the template server-side, which
-  // puts a catalog read on the page request - worth doing, and not worth smuggling in here.
+  // KNOWN COST, recorded rather than hidden: this lands after first paint, so a reader on a
+  // non-medium stop sees one reflow on load. Same shape as the sidebar's collapse, which is the
+  // pattern this follows. Removing it means rendering the attribute into the template
+  // server-side, which puts a catalog read on the page request - worth doing, and not worth
+  // smuggling in here.
   const state = await get("/api/text-size/settings");
   applyTextSize(state.size);
 }
 
-document.querySelectorAll('input[name="text-size"]').forEach((radio) => {
-  radio.onchange = guarded(async () => {
-    applyTextSize(radio.value);
-    await api("/api/text-size/settings", { size: radio.value });
-  });
-});
+{
+  const slider = $("text-size");
+  if (slider) {
+    slider.oninput = () => {
+      const stop = TEXT_SIZE_STOPS[Number(slider.value)] || "medium";
+      applyTextSize(stop);
+    };
+    slider.onchange = guarded(async () => {
+      const stop = TEXT_SIZE_STOPS[Number(slider.value)] || "medium";
+      applyTextSize(stop);
+      await api("/api/text-size/settings", { size: stop });
+    });
+  }
+}
 
 // The shell's five, kept as RAW promises: `settleScreen` reports their failures through
 // `reportLoadFailure` after `allSettled` inspects them, so catching here would hide the
@@ -4796,6 +4965,9 @@ document.addEventListener("click", guarded((event) => {
 //
 // NOT A GATE. D16 §1: the app always opens and every feature works. Nothing here refuses
 // anything, nothing here is consulted before doing work, and no state renders as an error.
+//
+// RESTING ROW = state + what remains. Path, picker, detail and sign-out live only inside the
+// disclosure. A raw filesystem path is never the resting state.
 function renderAccount(a) {
   const slot = $("account-slot");
   slot.dataset.state = a.state;
@@ -4810,12 +4982,11 @@ function renderAccount(a) {
   // is not rendered as its own sentence: `detail` already says what lapsed and what did not, in
   // core's words, and a second phrasing of the same fact beside it is the drift above.
   const who = a.email ? `<p><span class="account-field">${esc(a.email)}</span></p>` : "";
-  // ⚠ THE TOKEN PATH IS SHOWN ONLY WHERE IT IS ACTIONABLE, and that is a fix rather than a
-  // preference: with it always rendered, an ACTIVE panel was taller than its 40vh cap and the
-  // Sign out BUTTON fell below the fold while its warning stayed visible - the worst possible
-  // ordering, found by looking at a screenshot. An entitled user has nothing to do with the
-  // path; a user who must replace or place a file has everything to do with it.
-  const entitled = a.state === "active" || a.state === "lapsed";
+  // Path only when a broken file is in play - so the user can see which file to replace.
+  // Absent / signed-out have nothing at that location; dumping the empty destination path is
+  // debugging. Entitled users already have a working file and sign-out is the exit.
+  const showPath = a.state === "unreadable";
+  const needsActivate = a.state === "absent" || a.state === "signed_out" || a.state === "unreadable";
   slot.innerHTML = `
     <details class="account-acct">
       <summary aria-label="Account and licence">
@@ -4832,14 +5003,15 @@ function renderAccount(a) {
         ${who}
         <p>${esc(a.detail)}</p>
         ${notice}
-        ${entitled ? "" : `
-        <p class="account-path" data-testid="account-token-path">${esc(a.token_path)}</p>`}
+        ${showPath ? `
+        <p class="account-path" data-testid="account-token-path">${esc(a.token_path)}</p>` : ""}
+        ${needsActivate ? `
         <div data-testid="account-activation">
           <input class="input" id="account-file" type="text" spellcheck="false"
                  placeholder="Path to your licence file" aria-label="Path to your licence file">
           <button class="btn" id="account-activate">Use this licence file</button>
           <p class="warn hidden" id="account-error" role="alert"></p>
-        </div>
+        </div>` : ""}
         ${a.state === "absent" || a.state === "signed_out" ? "" : `
         <div class="account-signout">
           <p>${esc(a.sign_out_warning)}</p>

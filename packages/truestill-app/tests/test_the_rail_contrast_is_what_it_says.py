@@ -82,9 +82,9 @@ def test_the_instrument_reproduces_a_ratio_that_was_never_in_doubt() -> None:
     value nobody has disputed. If this arithmetic cannot reproduce it, every other verdict in
     this file is noise.
     """
-    assert round(contrast("#fda4af", "#101012"), 2) == 10.05
+    assert round(contrast("#fda4af", "#161014"), 2) == 9.93
     assert round(contrast("#ffffff", "#000000"), 2) == 21.0
-    assert round(contrast("#101012", "#101012"), 2) == 1.0
+    assert round(contrast("#161014", "#161014"), 2) == 1.0
 
 
 def test_every_recorded_ratio_is_the_one_its_colour_produces() -> None:

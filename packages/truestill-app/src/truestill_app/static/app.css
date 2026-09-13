@@ -23,6 +23,36 @@ body {
   background-image: var(--canvas);
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
+  /* Mesh sits on ::before - keep stacking context so it stays behind content. */
+  position: relative;
+  isolation: isolate;
+}
+/* Ambient mesh - CSS-only, GPU (transform/opacity). Soft enough that an amber warning still
+   owns the eye. prefers-reduced-motion kills it with the blanket below. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 40% at 12% 18%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%),
+    radial-gradient(ellipse 45% 50% at 88% 12%, color-mix(in srgb, #fb923c 12%, transparent), transparent 65%),
+    radial-gradient(ellipse 50% 45% at 70% 88%, color-mix(in srgb, var(--accent-strong) 10%, transparent), transparent 70%),
+    radial-gradient(ellipse 40% 35% at 20% 78%, color-mix(in srgb, #fda4af 9%, transparent), transparent 70%);
+  opacity: 0.55;
+  transform: translate3d(0, 0, 0) scale(1);
+  animation: mesh-drift 48s var(--ease) infinite alternate;
+}
+@keyframes mesh-drift {
+  from {
+    transform: translate3d(-1.5%, 0.5%, 0) scale(1.02);
+    opacity: 0.42;
+  }
+  to {
+    transform: translate3d(1.5%, -1%, 0) scale(1.06);
+    opacity: 0.62;
+  }
 }
 /* data speaks in monospace - the type signature */
 .mono,
@@ -110,38 +140,22 @@ code,
    the dark palette stop disagreeing about what rose is. The edge keeps its relationship to the
    accent - the same hue held back - and keeps clearing WCAG 2.2 1.4.11's 3:1 for non-text UI. */
 :root {
-  /* NEAR-BLACK, ruled 2026-09-06. This was #17150f, a warm brown-grey that read as an
-     undecided colour rather than as a decision - dark enough to be dark, warm enough to look
-     like a mistake beside the canvas. #101012 commits. Every --rail-* below is re-measured
-     against it and each one gained contrast, so nothing here drops toward a floor. */
-  --rail-bg: #101012;
-  --rail-border: #23232a; /* 1.22:1 vs the rail - a hairline, not text */
-  --rail-text: #e6e2d9; /* 14.70:1 on the rail */
-  --rail-muted: #b0a89a; /* 8.07:1 - replaces --fg-muted, which is 3.91:1 here */
-  --rail-success: #5cc47f; /* 8.74:1 - replaces --success, tuned for white at 5.30:1 */
-  /* ADDED 2026-09-11 for the account slot's licence notice (D16 §5). Amber rather than red: an
-     unreadable licence is a thing to fix and D16 §1 means nothing has stopped working, so the
-     rail must not paint an alarm. Measured against #101012 at **9.00:1**, above `--rail-muted`
-     so the one sentence that asks for action is not quieter than the prose around it.
-     ⚠ FINDING THIS ONE'S RATIO IS WHAT EXPOSED SIX STALE ONES ABOVE, all now corrected and all
-     now recomputed by `test_the_rail_contrast_is_what_it_says.py`. It was reported as THREE
-     twice before the whole set was swept, and the count was wrong because only the text colours
-     had been checked - `--rail-border`, `--rail-active-bg` and `--rail-hover-bg` were stale too.
-     The correction lives in the block above, beside the record of the day they were taken. */
-  --rail-warn: #e0a94a; /* 9.00:1 on the rail */
-  --rail-active-bg: #2a2a34; /* 1.34:1 - lifted with the canvas, see the note above */
-  /* THE ACTIVE ITEM'S EDGE. `--rail-active-bg` alone is **1.27:1** against the rail - a fill
-     that has to be inferred rather than seen, which is `organize-preview-record.md`'s fourth
-     finding in as many words: *"the current screen is legible at a glance rather than
-     inferred"*. A state indicator is non-text UI, so **WCAG 2.2 1.4.11 wants 3:1**; this is
-     measured at 3.36:1 and is the rail accent's hue held back so it reads as an edge and not as
-     a second accent. It lives HERE rather than in `tokens.css` because the whole `--rail-*`
-     group does: `test_rail_shell.py` records that the rail is theme-independent, so its tokens
-     "sit outside the light/dark ladder" and splitting one off would break that grouping. */
-  --rail-active-border: #a8465c; /* 3.34:1 vs the rail - see the note above */
-  --rail-hover-bg: #1a1a1f; /* 1.10:1 */
-  /* Also paints the wordmark's accent dot and the pillar T, so it moves with them. */
-  --rail-accent: #fda4af; /* 10.05:1 on #101012 */
+  /* ROSE-CHARCOAL, 2026-09-13. Near-black with a rose undertone so the rail relates to the
+     brand mark rather than sitting as a detached cool slab beside a warm canvas. Every
+     --rail-* below is re-measured against #161014. */
+  --rail-bg: #161014;
+  --rail-border: #2a2226; /* 1.21:1 vs the rail - a hairline, not text */
+  --rail-text: #e6e2d9; /* 14.53:1 on the rail */
+  --rail-muted: #b0a89a; /* 7.97:1 - replaces --fg-muted, which is 3.91:1 here */
+  --rail-success: #5cc47f; /* 8.64:1 - replaces --success, tuned for white at 5.30:1 */
+  /* Licence notice amber (D16 §5). Measured against #161014 at 8.89:1, above `--rail-muted`. */
+  --rail-warn: #e0a94a; /* 8.89:1 on the rail */
+  --rail-active-bg: #32262c; /* 1.30:1 - rose-lifted fill; the edge carries the state */
+  /* Active edge: non-text UI, WCAG 2.2 1.4.11 wants 3:1; this is 3.30:1. */
+  --rail-active-border: #a8465c; /* 3.30:1 vs the rail */
+  --rail-hover-bg: #1e161a; /* 1.06:1 */
+  /* Also paints the wordmark's accent dot and the pillar T. */
+  --rail-accent: #fda4af; /* 9.93:1 on #161014 */
 }
 
 /* RULE 1 OF 2: above the breakpoint the shell is exactly the viewport, so `.main` scrolls and
@@ -213,9 +227,9 @@ code,
        a faint warm bloom behind the mark, which is where the eye lands first;
        a floor shadow, so the custody card at the bottom sits ON something. */
   background:
-    radial-gradient(120% 42% at 0% 0%, rgba(253, 164, 175, 0.07), transparent 70%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 38%),
-    linear-gradient(0deg, rgba(0, 0, 0, 0.35), transparent 22%),
+    radial-gradient(120% 48% at 0% 0%, rgba(253, 164, 175, 0.12), transparent 72%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 40%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.38), transparent 24%),
     var(--rail-bg);
   border-right: var(--border-width) solid transparent;
   border-image: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.03) 55%) 1;
@@ -284,7 +298,9 @@ code,
 }
 /* THE MARK IS ALWAYS VISIBLE. It was `display: none` until collapsed, so the expanded rail - the
    state the product opens in - showed a wordmark and no mark at all. Beside the word it reads as
-   a lockup; the collapsed rail keeps it as the only thing left. */
+   a lockup; the collapsed rail keeps it as the only thing left.
+   Living brand: slow ambient motion on the plate (filter + stop-color). Composited only. Never
+   strong enough to pull focus off a warning. */
 .brand-monogram {
   display: block;
   /* ⚠ 30px BESIDE THE WORD, 36px ALONE, changed 2026-09-09 - and the two states wanting different
@@ -323,6 +339,29 @@ code,
      its label. A separator should scale with what it separates. */
   margin-right: var(--space-4);
   flex: none;
+  animation: brand-alive 14s var(--ease) infinite alternate;
+}
+@keyframes brand-alive {
+  from {
+    filter: hue-rotate(-6deg) saturate(1);
+  }
+  to {
+    filter: hue-rotate(10deg) saturate(1.08);
+  }
+}
+#truestill-rail-plate-ramp stop:first-child {
+  animation: brand-stop-a 10s var(--ease) infinite alternate;
+}
+#truestill-rail-plate-ramp stop:last-child {
+  animation: brand-stop-b 10s var(--ease) infinite alternate;
+}
+@keyframes brand-stop-a {
+  from { stop-color: #f43f5e; }
+  to { stop-color: #fb7185; }
+}
+@keyframes brand-stop-b {
+  from { stop-color: #fb923c; }
+  to { stop-color: #f43f5e; }
 }
 .sidebar[data-collapsed="true"] .brand-monogram {
   height: 36px;
@@ -470,15 +509,18 @@ code,
 .account-slot:not(:empty) + .custody {
   margin-top: 0;
 }
-/* QUIETER THAN CUSTODY, DELIBERATELY. Custody is the product's claim about the user's
-   irreplaceable files and earns a raised card; an account is administrative. Giving both the same
-   treatment would make the rail read as two equal announcements, and the wrong one would win on
-   position. So: no gradient, no shadow, one hairline. */
+/* QUIET ACCOUNT ROW - Cursor-style presence, not a developer panel.
+   At rest: one compact row (state + what remains). Border and fill only as light chrome;
+   the disclosure carries path, picker and sign-out. */
 .account-acct {
-  border-radius: var(--corner-lg);
-  border: var(--border-width) solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.025);
+  border-radius: var(--corner-md);
+  border: var(--border-width) solid transparent;
+  background: transparent;
   overflow: hidden;
+}
+.account-acct[open] {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.025);
 }
 .account-acct > summary {
   /* ⚠ **MEASURED 2026-09-11, AND IT CONTRADICTS WHAT THIS COMMENT SAID.** It claimed Safari
@@ -494,10 +536,11 @@ code,
   list-style: none;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
   min-width: 0;
+  border-radius: var(--corner-md);
 }
 .account-acct > summary::-webkit-details-marker {
   display: none;
@@ -510,6 +553,10 @@ code,
 .account-acct > summary:focus-visible {
   outline: 2px solid var(--rail-accent);
   outline-offset: -2px;
+}
+/* Belt for engines that paint closed details content: resting state is summary only. */
+.account-acct:not([open]) > .account-body {
+  display: none;
 }
 /* A DOT, NOT AN AVATAR. `(aam)` names Cursor as the model, which shows a photograph; there is no
    photograph here and inventing initials in a circle would be identity theatre for a local tool.
@@ -984,6 +1031,23 @@ svg.ico {
   color: var(--fg-secondary);
   margin: 0;
   max-width: 56ch;
+  font-size: var(--type-base);
+  font-weight: var(--weight-normal);
+}
+/* LEVEL TWO across every screen - the uppercase section label Organize already had on fields.
+   Same size/weight/tracking; used between major regions so the eye has somewhere to land. */
+.section-label,
+.bak-section-label {
+  margin: var(--space-5) 0 var(--space-3);
+  font-size: var(--type-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.screen > header + .section-label,
+.screen > header + .bak-section-label {
+  margin-top: var(--space-4);
 }
 
 /* ---------- cards ---------- */
@@ -992,18 +1056,8 @@ svg.ico {
    is checked character by character and a wrong one moves the wrong files. The preview applies
    `backdrop-blur-2xl` here; the look is kept and the blur is dropped, which over this canvas is a
    measured difference of nearly nothing. */
-/* ⚠ SOLID, BECAUSE THE CANVAS IS WHITE AND GLASS ON WHITE IS NOTHING. Measured 2026-09-06 in a
-   browser, not computed from tokens: `--glass-bg` is white at 0.62 and `--glass-border` is white
-   at 0.72, so over the now-white body every card composited to EXACTLY rgb(255,255,255) - 1:1
-   against the ground and 1:1 border against itself. Twelve cards across Organize, Backups, Stats
-   and Settings, all of them invisible but for a shadow. That is the consequence
-   `design-system.md` §1 predicted when it argued for a tinted ground, and the answer the overrule
-   chose: the surfaces stop being glass rather than the ground staying tinted.
-
-   A card on white is defined by its EDGE and its lift, not by a fill. `--border` measures 1.28:1
-   against the card - below 1.4.11's 3:1, and correctly so: this is structure, not state, and it
-   is the same edge the solid result card has always used. `.card.result` set exactly these three
-   properties as an override and is deleted rather than left duplicating the base. */
+/* ⚠ SOLID ON THE ELEVATED CANVAS. Cards lift as white surfaces over warm ground - the edge and
+   shadow define them. Glass stays on chrome (Backups safety band), never on form cards (D15 §6). */
 .card {
   background: var(--surface);
   border: var(--border-width) solid var(--border);
@@ -1030,9 +1084,15 @@ svg.ico {
   margin: var(--space-5) 0;
 }
 .card h2 {
-  font-size: var(--type-lg);
+  font-size: var(--type-base);
   font-weight: var(--weight-semibold);
-  margin: 0 0 var(--space-4);
+  color: var(--fg);
+  margin: 0 0 var(--space-3);
+}
+/* Job titles on Backups lead their card - one step above a Settings card title. */
+.bak-job-copy h2 {
+  font-size: var(--type-lg);
+  margin: 0 0 var(--space-2);
 }
 .card h3 {
   font-size: var(--type-sm);
@@ -1204,6 +1264,30 @@ select.input {
   /* Two checkboxes are one group and were 16px apart, the same distance the SECTIONS use. They
      are the least of what is on this screen and they were taking a section's worth of air. */
   margin-bottom: var(--space-2);
+}
+/* Discrete text-size slider - five stops, labels under the track. Not continuous. */
+.text-size-control {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 22rem;
+}
+.text-size-control input[type="range"] {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+  /* Range inputs default to 16px UA text; labels here are `--type-sm`. Match them so the
+     control does not outrank the words explaining it
+     (`test_no_form_control_is_set_larger_than_the_labels_around_it`). */
+  font-size: var(--type-sm);
+}
+.text-size-stops {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--type-sm);
+  color: var(--fg-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: var(--weight-semibold);
 }
 
 /* THREE ACROSS. The picker was three full-width rows, each two lines, and the thing being
@@ -2327,14 +2411,24 @@ details.more.inline {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  *::before,
+  *::after {
     /* ANIMATION IS LISTED HERE BECAUSE IT WAS NOT, and the omission was invisible until now:
        nothing in the product used `@keyframes`, so a reset that covered only `transition` looked
        complete. The moment motion arrives, a blanket that misses half the property is a
        preference silently ignored. Both are reset, and `both` on the rule above means the element
-       still lands in its final state rather than stuck at the `from` frame. */
+       still lands in its final state rather than stuck at the `from` frame.
+       Pseudos are named too: the canvas mesh and brand stop sweeps live on ::before / SVG stops. */
     transition: none !important;
     animation: none !important;
+  }
+  body::before {
+    opacity: 0.35;
+    transform: none;
+  }
+  .brand-monogram {
+    filter: none;
   }
 }
 
@@ -2542,6 +2636,337 @@ details.more.inline {
   visibility: hidden;
 }
 
+/* ---------- Backups: safety band, jobs, drives ---------- */
+/* RESERVED HEIGHT FROM FIRST PAINT. The box is a FIXED height sized for the longest state -
+   at-risk with both "here" and "away" lines plus a button - so swapping safe ↔ at-risk cannot
+   move `#bk-preview` below. Content may change; the band's box may not. `(acd)`.
+   Overflow scrolls inside the detail slot rather than growing the band.
+
+   LOOK: pre-2022 glass on calm tones (layered fill + sheen border + inset highlight + frosted
+   canvas copy via filter:blur). At-risk stays SOLID warning-subtle - notices are never glass
+   (design-system §6). No backdrop-filter anywhere. */
+.bak-safety {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  box-sizing: border-box;
+  height: 15rem;
+  min-height: 15rem;
+  max-height: 15rem;
+  margin-bottom: var(--space-5);
+  border-radius: var(--corner-lg);
+  color: var(--fg);
+  overflow: hidden;
+  /* Traffic-light edge - state readable before the words. */
+  border: var(--border-width) solid var(--border);
+  border-left: 3px solid var(--border-strong);
+  /* Solid-first glass fill. No background-clip stack (lied to getComputedStyle); no
+     backdrop-filter (WebKit paints none). Edge definition is the hairline ring in
+     box-shadow - white glass on a white canvas has no fill cue without it. */
+  background-color: var(--bak-glass-fill);
+  box-shadow:
+    var(--elevation-md),
+    var(--bak-glass-inset),
+    0 0 0 1px color-mix(in srgb, #fff 55%, var(--border));
+  /* SMOOTH: tone swaps crossfade colour without moving the box. */
+  transition:
+    background-color var(--dur) var(--motion-out),
+    border-color var(--dur) var(--motion-out),
+    box-shadow var(--dur) var(--motion-out);
+}
+.bak-safety[data-tone="neutral"],
+.bak-safety[data-tone="safe"] {
+  /* Specular top edge - glass edge definition (Axonix 2026: missing border kills the read). */
+  border-top-color: color-mix(in srgb, #fff 45%, var(--border));
+}
+.bak-safety-frost {
+  position: absolute;
+  inset: -24px;
+  z-index: 0;
+  background-color: var(--canvas-from);
+  background-image: var(--canvas);
+  background-attachment: fixed;
+  filter: blur(var(--glass-blur));
+  transform: scale(1.05);
+  pointer-events: none;
+  opacity: 0.85;
+}
+.bak-safety[data-tone="at-risk"] .bak-safety-frost {
+  /* EXPLAIN: amber state must stay opaque - no frost under a warning. */
+  display: none;
+}
+.bak-safety-body {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) 2.5em;
+  gap: var(--space-3);
+  height: 100%;
+  min-height: 0;
+  padding: var(--space-4) var(--space-5);
+}
+.bak-safety[data-tone="at-risk"] {
+  background-color: var(--warning-subtle);
+  border-color: var(--warning);
+  border-left-color: var(--warning);
+  box-shadow: var(--elevation-sm);
+}
+.bak-safety[data-tone="safe"] {
+  border-left-color: var(--success);
+}
+.bak-safety-lead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.bak-safety .metric {
+  flex: none;
+}
+.bak-safety-headline {
+  min-width: 0;
+  flex: 1 1 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.bak-safety-chip {
+  align-self: flex-start;
+  margin: 0;
+  padding: 2px var(--space-2);
+  border-radius: var(--corner-pill);
+  font-size: var(--type-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.4;
+  color: var(--fg-secondary);
+  background: var(--surface-sunken);
+  border: var(--border-width) solid var(--border);
+}
+.bak-safety-chip:not([hidden]) {
+  /* CONFIRM: chip appearing marks a settled safety reading. */
+  animation: bak-chip-in var(--dur) var(--motion-out) both;
+}
+.bak-safety[data-tone="at-risk"] .bak-safety-chip {
+  color: var(--warning);
+  background: var(--surface);
+  border-color: var(--warning);
+}
+.bak-safety[data-tone="safe"] .bak-safety-chip {
+  color: var(--success);
+  background: var(--surface);
+  border-color: var(--success);
+}
+.bak-safety-title {
+  margin: 0;
+  font-size: var(--type-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--fg);
+  min-width: 0;
+}
+.bak-safety[data-tone="at-risk"] .bak-safety-title {
+  color: var(--warning);
+}
+.bak-safety[data-tone="safe"] .bak-safety-title {
+  color: var(--success);
+}
+.bak-safety-detail {
+  font-size: var(--type-sm);
+  color: var(--fg-secondary);
+  line-height: var(--line-body);
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+.bak-safety-detail .k + .k {
+  margin-top: var(--space-2);
+}
+.bak-safety-action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 2.5em;
+}
+/* Job cards: solid (forms live here - glass refused). Copy is the outward primary; check/recover
+   stay quiet. GUIDE: staggered rise when the Backups screen becomes active. */
+.bak-job {
+  position: relative;
+  overflow: hidden;
+}
+/* GUIDE: opacity-only entrances. translateY is refused here - `(acd)` asserts #bk-preview's
+   getBoundingClientRect is exact across loadDrives, and a settling translate moves the aim point. */
+#screen-backups.active .bak-safety {
+  animation: bak-fade-in var(--dur-enter) var(--motion-out) both;
+}
+#screen-backups.active .bak-job[data-job="check"] {
+  animation: bak-fade-in var(--dur-enter) var(--motion-out) both;
+  animation-delay: calc(1 * var(--stagger));
+}
+#screen-backups.active .bak-job[data-job="copy"] {
+  animation: bak-fade-in var(--dur-enter) var(--motion-out) both;
+  animation-delay: calc(2 * var(--stagger));
+}
+#screen-backups.active .bak-job[data-job="recover"] {
+  animation: bak-fade-in var(--dur-enter) var(--motion-out) both;
+  animation-delay: calc(3 * var(--stagger));
+}
+#screen-backups.active .bak-section-label {
+  animation: bak-fade-in var(--dur) var(--motion-out) both;
+}
+.bak-job[data-job="copy"] {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  box-shadow: var(--elevation-sm), inset 3px 0 0 var(--accent);
+}
+.bak-job-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.bak-job-badge {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-top: 2px;
+  border-radius: var(--corner-pill);
+  background: var(--surface-sunken);
+  color: var(--fg-muted);
+  /* CONFIRM: badge settles when the card arrives. */
+  transition: transform var(--dur) var(--motion-spring), background-color var(--dur-fast) var(--motion-out);
+}
+.bak-job:hover .bak-job-badge {
+  transform: scale(1.06);
+}
+.bak-job-badge svg {
+  width: 17px;
+  height: 17px;
+}
+.bak-job[data-job="copy"] .bak-job-badge {
+  background: var(--accent);
+  /* --on-accent, not #fff: dark accent is a light pink (#fda4af) and white on it
+     measured 1.89:1. Light accent keeps white via the token. */
+  color: var(--on-accent);
+}
+.bak-job-copy {
+  min-width: 0;
+  flex: 1;
+}
+.bak-job-copy h2 {
+  margin: 0 0 var(--space-2);
+}
+.bak-job-copy .lede {
+  margin-bottom: 0;
+}
+/* Drive cards: health rail + reach. Filled dots = reachable places (green here, muted offline). */
+.drive-card {
+  position: relative;
+  padding-left: calc(var(--space-5) + 3px);
+  transition: border-color var(--dur-fast) var(--motion-out), box-shadow var(--dur) var(--motion-out);
+}
+.drive-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: var(--space-3);
+  bottom: var(--space-3);
+  width: 3px;
+  border-radius: var(--corner-pill);
+  background: var(--success);
+}
+.drive-card[data-health="warn"]::before {
+  background: var(--warning);
+}
+.drive-card[data-health="offline"]::before,
+.drive-card[data-reach="offline"]::before {
+  background: var(--fg-muted);
+}
+.drive-card[data-reach="offline"] {
+  opacity: 0.92;
+}
+.drive-health {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  flex-wrap: wrap;
+}
+.drive-health-chip {
+  padding: 1px var(--space-2);
+  border-radius: var(--corner-pill);
+  font-size: var(--type-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  line-height: 1.4;
+  border: var(--border-width) solid var(--border);
+  color: var(--fg-secondary);
+  background: var(--surface-sunken);
+}
+.drive-health-chip[data-kind="ok"] {
+  color: var(--success);
+  border-color: var(--success);
+  background: var(--surface);
+  animation: health-breathe 4.5s var(--ease) infinite alternate;
+}
+@keyframes health-breathe {
+  from { opacity: 0.82; }
+  to { opacity: 1; }
+}
+.drive-health-chip[data-kind="warn"] {
+  color: var(--warning);
+  border-color: var(--warning);
+  background: var(--surface);
+}
+.drive-health-chip[data-kind="offline"] {
+  color: var(--fg-muted);
+  border-color: var(--border-strong);
+  background: var(--surface-sunken);
+}
+.drive-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.drive-label {
+  font-size: var(--type-base);
+  font-weight: var(--weight-semibold);
+  color: var(--fg);
+}
+.drive-pips {
+  display: flex;
+  gap: var(--space-1);
+  flex: none;
+  padding-top: var(--space-1);
+}
+.drive-pip {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--corner-pill);
+  border: var(--border-width) solid var(--border-strong);
+  background: transparent;
+}
+.drive-pip.filled {
+  background: var(--success);
+  border-color: var(--success);
+}
+.drive-card[data-reach="offline"] .drive-pip.filled,
+.drive-card[data-reach="unknown"] .drive-pip.filled {
+  background: var(--fg-muted);
+  border-color: var(--fg-muted);
+}
+.drive-card .drive-checked {
+  color: var(--fg-secondary);
+}
+.drive-card .drive-checked[data-never="1"] {
+  color: var(--warning);
+  font-weight: var(--weight-medium);
+}
+
 /* A drive card's footer: the fact on the left, the action that changes it on the right. */
 .drive-foot {
   display: flex;
@@ -2549,6 +2974,7 @@ details.more.inline {
   justify-content: space-between;
   gap: var(--space-3);
   margin-top: var(--space-2);
+  flex-wrap: wrap;
 }
 .drive-foot .k {
   font-size: var(--type-sm);
@@ -2557,6 +2983,19 @@ details.more.inline {
   padding: var(--space-1) var(--space-2);
   font-size: var(--type-sm);
   color: var(--accent);
+}
+
+@keyframes bak-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes bak-chip-in {
+  /* CONFIRM only - chip is inside the fixed-height band, so a 4px settle cannot move controls. */
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
 }
 
 .stats-bars {
@@ -2708,14 +3147,19 @@ details.more.inline {
    nothing, so the look may not depend on it. */
 .panel-card {
   border-radius: var(--corner-lg);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.48)) padding-box,
-    linear-gradient(160deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25) 60%) border-box;
-  border: var(--border-width) solid transparent;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    0 12px 32px rgba(28, 26, 23, 0.09);
+  /* Theme tokens - hardcoded white gradients left this card light-on-dark (2026-09-13). */
+  background-color: var(--panel-fill);
+  background-image: var(--panel-sheen);
+  border: var(--border-width) solid var(--panel-border);
+  box-shadow: var(--panel-inset), var(--panel-shadow);
   padding: var(--space-5);
+}
+/* Ghost button on the panel must clear the panel fill, not assume a light page. */
+.panel-card .btn-ghost {
+  color: var(--accent-strong);
+}
+.panel-card .btn-ghost:hover {
+  background: var(--surface-sunken);
 }
 .panel:empty {
   display: none;
