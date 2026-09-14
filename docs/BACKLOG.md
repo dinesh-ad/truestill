@@ -55,7 +55,9 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akj). Next free: (akk).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akp). Next free: (akq).**
+⚠ **`(akk)` was the declared next free while `(akl)`–`(akp)` were filed past it** - gap filled
+2026-09-14; letters are identifiers, not an ordering.
 **Retired 2026-09-02 (P190), and named here because a retired letter is not a free one:** `(abz)`
 (*"Organize shows one population three ways and connects none of them"*). False before it was
 filed: `rearrangeNote` in `app.js` (`93635af`, 2026-08-06; `RearrangeNote` in `frontend/src/preview.tsx` since 2026-09-05) prints *"N of M files here are already in
@@ -1085,6 +1087,14 @@ cited letter must resolve.
 **Evidence, and most say so in their own first lines** - *"Record only - do not build"*. They are
 here because a lost answer key corrupts every measurement taken against it, which is `(ait)` and
 `(aiu)`'s ruling. ⚠ **Never delete one to shorten the list.**
+
+- **(akk) RESTORE'S CANCEL COPY ASSUMES A PARTIAL APPLY THE ENGINE CANNOT DO.** **Record only -
+  do not build.** Filed 2026-09-14 from the restore-panel audit. `app.js:startRestore`'s
+  `onCancelled` invents *"Stopped. Names already applied stay; run again to finish."* Restore's
+  job is one `apply_documents` call (`service/restore.py:restore_run`), so there is no mid-run
+  partial apply for that sentence to describe - and the string is browser-owned in a product whose
+  rule is that core owns reader wording. Left for recover-panel parity (recover invents the same
+  class in `app.js` near the recover preview cancel). [Full entry](research/backlog/akk.md)
 
 - **(aka) A PROSE SWEEP SCOPED TO PROSE FILES MISSES PROSE IN CODE.** **Record only - do not
   build.** Filed 2026-09-03 (P206) from my own error one commit earlier. P204 corrected the

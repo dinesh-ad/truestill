@@ -105,6 +105,9 @@ DEAD: dict[str, str] = {
     "matched_path": "`app.js:2643` explains in a comment that this field could never answer the "
     "question the screen asks",
     "operation": "the busy banner names the drive, not the job",
+    # Restore preview/run: both halves already ride on `summary` from `messages_for_restore`.
+    "withheld": "the summary sentence already states restored and withheld; a second echo was "
+    "removed 2026-09-14 so the screen does not restate the same half",
 }
 
 

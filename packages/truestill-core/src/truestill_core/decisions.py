@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 import os
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, fields, replace
@@ -47,6 +48,8 @@ from truestill_core.drive_unwritable import explain_unwritable_drive
 from truestill_core.event_review import propose_from_catalog
 from truestill_core.events import EventCandidate, EventSettings
 from truestill_core.run_record import RunHeader, build_run_record, record_organize
+
+_log = logging.getLogger(__name__)
 
 #: Bumped only when a reader must REFUSE a document, never for an added field. Adding a field is
 #: forward-compatible by construction (see :func:`from_document`), so a bump would be a false alarm
@@ -1818,6 +1821,10 @@ def documents_for_restore(root: Path, catalog: Any) -> tuple[list[Decisions], st
     a document derived from the very drive the user is restoring from, with a fresher stamp.
     Since `(ahz)`, the named root claims its own keys and the others fill only what it does not
     carry. Reading them is still right; letting them win was not.
+
+    ⚠ **Per-drive ``get_setting`` / ``drive_reach`` / ``read_decisions`` is N+1 by structure.**
+    Naming it and leaving it is deliberate: D is a handful of removable drives, each read is one
+    JSON document, and a batch loader or cache for that size is ceremony. Do not "fix" it.
     """
     found = read_decisions(root)
     if found.error is not None:
@@ -1827,6 +1834,7 @@ def documents_for_restore(root: Path, catalog: Any) -> tuple[list[Decisions], st
 
     documents = [found.decisions]
     seen = {root.resolve()}
+    # N+1 on purpose - see the docstring. A handful of drives, one JSON each.
     for row in catalog.registered_drives():
         uuid = str(row["uuid"])
         hint = catalog.get_setting(drive_path_hint(uuid))
@@ -1860,9 +1868,9 @@ def messages_for_restore(
 ) -> tuple[str, tuple[RestoreMessage, ...]]:
     """Summary sentence plus every omission / creation / reconcile line a reader must see.
 
-    Shared by the CLI's print loop and the app's conflict banners so a field cannot be worded on
-    one surface and silent on the other. Loops `ApplyReport` fields the way `_print_omissions`
-    does - a new omission field joins without another edit. `(ahx)`
+    ⚠ **The walk lives here so a surface cannot silently drop a field** - `(ahx)`. Wording is
+    always `RESTORE_WORDING`. Both the CLI print helpers and the app panel call this; a new
+    omission field cannot be worded on one surface and silent on the other.
     """
     applied = report.applied
     lines: list[RestoreMessage] = []
@@ -1928,8 +1936,13 @@ def record_restore(
     A restore writes catalog rows, not photograph bytes, so a file list would invent work that did
     not happen. The index line is what survives: that a run happened, from which drive, and both
     halves of the count (restored and withheld). Never raises - paperwork must not fail the run.
+
+    ⚠ **Withholdings are not a stop.** They were evaluated and deliberately not applied; stuffing
+    them into ``stopped.never_attempted`` would read as an abort. Both counts ride on
+    ``intended_total`` / ``attempted`` instead - everything considered, nothing left untried.
     """
     marker = read_marker(root)
+    considered = restored + withheld
     try:
         payload = build_run_record(
             RunHeader(
@@ -1940,17 +1953,12 @@ def record_restore(
                 destination_label=marker.label if marker is not None else None,
             ),
             files=[],
-            intended_total=restored + withheld,
-            attempted=restored + withheld,
-            stopped=(
-                {"never_attempted": withheld, "reason": "withheld by collision rules"}
-                if withheld
-                else None
-            ),
+            intended_total=considered,
+            attempted=considered,
+            stopped=None,
         )
         error = record_organize(db, payload, detail=False)
         if error is not None:
-            # Logged nowhere here: callers swallow for the same reason bake does.
-            pass
+            _log.warning("could not write the restore run record: %s", error)
     except Exception:  # the record must never fail the run it describes
-        pass
+        _log.warning("could not write the restore run record", exc_info=True)

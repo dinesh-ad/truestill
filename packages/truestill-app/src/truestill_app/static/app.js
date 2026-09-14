@@ -4543,8 +4543,7 @@ $("rst-preview").onclick = guarded(async () => {
     rstPlan = { path, confirm_word: r.confirm_word };
     $("rst-result").innerHTML = card(
       `<div class="headline" data-testid="restore-summary">${esc(r.summary)}</div>
-       <div class="k">Read ${r.documents} decisions document(s).
-         ${r.withheld ? `${r.withheld} would not come back.` : ""}</div>
+       <div class="k">Read ${r.documents} decisions document(s).</div>
        ${restoreAppliedHtml(r.applied)}
        ${restoreLinesHtml(r.lines)}`
     );
