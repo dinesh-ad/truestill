@@ -191,9 +191,10 @@ so. **This is what each gap actually costs, and where it belongs.**
 | 5 | the panel is `.panel-title` + `.panel-fact` + `.panel-k`, a text list; the preview is a dashboard with large numerals, a pill and an amber count | **JS** - `app.js:renderRestingPanel` builds those strings | **cutover** |
 | 6 | the rail's alert is `▫ ▫ ▫` pips and a text line; the preview is a card with a warning triangle | **markup + icon data** | **cutover** |
 
-⚠ **CORRECTION to one item as it was described**: the rail is **not light**. `--rail-bg: #17150f`
-and `test_rail_shell.py` asserts it is dark in both themes. It is *warm* dark against the preview's
-neutral `bg-zinc-950`, and the visible difference is the **missing mark**, not the ground.
+⚠ **CORRECTION to one item as it was described**: the rail is **not light**. `--rail-bg` is
+`#161014` (**`D20`**, rose-charcoal; was `#17150f` then `#101012`) and `test_rail_shell.py`
+asserts it is dark in both themes. It is *warm* dark against the preview's neutral `bg-zinc-950`,
+and the visible difference is the **missing mark**, not the ground.
 
 ⚠ **Item 4 is blocked by a guard, not by the cutover.**
 `test_shared_pattern.py::test_only_the_metric_uses_the_metric_size` asserts

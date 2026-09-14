@@ -9,6 +9,13 @@ list: everything here has already cost something once.
 `docs/IMPLEMENTATION_STANDARDS.md` for the binding repo-wide rules. This document is the part a
 frontend change can break without anything going red.
 
+⚠ **Canvas and rail, dated so they cannot rot quietly:** the light canvas is the warm gradient
+`#faf8f5` → `#f1ebe1` → `#e8e9f3` (**`D19`**, superseding the 2026-09-06 white ruling). The rail
+ground is rose-charcoal `#161014` (**`D20`**). Both live in `tokens.css` / `app.css`; neither is
+flat white or cool near-black. `test_palette_and_resting_panel.py` refuses a `#ffffff` ground;
+`test_the_rail_contrast_is_what_it_says.py` remeasures every `--rail-*` ratio against the declared
+`--rail-bg`.
+
 **Every number below is a reading with the command beside it.** Run the command. A number in a
 document is a claim about the day it was written; this repo has been bitten by that class four
 times, and the entries are `(akm)`, `(aka)`, `(ago)` and `(afx)`.

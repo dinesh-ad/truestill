@@ -10,7 +10,8 @@ between machines, so every way it can arrive wrong is an ordinary event, not an 
 error case bolted on.** Each one asserts the same two things: it does not raise, and it lands in
 a state that still leaves a person able to reach their own files. There is no gate yet
 (`DECISIONS.md` D16 names this stage 1), which is exactly why the format is pinned now - every
-token is perpetual by D6 §1, so these bytes are the ones this product has to keep reading.
+token is perpetual on the build it covers by D18 (D6 §1's surviving property), so these bytes are
+the ones this product has to keep reading.
 """
 
 from __future__ import annotations

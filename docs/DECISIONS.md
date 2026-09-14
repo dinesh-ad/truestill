@@ -232,7 +232,8 @@ the account data from day one - it is personal data held on infrastructure trues
 
 ### 2. Monetization
 
-Recorded in full as **D6**; the shape is a perpetual licence plus paid annual updates.
+Recorded in full as **D6**, as revised by **D18** (2026-09-14): yearly subscription with a
+perpetual fallback on the last paid version.
 
 ### 3. What this changes in the product
 
@@ -291,6 +292,13 @@ Post-launch; nothing built.
 
 ### 1. The model (Sublime Text / JetBrains shape)
 
+⚠ **SUPERSEDED 2026-09-14 BY `D18`.** The bullets below are the 2026-07-28 wording. What survives
+unchanged is the property in the paragraph under them: **a lapsed entitlement still works** -
+what lapses is new versions, never access to the library or to the build already paid for. D18
+keeps that property and changes the commercial shape from pay-once to yearly subscription with
+a perpetual fallback (JetBrains' model, named as the precedent). Read D18 for the current rule,
+the price, and why annual-only.
+
 - **Pay once, own that version forever.** A licence never expires and never stops working.
 - **One year of updates included** from purchase.
 - **Renewal at roughly 40-50% of full price** continues updates for another year.
@@ -302,10 +310,10 @@ tool that holds someone's photo library must never become a hostage to a missed 
 subscription that stops opening a library would contradict the custody promise the whole product
 rests on. What lapses is *new versions*, not access to your own files.
 
-⚠ **`D16` (2026-09-11) CONFIRMS THIS SECTION UNCHANGED and records a framing it refused:** that a
+⚠ **`D16` (2026-09-11) CONFIRMED THIS SECTION'S PROPERTY and records a framing it refused:** that a
 lapsed licence might open, find, browse and export but not organize. Organizing is the core
 function, so that would be a licence that stopped working, which is the sentence above. A lapsed
-licence loses nothing it bought.
+licence loses nothing it bought. **`D18` (2026-09-14) keeps that property under yearly billing.**
 
 ### 2. Keys are signed, not generated
 
@@ -433,7 +441,9 @@ the capability seam (`IMPLEMENTATION_STANDARDS.md` §2) is where Pro features at
 §4 revises the framing: no trial, free tier forever.
 ⚠ **Partly superseded by `D16` (2026-09-11)**: the free/Pro split is no longer open - it is a
 cumulative cap on files written. §2's *mechanism* was superseded by `D5` §3; its payload decision
-stands. §1 is confirmed unchanged.
+stands. ⚠ **§1's pay-once commercial shape is superseded by `D18` (2026-09-14)** - yearly
+subscription with perpetual fallback; the property that a lapsed entitlement still works is what
+survives.
 
 ---
 
@@ -954,9 +964,10 @@ rediscovered, which is exactly what `D12` says about Aceternity.
 ## D16. The free tier is a volume cap. A lapsed licence loses nothing. Enforcement is a speed bump.
 
 **Decision (the maintainer, 2026-09-11).** Supersedes the parts of **D6 §3** and **D6 §4** that
-left the free/Pro split an open question, and confirms **D6 §1** unchanged. It exists because a
-licensing design pass found three places where the tree contradicted itself or was about to, and
-a system cannot be built against a contradiction.
+left the free/Pro split an open question, and confirmed **D6 §1**'s perpetual-fallback *property*
+(the pay-once commercial wording of that section is **superseded by `D18`**, 2026-09-14). It
+exists because a licensing design pass found three places where the tree contradicted itself or
+was about to, and a system cannot be built against a contradiction.
 
 **What prompted it.** A design turn on the one decided-but-unbuilt system (D5) was asked to quote
 its constraints from the tree rather than from conversation. Doing that surfaced three conflicts,
@@ -1005,22 +1016,27 @@ the soak and real users decide what it should be.
 
 ### 2. A lapsed licence loses nothing it bought
 
-**D6 §1 stands entirely unchanged**: *"Pay once, own that version forever. A licence never expires
-and never stops working."* What lapses is entitlement to **new versions** - never any function of
-the build already paid for.
+**The property stands; the commercial sentence that carried it does not.** D16 quoted D6 §1's
+*"Pay once, own that version forever"* - that pay-once wording is **superseded by `D18`
+(2026-09-14)**. What D16 ruled, and what D18 keeps: a lapsed entitlement **never expires and never
+stops working** on the build already paid for. What lapses is entitlement to **new versions** -
+never any function of that build.
 
 **There is no read-only degraded mode, and no lapsed state that cannot organize.**
 
 ⚠ **WITHDRAWN, and recorded as withdrawn rather than quietly dropped: the maintainer's own earlier
 framing that a lapsed licence "still opens, finds, browses and exports, but does not organize".**
-It was wrong on D6 §1's own terms. Organizing is the core function, so a licence that cannot
-organize **is** a licence that stopped working, which is the exact sentence §1 forbids. It is
-written down because a withdrawn position that leaves no trace gets re-proposed.
+It was wrong on the perpetual-fallback property's own terms. Organizing is the core function, so a
+licence that cannot organize **is** a licence that stopped working, which is the exact sentence
+that property forbids. It is written down because a withdrawn position that leaves no trace gets
+re-proposed.
 
 Consequence for the design, and it is load-bearing: the entitlement carried by a token is a
 **version ceiling** checked against the running build, never a date checked against the system
 clock. A build is covered or it is not, and that answer is identical on a machine whose clock is
-wrong - which removes the whole clock-tampering problem rather than defending against it.
+wrong - which removes the whole clock-tampering problem rather than defending against it. **D18
+notes that a subscription raises that ceiling yearly instead of once - the architecture already
+supports it.**
 
 ### 3. Enforcement is a speed bump, not a wall
 
@@ -1259,8 +1275,9 @@ paying will avoid paying"*. If it is ever observed in the field it is a §3 ques
 to cap retrieval.
 
 **Status:** Settled as a decision, partially built. Supersedes D6 §3's and §4's open free/Pro
-split with the volume cap; confirms D6 §1 unchanged and withdraws the lapsed-read-only framing;
-records the enforcement trade. **Built:** the token format and its verifier, the cumulative
+split with the volume cap; confirms the perpetual-fallback property (now carried by **D18** rather
+than by D6 §1's pay-once wording) and withdraws the lapsed-read-only framing; records the
+enforcement trade. **Built:** the token format and its verifier, the cumulative
 counter, the cap as a pure function, the precedence between a licence problem and the cap, the
 epoch's two guards, exit code `9`, and §7's exemption for `recover`. **Not built:** any screen,
 route or rail slot; the licensing server and payment do not exist. §5's free-tier
@@ -1337,3 +1354,106 @@ destination-scoped promise on both Import previews (2026-09-11), then the apply 
 `cli-app-parity.md`'s ingest row also says. ⚠ **This read "Not built: the apply route, the
 screen's control, or the three flags" until 2026-09-13**, two days after the first two shipped -
 a status line that contradicted the parity table it shares a subject with.
+
+---
+
+## D18. Yearly subscription with a perpetual fallback. $59/year, annual only.
+
+**Decision (the maintainer, 2026-09-14).** Supersedes **D6 §1**'s pay-once commercial shape
+(*"Pay once, own that version forever"* / one-time purchase with optional renewal for updates).
+Keeps the property D6 §1 and D16 §2 already ruled: **a lapsed entitlement still works** on the
+build last paid for. What lapses is entitlement to **new versions**, never access to the library
+or to any function of that build.
+
+### 1. The model (JetBrains' shape, named as the precedent)
+
+**While subscribed: everything.** Stop paying: the app keeps working forever on the **version
+last paid for**. It opens, organizes, finds, exports. What lapses is new versions.
+
+This is JetBrains' commercial model applied to a custody tool: yearly billing for continued
+value, with a perpetual fallback so cancellation never becomes lockout. The token architecture
+already supports it - D16 §2 made ``covers_through`` a **version ceiling**, not a date; a
+subscription raises that ceiling yearly instead of once.
+
+### 2. Price: 59 USD per year
+
+**The reasoning matters more than the number.** Forum research on Adobe shows the anger is about
+**lockout**, not price. *"If we cancel the plan does it have lockout software on it"* - and it
+does. *"Whatever happened to the good old days where you could buy software and own it forever."*
+Meanwhile the same research has a photographer calling $120/year *"a good price"*. People accept
+paying yearly for continued value; they hate losing access to what they have already paid for.
+The perpetual fallback removes the only complaint that actually appears.
+
+⚠ **NULL RESULT, recorded rather than papered over:** there is **no forum evidence** on what
+people pay for a **custody** tool, because no such product exists. The *model* is evidence-backed;
+the *number* is judgement, and the first ten customers settle it.
+
+⚠ **WHY 59 RATHER THAN LOWER:** raising a price on existing customers is the Evernote and VMware
+story already in this project's research. Set it where it can come down.
+
+### 3. Annual only. No monthly option.
+
+Organizing is a one-time job, so a monthly price lets someone pay once, organize their whole
+library over a weekend, and cancel - the free-tier problem again, on the paid tier. Annual
+billing matches what is being sold: a **year of custody**, not one afternoon of sorting. If
+monthly is ever added it must carry the usual premium so annual is obviously the better choice.
+
+### 4. What does NOT change
+
+- **D16 §7** - `recover` is never capped.
+- **The free allowance** - D16 §1's volume cap and starting number.
+- **``covers_through`` as a version ceiling** - a subscription raises it yearly; no clock check,
+  no new token shape required for the commercial change.
+
+**Status:** Settled as a decision, unbuilt on the commercial side. The verifier and the version
+ceiling already exist (D5 / D16). Licensing server, payment, and any screen that sells or renews
+do not.
+
+---
+
+## D19. The canvas is warm again. `#faf8f5` → `#f1ebe1` → `#e8e9f3`.
+
+**Decision (the maintainer, 2026-09-14).** Supersedes the **2026-09-06 white-canvas ruling** that
+overruled `design-system.md` §1 and collapsed `--canvas-from`, `--canvas-mid` and `--canvas-to`
+to `#ffffff`.
+
+### Why
+
+Glass on a white canvas reads as a soft panel, because glass needs something behind it. Flat
+white made light-mode glass arithmetic-invisible (white fill over `#ffffff` composites to white).
+Plus the 2026 *"elevated neutrals"* argument: stark white clashes with dark mode.
+
+The warm gradient restores tonal range for translucency **against**, without making every surface
+glass - D15 still confines glass to chrome; form cards stay solid.
+
+### The values
+
+```css
+--canvas-from: #faf8f5;
+--canvas-mid:  #f1ebe1;
+--canvas-to:   #e8e9f3;
+```
+
+These are the stops `design-system.md` §1 originally specified. The white overrule is reversed;
+the section below them in that document is current again.
+
+**Status:** Settled as a decision. Tokens already carry these values; the living specification is
+corrected to match.
+
+---
+
+## D20. The rail is rose-charcoal `#161014`.
+
+**Decision (the maintainer, 2026-09-14).** Records the rail ground chosen 2026-09-13 and measured
+in `app.css`: `--rail-bg: #161014`. Supersedes living claims that the rail is near-black
+`#17150f` or cool `#101012` as the current colour.
+
+### Why
+
+Chosen to **relate to the rose mark** rather than fight it - near-black with a rose undertone, so
+the rail is not a detached cool slab beside a warm canvas. `--rail-accent` measures **9.93:1**
+against this ground (`#fda4af` on `#161014`); every other `--rail-*` ratio in the block is
+re-derived against the same hex and pinned by `test_the_rail_contrast_is_what_it_says.py`.
+
+**Status:** Settled as a decision, built. The hex is already in `app.css`; living docs that still
+named `#17150f` or `#101012` as current are corrected.

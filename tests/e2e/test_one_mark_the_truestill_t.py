@@ -94,7 +94,7 @@ def test_the_rail_mark_carries_its_own_contrast(ui: Page) -> None:
 
     ⚠ **He supplied a second arrangement and it is deliberately not the one on the rail.** The
     same file offers a dark `#161826` plate with a ramp-filled mark, captioned as suiting a dark
-    rail. Measured against this rail's own `#101012`, that plate is **1.08:1** - its edge is
+    rail. Measured against this rail's own `#161014` (`D20`), that plate is **1.07:1** - its edge is
     invisible, so the mark would read as the floating gradient T that was rejected on 2026-09-06
     for looking like a red letter beside the word rather than a brand. This test asserts the
     arrangement that shipped; the other is one `fill` attribute away if he ever wants it.

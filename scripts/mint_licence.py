@@ -17,7 +17,8 @@ Usage::
         --covers-through 1 --updates-until 2027-09-11
 
 ⚠ **THE PRIVATE KEY IS THE WHOLE SYSTEM.** Anyone holding it can issue a licence that every
-build ever shipped will accept, and because tokens are perpetual (D6 §1) a compromise cannot be
+build ever shipped will accept, and because tokens are perpetual on the build they cover (D18;
+D6 §1's surviving property) a compromise cannot be
 cleaned up by rotating - it needs a release that drops the ``kid`` plus a re-issue to everyone
 who holds one. So this script refuses to write a key anywhere inside a git work tree, which is
 the one mistake that turns a private key into a public one in a single ``git push``.

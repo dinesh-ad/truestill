@@ -1,9 +1,10 @@
 """Every contrast ratio the rail writes down is recomputed from the colour beside it.
 
 ⚠ **THIS EXISTS BECAUSE THE NUMBERS WENT STALE AND WERE REPORTED TWICE WITHOUT BEING FIXED.**
-The rail's ground changed from `#17150f` to `#101012` on 2026-09-06 and the block's own comment
-records that every value was *"re-derived against the new ground, none carried over"*. Six of the
-nine were carried over anyway - the 2026-08-13 figures, measured against a ground that no longer
+The rail's ground changed from `#17150f` to `#101012` on 2026-09-06 and again to rose-charcoal
+`#161014` (**`D20`**, 2026-09-14). The block's own comment once claimed every value was
+*"re-derived against the new ground, none carried over"*. Six of the nine were carried over
+anyway after the first change - the 2026-08-13 figures, measured against a ground that no longer
 exists. They were found by measuring a *new* token, mentioned, mentioned again, and left.
 
 **`(ago)`'s bar is met on evidence rather than on principle.** A census guard is an artifact that

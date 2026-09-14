@@ -86,11 +86,11 @@
      and the third stop is the existing `--accent` hue desaturated to a whisper - no second
      accent. Every text token clears AA against the WORST stop; the weakest, `--fg-muted`, is
      4.68:1 there. */
-  /* ⚠ TONE RESTORED 2026-09-13. Flat white made light-mode glass arithmetic-invisible (white
-     fill over #ffffff composites to white). Elevated warm neutrals give glass something to read
-     against, soften the light↔dark jump, and keep form cards solid (D15). The 2026-09-06 white
-     overrule is reversed for that reason - not to make every surface glass. Worst-stop AA:
-     `--fg-muted` on `--canvas-to` is 4.68:1. */
+  /* ⚠ TONE RESTORED AS `D19` (2026-09-14; values landed 2026-09-13). Flat white made light-mode
+     glass arithmetic-invisible (white fill over #ffffff composites to white). Elevated warm
+     neutrals give glass something to read against, soften the light↔dark jump, and keep form
+     cards solid (D15). The 2026-09-06 white overrule is superseded - not to make every surface
+     glass. Worst-stop AA: `--fg-muted` on `--canvas-to` is 4.68:1. */
   --canvas-from: #faf8f5;
   --canvas-mid: #f1ebe1;
   --canvas-to: #e8e9f3;

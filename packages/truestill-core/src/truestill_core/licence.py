@@ -1,9 +1,10 @@
-"""What a licence token says, and whether this build is covered by it. `DECISIONS.md` D5, D6, D16.
+"""What a licence token says, and whether this build is covered by it. `DECISIONS.md` D5, D6, D16, D18.
 
 **Stage 1 of the licensing arc: the format and the verifier, and nothing that acts on them.**
 Nothing in the product calls this module yet - there is no gate, no cap and no UI. That is
 deliberate: the format is free to change while no token has been issued, and expensive to change
-afterwards, because D6 §1 makes every token perpetual.
+afterwards, because every issued token is perpetual on the build it covers (D18's fallback;
+D6 §1's surviving property).
 
 **The token is a file on the user's disk, verified against a public key compiled into this
 module.** D5 §1 is what forces that shape - *"The app receives a signed local token and runs
@@ -56,7 +57,8 @@ from truestill_core.app_paths import licence_path, signed_out_path
 #: The payload shape this build can read. Bumped only when a field's *meaning* changes, never
 #: when one is added: a reader that ignores unknown keys handles additions already.
 #:
-#: It exists because tokens are perpetual (D6 §1). Without a version in the payload, the first
+#: It exists because tokens are perpetual on the build they cover (D18; D6 §1's surviving
+#: property). Without a version in the payload, the first
 #: change to the format would have to either invalidate every token ever issued or be guessed at
 #: by shape, and both are worse than one integer.
 PAYLOAD_VERSION: Final = 1

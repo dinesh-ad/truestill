@@ -140,9 +140,9 @@ code,
    the dark palette stop disagreeing about what rose is. The edge keeps its relationship to the
    accent - the same hue held back - and keeps clearing WCAG 2.2 1.4.11's 3:1 for non-text UI. */
 :root {
-  /* ROSE-CHARCOAL, 2026-09-13. Near-black with a rose undertone so the rail relates to the
-     brand mark rather than sitting as a detached cool slab beside a warm canvas. Every
-     --rail-* below is re-measured against #161014. */
+  /* ROSE-CHARCOAL `D20` (2026-09-14; hex landed 2026-09-13). Near-black with a rose undertone
+     so the rail relates to the brand mark rather than sitting as a detached cool slab beside a
+     warm canvas. Every --rail-* below is re-measured against #161014. */
   --rail-bg: #161014;
   --rail-border: #2a2226; /* 1.21:1 vs the rail - a hairline, not text */
   --rail-text: #e6e2d9; /* 14.53:1 on the rail */
@@ -219,10 +219,10 @@ code,
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-4) var(--space-3);
-  /* D15's chrome case, and it has to work harder now the canvas is WHITE: this is the only dark
-     surface in the app, so a flat near-black block beside white reads as a hole rather than as
-     chrome. Three layers, none of them `backdrop-filter` - the rail is opaque by design and the
-     material is painted, not sampled:
+  /* D15's chrome case on a warm canvas (`D19`): this is the only dark surface in the app, so a
+     flat cool block beside the gradient would read as a hole rather than as chrome. Three layers,
+     none of them `backdrop-filter` - the rail is opaque by design and the material is painted,
+     not sampled:
        a top-weighted highlight, so the head of the rail catches light;
        a faint warm bloom behind the mark, which is where the eye lands first;
        a floor shadow, so the custody card at the bottom sits ON something. */

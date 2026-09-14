@@ -37,18 +37,13 @@ only CSS-only items and the icon *data* are worth doing before the flip.
 
 ## 1. The canvas is a prerequisite, not decoration
 
-⚠ **OVERRULED 2026-09-06 BY THE MAINTAINER: THE CANVAS IS WHITE.** He asked for it plainly and it
-is his call. This section's argument is kept below, unedited, because it was not wrong - glass IS
-nearly invisible on flat white, and that consequence is real. What changed is the conclusion drawn
-from it: the ground does not stay tinted in order to justify the surfaces, the surfaces that
-needed to be glass stop being glass. Organize's form card, result card and completion card are
-solid today for exactly that reason, and D15 already confines glass to chrome - the rail and
-floating panels - where the ground is still one this product controls.
-
-`--canvas-from`, `--canvas-mid` and `--canvas-to` are all `#ffffff` in the light theme; the tokens
-and the gradient machinery are unchanged, so this is three hex values to reverse rather than a
-rewrite, and the dark theme keeps its own ramp.
-
+⚠ **RESTORED 2026-09-14 BY `D19`.** The 2026-09-06 white-canvas ruling (all three stops
+`#ffffff`) is **superseded**. That day's note is kept as history, not as the rule: he asked for
+white plainly; glass *is* nearly invisible on flat white; and the interim conclusion was that
+surfaces that needed to be glass stop being glass. D15 still confines glass to chrome - the rail
+and floating panels - and Organize's form / result / completion cards stay solid. What changed
+again is the **ground**: white made light-mode glass arithmetic-invisible, and elevated warm
+neutrals give glass something to read against without forcing every surface back to glass.
 
 Glass is invisible on flat white and `--bg` is `#faf8f5`, so the canvas gains tonal range for a
 translucent surface to be translucent *against*. It stays in the warm family
