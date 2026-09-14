@@ -55,3 +55,18 @@ def test_every_site_calls_run_job_with_on_cancelled() -> None:
         f"{sites} job sites but {handled} onCancelled handlers - a job whose cancel falls "
         "through to onSuccess reports a stopped run as a finished one"
     )
+
+
+def test_every_site_calls_run_job_with_on_refuse() -> None:
+    """`(abr)`: one of seventeen sites omitted onRefuse; a busy drive then threw instead of wording.
+
+    Same shape as `onCancelled` above - count equality, floor so renaming away cannot pass vacuously.
+    """
+    src = APP_JS.read_text(encoding="utf-8")
+    sites = src.count("await runJob({")
+    handled = src.count("onRefuse:")
+    assert sites >= 13, f"only {sites} runJob sites found; have the calls been renamed?"
+    assert handled == sites, (
+        f"{sites} job sites but {handled} onRefuse handlers - a refused start calls undefined "
+        "and lands in the fatal banner instead of the refusal card"
+    )

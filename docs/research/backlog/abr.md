@@ -1,6 +1,6 @@
 # (abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.
 
-*Body of backlog entry `(abr)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(abr)`. **Shipped** - see [`SHIPPED.md`](../../SHIPPED.md). The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.** Recorded
   2026-08-07. One of **17** `runJob` call sites; the other sixteen all pass one.
@@ -15,3 +15,6 @@
     siblings is `(aak)` / `(abq)` again, and the two before it were each found only after they
     cost something. The fix is one line; the value is that the next reader of `runJob` sees
     fifteen call sites that agree.
+  - **Shipped:** `rcRunArchives` passes `onRefuse` with `startRefusedCard(started, "rc-dest")`.
+    `test_every_site_calls_run_job_with_on_refuse` pins every `runJob` site the same way
+    `onCancelled` already is.

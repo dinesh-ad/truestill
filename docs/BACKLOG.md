@@ -282,9 +282,6 @@ rather than treated as a triage failure.
 - **(aby) Organize screen: copy that repeats itself or explains its own button.** ⚠ **Build next, 2026-09-02 (P187)**: no condition - both duplicated sentences render on every Organize open, for everyone. [Full
   entry](research/backlog/aby.md)
 
-- **(abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.** ⚠ **Build next, 2026-09-02 (P186)**: the body called this *probably unreachable*. It is reachable: `/api/ingest/archives/run` goes through `server.py:create_app._start_drive_job` with `mutating=True`, which answers a busy drive with `ok: false`, and 16 of the 17 `runJob` call sites in `app.js` pass an `onRefuse`. One line. [Full
-  entry](research/backlog/abr.md)
-
 - **(ajp) A DELETED FILE LEAVES ITS ALBUM MEMBERSHIP BEHIND, AND SQLITE REUSES THE ROWID.**
   Filed 2026-09-01 (P185) while checking `(acg)`'s migration cost; **split off rather than folded
   in**, on `(aiy)`/`(ajo)`'s test - wrong today independent of portability.
@@ -948,7 +945,7 @@ and they are not product defects; keeping them in one drawer stops them competin
 - **(adj) THE FREEZE IS NOT A REPRODUCIBLE TARGET: `truestill.spec` IS GITIGNORED.** [Full
   entry](research/backlog/adj.md)
 
-- **(adi) REACT + SHADCN MIGRATION - PLANNED, GROUNDWORK LANDED, NOTHING MIGRATED.** [Full
+- **(adi) REACT + SHADCN MIGRATION - GROUNDWORK LANDED; FOUR ORGANIZE ISLANDS MOUNTED.** Form and other screens still vanilla. [Full
   entry](research/backlog/adi.md)
 
 - **(adh) TAURI SHELL + PYTHON SIDECAR - STAGE 1 MEASURED, THREE GAPS NAMED AND UNFIXED.** Recorded
@@ -964,7 +961,7 @@ and they are not product defects; keeping them in one drawer stops them competin
 
 - **(aju) CONDITION 3'S CONSUMED END WAITS ON THE REACT MIGRATION, AND §1b CANNOT ORDER IT BEFORE.**
   Filed 2026-09-03 (P199) at `(ahn)`'s closure. The contract is declared, committed and typed on
-  both ends, and **34 keys are still computed and read by no one** - the `DEAD` table in
+  both ends, and **33 keys are still computed and read by no one** - the `DEAD` table in
   `test_no_thirty_fifth_dead_payload_key.py`, a regex over `app.js`. A read becomes a compiler fact
   only when hand-written React reads the payload through `api.d.ts`; so the replacement census is a
   **compiler-resolved reference search over the generated types**, per island, in the Node lane,
@@ -976,7 +973,7 @@ and they are not product defects; keeping them in one drawer stops them competin
 differently**: if what it waits on never arrives, it should be **retired**, not left here looking
 like approved work.
 
-- **(aam) Sidebar reference: profile header, section labels, submenus.** ⚠ **Blocked, 2026-09-02 (P186)**: section labels, the pill state, the collapsed rail with tooltips and the wordmark all ship (`index.html`, `app.css`), and the submenu question is answered in the markup - *no nested submenus*. Only the profile/licence header remains, and it waits on `DECISIONS.md` D5's activation. [Full
+- **(aam) Sidebar reference: profile header, section labels, submenus.** ⚠ **Blocked, corrected again**: section labels, the pill state, the collapsed rail with tooltips and the wordmark all ship, and the submenu question is answered - *no nested submenus*. The profile/licence **slot is live** (`renderAccount`, `/api/account*`); what remains blocked is D5's licensing **server and payment**, not an empty rail. [Full
   entry](research/backlog/aam.md)
 
 - **(ajk) A CLASSIFIER GRADES A DECISION IT CANNOT READ, AND THE ONE DISCARDED ERRNO IS IN A

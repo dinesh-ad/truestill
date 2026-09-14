@@ -171,6 +171,9 @@ def test_drives_split_photos_and_videos(client: TestClient, tmp_path: Path) -> N
         "carried_lead",
         "carried_short",
         "carried_full",
+        # `(aes)` on Backups: Stats already sent this; without it the card prints "Never checked"
+        # after a verify that found gaps (null `last_verified` means both).
+        "was_checked",
     }
     assert drives[0]["photos"] == 2
     assert drives[0]["videos"] == 1

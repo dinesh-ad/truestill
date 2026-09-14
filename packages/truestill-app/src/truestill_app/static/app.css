@@ -2916,6 +2916,19 @@ details.more.inline {
   from { opacity: 0.82; }
   to { opacity: 1; }
 }
+/* Mildest of the three check states: nobody has looked. Quieter than gaps on purpose. */
+.drive-health-chip[data-kind="never"] {
+  color: var(--fg-secondary);
+  border-color: var(--border-strong);
+  background: var(--surface-sunken);
+}
+/* A look found damage - stronger than "never checked", never collapsed into it. */
+.drive-health-chip[data-kind="gaps"] {
+  color: var(--warning);
+  border-color: var(--warning);
+  background: var(--warning-subtle);
+  font-weight: var(--weight-semibold);
+}
 .drive-health-chip[data-kind="warn"] {
   color: var(--warning);
   border-color: var(--warning);

@@ -60,11 +60,9 @@ MEASURED_KEYS = 289
 #: Keys that no consumer reads, each with **why**. ⚠ The list is derived; the reasons are a human
 #: read of the surrounding code and nothing here checks them - see the module docstring.
 #:
-#: ⚠ **`BakeSummary.absent` IS ABSENT FROM THIS LIST AND IS DEAD.** A key-name census cannot see a
-#: collided field: `BakePreview.absent` is rendered at `app.js:4158`, so the NAME is read and never
-#: reaches the derived set, while `BakeSummary.absent` (`service/bake.py:166`) is not read by
-#: `bakeCompletion` at all. **34 is a floor, not a count.** Closing that needs payload granularity
-#: - knowing which JavaScript variable holds which route's response - which is `(ahn)`, not this.
+#: ⚠ **`BakeSummary.absent` WAS a collided-name blind spot** (`BakePreview.absent` kept the name
+#: live while the summary field was unread). It is rendered in `bakeCompletion` now; this list
+#: no longer carries it. Payload granularity for remaining collisions is still `(ahn)`.
 DEAD: dict[str, str] = {
     # Identity the browser was handed and never needs back.
     "run_id": "the client posts back the handle it was given; the server resolves the run",
@@ -93,7 +91,6 @@ DEAD: dict[str, str] = {
     "states the fact",
     "resumed": "the completion says how many moved, not how many were recovered",
     "day_totals": "the proposal renders groups, not per-day counts",
-    "pending_drives": "the preview warns per drive in prose",
     # A mechanism or echo the UI derives another way.
     "modes": "the mode list is rendered from the radio group's own markup",
     "uses_rename": "the screen branches on the mode name",
@@ -173,8 +170,8 @@ def _consumers() -> tuple[str, str]:
     instant it became live - failing on the migration it exists to protect.
 
     `cli.py` is deliberately NOT here. It does not consume route payloads; it calls core directly,
-    which is why `cli.py:4059` prints `outcome.absent` off the core dataclass while the app's
-    `BakeSummary.absent` reaches nothing.
+    which is why `cli.py` prints `outcome.absent` off the core dataclass while the app's
+    `BakeSummary.absent` once reached nothing (now rendered in `bakeCompletion`).
     """
     # ⚠ `src/generated/` is the DECLARED end again, not a reader: `api.d.ts` names every key the
     # contract has and reads none of them. Counting it as a consumer made all 34 dead keys "live"

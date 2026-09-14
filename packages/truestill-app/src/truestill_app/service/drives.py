@@ -43,6 +43,7 @@ from truestill_core.drive import (
     reach_of,
     read_marker,
     remember_drive_path,
+    was_ever_checked,
 )
 from truestill_core.drive_adoption import AdoptionOffer, inspect_root, recorded_drive
 from truestill_core.hash_cache import HashCache
@@ -523,6 +524,11 @@ class DriveRow(TypedDict):
     size: int
     last_seen: str | None
     last_verified: str | None
+    #: `(aes)`: whether anything has ever LOOKED at this drive's copies. `last_verified` is NULL
+    #: both when nobody looked and when a check found gaps - Stats already sends this beside the
+    #: date; the Backups card must read the same distinction or it prints "Never checked" after a
+    #: verify that found damage.
+    was_checked: bool
     path: str | None
     #: `DriveReach` value: is this drive here right now? Three states, because a boolean would
     #: have to report "we have never recorded where this drive lives" as either connected or
@@ -771,6 +777,7 @@ def list_drives(db: Path) -> list[DriveRow]:
                     "size": d["total_size"] or 0,
                     "last_seen": d["last_seen"],
                     "last_verified": d["last_verified"],
+                    "was_checked": was_ever_checked(d),
                     "reach": reach.value,
                     "is_library": str(d["uuid"]) in libraries,
                     # ⚠ **`None` vs `0` is the whole point.** A drive with no `file_copies` rows

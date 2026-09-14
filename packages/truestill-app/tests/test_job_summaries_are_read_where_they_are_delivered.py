@@ -1,9 +1,8 @@
 """A job summary's keys, checked against what its own screen reads. `(ahn)` stage 3
 
-`(ahl)`'s census works at key-NAME granularity and is blind to a collided field:
-`BakePreview.absent` is rendered at `app.js:4131`, so the name reads as live and
-**`BakeSummary.absent` never enters the dead set** - the one field `(abm)` and `(ahl)` both named
-and neither could see. Stages 1 and 2 made the declared end exact, which makes a narrower and
+`(ahl)`'s census works at key-NAME granularity and is blind to a collided field.
+`BakePreview.absent` and `BakeSummary.absent` share a name; both are read now (preview card and
+`bakeCompletion`). Stages 1 and 2 made the declared end exact, which makes a narrower and
 stronger question askable: *for this payload, delivered to this screen, which of its keys does that
 screen read?*
 
@@ -98,9 +97,6 @@ UNREAD: dict[str, dict[str, str]] = {
     },
     "BakeSummary": {
         "finished_clean": "⚠ READ BY `jobs.py`, NOT BY THIS SCREEN, and that is the point of it. `(aiq)`. `_terminal_status` turns it into the terminal event's `status`, which every screen consumes through `streamJob` - so the fact reaches the user as the outcome word rather than as a field. Declared here because this guard follows `d.summary` and cannot see a consumer one layer up; a row that says nothing would be indistinguishable from a dead key.",
-        "absent": "⚠ THE FIELD `(abm)` AND `(ahl)` BOTH NAMED AND NEITHER COULD SEE. A bake run "
-        "reports what failed and stays silent about files the catalog expected and could not "
-        "find. A candidate for RENDERING, not deletion - `bakeCompletion` is where it belongs",
         "drive_label": "redundant rather than missing: the `completeness` sentence this screen "
         "does render already carries the label. A candidate for DELETION",
         "elapsed_seconds": "injected for every dict summary by `jobs.py`; this screen shows no "
@@ -110,8 +106,6 @@ UNREAD: dict[str, dict[str, str]] = {
     "BackupRunSummary": {
         "copied": "the headline counts with `mediaCount(r)` - photos + videos + audio - so the "
         "total is computed twice and this copy is unused. A candidate for DELETION",
-        "failed": "⚠ a run that could not copy a file says so nowhere on this screen, though "
-        "`(afw)` Stage 4 exists to count it. A candidate for RENDERING",
         "target_path": "the screen already names the drive by label (`to`)",
     },
     "RecoverRunSummary": {
@@ -129,7 +123,6 @@ UNREAD: dict[str, dict[str, str]] = {
     "MigrationPreviewOk": {
         "elapsed_seconds": "a preview shows no duration",
         "label": "the drive is named by `drive_label` on the same payload",
-        "pending_drives": "in `(ahl)`'s key-name dead list already; this confirms it per payload",
         "template": "the layout string; the screen renders `moves` instead",
     },
     "OrganizeUndoJobSummary": {

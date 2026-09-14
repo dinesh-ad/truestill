@@ -77,13 +77,19 @@ def test_organize_then_back_up_then_check(ui: Page, tmp_path: Path, library) -> 
 
     # --- 5. Check the new backup, from its own card -----------------------------------
     card = ui.locator("#drives-list .card", has_text="TruestillBackup")
-    expect(card).to_contain_text("last checked: never")
+    # A verified backup re-derives the drive stamp: the card must not say "never" (nobody looked)
+    # and must not say "gaps" (looked and found damage) about a clean copy.
+    expect(card).not_to_contain_text("last checked: never")
+    expect(card).to_contain_text("Checked, clean")
     card.locator(".drive-check").click()
 
     expect(ui.locator("#verify-result")).to_contain_text("Checked TruestillBackup")
     expect(ui.locator("#verify-result")).to_contain_text("8")
     expect(ui.locator("#verify-result")).not_to_contain_text("NaN")
-    # The fact now carries its date rather than inviting the same action again.
+    # Still clean after an explicit Check now - not collapsed back into never or gaps.
+    expect(ui.locator("#drives-list .card", has_text="TruestillBackup")).to_contain_text(
+        "Checked, clean"
+    )
     expect(ui.locator("#drives-list .card", has_text="TruestillBackup")).not_to_contain_text(
         "last checked: never"
     )

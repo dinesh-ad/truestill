@@ -228,3 +228,37 @@ def test_a_cancel_clicked_before_the_job_is_named_is_honoured_and_shows_no_error
     assert list((destination / ".truestill-staging").glob("*.json")), (
         "cancel left a tree with no journal"
     )
+
+
+def test_a_busy_drive_on_unpack_words_itself(ui: Page, tmp_path: Path) -> None:
+    """`(abr)`: without onRefuse, `{ok:false}` from archives/run became an opaque throw.
+
+    The real lock path is covered for migrate; this pins the archives site's soft-refuse arm by
+    fulfilling the start response with the same DriveBusy shape `_start_drive_job` returns.
+    """
+    source = tmp_path / "src"
+    destination = tmp_path / "dest"
+    _zip(source / "photos.zip", {"Takeout/a/IMG_0001.jpg": b"\xff\xd8" + b"x" * 200})
+    _preview(ui, source, destination)
+    expect(ui.locator("[data-testid='rc-unpack']")).to_be_visible()
+
+    def refuse(route: object) -> None:
+        route.fulfill(  # type: ignore[attr-defined]
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "ok": False,
+                    "code": "DriveBusy",
+                    "error": "Busy Drive is busy: unpack is already running. Wait for it to finish.",
+                    "drive_label": "Busy Drive",
+                    "operation": "unpack",
+                }
+            ),
+        )
+
+    ui.route("**/api/ingest/archives/run", refuse)
+    ui.click("[data-testid='rc-unpack']")
+    expect(ui.locator("#rc-result")).to_contain_text("Already running")
+    expect(ui.locator("#rc-result")).to_contain_text("Busy Drive")
+    expect(ui.locator("#global-error")).to_be_hidden()

@@ -1753,11 +1753,9 @@ class IngestDoneSummary(OrganizeDoneSummary):
     #: ``duplicates``, which is this destination's answer, and both are true at once.
     already_in_library: int
     #: ⚠ **What the unpack left on the drive, in bytes**, present only when there is one.
-    #: `clear_staging` exists, is tested, and has **no production caller** - `(aht)`, whose own
-    #: body says the policy is undecided. That was survivable while the app could only PREVIEW an
-    #: archive; an import that writes the photographs and silently leaves a second full copy of a
-    #: 200 GB export beside them is not. Naming it is not the cleanup and does not pre-empt the
-    #: ruling - it is the difference between a cost and a surprise.
+    #: Cleared after a successful import by `clear_staging` at the end of `ingest_run` - so a
+    #: finished apply does not leave a second full copy of a 200 GB export beside the photographs.
+    #: The fields remain for a cancelled or partial run that still has staging on disk.
     staging_bytes: NotRequired[int]
     #: Where that copy is, so the remedy is one a person can actually carry out. There is no
     #: in-product one to offer: saying "this can be removed" without saying where would be worse

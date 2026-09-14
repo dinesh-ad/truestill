@@ -8,9 +8,11 @@
   answered.** Section labels, the pill active state, the collapsed rail with hover and focus
   tooltips, and the wordmark ship in `index.html` and `app.css`; `index.html`'s own comment reads
   *"`(aam)` closed as NO nested submenus"*, which retires the flyout and its keyboard cost below.
-  **What remains is the profile/licence header alone, and it waits on `DECISIONS.md` D5's
-  activation** - the account slot in `index.html` is reserved and empty. The rest is kept beneath as
-  the design record.
+  ⚠ **CORRECTED AGAIN - the profile/licence header is NOT an empty slot waiting on D5.**
+  `renderAccount` is live in `app.js`, bound to `#account-slot`, and `/api/account*` activates and
+  signs out locally. What remains blocked is D5's **licensing server and payment** - the remote
+  half - not "any screen, route or rail slot". The design record below still describes the
+  intended identity surface once that server exists.
   - **Why the profile header applies at all, corrected.** It was first set aside on the
     assumption that truestill has no accounts. `DECISIONS.md` **D5** supersedes D1: truestill
     **requires a user account**, created at activation against a self-hosted licensing server.
@@ -19,8 +21,8 @@
     visible in the interface rather than hidden in a settings page.
   - **Profile header:** avatar, name, and **licence state** (Pro / free - **not** trial; see
     `DECISIONS.md` D6 §4, which abolished the trial after this entry was written) in the position
-    the reference gives a role line. This is also **where the account surface lands when D5's
-    licensing server ships**, so it is built once rather than added beside something later.
+    the reference gives a role line. Local activate/sign-out already land here; the remote
+    activation path lands when D5's licensing server ships.
   - **Wordmark** from [`brand.md`](../../brand.md), above or beside the profile header. Which of the
     two is a decision for the build, not now.
   - **Section labels** (`MAIN` / `SETTINGS`), **pill active state**, and a **collapsed icon rail

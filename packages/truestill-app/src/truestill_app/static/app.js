@@ -1187,6 +1187,11 @@ function backupCompletion(r) {
     notes.push(`<div class="banner"><div><b>Every copy verified.</b> Each file was re-read from
       ${esc(r.to || "the drive")} and checked against its original before being recorded.</div></div>`);
   }
+  // `(afw)` Stage 4 counts failures on the payload; leaving them unread collapses a partial
+  // copy into the same card shape as a clean one. Recover already renders its failures.
+  if (r.failed) {
+    notes.push(`<div class="banner warn"><div>${plural(r.failed, "file")} could not be copied.</div></div>`);
+  }
   notes.push(`<div class="k" style="margin-top:var(--space-3)">Check this drive again any time
     with <b>Check a connected backup drive</b> above — a backup is only as good as its last
     check.</div>`);
@@ -3163,19 +3168,27 @@ async function loadDrives() {
     const strip = [0, 1, 2].map((i) =>
       `<i class="drive-pip${i < pips ? " filled" : ""}" aria-hidden="true"></i>`).join("");
     const collides = (sharedLabel.get(d.label) || 0) > 1;
-    const checked = (d.last_verified || "never").slice(0, 10);
-    const neverChecked = !d.last_verified;
+    // `(aes)` three states - same distinction Stats already ships as `was_checked`. A null
+    // `last_verified` is NOT "never": a verify that found gaps leaves the stamp null too.
+    // Gaps must not read as the mildest of the three (Never checked is the mild one).
+    const clean = Boolean(d.last_verified);
+    const looked = clean || Boolean(d.was_checked);
+    const foundGaps = looked && !clean;
+    const neverChecked = !looked;
+    const checked = clean ? dayOf(d.last_verified) : foundGaps ? "checked, gaps" : "never";
     const missing = d.not_found || 0;
     const health = d.reach === "offline"
       ? "offline"
-      : (neverChecked || missing > 0 ? "warn" : "ok");
+      : (foundGaps || missing > 0 ? "gaps" : neverChecked ? "never" : "ok");
     const healthChip = d.reach === "offline"
       ? `<span class="drive-health-chip" data-kind="offline">Offline</span>`
       : missing > 0
-        ? `<span class="drive-health-chip" data-kind="warn">${nfmt(missing)} missing</span>`
-        : neverChecked
-          ? `<span class="drive-health-chip" data-kind="warn">Never checked</span>`
-          : `<span class="drive-health-chip" data-kind="ok">Checked</span>`;
+        ? `<span class="drive-health-chip" data-kind="gaps">${nfmt(missing)} missing</span>`
+        : foundGaps
+          ? `<span class="drive-health-chip" data-kind="gaps">Checked, found gaps</span>`
+          : neverChecked
+            ? `<span class="drive-health-chip" data-kind="never">Never checked</span>`
+            : `<span class="drive-health-chip" data-kind="ok">Checked, clean</span>`;
     return `<div class="card drive-card" data-reach="${esc(d.reach || "unknown")}" data-health="${health}">
       <div class="drive-top">
         <div><span class="drive-label">${esc(d.label)}</span> ${driveReachBadge(d.reach)}
@@ -3190,7 +3203,7 @@ async function loadDrives() {
         <div class="drive-pips" title="reachable places that hold a copy">${strip}</div>
       </div>
       <div class="drive-foot">
-        <span class="k mono drive-checked" data-never="${neverChecked ? "1" : "0"}">last checked: ${checked}</span>
+        <span class="k mono drive-checked" data-never="${neverChecked ? "1" : "0"}" data-gaps="${foundGaps ? "1" : "0"}">last checked: ${checked}</span>
         ${carriedNote(d)}
         ${lastSeenNote(d)}
         ${driveDecisionsNote(d)}
@@ -3709,6 +3722,9 @@ async function rcRunArchives(source, destination) {
       else if (p.phase === "hashing") setStatus(scaleStatus("Checking for duplicates", p.done, p.total, "files"));
       else setStatus(scaleStatus("Scanning", p.done, p.total, "files"));
     },
+    // `(abr)`: a busy drive answers `{ok: false}` from `_start_drive_job`. Without onRefuse,
+    // runJob calls undefined and the refusal becomes an opaque throw instead of core's wording.
+    onRefuse: (started) => { $("rc-result").innerHTML = startRefusedCard(started, "rc-dest"); },
     onError: (d) => { $("rc-result").innerHTML = jobErrorCard(d); },
     onCancelled: () => {
       $("rc-result").innerHTML = card(
@@ -4676,9 +4692,19 @@ $("mig-preview").onclick = guarded(async () => {
            </div></div>`
         : "";
       // Reasons sit with the count so month↔day moves are explained before confirm (never bare).
+      // `pending_drives`: other drives still hold copies under the old layout - CLI prints each;
+      // leaving the list unread collapses "preview done" with "every place is ready".
+      const pending = (r.pending_drives || [])
+        .map((label) => `<div>pending: drive '${esc(label)}' has copies too - reconnect it and re-run</div>`)
+        .join("");
+      const pendingBlock = pending
+        ? `<div class="banner warn" style="margin-top:var(--space-3)"><div>
+             <div class="b-title">Other drives still need this layout</div>${pending}
+           </div></div>`
+        : "";
       $("mig-result").innerHTML = card(`<div class="headline">${plural(r.moves.length, "file")} to move</div>
         <div class="k">${r.unchanged} already in place${r.warnings.length ? " · ⚠ " + esc(r.warnings.join("; ")) : ""}</div>
-        ${dayBlock}`);
+        ${dayBlock}${pendingBlock}`);
       if (r.moves.length) renderMigrateTypedConfirm(r.moves.length);
     },
   });
@@ -4839,6 +4865,7 @@ function bakeCompletion(s, cancelled) {
      <div class="k">${esc(s.completeness || "")}</div>
      ${cancelled ? `<div class="k">The ${plural(s.baked || 0, "file")} already updated are finished and correct. The rest still have their old date and will be offered again.</div>` : ""}
      ${s.videos_skipped ? `<div class="k">${plural(s.videos_skipped, "video")} left alone. ${esc(s.videos_reason || "")}</div>` : ""}
+     ${s.absent ? `<div class="k">${plural(s.absent, "file")} the catalog expects here could not be found on this drive.</div>` : ""}
      ${s.failed ? `<div class="banner warn"><div>${plural(s.failed, "file")} could not be updated and were left as they were.</div></div>` : ""}
      ${s.refused ? `<div class="banner warn"><div>${esc(s.refused)}</div></div>` : ""}
      ${bakeDriveLines(s.awaiting || [])}`);

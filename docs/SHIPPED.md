@@ -22,6 +22,13 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.**
+  ✅ **CLOSED.** `rcRunArchives` now passes `onRefuse: (started) => startRefusedCard(started, "rc-dest")`,
+  matching its sibling preview and the other sixteen `runJob` sites. A busy drive during unpack
+  renders core's refusal wording instead of an opaque throw. Guard:
+  `test_every_site_calls_run_job_with_on_refuse` - every `await runJob({` must supply `onRefuse:`.
+  [Full entry](research/backlog/abr.md)
+
 - **(akp) THE AT-RISK REMEDY ON BACKUPS COULD NOT FIX THE FILE IT WAS SHOWN ABOUT.**
   ✅ **CLOSED 2026-09-12 by `4e1305a`**, filed and closed the same day - the entry was written
   with **no work attached** precisely so the wording would be authored against a reproducible

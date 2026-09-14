@@ -84,6 +84,10 @@ def test_backup_copies_library_and_records_per_drive(client: TestClient, tmp_pat
     assert len(list(b.rglob("*.jpg"))) == 4
     drives = {d["label"]: d for d in client.get(f"/api/drives?token={TOKEN}").json()["drives"]}
     assert drives["DriveB"]["photos"] == 4
+    # A clean verified backup must earn the drive stamp - otherwise `(aes)` collapses it into
+    # "checked, gaps" and the Backups card lies about a successful copy.
+    assert drives["DriveB"]["was_checked"] is True
+    assert drives["DriveB"]["last_verified"] is not None
     assert client.get(f"/api/drives?token={TOKEN}").json()["at_risk"] == []  # now safe in 2 places
 
     # second run: everything is already on DriveB -> nothing to copy

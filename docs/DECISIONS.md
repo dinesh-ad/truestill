@@ -208,8 +208,9 @@ says the argfile batch is the bottleneck - decided by measurement then, not by m
 ## D5. Accounts, activation, and the licensing server
 
 **Decision (the maintainer, 2026-07-28).** truestill **requires a user account**. It supersedes D1.
-Nothing is built yet: this is post-launch work, and the licensing server is new infrastructure
-that gets its own research and design pass before any of it is written.
+Nothing of the **server** is built yet: this is post-launch work, and the licensing server is new
+infrastructure that gets its own research and design pass before any of it is written. The
+client account screen, routes and rail slot already exist; they wait on that server.
 
 ### 1. How it works
 
@@ -281,7 +282,8 @@ that cannot sell, so its availability target is a product decision rather than a
 user does when the server is unreachable, and what happens to activated installs if it is ever
 retired. That question is the one most likely to be regretted if it is left until after launch.
 
-**Status:** Settled as a decision, unbuilt. Supersedes D1.
+**Status:** Settled as a decision. Client activation UI and `/api/account*` exist; the licensing
+server and payment remain unbuilt. Supersedes D1.
 
 ---
 
@@ -1279,9 +1281,11 @@ split with the volume cap; confirms the perpetual-fallback property (now carried
 than by D6 §1's pay-once wording) and withdraws the lapsed-read-only framing; records the
 enforcement trade. **Built:** the token format and its verifier, the cumulative
 counter, the cap as a pure function, the precedence between a licence problem and the cap, the
-epoch's two guards, exit code `9`, and §7's exemption for `recover`. **Not built:** any screen,
-route or rail slot; the licensing server and payment do not exist. §5's free-tier
-announcement is a **website** deliverable and the website does not exist.
+epoch's two guards, exit code `9`, and §7's exemption for `recover`. **Not built:** the
+licensing server and payment - activation against a remote that does not exist yet. **Built on
+the client:** the Account screen, `/api/account*` routes, and the rail's account slot
+(`renderAccount`). §5's free-tier announcement is a **website** deliverable and the website
+does not exist.
 
 ---
 

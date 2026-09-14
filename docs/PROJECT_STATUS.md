@@ -282,7 +282,7 @@ This is the whole point of the order, and it is what `app.js` failed. Live evide
 
 | computed by a service | read by the surface |
 |---|---|
-| `BakeSummary.absent` (`service/bake.py:BakeSummary`, emitted `:217`) | **0** in `bakeCompletion` (`app.js:startMigrateRun`). ⚠ Its sibling `BakePreview.absent` (`:238`) **is** read, at `app.js:clearMigrateConfirm` |
+| `BakeSummary.absent` (`service/bake.py:BakeSummary`, emitted `:217`) | ✅ **rendered in `bakeCompletion`** (was unread while `BakePreview.absent` kept the name looking live). Sibling preview still read at the bake preview card |
 | `DriveAttachment.unmatched` (`service/drives.py:DriveAttachment`) | **0**, and correctly so since `(abm)` shipped: the fact is named by `truestill rescan`, not counted twice |
 | `DriveAttachment.unreadable_dirs` (`service/drives.py:DriveAttachment`) | ✅ **surfaced by `(abm)`** 2026-08-25. It was the worst of the four: a file under such a folder gets no copy row, so both surfaces said the backup was complete |
 | `migrate.py`'s `stopped` and `refused` | **0** until `(ahc)` closed it 2026-08-25 - a stopped run read as *"Moved N files."* |
@@ -382,13 +382,13 @@ what stops is changing *what a route returns* under a consumer that already read
 * ⚠ **CONDITION 3 CANNOT BE TICKED BY EMPTYING THE 34, and that is why it is BLOCKED rather than
   counted.** ⚠ **The BLOCKER WAS RENAMED on 2026-08-25**, and the rename is the useful part: it was
   *"nothing declares the route-to-payload join"*, and `(ahn)` stages 1-3 built that join. It is now
-  **the consumer is untyped**. `BakeSummary.absent` is no longer hidden - stage 3 names it dead
-  alongside `drive_label` and `elapsed_seconds` - but only where the JavaScript binding is
-  unambiguous: **7 of 16** job blocks, and the route channel not at all, because it over-collects
-  (69 scoped reads against 25 declared keys). The method is blind in **two different ways**, and
-  closing one does not touch the other:
-  * **`BakeSummary.absent`** - a **name collision**. `BakePreview.absent` is rendered at
-    `app.js:clearMigrateConfirm`, so the NAME reads as live and the dead sibling never enters the census.
+  **the consumer is untyped**. `BakeSummary.absent` was named unread by stage 3 while its preview
+  sibling kept the name looking live; it is now rendered in `bakeCompletion`. Stage 3's method is
+  still blind in other ways - only where the JavaScript binding is unambiguous: **7 of 16** job
+  blocks, and the route channel not at all, because it over-collects (69 scoped reads against 25
+  declared keys). Closing one collision does not fix the rest:
+  * **`BakeSummary.absent`** - was a **name collision** (`BakePreview.absent` kept the census live);
+    both surfaces read it now.
   * **`DriveAttachment`'s five** (`absent`, `unreadable`, `unmatched`, `unreadable_dirs`,
     `blocked_by`) - **not a TypedDict at all**. It is a frozen dataclass that no route serialises,
     so a payload census cannot see it from either end. `(abm)` reached two of the five by hand.

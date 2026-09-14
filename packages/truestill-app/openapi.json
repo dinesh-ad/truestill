@@ -1250,6 +1250,9 @@
           },
           "videos": {
             "type": "integer"
+          },
+          "was_checked": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1271,7 +1274,8 @@
           "reach",
           "size",
           "uuid",
-          "videos"
+          "videos",
+          "was_checked"
         ],
         "title": "DriveRow",
         "type": "object"

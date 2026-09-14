@@ -757,6 +757,10 @@ def copy_to_drive(
             progress,
             cancel,
         )
+        # Each successful copy was `mark_copy_verified` above; without this re-derive the drive
+        # stamp stays NULL while `confirmed_count` is non-zero, so every surface that reads
+        # `(aes)`'s three states would say "checked, gaps" about a clean verified backup.
+        catalog.refresh_drive_verified(pair.target_marker.uuid)
         catalog.set_setting(BACKUP_PATH_HINT, str(pair.target))
     return BackupOutcome(
         copied=copied, copied_names=copied_names, bytes_copied=copied_bytes, failures=failures
