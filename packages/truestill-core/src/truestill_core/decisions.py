@@ -36,16 +36,17 @@ import contextlib
 import json
 import os
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, fields, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Final
 
-from truestill_core.drive import DriveReach, drive_path_hint, drive_reach
+from truestill_core.drive import DriveReach, drive_path_hint, drive_reach, read_marker
 from truestill_core.drive_unwritable import explain_unwritable_drive
 from truestill_core.event_review import propose_from_catalog
 from truestill_core.events import EventCandidate, EventSettings
+from truestill_core.run_record import RunHeader, build_run_record, record_organize
 
 #: Bumped only when a reader must REFUSE a document, never for an added field. Adding a field is
 #: forward-compatible by construction (see :func:`from_document`), so a bump would be a false alarm
@@ -1788,3 +1789,168 @@ def ensure_decisions_on_drives(
     if any(r.outcome is SaveOutcome.WRITTEN for r in results):
         catalog.set_setting(DECISIONS_SAVED_AT_KEY, when)
     return results
+
+
+#: The typed word both surfaces demand before applying. Same string the CLI has always asked for.
+CONFIRM_WORD: Final = "restore"
+
+
+def unconfirmed_reason(confirmation: str) -> str | None:
+    """Why this confirmation is not enough, or ``None`` when it is. Bake's shape, for restore."""
+    if confirmation == CONFIRM_WORD:
+        return None
+    return f"This run was not confirmed. It needs the word {CONFIRM_WORD!r}."
+
+
+def documents_for_restore(root: Path, catalog: Any) -> tuple[list[Decisions], str | None]:
+    """Every document worth merging: the drive the user named, plus any other reachable drive.
+
+    **The named root is read from the PATH, never from a lookup.** On the machine this command
+    exists for the catalog is empty and no drive is registered, so a version that found documents
+    by asking the catalog would work for everybody except the person who needs it.
+
+    Other registered drives join in when there are any, because two drives that disagree is the
+    case the reconciliation was written for.
+
+    ⚠ **THEY JOIN IN; THEY DO NOT OUTRANK.** `(ahz)`: recovering from a lost catalog by
+    re-organizing REGISTERS the recovery folder as a drive and publishes a document to it seconds
+    later, so on exactly the machine this command exists for the list is **not** empty - it holds
+    a document derived from the very drive the user is restoring from, with a fresher stamp.
+    Since `(ahz)`, the named root claims its own keys and the others fill only what it does not
+    carry. Reading them is still right; letting them win was not.
+    """
+    found = read_decisions(root)
+    if found.error is not None:
+        return [], found.error
+    if found.decisions is None:
+        return [], f"no decisions document at {root}"
+
+    documents = [found.decisions]
+    seen = {root.resolve()}
+    for row in catalog.registered_drives():
+        uuid = str(row["uuid"])
+        hint = catalog.get_setting(drive_path_hint(uuid))
+        if drive_reach(hint, uuid) is not DriveReach.CONNECTED:
+            continue
+        other = Path(str(hint)).resolve()
+        if other in seen:
+            continue
+        seen.add(other)
+        alongside = read_decisions(other)
+        if alongside.decisions is not None:
+            documents.append(alongside.decisions)
+    return documents, None
+
+
+@dataclass(frozen=True, slots=True)
+class RestoreMessage:
+    """One sentence a surface shows about a restore plan or result."""
+
+    text: str
+    actionable: bool
+
+
+def _say_message(note: RestoreNote, **fields_kw: object) -> RestoreMessage:
+    wording = RESTORE_WORDING[note]
+    return RestoreMessage(text=wording.text.format(**fields_kw), actionable=wording.actionable)
+
+
+def messages_for_restore(
+    report: RestoreReport, *, done: bool
+) -> tuple[str, tuple[RestoreMessage, ...]]:
+    """Summary sentence plus every omission / creation / reconcile line a reader must see.
+
+    Shared by the CLI's print loop and the app's conflict banners so a field cannot be worded on
+    one surface and silent on the other. Loops `ApplyReport` fields the way `_print_omissions`
+    does - a new omission field joins without another edit. `(ahx)`
+    """
+    applied = report.applied
+    lines: list[RestoreMessage] = []
+    if not applied.applied:
+        lines.append(_say_message(nothing_applied_note(applied)))
+    for name in applied.created_events:
+        lines.append(_say_message(RestoreNote.EVENT_CREATED, name=name))
+    note = unmatched_events_note(applied)
+    for name in applied.unmatched_events:
+        lines.append(_say_message(note, name=name))
+    for field_info in fields(applied):
+        if field_info.name in REPORT_FIELD_EXCEPTIONS:
+            continue
+        omit_note = REPORT_FIELD_NOTE[field_info.name]
+        value = getattr(applied, field_info.name)
+        if isinstance(value, dict):
+            for section, count in sorted(value.items()):
+                lines.append(
+                    _say_message(omit_note, count=count, section=section.replace("_", " "))
+                )
+        else:
+            for name in value:
+                lines.append(
+                    _say_message(omit_note, name=name, section=str(name).replace("_", " "))
+                )
+    for loss in report.reconciled.superseded:
+        lines.append(
+            _say_message(
+                superseded_note(loss),
+                count=loss.count,
+                section=loss.section.replace("_", " "),
+                label=loss.drive_label,
+                swaps=render_swaps(loss.swaps),
+            )
+        )
+    said = {loss.drive_label for loss in report.reconciled.superseded}
+    for label in report.reconciled.undated:
+        if label not in said:
+            lines.append(
+                RestoreMessage(
+                    text=(
+                        f"{label}'s document carries no date, so it could not overrule any other."
+                    ),
+                    actionable=False,
+                )
+            )
+    summary_note = RestoreNote.SUMMARY_DONE if done else RestoreNote.SUMMARY_PREVIEW
+    summary = RESTORE_WORDING[summary_note].text.format(
+        restored=restored_count(applied), withheld=withheld_count(applied)
+    )
+    return summary, tuple(lines)
+
+
+def record_restore(
+    db: Path,
+    *,
+    root: Path,
+    restored: int,
+    withheld: int,
+) -> None:
+    """Index line for one restore apply. Bake's shape: counts, no per-decision detail.
+
+    A restore writes catalog rows, not photograph bytes, so a file list would invent work that did
+    not happen. The index line is what survives: that a run happened, from which drive, and both
+    halves of the count (restored and withheld). Never raises - paperwork must not fail the run.
+    """
+    marker = read_marker(root)
+    try:
+        payload = build_run_record(
+            RunHeader(
+                kind="restore",
+                source=str(root),
+                destination=str(db),
+                destination_uuid=marker.uuid if marker is not None else None,
+                destination_label=marker.label if marker is not None else None,
+            ),
+            files=[],
+            intended_total=restored + withheld,
+            attempted=restored + withheld,
+            stopped=(
+                {"never_attempted": withheld, "reason": "withheld by collision rules"}
+                if withheld
+                else None
+            ),
+        )
+        error = record_organize(db, payload, detail=False)
+        if error is not None:
+            # Logged nowhere here: callers swallow for the same reason bake does.
+            pass
+    except Exception:  # the record must never fail the run it describes
+        pass

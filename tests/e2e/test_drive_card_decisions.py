@@ -139,6 +139,16 @@ def test_a_drive_carrying_names_this_computer_lacks_offers_them(ui: Page) -> Non
     offer = ui.locator("[data-testid='drive-decisions-offer']")
     expect(offer).to_contain_text("this drive is carrying", timeout=30_000)
     expect(offer).to_contain_text("trips")
+    # The remedy beside the sentence - distinct from recover's "Bring these back".
+    expect(ui.locator("[data-testid='drive-restore']")).to_contain_text("Restore names")
+
+
+def test_restore_names_is_not_offered_when_nothing_awaits(ui: Page) -> None:
+    """Cry-wolf: an ordinary up-to-date drive must not grow a Restore names button."""
+    _show(ui, [_drive("Desk HDD", "u1", decisions=_decisions())])
+
+    expect(ui.locator("[data-testid='drive-decisions-saved']")).to_be_visible(timeout=30_000)
+    expect(ui.locator("[data-testid='drive-restore']")).to_have_count(0)
 
 
 def test_the_refusal_reaches_the_screen_in_its_own_order(ui: Page) -> None:

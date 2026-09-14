@@ -27,6 +27,7 @@ from truestill_app.service import organize as _organize
 from truestill_app.service import organize_undo as _organize_undo
 from truestill_app.service import recover as _recover
 from truestill_app.service import rename as _rename
+from truestill_app.service import restore as _restore
 from truestill_app.service import settings as _settings
 from truestill_app.service import stats as _stats
 from truestill_app.service import takeout as _takeout
@@ -185,6 +186,16 @@ RecoverRunSummary = _recover.RecoverRunSummary
 recover_run = _recover.recover_run
 RECOVER_NOTHING_IS_LOST = _recover.RECOVER_NOTHING_IS_LOST
 RECOVER_DRIVE_IS_READ_ONLY = _recover.RECOVER_DRIVE_IS_READ_ONLY
+
+# --- restore (decisions → catalog; not photographs) ---
+RESTORE_CONFIRM_WORD = _restore.CONFIRM_WORD
+RestoreLine = _restore.RestoreLine
+RestorePreviewErr = _restore.RestorePreviewErr
+RestorePreviewOk = _restore.RestorePreviewOk
+RestoreRefusal = _restore.RestoreRefusal
+RestoreRunSummary = _restore.RestoreRunSummary
+restore_preview = _restore.restore_preview
+restore_run = _restore.restore_run
 
 # --- leftover_cleanup ---
 LeftoverEmptyFolders = _leftover_cleanup.LeftoverEmptyFolders

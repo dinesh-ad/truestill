@@ -1023,6 +1023,9 @@
                 "$ref": "#/components/schemas/RenameRunPayload"
               },
               {
+                "$ref": "#/components/schemas/RestoreRunSummary"
+              },
+              {
                 "$ref": "#/components/schemas/UndoJobSummary"
               },
               {
@@ -4182,6 +4185,162 @@
         "title": "RescueRefusal",
         "type": "object"
       },
+      "RestoreLine": {
+        "properties": {
+          "actionable": {
+            "type": "boolean"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "actionable",
+          "text"
+        ],
+        "title": "RestoreLine",
+        "type": "object"
+      },
+      "RestorePreviewErr": {
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "ok": {
+            "const": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "error",
+          "ok"
+        ],
+        "title": "RestorePreviewErr",
+        "type": "object"
+      },
+      "RestorePreviewOk": {
+        "properties": {
+          "applied": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "confirm_word": {
+            "type": "string"
+          },
+          "documents": {
+            "type": "integer"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/RestoreLine"
+            },
+            "type": "array"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "path": {
+            "type": "string"
+          },
+          "restored": {
+            "type": "integer"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "withheld": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "applied",
+          "confirm_word",
+          "documents",
+          "lines",
+          "ok",
+          "path",
+          "restored",
+          "summary",
+          "withheld"
+        ],
+        "title": "RestorePreviewOk",
+        "type": "object"
+      },
+      "RestoreRefusal": {
+        "properties": {
+          "code": {
+            "enum": [
+              "NotConfirmed"
+            ]
+          },
+          "drive_label": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "ok": {
+            "const": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "drive_label",
+          "error",
+          "ok"
+        ],
+        "title": "RestoreRefusal",
+        "type": "object"
+      },
+      "RestoreRunSummary": {
+        "properties": {
+          "applied": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "elapsed_seconds": {
+            "type": "number"
+          },
+          "finished_clean": {
+            "type": "boolean"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/RestoreLine"
+            },
+            "type": "array"
+          },
+          "path": {
+            "type": "string"
+          },
+          "restored": {
+            "type": "integer"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "withheld": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "applied",
+          "finished_clean",
+          "lines",
+          "path",
+          "restored",
+          "summary",
+          "withheld"
+        ],
+        "title": "RestoreRunSummary",
+        "type": "object"
+      },
       "RevealErr": {
         "properties": {
           "can_register": {
@@ -6837,6 +6996,87 @@
               }
             },
             "description": "DriveBusyPayload | DriveUnavailablePayload | JobStarted"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/restore/preview": {
+      "post": {
+        "operationId": "restore_preview",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/RestorePreviewErr"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RestorePreviewOk"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "RestorePreviewErr | RestorePreviewOk"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBusyPayload"
+                }
+              }
+            },
+            "description": "CatalogBusyPayload"
+          }
+        }
+      }
+    },
+    "/api/restore/run": {
+      "post": {
+        "operationId": "restore_run",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DriveBusyPayload"
+                    },
+                    {
+                      "$ref": "#/components/schemas/JobStarted"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RestoreRefusal"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "DriveBusyPayload | JobStarted | RestoreRefusal"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreRefusal"
+                }
+              }
+            },
+            "description": "RestoreRefusal"
           },
           "503": {
             "content": {

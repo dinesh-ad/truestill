@@ -187,6 +187,10 @@ _EXPECTED: dict[str, Decision] = {
     # catalog-only; this one would have been a silent minute, which is the recorded complaint
     # about Time Machine's restore.
     "recover-preview": Decision(False),
+    # Catalog rows only (names/trips/events); the drive document is read, never rewritten. Matches
+    # the CLI's `"restore": None` in `_LOCKS_DRIVE_AT`. Cross-process drive flock is not taken;
+    # `(ahk)` is the open race with Trips naming and is not claimed closed here.
+    "restore": Decision(False),
     # Re-reads bytes and compares; writes nothing.
     "verify": Decision(False),
 }
@@ -386,6 +390,7 @@ _DIRECT_ALLOWED: dict[str, str] = {
     ),
     "clean_empty_preview": "plan_cleanup is pure - reads, never writes",
     "bake_preview": "read",
+    "restore_preview": "read - apply_documents(apply=False); catalog only",
     "date_tier_files": "read",
     "at_risk": "read",
     "list_drives": "read",

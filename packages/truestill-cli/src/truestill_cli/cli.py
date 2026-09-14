@@ -97,6 +97,7 @@ from truestill_core.decisions import (
     RestoreReport,
     SaveOutcome,
     apply_documents,
+    documents_for_restore,
     drive_holdings,
     gather_decisions,
     merge_onto_drive,
@@ -1805,47 +1806,6 @@ def _restore_stamp() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _restore_documents_for(root: Path, catalog: object) -> tuple[list[Decisions], str | None]:
-    """Every document worth merging: the drive the user named, plus any other reachable drive.
-
-    **The named root is read from the PATH, never from a lookup.** On the machine this command
-    exists for the catalog is empty and no drive is registered, so a version that found documents
-    by asking the catalog would work for everybody except the person who needs it.
-
-    Other registered drives join in when there are any, because two drives that disagree is the
-    case the reconciliation was written for.
-
-    ⚠ **THEY JOIN IN; THEY DO NOT OUTRANK.** This said *"on a fresh machine that list is simply
-    empty"* until 2026-08-26, and `(ahz)` falsified it: recovering from a lost catalog by
-    re-organizing REGISTERS the recovery folder as a drive and publishes a document to it seconds
-    later, so on exactly the machine this command exists for the list is **not** empty - it holds
-    a document derived from the very drive the user is restoring from, with a fresher stamp.
-    Since `(ahz)`, the named root claims its own keys and the others fill only what it does not
-    carry. Reading them is still right; letting them win was not.
-    """
-    found = read_decisions(root)
-    if found.error is not None:
-        return [], found.error
-    if found.decisions is None:
-        return [], f"no decisions document at {root}"
-
-    documents = [found.decisions]
-    seen = {root.resolve()}
-    for row in catalog.registered_drives():  # type: ignore[attr-defined]
-        uuid = str(row["uuid"])
-        hint = catalog.get_setting(drive_path_hint(uuid))  # type: ignore[attr-defined]
-        if drive_reach(hint, uuid) is not DriveReach.CONNECTED:
-            continue
-        other = Path(str(hint)).resolve()
-        if other in seen:
-            continue
-        seen.add(other)
-        alongside = read_decisions(other)
-        if alongside.decisions is not None:
-            documents.append(alongside.decisions)
-    return documents, None
-
-
 def _note(note: RestoreNote) -> str:
     """The words for one note. The CLI holds no sentences of its own - `RESTORE_WORDING` does."""
     return RESTORE_WORDING[note].text
@@ -1950,7 +1910,7 @@ def _cmd_restore(args: argparse.Namespace) -> int:
         return 2
 
     with _catalog(args.db) as catalog:
-        documents, problem = _restore_documents_for(root, catalog)
+        documents, problem = documents_for_restore(root, catalog)
         if problem is not None:
             print(f"error: {problem}", file=sys.stderr)
             return 2
@@ -1959,7 +1919,7 @@ def _cmd_restore(args: argparse.Namespace) -> int:
             return _discard_to_drive(root, catalog, apply=args.apply)
 
         # ⚠ **Which document the user NAMED, carried into the merge for reporting.**
-        # `_restore_documents_for` returns the named root first and every other document is found
+        # `documents_for_restore` returns the named root first and every other document is found
         # through a stored hint - a distinction the merge has never had, so a hint-found document
         # overruling the drive the user typed reads exactly like any other loss. `(ahz)` step 1.
         # Positional convention is not relied on: the uuid is taken here and passed by name.

@@ -87,6 +87,16 @@ MUTATING_RUNS: dict[str, tuple[bool, str]] = {
             "leave a person unable to tell a file that was protected from one that vanished"
         ),
     ),
+    "restore": (
+        True,
+        (
+            "records under `kind: restore` with an index line and no detail "
+            "(`record_organize(detail=False)`), bake's shape: catalog-row counts for names that "
+            "came back and names withheld. The drive document is read, never rewritten; the "
+            "route declares `mutating=False` for the drive flock, and the record is still "
+            "written because a restore with no account is the same honesty gap bake closed"
+        ),
+    ),
     "backup": (
         True,
         (

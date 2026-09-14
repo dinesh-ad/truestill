@@ -54,6 +54,7 @@ from truestill_app.jobs import (
 from truestill_app.security import LocalGuard
 from truestill_app.service.bake import BakeRefusal
 from truestill_app.service.drives import DrivesPayload
+from truestill_app.service.restore import RestoreRefusal
 from truestill_app.service.trips import (
     ExpiredSessionPayload,
     MergeReviewCardsError,
@@ -495,6 +496,42 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             paths=[library],
             operation="recover",
             mutating=True,
+        )
+
+    async def restore_preview(request: Request) -> JSONResponse:
+        """Catalog-row plan from a drive's decisions document. **Writes nothing.**
+
+        Plain POST like bake preview: `apply_documents(apply=False)` is catalog-only and fast.
+        """
+        body = await request.json()
+        return JSONResponse(
+            await run_in_threadpool(service.restore_preview, Path(body["path"]), _db())
+        )
+
+    async def restore_run(request: Request) -> JSONResponse:
+        """Apply the drive document into the catalog after the typed word.
+
+        Confirm is checked by ``restore_run``, never only here - `(ahe)`. Catalog rows only, so
+        ``mutating=False`` matches the CLI's ``"restore": None`` drive lock. A run record is still
+        written inside the job.
+        """
+        body = await request.json()
+        path = Path(body["path"])
+        started = await run_in_threadpool(
+            partial(service.restore_run, path, _db(), confirmation=str(body.get("confirm", "")))
+        )
+        if isinstance(started, Mapping) and _is_not_confirmed(started):
+            # ⚠ **Bound to an annotated local, so the narrowing is CONSUMED** - bake's shape.
+            # Without it the resolver keeps `JobTarget[...]` on this arm and openapi emission
+            # fails looking up a non-TypedDict root.
+            refusal: RestoreRefusal = started  # type: ignore[assignment]
+            return JSONResponse(refusal, status_code=400)
+        return await run_in_threadpool(
+            _start_drive_job,
+            started,
+            paths=[path],
+            operation="restore",
+            mutating=False,
         )
 
     async def ingest_run(request: Request) -> JSONResponse:
@@ -1138,6 +1175,8 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         Route("/api/backup/run", backup_run, methods=["POST"]),
         Route("/api/recover/preview", recover_preview, methods=["POST"]),
         Route("/api/recover/run", recover_run, methods=["POST"]),
+        Route("/api/restore/preview", restore_preview, methods=["POST"]),
+        Route("/api/restore/run", restore_run, methods=["POST"]),
     ]
 
     class StampStaticFingerprint:

@@ -519,6 +519,24 @@
           <!-- shared progress block: see createProgress() in app.js -->
           <div class="run-mount" data-run="rcv"></div>
         </div>
+        <div class="card bak-job" id="restore-card" data-job="restore">
+          <div class="bak-job-head">
+            <span class="bak-job-badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
+            <div class="bak-job-copy">
+              <h2>Restore names from a drive</h2>
+              <p class="lede">Put trip, event and album names from a drive's decisions file back
+                into this catalog. This does not copy photographs - that is Bring photos back.</p>
+            </div>
+          </div>
+          <div class="field"><label for="rst-drive">From (the backup drive)</label>
+            <div class="row"><input class="input" id="rst-drive" placeholder="e.g. /media/BackupA">
+              <button class="btn btn-secondary" data-browse="rst-drive" data-kind="dest">Browse…</button></div>
+            <span class="hint" id="rst-drive-hint"></span></div>
+          <div class="actions"><button class="btn btn-secondary" id="rst-preview">See what would come back</button></div>
+          <div id="rst-result"></div>
+          <div id="rst-confirm"></div>
+          <div class="run-mount" data-run="rst"></div>
+        </div>
         <!-- BELOW THE CONTROLS, DELIBERATELY - `(acd)`. loadDrives writes this region on arrival,
              and anything above a control moves it: measured at +142px with no drives and +563px
              with three, while the control was visible and enabled, so a click at the old position

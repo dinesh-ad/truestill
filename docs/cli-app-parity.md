@@ -37,7 +37,7 @@ this file - read that before trusting a number here.
 
 ## The short answer
 
-**Six subcommands have no app route at all**, plus one write-half:
+**Five subcommands have no app route at all**, plus one write-half:
 
 ⚠ **It was SIX until 2026-08-30 and this line already said five**, because `rename` had its own
 row rather than a place in this list - so the sentence was wrong and became right by `(aix)`
@@ -45,17 +45,17 @@ stage 3 shipping, which is luck rather than maintenance. Count the table; do not
 ⚠ **And it is six again from 2026-09-11**, because `carried` shipped with no route - this time
 the sentence was moved by the commit that moved the table, which is the maintenance the line
 above is asking for. **Seven the same day**, when `recover` shipped beside it - and **six
-again** when restore stage 3 gave `recover` a route. A count that moves twice in one day is the
-table being read rather than quoted.
+again** when restore stage 3 gave `recover` a route. **Five** when `/api/restore` covered the
+decisions restore (not photographs). A count that moves with the table is the maintenance
+working.
 
 | | why it matters |
 |---|---|
 | `reclaim` | **deliberate.** `app.js:organizeUndoCard` - *"an irreversible removal is not a thing to reach for by accident"* |
-| `restore` | the app can say a restore is needed (`service/drives.py:DriveDecisions`) and cannot perform one |
 | `repoint-sources` | the library-moved remedy is CLI-only; `(adx)` owns the disclosure half |
 | `rescan` | no route; `(abn)` is the open entry about what rescan should *do* |
 | `self-check` | reachable only as a process flag, `__main__.py:main` |
-| `carried` | the app has the SENTENCE and not the answer - `app.js` tells a user a drive carries things this computer does not have. Restore stage 3 owns the route |
+| `carried` | the app has the SENTENCE and not the answer - `app.js` tells a user a drive carries things this computer does not have |
 | `catalog --move` | the read half is covered; `move_catalog_to_standard` has **zero** hits in the app package |
 
 **And five more are partial**, mostly in flags rather than in whole features. ⚠ **This said
@@ -106,7 +106,7 @@ because somebody went looking, and this table still cannot show an app-only capa
 | `analyze` | `cli.py` `add_parser("analyze"` | `/api/organize/inventory` `server.py:create_app.events_apply` | **partial** - same walk-and-stat tier; `--all-files` missing |
 | `catalog` | `cli.py` `add_parser("catalog"` | `/api/library/status` `server.py:create_app` | **partial - read half only.** `--move` has no route |
 | `reclaim` | `cli.py` `add_parser("reclaim"` | **none** | deliberate |
-| `restore` | `cli.py` `add_parser("restore"` | **none** | |
+| `restore` | `cli.py` `add_parser("restore"` | `/api/restore/{preview,run}` `server.py:create_app.restore_preview` | **covered**, preview and apply, with the drive card's "Restore names". Typed word is `restore` (server-checked). `--discard` is not ported |
 | `repoint-sources` | `cli.py` `add_parser("repoint-sources"` | **none** | |
 | `rescan` | `cli.py` `add_parser("rescan"` | **none** | |
 | `carried` | `cli.py` `add_parser("carried"` | **none** | the restore arc's stage 1, and the app has the SENTENCE without the answer - `app.js` says a drive carries decisions this computer lacks. Stage 3 |

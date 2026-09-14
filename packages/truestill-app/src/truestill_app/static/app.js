@@ -948,6 +948,7 @@ const undoProgress = createProgress("undo");
 const rcProgress = createProgress("rc");
 const bakeProgress = createProgress("bake");
 const rcvProgress = createProgress("rcv");
+const rstProgress = createProgress("rst");
 
 // ---------- typed confirm (reusable) ----------
 // Destructive actions that currently demand a typed word on the CLI (undo, and soon oo/rr)
@@ -2908,6 +2909,17 @@ function carriedOffer(d, libraryHere) {
   return `<button class="btn btn-ghost drive-recover" data-path="${esc(d.path)}">Bring these back</button>`;
 }
 
+// ⚠ **RESTORE, not recover.** What comes back is trip/event/album names from
+// `.truestill-decisions.json`, not photograph bytes. The recover button above says "Bring these
+// back"; this one must not reuse that label. Offered only beside the decisions sentence, and only
+// when the drive is connected so the path can be honoured.
+function restoreOffer(d) {
+  if (!d.path || !(d.decisions && d.decisions.awaiting_restore && d.decisions.awaiting_restore.length)) {
+    return "";
+  }
+  return `<button class="btn btn-ghost drive-restore" data-path="${esc(d.path)}" data-testid="drive-restore">Restore names</button>`;
+}
+
 // Split at-risk rows the way `(akp)` requires: a copy action is only honest when the only
 // copy is on a drive that is HERE. Shared by the reserved safety band and the detail banner.
 function atRiskParts(rows) {
@@ -3207,6 +3219,7 @@ async function loadDrives() {
         ${carriedNote(d)}
         ${lastSeenNote(d)}
         ${driveDecisionsNote(d)}
+        ${restoreOffer(d)}
         ${d.path
           ? `<button class="btn btn-ghost drive-check" data-path="${esc(d.path)}">Check now</button>`
           : ""}
@@ -3265,6 +3278,14 @@ async function loadDrives() {
       $("recover-card").scrollIntoView({ behavior: "smooth", block: "center" });
       if (library) $("rcv-preview").click();
       else $("rcv-library").focus();
+    };
+  });
+  list.querySelectorAll(".drive-restore").forEach((btn) => {
+    btn.onclick = () => {
+      $("rst-drive").value = btn.dataset.path;
+      $("rst-drive").dispatchEvent(new Event("change"));
+      $("restore-card").scrollIntoView({ behavior: "smooth", block: "center" });
+      $("rst-preview").click();
     };
   });
   list.querySelectorAll(".drive-check").forEach((btn) => {
@@ -4484,6 +4505,86 @@ function recoverCompletion(s) {
   return card(`<div class="headline">${mediaCount(s)} brought back · ${fmtBytes(s.bytes_copied)}</div>
     <div class="k">${esc(head)} From ${esc(s.drive)} into ${esc(s.library)}.</div>
     <div class="hint">${esc(s.nothing_is_lost || "")}</div>${skipLines}${failed}`);
+}
+
+// ---------- Restore names (decisions document → catalog; not photographs) ----------
+// Typed word is sent to the server (`(ahe)`), same as bake. Conflict / withholding lines come
+// from core's RESTORE_WORDING via the payload - the screen rewords nothing.
+let rstJob = null;
+let rstPlan = null;
+
+function restoreLinesHtml(lines) {
+  if (!lines || !lines.length) return "";
+  return lines.map((line) => {
+    const kind = line.actionable ? "warn" : "";
+    return `<div class="banner ${kind}" data-testid="restore-line"><div>${esc(line.text).replace(/\n/g, "<br>")}</div></div>`;
+  }).join("");
+}
+
+function restoreAppliedHtml(applied) {
+  const entries = Object.entries(applied || {});
+  if (!entries.length) return "";
+  return `<ul class="k" data-testid="restore-applied">${entries
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([section, count]) => `<li>${esc(String(count))} ${esc(section.replace(/_/g, " "))}</li>`)
+    .join("")}</ul>`;
+}
+
+$("rst-preview").onclick = guarded(async () => {
+  const path = $("rst-drive").value.trim();
+  $("rst-confirm").innerHTML = "";
+  rstPlan = null;
+  await withBusy($("rst-preview"), "Checking…", async () => {
+    const r = await api("/api/restore/preview", { path });
+    if (!r.ok) {
+      $("rst-result").innerHTML = card(`<div class="banner warn"><div>${esc(r.error)}</div></div>`);
+      return;
+    }
+    rstPlan = { path, confirm_word: r.confirm_word };
+    $("rst-result").innerHTML = card(
+      `<div class="headline" data-testid="restore-summary">${esc(r.summary)}</div>
+       <div class="k">Read ${r.documents} decisions document(s).
+         ${r.withheld ? `${r.withheld} would not come back.` : ""}</div>
+       ${restoreAppliedHtml(r.applied)}
+       ${restoreLinesHtml(r.lines)}`
+    );
+    if (r.restored === 0) {
+      return;
+    }
+    typedConfirm($("rst-confirm"), {
+      word: r.confirm_word,
+      label: `Type ${r.confirm_word} to put these names back into this catalog`,
+      buttonLabel: "Restore names",
+      onConfirm: () => startRestore(path, r.confirm_word),
+    });
+  });
+});
+
+async function startRestore(path, confirm) {
+  await runJob({
+    button: $("rst-confirm").querySelector("[data-typed-go]"),
+    busyLabel: "Restoring…",
+    start: () => api("/api/restore/run", { path, confirm }),
+    setJob: (id) => { rstJob = id; },
+    progress: rstProgress,
+    progressLabel: "restoring",
+    statusVerb: "Restoring names",
+    beforeOutcome: () => { $("rst-confirm").innerHTML = ""; },
+    onRefuse: (started) => { $("rst-result").innerHTML = startRefusedCard(started, "rst-drive"); },
+    onError: (d) => { $("rst-result").innerHTML = jobErrorCard(d); },
+    onCancelled: () => {
+      $("rst-result").innerHTML = card(`<div class="k">Stopped. Names already applied stay; run again to finish.</div>`);
+    },
+    onSuccess: (d) => {
+      const s = d.summary;
+      $("rst-result").innerHTML = card(
+        `<div class="headline" data-testid="restore-done">${esc(s.summary)}</div>
+         ${restoreAppliedHtml(s.applied)}
+         ${restoreLinesHtml(s.lines)}`
+      );
+    },
+    after: () => { refreshDriveState(); },
+  });
 }
 
 // ---------- Settings ----------
