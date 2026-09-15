@@ -43,33 +43,67 @@ were checked against Feather's own set on 2026-08-15.
 The radio-group indicator is a plain filled circle authored here, not copied
 from any set, so it carries no third-party notice.
 
+THE CENSUS - every inline SVG that ships, and what covers it
+------------------------------------------------------------
+This table is a DECLARATION; the count is DERIVED from the template.
+`packages/truestill-app/tests/test_every_shipped_icon_is_accounted_for.py`
+parses `templates/index.html`, groups each `<svg>` by the marker that identifies
+it, and fails when a group's size disagrees with a row here, when a row names a
+group that no longer ships, or when an `<svg>` matches no group at all. A badge
+added in a NEW wrapper class is unclassifiable and loud, never quietly absorbed.
+
+  group                  marker                   count  covered by
+  -----                  ------                   -----  ----------
+  nav icons              class="ico"                  8  the per-icon rows above
+  brand mark             data-brand                   1  ours - `brand/`, no third-party notice
+  organize mode badges   .mode-badge ancestor         3  OUTSTANDING - see below
+  backups job badges     .bak-job-badge ancestor      4  three OUTSTANDING, one MIT - see below
+  total                                              16
+
+A BARE COUNT USED TO LIVE HERE AND IT ROTTED TWICE. This section read
+"grep -c '<svg' ... answers 12" from 2026-09-12 until 2026-09-15, across two
+commits that each added badges: three job badges on 2026-09-13 took the real
+answer to 15, and `restore` on 2026-09-14 took it to 16. Nothing was checking,
+because a licence notice is prose and prose is what no other gate can see. The
+table above is the same claim with a guard behind it.
+
 UNCOVERED - THREE ORGANIZE MODE BADGES, FOUND 2026-09-12
 --------------------------------------------------------
-`templates/index.html` ships THREE more inline SVGs that no row above covers:
-the `.mode-badge` glyphs beside Copy, Move and Reorganize in place. The template
+`templates/index.html` ships THREE inline SVGs that no per-icon row covers: the
+`.mode-badge` glyphs beside Copy, Move and Reorganize in place. The template
 already points at this file for them ("provenance in `static/LICENSE-icons.txt`")
 and the pointer resolves to nothing.
-
-Count the shipped icons against the rows here rather than trusting either:
-
-  grep -c '<svg' packages/truestill-app/src/truestill_app/templates/index.html
-
-answers 12 - eight nav icons above, one brand mark (ours, `brand/`), and these
-three.
 
 They are NOT recorded as MIT or ISC here, because that would be a licence claim
 nobody has checked. What is known: all three use the 24-box, `stroke-width="2"`,
 round-cap conventions the eight above use, so the likeliest origin is the same
 set - and the eight above needed a PER-ICON Feather check precisely because the
-blanket answer was wrong for six of them. **The check is outstanding**: compare
-each path against Feather's own set, then add a row with the licence that check
+blanket answer was wrong for six of them. The check is outstanding: compare each
+path against Feather's own set, then add a row with the licence that check
 supports. Until then this section is the honest state, not an omission.
 
-THREE BACKUPS JOB BADGES, ADDED 2026-09-13
-------------------------------------------
-`#screen-backups` ships three more inline SVGs on `.bak-job-badge` - check
-(shield with tick), copy (two sheets), recover (history arrow). Same outstanding
-Feather check as the Organize mode badges above; same count command applies.
+FOUR BACKUPS JOB BADGES - THREE OUTSTANDING, ONE ALREADY COVERED
+----------------------------------------------------------------
+`#screen-backups` ships FOUR inline SVGs on `.bak-job-badge`. This section said
+THREE from 2026-09-13 until 2026-09-15; the fourth arrived in `9eca455` with the
+restore card, and that commit did not touch this file.
+
+  badge      glyph                 provenance
+  -----      -----                 ----------
+  check      shield with tick      OUTSTANDING - same check as the mode badges
+  copy       two sheets            OUTSTANDING - same check as the mode badges
+  recover    history arrow         OUTSTANDING - same check as the mode badges
+  restore    tray with down arrow  Feather `download`, MIT - established, below
+
+`restore` NEEDS NO NEW CHECK, and that is a finding rather than a shortcut. Its
+geometry is identical to the `download` row in the nav table above, which was
+checked against Feather's own set on 2026-08-13: the same tray path byte for
+byte, the same chevron through (7,10) (12,15) (17,10), and the same vertical from
+(12,15) to (12,3). What differs is only the element spelling - the nav copy uses
+Lucide's `<path>` form (`m7 10 5 5 5-5`, `M12 15V3`) and the badge uses Feather's
+original `<polyline>`/`<line>` form. Same icon, same origin, same MIT notice
+below. Recorded here rather than left as a fourth OUTSTANDING row, because an
+unchecked row that could have been checked in one diff is a claim nobody made.
 
 
 ISC License - Lucide
