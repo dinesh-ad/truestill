@@ -447,3 +447,60 @@ def test_the_five_states_do_not_all_look_alike() -> None:
     """
     assert len(set(DOT.values())) == 4, DOT
     assert sum(1 for _, filled in DOT.values() if filled) == 3
+
+
+def test_a_real_length_email_breaks_at_punctuation_rather_than_mid_word(
+    ui: Page, mint: Callable[..., str]
+) -> None:
+    """⚠ **FOUND BY ISSUING A REAL LICENCE, AND THE FIXTURE ABOVE IS WHY NOTHING CAUGHT IT.**
+
+    Every test in this file uses ``ada@example.com`` - fifteen characters, which fits the rail on
+    one line and can never wrap. The first real customer's address was 30 characters, and the rail drew (the address
+    below is synthetic - a real one must not live in the tree, and a guard enforces that):
+
+        a.very.long.address@subdomain.example.co
+        m
+
+    One orphaned letter on its own line, directly under the name of the person who had just paid.
+    `overflow-wrap: anywhere` is doing exactly what it says: breaking wherever the edge lands.
+    §4's *a fixture modelled on the current library inherits its blind spots*, with the blind spot
+    being that the sample data was unrealistically short.
+
+    `breakableAddress` marks `@` and each `.` as break opportunities so the browser prefers those
+    points. **The address must still read exactly as issued** - a `<wbr>` that landed inside an
+    entity, or a replace that ate a character, would corrupt the one field a customer checks to
+    confirm the licence is theirs. That is the second assertion, and it is the one with teeth.
+    """
+    long_email = "a.very.long.address@subdomain.example.com"
+    licence.write_licence(mint(email=long_email))
+    _reload(ui)
+
+    _slot_state(ui, "active")
+    ui.eval_on_selector("#account-slot details", "el => { el.open = true; }")
+    field = ui.locator("#account-slot .account-field").first
+
+    # 1. the address survives the marking, character for character
+    expect(field).to_have_text(long_email)
+
+    # 2. and the browser was offered somewhere sensible to break it
+    html = ui.eval_on_selector("#account-slot .account-field", "el => el.innerHTML")
+    assert "@<wbr>" in html, f"no break opportunity after the @: {html!r}"
+    assert html.count("<wbr>") >= 2, f"the dots offer no break opportunity either: {html!r}"
+
+
+def test_a_short_email_is_not_broken_up(ui: Page, mint: Callable[..., str]) -> None:
+    """CRY-WOLF HALF. `<wbr>` is an *opportunity*, not a forced break - a short address that fits
+    must still render on one line, or the fix would be worse than the defect."""
+    licence.write_licence(mint())
+    _reload(ui)
+
+    ui.eval_on_selector("#account-slot details", "el => { el.open = true; }")
+    # ⚠ **Count distinct line TOPS, not rects.** Every `<wbr>` contributes a zero-width rect
+    # of its own, so `getClientRects().length` is 5 for a ONE-line address - it counts the
+    # markers, not the lines. Measuring that failed this test against correct rendering.
+    lines = ui.eval_on_selector(
+        "#account-slot .account-field",
+        "el => new Set([...el.getClientRects()].filter(r => r.width > 0)"
+        ".map(r => Math.round(r.top))).size",
+    )
+    assert lines == 1, f"{EMAIL} was split across {lines} lines despite fitting"

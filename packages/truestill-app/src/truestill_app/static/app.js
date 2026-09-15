@@ -26,6 +26,14 @@ function mountRunBlocks() {
 mountRunBlocks();
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const nfmt = (n) => Number(n).toLocaleString();
+// An email in a 272px rail is one unbreakable token, and `overflow-wrap: anywhere` breaks it at
+// whatever character happens to land on the edge. Measured with a real address:
+// a 30-character address split as `...@outlook.co` / `m` - one orphaned letter on its own line,
+// directly under the name of the person who had just paid for this. `<wbr>` offers the browser somewhere sensible to break, so
+// it splits at the `@` or a dot instead; `overflow-wrap` stays as the fallback for a local part
+// with no punctuation in it at all. Escaped FIRST, then marked: `esc` does not touch `@` or `.`,
+// so the tags cannot land inside an entity.
+const breakableAddress = (s) => esc(s).replace(/([@.])/g, "$1<wbr>");
 // "2 files", "1 file" -- never "file(s)". Counts are read aloud in a user's head, and the
 // parenthesised plural is the sound of a form letter.
 const plural = (n, word, suffix = "s") => `${nfmt(n)} ${word}${Number(n) === 1 ? "" : suffix}`;
@@ -5149,7 +5157,7 @@ function renderAccount(a) {
   // The email is the second line of identity and only exists when a token does. `covers_this_build`
   // is not rendered as its own sentence: `detail` already says what lapsed and what did not, in
   // core's words, and a second phrasing of the same fact beside it is the drift above.
-  const who = a.email ? `<p><span class="account-field">${esc(a.email)}</span></p>` : "";
+  const who = a.email ? `<p><span class="account-field">${breakableAddress(a.email)}</span></p>` : "";
   // Path only when a broken file is in play - so the user can see which file to replace.
   // Absent / signed-out have nothing at that location; dumping the empty destination path is
   // debugging. Entitled users already have a working file and sign-out is the exit.
