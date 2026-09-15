@@ -12,7 +12,6 @@ run, previews by default and asks for a typed word before it writes.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -23,6 +22,7 @@ from truestill_core.app_paths import RUN_RECORD_FILENAME
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker, read_marker
 from truestill_core.hashing import sha256_file
+from truestill_core.run_record import read_record
 
 RELATIVE = "Camera/2014/p{:04d}.jpg"
 
@@ -302,8 +302,8 @@ def test_an_applied_run_writes_a_record_naming_its_kind(
 
     main(["recover", str(drive), str(library), "--db", str(db), "--apply"])
 
-    record = json.loads((db.parent / RUN_RECORD_FILENAME).read_text(encoding="utf-8"))
-    assert record["run"]["kind"] == "recover"
-    assert record["run"]["attempted"] == 6
-    assert record["run"]["destination_label"] == "My Library"
-    assert len(record["files"]) == 6
+    record = read_record(db.parent / RUN_RECORD_FILENAME)
+    assert record.run["kind"] == "recover"
+    assert record.run["attempted"] == 6
+    assert record.run["destination_label"] == "My Library"
+    assert len(record.entries) == 6

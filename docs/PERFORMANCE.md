@@ -222,6 +222,45 @@ re-running the alternatives against the SAME 600 files rather than comparing acr
 
 ---
 
+### 1.3 What writing a run record costs in MEMORY (measured 2026-09-15, `(akr)`)
+
+⚠ **A MEMORY ROW, NOT A TIMING ROW, so §2.1's method applies in spirit and not in letter.** The
+rules there are shaped by scheduler variance; peak RSS over a deterministic workload is not. It is
+repeatable instead of averaged - three runs at 300,000 entries read **47.9 / 48.1 / 48.1 MiB**
+streaming and two read **750.6 / 750.3 MiB** before, a spread of 0.3 MiB on 750. `traced_peak` was
+identical to the stated precision on every run.
+
+**Method**: `scripts/measure_run_record_memory.py`, **one process per point** - `ru_maxrss` is a
+high-water mark for the life of a process, so measuring several points in one reports the largest
+twice and a flat line would look like constant memory for the wrong reason. Entries are shaped from
+a real record (`Test 1/look-2026-09-05/last-run.json`, 3,826 entries / 3,605,952 B = **942 B per
+entry**). Local SSD (`/data/tmp/truestill`, ext4), Python 3.14.4.
+
+| files | format 3 RSS | format 4 RSS | format 3, serialisation alone | format 4, write alone |
+|---|---|---|---|---|
+| 75,000 | 223.8 MiB | 48.4 MiB | 119.3 MiB | 0.1 MiB |
+| 150,000 | 399.5 MiB | 48.1 MiB | 238.5 MiB | 0.1 MiB |
+| 225,000 | 574.9 MiB | 48.1 MiB | 357.6 MiB | 0.1 MiB |
+| **300,000** | **750.2 MiB** | **48.1 MiB** | **476.8 MiB** | **0.1 MiB** |
+
+**Read it as a shape, not four numbers**: format 3 is linear in the file count and format 4 is
+constant. The ~48 MiB is the interpreter and its imports; the record contributes 0.1 MiB at any
+size. ⚠ **The serialisation column is ~2x the file on disk** (238 MiB at 300,000) because the
+encoder's `str` and its UTF-8 encoding are both live at the moment of the write - which is why the
+peak was worse than a reading of the file size would predict.
+
+⚠ **A caller that still holds its entries as a list keeps paying for the list**, and that is the
+caller's cost rather than the record's: 300,000 materialised entries peak at **273.7 MiB** with the
+write itself still 0.1 MiB. Organize yields; backup, migrate and recover hold lists whose size is
+their own run's shape.
+
+**Do not "optimise" this by reintroducing a single `dumps`.** It is 13.8% *more* bytes on disk that
+were saved by dropping `indent=2` (215.4 MiB against 249.9 MiB), and the whole point is that the
+cost arrives per line rather than as a cliff at the end of a six-hour run. Full argument:
+[`research/backlog/akr.md`](research/backlog/akr.md).
+
+---
+
 ## 2. The rule
 
 > **Every new pipeline stage states its complexity in *n*, in its module docstring. A stage

@@ -7,13 +7,13 @@ never what was unpacked. So the record is the only durable account (`(ahi)`, 202
 
 from __future__ import annotations
 
-import json
 import zipfile
 from pathlib import Path
 
 from truestill_core.app_paths import record_path_for
 from truestill_core.archive_extract import extract_archive_set, record_extraction
 from truestill_core.archive_ingest import precheck_archives
+from truestill_core.run_record import read_record
 
 
 def test_the_record_names_the_parts_and_counts_the_files(tmp_path: Path) -> None:
@@ -39,10 +39,10 @@ def test_the_record_names_the_parts_and_counts_the_files(tmp_path: Path) -> None
         )
         is None
     )
-    record = json.loads(record_path_for(db).read_text(encoding="utf-8"))
-    run = record["run"]
+    record = read_record(record_path_for(db))
+    run = record.run
     assert run["kind"] == "archive unpack"
     assert run["files_written"] == 2
     assert run["stopped"] is None
-    assert [e["relative"] for e in record["files"]] == ["Photos-001.zip"]
+    assert [e["relative"] for e in record.entries] == ["Photos-001.zip"]
     assert run["destination"] == str(extraction.staging_root)

@@ -16,7 +16,6 @@ one.
 
 from __future__ import annotations
 
-import gzip
 import json
 import os
 import random
@@ -28,7 +27,12 @@ from PIL import Image
 from truestill_cli.cli import main
 from truestill_core.app_paths import record_path_for, run_index_for, runs_dir_for
 from truestill_core.catalog import Catalog
-from truestill_core.run_record import record_undo
+from truestill_core.run_record import (
+    RUN_RECORD_FORMAT,
+    LoadedRecord,
+    read_record,
+    record_undo,
+)
 from truestill_core.undo import plan_undo, run_undo
 
 
@@ -53,8 +57,8 @@ def organized(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Pa
     return lib, db
 
 
-def _record(db: Path) -> dict[str, object]:
-    return json.loads(record_path_for(db).read_text(encoding="utf-8"))  # type: ignore[no-any-return]
+def _record(db: Path) -> LoadedRecord:
+    return read_record(record_path_for(db))
 
 
 def _index(db: Path) -> list[dict[str, object]]:
@@ -72,10 +76,10 @@ def test_undo_writes_a_record_naming_every_file_it_put_back(organized: tuple[Pat
     assert main(["undo-organize", "--db", str(db), "--apply"]) == 0
 
     payload = _record(db)
-    run = payload["run"]
+    run = payload.run
     assert isinstance(run, dict)
     assert run["kind"] == "undo"
-    files = payload["files"]
+    files = payload.entries
     assert isinstance(files, list)
     assert len(files) == 4
     assert all(e["status"] == "restored" for e in files)
@@ -94,7 +98,7 @@ def test_the_record_says_which_run_it_reversed(organized: tuple[Path, Path]) -> 
 
     main(["undo-organize", "--db", str(db), "--apply"])
 
-    run = _record(db)["run"]
+    run = _record(db).run
     assert isinstance(run, dict)
     assert run["undid_run_id"] == organize_run_id
 
@@ -104,17 +108,19 @@ def test_the_organize_record_survives_the_undo(organized: tuple[Path, Path]) -> 
     run destroyed the only document saying what that run did."""
     _lib, db = organized
     before = _record(db)
-    assert before["run"]["kind"] == "organize"  # type: ignore[index]
+    assert before.run["kind"] == "organize"
 
     main(["undo-organize", "--db", str(db), "--apply"])
 
-    superseded = sorted(runs_dir_for(db).glob("*organize*.json.gz"))
+    superseded = sorted(runs_dir_for(db).glob("*organize*.jsonl.gz"))
     assert len(superseded) == 1, (
         f"the organize record was destroyed: {list(runs_dir_for(db).iterdir())}"
     )
-    kept = json.loads(gzip.decompress(superseded[0].read_bytes()).decode("utf-8"))
-    assert kept["run"]["kind"] == "organize"
-    assert len(kept["files"]) == len(before["files"])  # type: ignore[arg-type]
+    # ⚠ `read_record` opens a demoted record through gzip itself, so this reads the compressed
+    # file directly rather than decompressing it by hand. `(akr)`
+    kept = read_record(superseded[0])
+    assert kept.run["kind"] == "organize"
+    assert len(kept.entries) == len(before.entries)
 
 
 # --- the index ----------------------------------------------------------------------------
@@ -230,10 +236,7 @@ def test_the_record_distinguishes_all_three_outcomes(organized: tuple[Path, Path
         outcome = run_undo(catalog, plan, apply=True)
         assert record_undo(db, plan, outcome) is None
 
-    classes = {
-        str(e["outcome_class"])
-        for e in _record(db)["files"]  # type: ignore[union-attr]
-    }
+    classes = {str(e["outcome_class"]) for e in _record(db).entries}
     assert "nothing_to_do" in classes
     assert "resolvable" in classes
     assert "None" in classes or None in classes, "a restored file should carry no skip class"
@@ -267,3 +270,42 @@ def test_an_unwritable_index_does_not_fail_the_reversal(
     assert code == 0, "a record that could not be written failed the reversal"
     assert (lib / "Old Folder" / "p0.jpg").is_file(), "the files were not put back"
     assert (lib / "Old Folder" / "p3.jpg").is_file()
+
+
+def test_a_run_recorded_as_jsonl_is_still_fully_reversible(organized: tuple[Path, Path]) -> None:
+    """**`(akr)`'s obligation: changing the record must not change what undo can do.**
+
+    ⚠ **Undo does NOT read the run record, and that is the whole reason this is safe** - it
+    reverses from the catalog's `inplace_runs` / `inplace_moves` journal
+    (`undo._resolve_run` -> `catalog.inplace_run` / `catalog.latest_undoable_run`). The record is
+    a log; the journal is the durable per-file state. `(ahm)` established the same null from the
+    other side: *"Nothing reads a run record."*
+
+    **Argued is not proved**, so this asserts it end to end: the run writes a format 4 record,
+    and the library still comes back byte for byte.
+    """
+    lib, db = organized
+
+    after_organize = {
+        p.relative_to(lib).as_posix(): p.read_bytes()
+        for p in sorted(lib.rglob("*.jpg"))
+        if p.is_file()
+    }
+    assert after_organize, "the fixture organized nothing, so this proves nothing"
+    assert _record(db).header["format"] == RUN_RECORD_FORMAT, (
+        "the organize record is not the format this test is about"
+    )
+
+    assert main(["undo-organize", "--db", str(db), "--apply"]) == 0
+
+    restored = {
+        p.relative_to(lib).as_posix(): p.read_bytes()
+        for p in sorted(lib.rglob("*.jpg"))
+        if p.is_file()
+    }
+    assert sorted(restored) == [f"Old Folder/p{i}.jpg" for i in range(4)], (
+        f"undo did not put every photograph back where it was: {sorted(restored)}"
+    )
+    assert sorted(restored.values()) == sorted(after_organize.values()), (
+        "a photograph's bytes changed across organize-then-undo"
+    )

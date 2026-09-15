@@ -154,13 +154,19 @@ ALLOWANCE_FILENAME = "licence.usage.json"
 #: is told to look at, copy and keep - invites deleting the wrong one.
 LOCKS_DIRNAME = "locks"
 
-#: Filename of the record a run writes about what it did. ``.json`` because it is read by a person
-#: looking for one filename among thousands, and by whatever they paste it into.
+#: Filename of the record a run writes about what it did. ⚠ **``.jsonl`` since `(akr)`, and the
+#: extension is the honest one**: the file is JSON Lines - one self-contained object per line -
+#: not a JSON document, and a ``.json`` name over JSONL content misleads every tool that opens it.
 #:
 #: **Rolling: one file, overwritten each run.** One file has no expiry policy; a file per run has
 #: to answer "who decides when these go", which is the commitment that ruled out putting this in
 #: the catalog. `(afl)`
-RUN_RECORD_FILENAME = "last-run.json"
+RUN_RECORD_FILENAME = "last-run.jsonl"
+
+#: The pre-`(akr)` name. ⚠ **Read to ROTATE it aside, never to parse it.** A catalog that last ran
+#: before `(akr)` has one of these beside it; without this the file would sit there forever,
+#: superseded by nothing, because supersession keys on the current name. `(akr)`
+LEGACY_RUN_RECORD_FILENAME = "last-run.json"
 
 #: Where superseded run records and the permanent index live, beside the catalog. `(afw)`
 RUNS_DIRNAME = "runs"
@@ -484,7 +490,7 @@ def superseded_record_path(catalog: Path, *, started_at: str, kind: str, run_id:
     # The id is omitted rather than spelled "unknown": organize records carry no run id today,
     # and a filename asserting one it does not have is worse than a shorter name.
     tail = f"-{run_id}" if run_id else ""
-    return runs_dir_for(catalog) / f"{stamp}-{kind}{tail}.json"
+    return runs_dir_for(catalog) / f"{stamp}-{kind}{tail}.jsonl"
 
 
 def backup_path_for(catalog: Path) -> Path:

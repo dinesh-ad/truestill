@@ -16,7 +16,6 @@ bytes of what was already there and compares them afterwards.
 
 from __future__ import annotations
 
-import json
 import threading
 from pathlib import Path
 
@@ -33,6 +32,7 @@ from truestill_core.recover import (
     plan_recovery,
     recover_into_library,
 )
+from truestill_core.run_record import read_record
 
 RELATIVE = "Camera/2014/photo-{:05d}.jpg"
 
@@ -422,16 +422,16 @@ def test_a_stop_records_what_landed_and_never_claims_what_did_not(
         )
 
     on_disk = sorted(p.name for p in _photographs(pair.library))
-    record = json.loads((db.parent / RUN_RECORD_FILENAME).read_text(encoding="utf-8"))
-    copied_entries = [e for e in record["files"] if e["status"] == "copied"]
+    record = read_record(db.parent / RUN_RECORD_FILENAME)
+    copied_entries = [e for e in record.entries if e["status"] == "copied"]
     assert len(on_disk) == 37, "three of the six should have landed before the pull"
     assert len(copied_entries) == 3
-    assert record["run"]["kind"] == "recover"
+    assert record.run["kind"] == "recover"
     for entry in copied_entries:
         assert (pair.library / str(entry["relative"])).is_file(), (
             "the record claims a file that is not on disk"
         )
-    assert record["run"]["attempted"] + record["run"]["stopped"]["never_attempted"] == 6
+    assert record.run["attempted"] + record.run["stopped"]["never_attempted"] == 6
 
 
 def test_a_finished_run_writes_a_record_with_no_stop_block(
@@ -443,11 +443,11 @@ def test_a_finished_run_writes_a_record_with_no_stop_block(
 
     _run(db, pair)
 
-    record = json.loads((db.parent / RUN_RECORD_FILENAME).read_text(encoding="utf-8"))
-    assert record["run"]["stopped"] is None
-    assert record["run"]["attempted"] == 6
-    assert record["run"]["intended_total"] == 6
-    assert len([e for e in record["files"] if e["status"] == "copied"]) == 6
+    record = read_record(db.parent / RUN_RECORD_FILENAME)
+    assert record.run["stopped"] is None
+    assert record.run["attempted"] == 6
+    assert record.run["intended_total"] == 6
+    assert len([e for e in record.entries if e["status"] == "copied"]) == 6
 
 
 def test_the_record_names_a_skip_as_a_skip(world: tuple[Path, RecoverPair]) -> None:
@@ -460,8 +460,8 @@ def test_the_record_names_a_skip_as_a_skip(world: tuple[Path, RecoverPair]) -> N
 
     _run(db, pair)
 
-    record = json.loads((db.parent / RUN_RECORD_FILENAME).read_text(encoding="utf-8"))
-    entry = next(e for e in record["files"] if e["relative"] == RELATIVE.format(39))
+    record = read_record(db.parent / RUN_RECORD_FILENAME)
+    entry = next(e for e in record.entries if e["relative"] == RELATIVE.format(39))
     assert entry["status"] == "skipped"
     assert entry["detail"] == Skipped.ALREADY_THERE.value
     assert entry["copy_sha256"] is None

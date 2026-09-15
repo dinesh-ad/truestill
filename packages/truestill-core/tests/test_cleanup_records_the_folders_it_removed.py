@@ -9,11 +9,11 @@ derivation over-claims. Proved here with one such folder.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from truestill_core.app_paths import record_path_for
 from truestill_core.cleanup import plan_cleanup, record_cleanup, run_cleanup
+from truestill_core.run_record import read_record
 
 
 def _tree(tmp_path: Path) -> tuple[Path, Path]:
@@ -37,10 +37,10 @@ def test_the_record_names_what_was_removed_and_not_what_was_already_gone(tmp_pat
     assert outcome.failures == []
 
     assert record_cleanup(db, root, plan, outcome) is None
-    record = json.loads(record_path_for(db).read_text(encoding="utf-8"))
-    run = record["run"]
+    record = read_record(record_path_for(db))
+    run = record.run
     assert run["kind"] == "clean empty"
     assert run["intended_total"] == 2
     assert run["attempted"] == 1
-    names = [(entry["relative"], entry["status"]) for entry in record["files"]]
+    names = [(entry["relative"], entry["status"]) for entry in record.entries]
     assert names == [("2013/a", "removed")], names

@@ -28,7 +28,6 @@ comment.
 
 from __future__ import annotations
 
-import json
 import random
 import threading
 from pathlib import Path
@@ -40,7 +39,7 @@ from truestill_core.app_paths import record_path_for
 from truestill_core.catalog import Catalog
 from truestill_core.hashing import sha256_file
 from truestill_core.progress import Progress
-from truestill_core.run_record import record_undo
+from truestill_core.run_record import read_record, record_undo
 from truestill_core.undo import (
     UndoStep,
     UndoStopKind,
@@ -258,8 +257,8 @@ def test_the_record_says_the_user_stopped_it_rather_than_that_it_failed(
         )
     assert record_undo(db, plan, outcome) is None, "the record must write cleanly"
 
-    payload = json.loads(record_path_for(db).read_text(encoding="utf-8"))
-    stopped = payload["run"]["stopped"]
+    payload = read_record(record_path_for(db))
+    stopped = payload.run["stopped"]
 
     assert stopped is not None, "a record of a stopped run must carry the stop"
     assert stopped["kind"] == UndoStopKind.CANCELLED.value, (

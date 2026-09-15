@@ -28,7 +28,7 @@ from pathlib import Path, PurePosixPath
 
 import pytest
 from PIL import Image
-from truestill_core.app_paths import record_path_for, run_index_for
+from truestill_core.app_paths import record_path_for
 from truestill_core.bake import CONFIRM_WORD, bake_confirmed_dates
 from truestill_core.catalog import Catalog
 from truestill_core.destinations.base import DestinationError
@@ -38,6 +38,7 @@ from truestill_core.hashing import sha256_file
 from truestill_core.layout import LayoutScheme, LayoutTemplate
 from truestill_core.migrate import run_migration
 from truestill_core.progress import Phase, Progress
+from truestill_core.run_record import RUN_RECORD_FORMAT, read_record, run_index_for
 
 _DDL = "{category}/{yyyy}"  # drops the month the default adds -> every dated file must move
 
@@ -109,9 +110,9 @@ def test_an_applied_migration_leaves_a_line_and_a_detail_file(tmp_path: Path) ->
     assert isinstance(line["run_id"], str), "migrate is the only surface that passes a run_id"
     assert line["run_id"], "without it a superseded detail file cannot identify itself"
 
-    detail = json.loads(record_path_for(db).read_text(encoding="utf-8"))
-    assert detail["run"]["kind"] == "migrate"
-    assert detail["run"]["destination_uuid"] == "D1"
+    detail = read_record(record_path_for(db))
+    assert detail.run["kind"] == "migrate"
+    assert detail.run["destination_uuid"] == "D1"
 
 
 def test_a_preview_records_nothing(tmp_path: Path) -> None:
@@ -144,8 +145,8 @@ def test_the_record_names_what_it_refused_and_not_what_it_moved(tmp_path: Path) 
 
     assert outcome.stopped is None, "one vanished file is not a reason to stop"
     assert outcome.migrated == 3
-    detail = json.loads(record_path_for(db).read_text(encoding="utf-8"))
-    files = detail["files"]
+    detail = read_record(record_path_for(db))
+    files = detail.entries
 
     assert len(files) == 1, f"failures-only, and this holds {len(files)}"
     assert files[0]["status"] == "failed"
@@ -184,8 +185,8 @@ def test_a_stopped_migration_records_why_and_how_much_it_never_reached(tmp_path:
         )
 
     assert outcome.stopped is not None
-    detail = json.loads(record_path_for(db).read_text(encoding="utf-8"))
-    stopped = detail["run"]["stopped"]
+    detail = read_record(record_path_for(db))
+    stopped = detail.run["stopped"]
     assert stopped["kind"] == "cancelled", "a user's cancel must never read as a failing drive"
     assert stopped["never_attempted"] > 0
     assert _lines(db)[0]["stopped"] is True
@@ -252,7 +253,13 @@ def test_a_bake_does_not_demote_the_record_already_there(tmp_path: Path) -> None
     """
     db, here, marker = _baked_library(tmp_path)
     record_path_for(db).parent.mkdir(parents=True, exist_ok=True)
-    record_path_for(db).write_text('{"format": 3, "run": {"kind": "organize"}}', encoding="utf-8")
+    # ⚠ A format 4 opening line, not a format 3 document: this fixture stands in for "a real
+    # record is already here", so it has to be one the reader can actually open. `(akr)`
+    record_path_for(db).write_text(
+        json.dumps({"type": "run", "format": RUN_RECORD_FORMAT, "run": {"kind": "organize"}})
+        + "\n",
+        encoding="utf-8",
+    )
 
     bake_confirmed_dates(
         here,
@@ -263,8 +270,8 @@ def test_a_bake_does_not_demote_the_record_already_there(tmp_path: Path) -> None
         cancel=threading.Event(),
     )
 
-    kept = json.loads(record_path_for(db).read_text(encoding="utf-8"))
-    assert kept["run"]["kind"] == "organize", "the bake demoted a real record to write nothing"
+    kept = read_record(record_path_for(db))
+    assert kept.run["kind"] == "organize", "the bake demoted a real record to write nothing"
 
 
 # --- the rule that outranks both -----------------------------------------------------------

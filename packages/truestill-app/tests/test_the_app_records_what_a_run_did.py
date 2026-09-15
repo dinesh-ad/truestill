@@ -42,7 +42,6 @@ rather than read as assertions.
 from __future__ import annotations
 
 import ast
-import json
 import random
 import threading
 from dataclasses import replace
@@ -56,7 +55,13 @@ from truestill_core import organizer
 from truestill_core.app_paths import record_path_for
 from truestill_core.models import ActionStatus, Resolution, UnreadableReason
 from truestill_core.progress import Phase, Progress
-from truestill_core.run_record import RUN_RECORD_FORMAT, RunHeader, build_run_record
+from truestill_core.run_record import (
+    RUN_RECORD_FORMAT,
+    LoadedRecord,
+    RunHeader,
+    build_run_record,
+    read_record,
+)
 
 #: Every app service that changes the library, and whether `(afu)` gave it a run record.
 #:
@@ -253,8 +258,8 @@ def _run(
     return target(lambda _progress: None, cancel or threading.Event())
 
 
-def _record(db: Path) -> dict[str, object]:
-    return json.loads(record_path_for(db).read_text(encoding="utf-8"))
+def _record(db: Path) -> LoadedRecord:
+    return read_record(record_path_for(db))
 
 
 def test_an_app_run_writes_the_record_without_being_asked(tmp_path: Path) -> None:
@@ -268,15 +273,15 @@ def test_an_app_run_writes_the_record_without_being_asked(tmp_path: Path) -> Non
     _run(source, destination, db)
 
     record = _record(db)
-    assert record["format"] == RUN_RECORD_FORMAT
-    run = record["run"]
+    assert record.header["format"] == RUN_RECORD_FORMAT
+    run = record.run
     assert isinstance(run, dict)
     assert run["source"] == str(source)
     assert run["destination"] == str(destination)
     assert run["intended_total"] == 1
     assert run["attempted"] == 1
     assert run["stopped"] is None
-    files = record["files"]
+    files = record.entries
     assert isinstance(files, list)
     assert [f["source"] for f in files] == [str(source / "0.jpg")]
     assert files[0]["status"] == ActionStatus.UPLOADED.value
@@ -304,7 +309,7 @@ def test_the_record_names_a_file_the_run_could_not_read(
     monkeypatch.setattr("truestill_app.service.organize.resolve", unreadable)
     _run(source, destination, db)
 
-    files = _record(db)["files"]
+    files = _record(db).entries
     assert isinstance(files, list)
     assert files[0]["unreadable"] == UnreadableReason.PERMISSION.value
 
@@ -336,7 +341,7 @@ def test_a_cancelled_run_records_the_reason_it_actually_stopped_for(tmp_path: Pa
     target = organize_run(source, destination, db)
     target(stop_after_the_first_copy, cancel)
 
-    stopped = _record(db)["run"]
+    stopped = _record(db).run
     assert isinstance(stopped, dict)
     block = stopped["stopped"]
     assert isinstance(block, dict), "a cancelled run recorded no stop block"
@@ -394,13 +399,18 @@ def test_both_surfaces_record_the_same_fields(tmp_path: Path) -> None:
         stopped=None,
     )
 
-    assert from_app.keys() == from_cli.keys()
-    app_run, cli_run = from_app["run"], from_cli["run"]
+    # ⚠ **Both sides are RUN BLOCKS now, `(akr)`.** Before the format change both were whole
+    # payload dicts and the outer `.keys()` compared `{format, run, files}` against itself, which
+    # could never have failed. The comparison that carries the docstring's meaning is between the
+    # run blocks the two surfaces write, so that is what is compared - and the app's is read back
+    # from disk, which is stronger than comparing two freshly built dicts.
+    app_run = from_app.header["run"]
+    cli_run = from_cli.run_block()
     assert isinstance(app_run, dict)
     assert isinstance(cli_run, dict)
     assert app_run.keys() == cli_run.keys()
 
-    files = from_app["files"]
+    files = from_app.entries
     assert isinstance(files, list)
     expected = {
         "source",

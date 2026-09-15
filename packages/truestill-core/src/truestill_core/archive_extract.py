@@ -287,16 +287,19 @@ def record_extraction(
             destination=str(extraction.staging_root),
             destination_uuid=marker.uuid if marker is not None else None,
             destination_label=marker.label if marker is not None else None,
+            # `(akr)`: run-level facts, carried on the header rather than reached into the built
+            # record. This used to be `payload["run"]["files_written"] = ...`, which only worked
+            # while the record was a plain dict.
+            extra={
+                "files_written": extraction.files_written,
+                "bytes_written": extraction.bytes_written,
+            },
         ),
         files=[{"relative": part.path.name, "status": "unpacked"} for part in parts],
         intended_total=len(parts),
         attempted=len(parts),
         stopped={"reason": "you stopped it"} if extraction.cancelled else None,
     )
-    run = payload["run"]
-    assert isinstance(run, dict)
-    run["files_written"] = extraction.files_written
-    run["bytes_written"] = extraction.bytes_written
     return record_organize(db, payload)
 
 

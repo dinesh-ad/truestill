@@ -29,6 +29,32 @@ recording shipped work as unstarted, which is the more expensive direction of th
   `test_every_site_calls_run_job_with_on_refuse` - every `await runJob({` must supply `onRefuse:`.
   [Full entry](research/backlog/abr.md)
 
+- **(akr) THE RUN RECORD WAS BUILT WHOLE IN MEMORY AND SERIALISED AT THE LAST MOMENT.**
+  ✅ **CLOSED 2026-09-15**, filed and closed the same day.
+  **What was wrong**: `write_run_record` did one `json.dumps` over the entire assembled record.
+  A **cliff, not a curve** - it fires at the end of a run, after every photograph is already
+  copied, and takes the whole record with it. Measured at 300,000 files: **750.2 MiB RSS peak**,
+  of which **476.8 MiB was the serialisation step alone** (~2x the 238 MiB on disk, because the
+  encoder's `str` and its UTF-8 encoding are both live).
+  ⚠ **Two further cliffs were found that nobody had named**, both on the READ side in
+  `_supersede`: the previous record was parsed **in full** to recover three header fields for the
+  rotated filename, then compressed with `gzip.compress(read_bytes())`, holding the file and its
+  compressed image at once.
+  **The fix**: JSON Lines, `RUN_RECORD_FORMAT = 4`, one self-contained object per line. Entries
+  stream as they are yielded; identity is on line one so supersession costs a `readline`;
+  compression is `shutil.copyfileobj`. **48.1 MiB RSS and 0.1 MiB traced, flat across 75k / 150k
+  / 225k / 300k** - and the file is 13.8% smaller with `indent=2` gone.
+  ⚠ **A surviving mutation found the flush was inert**: `FLUSH_EVERY_ENTRIES = 1000` never fired
+  before `io.DEFAULT_BUFFER_SIZE` (131,072 B, ~139 organize entries). Now `FLUSH_EVERY_BYTES =
+  64 KiB`, deliberately tighter than the interpreter's, so the bound is ours. `flush`, never
+  `fsync` - group commit's shape, for a log nothing restores from.
+  **New behaviour format 3 could not have**: an interrupted run now leaves everything it reached
+  and says so by the trailer's absence; format 3 wrote one document at the end, so a crash left
+  **nothing**.
+  Guards: `test_a_run_record_streams_and_never_holds_the_run.py` (10, each proven by mutation)
+  and `test_a_run_recorded_as_jsonl_is_still_fully_reversible`.
+  [Full entry](research/backlog/akr.md)
+
 - **(akp) THE AT-RISK REMEDY ON BACKUPS COULD NOT FIX THE FILE IT WAS SHOWN ABOUT.**
   ✅ **CLOSED 2026-09-12 by `4e1305a`**, filed and closed the same day - the entry was written
   with **no work attached** precisely so the wording would be authored against a reproducible

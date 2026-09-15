@@ -22,7 +22,6 @@ believing the backup was fine.
 from __future__ import annotations
 
 import errno
-import json
 import random
 import threading
 from pathlib import Path
@@ -33,6 +32,7 @@ from truestill_app.service.backup import BackupRunSummary, backup_run
 from truestill_cli.cli import main
 from truestill_core import run_health, safe_copy
 from truestill_core.app_paths import record_path_for
+from truestill_core.run_record import read_record
 
 
 def _jpeg(path: Path, *, seed: int) -> None:
@@ -113,8 +113,8 @@ def test_every_failure_is_named_in_the_record_not_just_counted(
 
     _run(library)
 
-    payload = json.loads(record_path_for(library[2]).read_text(encoding="utf-8"))
-    failed = [e for e in payload["files"] if e["status"] == "failed"]
+    payload = read_record(record_path_for(library[2]))
+    failed = [e for e in payload.entries if e["status"] == "failed"]
     assert len(failed) == 2, f"the record does not name both failures: {failed}"
     assert all(e["detail"] for e in failed), "a failure is named without a reason"
 
@@ -138,14 +138,13 @@ def test_a_completed_run_with_failures_reports_nothing_never_attempted(
 
     _run(library)
 
-    run = json.loads(record_path_for(library[2]).read_text(encoding="utf-8"))["run"]
+    run = read_record(record_path_for(library[2])).run
     assert run["stopped"] is None, f"a completed run reported itself as stopped: {run['stopped']}"
     assert run["attempted"] == run["intended_total"], (
         "a run that reached every file did not report attempting them all"
     )
     assert not any(
-        e["status"] == "not attempted"
-        for e in json.loads(record_path_for(library[2]).read_text(encoding="utf-8"))["files"]
+        e["status"] == "not attempted" for e in read_record(record_path_for(library[2])).entries
     )
 
 
@@ -232,13 +231,13 @@ def test_a_full_disk_stops_the_backup_instead_of_failing_every_remaining_file(
     with pytest.raises(OSError, match="No space left"):
         _run(library)
 
-    payload = json.loads(record_path_for(library[2]).read_text(encoding="utf-8"))
-    failed = [e for e in payload["files"] if e["status"] == "failed"]
+    payload = read_record(record_path_for(library[2]))
+    failed = [e for e in payload.entries if e["status"] == "failed"]
     assert len(failed) == 1, (
         f"the run kept trying after a condition that outlives the file: {failed}"
     )
-    assert payload["run"]["stopped"] is not None, "an aborted run reported itself as complete"
-    assert payload["run"]["stopped"]["never_attempted"] >= 1
+    assert payload.run["stopped"] is not None, "an aborted run reported itself as complete"
+    assert payload.run["stopped"]["never_attempted"] >= 1
 
 
 @pytest.mark.skipif(not Path("/dev/full").exists(), reason="/dev/full is Linux-specific")
@@ -257,8 +256,6 @@ def test_the_stop_reason_says_which_guard_stopped_it(
     with pytest.raises(OSError, match="No space left"):
         _run(library)
 
-    reason = json.loads(record_path_for(library[2]).read_text(encoding="utf-8"))["run"]["stopped"][
-        "reason"
-    ]
+    reason = read_record(record_path_for(library[2])).run["stopped"]["reason"]
     assert "No space left" in reason, f"the classifier's abort is not identifiable: {reason!r}"
     assert "nearly full" not in reason, "the classifier's abort reads as the watcher's"

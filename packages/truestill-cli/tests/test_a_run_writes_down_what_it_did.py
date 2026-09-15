@@ -10,7 +10,6 @@ only for a file that succeeded, and there is no logging anywhere in the product.
 
 from __future__ import annotations
 
-import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -25,9 +24,12 @@ from truestill_core.destinations import LocalDestination
 from truestill_core.models import DateSource, Decision, FileHashes, Resolution
 from truestill_core.organizer import execute
 from truestill_core.run_record import (
+    RUN_RECORD_FORMAT,
+    LoadedRecord,
     RunHeader,
     build_run_record,
     files_from_resolutions,
+    read_record,
     stop_block,
 )
 
@@ -50,8 +52,8 @@ def library(tmp_path: Path) -> tuple[Path, Path, Path]:
     return src, dest, db
 
 
-def _record(db: Path) -> dict:
-    return json.loads(record_path_for(db).read_text(encoding="utf-8"))
+def _record(db: Path) -> LoadedRecord:
+    return read_record(record_path_for(db))
 
 
 def test_a_run_records_itself_without_being_asked(
@@ -71,11 +73,11 @@ def test_a_run_records_itself_without_being_asked(
     # line that makes a format bump an edit somebody made on purpose.
     # ⚠ **3 since undo joined**: a `files` entry's shape depends on `run.kind`, and undo is a
     # third shape. `(afw)`
-    assert record["format"] == 3
-    assert record["run"]["intended_total"] == 4
-    assert record["run"]["attempted"] == 4
-    assert record["run"]["stopped"] is None
-    assert len(record["files"]) == 4
+    assert record.header["format"] == RUN_RECORD_FORMAT
+    assert record.run["intended_total"] == 4
+    assert record.run["attempted"] == 4
+    assert record.run["stopped"] is None
+    assert len(record.entries) == 4
     assert "This run is recorded in" in capsys.readouterr().out, "it does not name the file"
 
 
@@ -87,7 +89,7 @@ def test_the_record_says_what_happened_not_what_was_planned(
 
     main(["organize", str(src), str(dest), "--apply", "--db", str(db)])
 
-    row = _record(db)["files"][0]
+    row = _record(db).entries[0]
     assert row["status"] == "uploaded", "the record carries no outcome"
     assert row["landed_at"], "where the file actually went is not recorded"
     # And it keeps everything the plan report carried, so nothing was traded away.
@@ -159,12 +161,15 @@ def test_a_stopped_run_records_what_it_never_attempted(tmp_path: Path) -> None:
         attempted=len(results),
         stopped=stop_block(resolutions, results),
     )
-    stopped = record["run"]["stopped"]
+    # ⚠ This `record` is a BUILT `RunRecord`, never a read-back `LoadedRecord`, and the two are
+    # deliberately different types: the built one carries a one-shot iterator of entries and its
+    # counts live on `summary`, which is what gets written as the trailer. `(akr)`
+    stopped = record.summary.stopped
     assert stopped is not None, "a run that stopped early reported itself as complete"
-    assert record["run"]["intended_total"] == 12
-    assert stopped["never_attempted"] == 12 - record["run"]["attempted"]
-    assert "catalog could not be written" in stopped["reason"]
-    assert any(f["status"] == "not attempted" for f in record["files"]), (
+    assert record.summary.intended_total == 12
+    assert stopped["never_attempted"] == 12 - record.summary.attempted
+    assert "catalog could not be written" in str(stopped["reason"])
+    assert any(f["status"] == "not attempted" for f in record.entries), (
         "the files the run never reached are absent, so the record reads as complete"
     )
 
@@ -175,7 +180,7 @@ def test_a_run_that_finished_records_no_stop(library: tuple[Path, Path, Path]) -
 
     main(["organize", str(src), str(dest), "--apply", "--db", str(db)])
 
-    assert _record(db)["run"]["stopped"] is None
+    assert _record(db).run["stopped"] is None
 
 
 def test_a_preview_writes_nothing(library: tuple[Path, Path, Path]) -> None:

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 import shutil
 from pathlib import Path
@@ -11,8 +10,10 @@ import pytest
 from PIL import Image
 from truestill_cli import cli as cli_module
 from truestill_cli.cli import main
+from truestill_core.app_paths import record_path_for
 from truestill_core.catalog import Catalog
 from truestill_core.layout import LAYOUT_EVENT_TEMPLATE_KEY, LAYOUT_TEMPLATE_KEY, PRESETS
+from truestill_core.run_record import read_record
 
 import repo_sources
 
@@ -95,8 +96,8 @@ def test_skip_undated_names_skipped_files(
     # The BLOCK, not the name: `_print_largest` prints a capped sample that names files too, so
     # `"mystery-scan.jpg" not in report` would be measuring the haystack rather than the subject.
     assert "SKIPPED (undated" not in report, "an authorised run does not re-list them"
-    record = json.loads((db.parent / "last-run.json").read_text(encoding="utf-8"))
-    skipped = [f for f in record["files"] if f["status"] == "skipped_undated"]
+    record = read_record(record_path_for(db))
+    skipped = [f for f in record.entries if f["status"] == "skipped_undated"]
     assert [Path(f["source"]).name for f in skipped] == ["mystery-scan.jpg"], (
         "named, never silent - in the record, which is where an authorised run's detail now lives"
     )

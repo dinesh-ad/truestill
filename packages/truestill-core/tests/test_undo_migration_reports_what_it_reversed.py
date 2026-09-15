@@ -26,7 +26,6 @@ path nothing else exercises is half a test.
 from __future__ import annotations
 
 import errno
-import json
 import threading
 from pathlib import Path, PurePosixPath
 
@@ -44,6 +43,7 @@ from truestill_core.migrate import (
     undo_migration,
 )
 from truestill_core.progress import Phase, Progress, ProgressCallback
+from truestill_core.run_record import read_record
 
 _DDL = "{category}/{yyyy}"
 
@@ -327,6 +327,6 @@ def test_a_reversal_writes_its_own_record(tmp_path: Path) -> None:
     _root, db, destination = _migrated(tmp_path)
     with Catalog(db) as catalog:
         undo_migration(catalog, destination, "D1", apply=True)
-    run = json.loads(record_path_for(db).read_text(encoding="utf-8"))["run"]
+    run = read_record(record_path_for(db)).run
     assert run["kind"] == "migrate undo"
     assert run["undid_run_id"], "the record must name the run it reversed"

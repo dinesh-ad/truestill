@@ -36,6 +36,7 @@ from truestill_cli.cli import main
 from truestill_core import backup as backup_engine
 from truestill_core import run_health
 from truestill_core.app_paths import record_path_for
+from truestill_core.run_record import read_record
 
 
 def _jpeg(path: Path, *, seed: int) -> None:
@@ -100,14 +101,14 @@ def test_a_backup_that_stops_still_says_what_it_did(
         "a backup that stopped wrote no record at all; the files it had already copied and the "
         "file that stopped it are recoverable from nothing"
     )
-    payload = json.loads(record.read_text(encoding="utf-8"))
+    payload = read_record(record)
 
-    statuses = {entry["relative"]: entry["status"] for entry in payload["files"]}
+    statuses = {entry["relative"]: entry["status"] for entry in payload.entries}
     assert "uploaded" in statuses.values(), "the copies that succeeded are absent from the record"
     failed = [rel for rel, status in statuses.items() if status == "failed"]
     assert len(failed) == 1, f"expected exactly one failed entry, got {failed}"
 
-    stopped = payload["run"]["stopped"]
+    stopped = payload.run["stopped"]
     assert stopped is not None, "the record does not say the run stopped early"
     assert stopped["never_attempted"] >= 1, (
         "a record silent about what was never tried reads as complete and is not"
@@ -126,15 +127,17 @@ def test_the_record_says_why_and_not_only_which(
     with pytest.raises(ValueError, match="nearly full"):
         backup_run(source, target, db)(lambda _p: None, threading.Event())
 
-    payload = json.loads(record_path_for(db).read_text(encoding="utf-8"))
-    failed = [entry for entry in payload["files"] if entry["status"] == "failed"]
+    payload = read_record(record_path_for(db))
+    failed = [entry for entry in payload.entries if entry["status"] == "failed"]
 
     assert failed, "no failed entry to carry a reason"
     assert failed[0]["detail"], "the failed entry names the file and not why it failed"
-    assert "disk" in failed[0]["detail"], (
+    assert "disk" in str(failed[0]["detail"]), (
         f"the reason does not carry why the run stopped: {failed[0]['detail']!r}"
     )
-    assert payload["run"]["stopped"]["reason"], "the stop block carries no reason"
+    stop = payload.run["stopped"]
+    assert isinstance(stop, dict)
+    assert stop["reason"], "the stop block carries no reason"
 
 
 def test_the_record_identifies_the_drive_by_uuid_not_only_by_label(
@@ -152,7 +155,7 @@ def test_the_record_identifies_the_drive_by_uuid_not_only_by_label(
     with pytest.raises(ValueError, match="nearly full"):
         backup_run(source, target, db)(lambda _p: None, threading.Event())
 
-    run = json.loads(record_path_for(db).read_text(encoding="utf-8"))["run"]
+    run = read_record(record_path_for(db)).run
     marker = json.loads((target / ".truestill-drive.json").read_text(encoding="utf-8"))
 
     assert run["destination_uuid"] == marker["uuid"], (

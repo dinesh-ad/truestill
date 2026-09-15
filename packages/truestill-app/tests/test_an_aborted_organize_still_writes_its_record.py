@@ -24,7 +24,6 @@ against a full drive is when the paperwork matters most.
 
 from __future__ import annotations
 
-import json
 import random
 import threading
 from pathlib import Path
@@ -35,6 +34,7 @@ from truestill_app.service.organize import organize_run
 from truestill_cli.cli import main
 from truestill_core import safe_copy
 from truestill_core.app_paths import record_path_for
+from truestill_core.run_record import LoadedRecord, read_record
 
 _HAS_DEV_FULL = pytest.mark.skipif(
     not Path("/dev/full").exists(), reason="/dev/full is Linux-specific"
@@ -81,11 +81,11 @@ def _real_enospc(monkeypatch: pytest.MonkeyPatch, *, nth: int) -> None:
     monkeypatch.setattr(safe_copy.shutil, "copyfile", flaky)
 
 
-def _record(db: Path) -> dict[str, object]:
+def _record(db: Path) -> LoadedRecord:
     path = record_path_for(db)
     assert path.exists(), "the run stopped and left no record of what it had already done"
-    parsed = json.loads(path.read_text(encoding="utf-8"))
-    assert isinstance(parsed, dict)
+    parsed = read_record(path)
+    assert parsed.header, "the record has no opening line"
     return parsed
 
 
@@ -105,13 +105,15 @@ def test_the_cli_records_the_files_it_had_already_organized(
     main(["organize", str(src), str(drive), "--apply", "--db", str(db)])
 
     payload = _record(db)
-    run = payload["run"]
+    run = payload.run
     assert isinstance(run, dict)
-    assert run["attempted"] >= 2, (
-        f"the record claims the run attempted {run['attempted']} files; it copied one and "
+    attempted = run["attempted"]
+    assert isinstance(attempted, int)
+    assert attempted >= 2, (
+        f"the record claims the run attempted {attempted} files; it copied one and "
         "failed one before it stopped"
     )
-    files = payload["files"]
+    files = payload.entries
     assert isinstance(files, list)
     assert sum(1 for e in files if e["status"] == "uploaded") >= 1, (
         "not one of the files that reached the drive is named in the record"
@@ -130,7 +132,7 @@ def test_the_cli_record_names_the_condition_that_stopped_it(
 
     main(["organize", str(src), str(drive), "--apply", "--db", str(db)])
 
-    run = _record(db)["run"]
+    run = _record(db).run
     assert isinstance(run, dict)
     stopped = run["stopped"]
     assert isinstance(stopped, dict), "a run that stopped early reported itself as complete"
@@ -161,9 +163,11 @@ def test_the_app_writes_a_record_at_all(
         organize_run(src, drive, db)(lambda _p: None, threading.Event())
 
     payload = _record(db)
-    run = payload["run"]
+    run = payload.run
     assert isinstance(run, dict)
-    assert run["attempted"] >= 2
+    attempted = run["attempted"]
+    assert isinstance(attempted, int)
+    assert attempted >= 2
     stopped = run["stopped"]
     assert isinstance(stopped, dict)
     assert "no space left on the drive" in str(stopped["reason"])
@@ -181,7 +185,7 @@ def test_a_run_that_finishes_still_records_itself_as_finished(
 
     assert main(["organize", str(src), str(drive), "--apply", "--db", str(db)]) == 0
 
-    run = _record(db)["run"]
+    run = _record(db).run
     assert isinstance(run, dict)
     assert run["stopped"] is None, f"a completed run reported itself as stopped: {run['stopped']}"
     assert run["attempted"] == run["intended_total"] == 4
@@ -207,10 +211,10 @@ def test_a_per_file_failure_does_not_make_the_run_look_stopped(
     main(["organize", str(src), str(drive), "--apply", "--db", str(db)])
 
     payload = _record(db)
-    run = payload["run"]
+    run = payload.run
     assert isinstance(run, dict)
     assert run["stopped"] is None, "a per-file failure was recorded as a stopped run"
     assert run["attempted"] == 4
-    files = payload["files"]
+    files = payload.entries
     assert isinstance(files, list)
     assert sum(1 for e in files if e["status"] == "failed") == 1
