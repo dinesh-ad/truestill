@@ -17,8 +17,10 @@ what is behind it.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
+import pytest
 from truestill_core.organizer import BROKEN_LINK_LABEL, scan_source, skipped_extension_counts
 
 
@@ -40,6 +42,13 @@ def test_a_dangling_link_and_a_loop_are_both_named(tmp_path: Path) -> None:
     assert sorted(p.name for p in scan.broken_links) == ["dangling.jpg", "loop_a", "loop_b"]
 
 
+_POSIX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="os.mkfifo does not exist on Windows; a named pipe has no equivalent here",
+)
+
+
+@_POSIX_ONLY
 def test_something_that_is_not_a_link_is_not_called_a_broken_one(tmp_path: Path) -> None:
     """⚠ **THE LABEL MUST STAY TRUE OF WHAT IT NAMES.** A FIFO is not a regular file either, so
     it reaches the same branch - but it does not *lead nowhere*: it leads somewhere that is not a
