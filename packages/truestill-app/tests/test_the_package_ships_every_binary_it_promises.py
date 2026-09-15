@@ -62,34 +62,36 @@ def test_the_promise_names_both_surfaces() -> None:
     assert _build_deb().BUNDLE_BINARIES == ("truestill", "truestill-app")
 
 
-@pytest.mark.parametrize(("platform", "suffix"), [("linux", ""), ("win32", ".exe")])
-def test_a_complete_tree_is_accepted(tmp_path: Path, platform: str, suffix: str) -> None:
+@pytest.mark.parametrize("suffix", ["", ".exe"])
+def test_a_complete_tree_is_accepted(tmp_path: Path, suffix: str) -> None:
     """The cry-wolf half. Without it a check that refuses everything reports a healthy payload
     forever, which is exactly the failure mode being fixed one level up.
 
-    ⚠ **PARAMETRIZED OVER BOTH PLATFORMS BECAUSE THE FIRST VERSION WAS NOT**, and it cost a red
-    Windows release lane: the check looked for a bare `truestill` on every platform and reported
-    a tree *"missing truestill, truestill-app"* that held `truestill.exe` and `truestill-app.exe`.
-    A test that only runs the developer's own platform is how a packaging defect reaches CI.
+    ⚠ **BOTH SPELLINGS, AND THE PARAMETER IS THE TREE'S RATHER THAN THE RUNNER'S.** This cost
+    two red lanes. The first version looked for a bare `truestill` everywhere and failed the
+    Windows *release* lane on a tree holding `truestill.exe`. The second derived the suffix from
+    `sys.platform` and failed the Windows *check* lane, because the interpreter doing the
+    inspecting and the tree being inspected are different questions - a Linux-shaped fixture is
+    perfectly legitimate on a Windows runner. The artifact is asked which spelling it used.
     """
     module = _build_deb()
     module.verify_bundle_binaries(
-        _frozen_tree(tmp_path, names=module.BUNDLE_BINARIES, suffix=suffix), platform=platform
+        _frozen_tree(tmp_path, names=module.BUNDLE_BINARIES, suffix=suffix)
     )
 
 
-def test_the_extension_is_the_platforms_and_not_the_promises() -> None:
-    """`BUNDLE_BINARIES` names binaries; `.exe` is how one platform spells them."""
+def test_the_promise_names_binaries_and_not_one_platforms_spelling() -> None:
+    """`BUNDLE_BINARIES` carries no extension, and the check accepts either spelling. A promise
+    that hard-coded `.exe` would be wrong on Linux and one that forbade it wrong on Windows."""
     module = _build_deb()
-    assert module.executable_suffix("linux") == ""
-    assert module.executable_suffix("darwin") == ""
-    assert module.executable_suffix("win32") == ".exe"
+    assert all("." not in name for name in module.BUNDLE_BINARIES)
+    assert set(module._EXECUTABLE_SUFFIXES) == {"", ".exe"}
 
 
 @pytest.mark.parametrize("dropped", ["truestill", "truestill-app"])
-@pytest.mark.parametrize(("platform", "suffix"), [("linux", ""), ("win32", ".exe")])
+@pytest.mark.parametrize("suffix", ["", ".exe"])
 def test_a_tree_missing_a_promised_binary_is_refused(
-    tmp_path: Path, dropped: str, platform: str, suffix: str
+    tmp_path: Path, dropped: str, suffix: str
 ) -> None:
     """**The defect, reproduced in each direction.** Parametrized rather than written once
     against the CLI, because a guard that only notices the binary that went missing last time is
@@ -98,11 +100,9 @@ def test_a_tree_missing_a_promised_binary_is_refused(
     kept = tuple(name for name in module.BUNDLE_BINARIES if name != dropped)
 
     with pytest.raises(SystemExit) as refusal:
-        module.verify_bundle_binaries(
-            _frozen_tree(tmp_path, names=kept, suffix=suffix), platform=platform
-        )
+        module.verify_bundle_binaries(_frozen_tree(tmp_path, names=kept, suffix=suffix))
 
-    assert f"{dropped}{suffix}" in str(refusal.value)
+    assert dropped in str(refusal.value)
     assert "truestill.spec" in str(refusal.value), (
         "the refusal must say how to produce both, or it only reports that something is wrong"
     )
@@ -186,3 +186,60 @@ def test_the_desktop_entry_launches_the_app_and_not_the_command_line() -> None:
     assert entry["Exec"].rsplit("/", 1)[1] in module.BUNDLE_BINARIES, (
         "the entry names a binary the package does not promise"
     )
+
+
+def test_the_windows_installer_launches_the_app_and_keeps_the_path_entry_honest() -> None:
+    """⚠ **NOTHING IN THIS REPOSITORY READ `installer.iss` UNTIL NOW**, and `(aad)` already named
+    that gap. `(akv)` gave the file a way to be wrong that CI can only catch by running Windows:
+    the Start-menu shortcuts named `truestill.exe`, which is the **CLI** from this release on, so
+    a double-click would start a console application with no arguments.
+
+    **Read as text, deliberately.** Inno Setup's Pascal cannot be executed here, and the release
+    lane asserts the runtime behaviour - the PATH entry present after a silent install, absent
+    after the uninstall, and the rest of PATH intact. What a text check adds is the half a green
+    Windows lane cannot give: it runs on **every** lane, in seconds, and fails a Linux developer's
+    `make check` rather than waiting for a dispatch.
+
+    ⚠ **`uninstalldeletevalue` IS ASSERTED ABSENT, and it is the highest-consequence line here.**
+    On an `Environment\\Path` entry that flag does not remove our directory - it deletes the
+    **user's entire PATH**. It is one word away from the correct behaviour and would look
+    plausible in review.
+    """
+    # ⚠ **DIRECTIVES ONLY, NEVER THE PROSE.** A first version searched the whole file and failed
+    # against a correct installer, because the comment that EXPLAINS why `uninstalldeletevalue`
+    # is forbidden contains the word - and so does the one explaining `HKCU, never HKLM`. A guard
+    # that a file's own documentation can trip is a guard that punishes writing it down.
+    # Inno comments are lines whose first non-blank character is `;`.
+    iss = "\n".join(
+        line
+        for line in (_PACKAGING / "installer.iss").read_text(encoding="utf-8").splitlines()
+        if not line.lstrip().startswith(";")
+    )
+
+    # ⚠ **EVERY SHORTCUT, NOT "THE STRING APPEARS SOMEWHERE".** A first version asserted that
+    # `{app}\truestill-app.exe` was present in the file and SURVIVED the mutation that pointed
+    # the main Start-menu entry back at the CLI - because the self-check entry beside it still
+    # carried the string. That is the same true-assertion-false-conclusion shape as the install
+    # detector this whole entry is about, reproduced inside its own guard.
+    shortcuts = [
+        line.split("Filename:", 1)[1].split(";")[0].strip().strip('"')
+        for line in iss.splitlines()
+        if line.startswith("Name:") and "Filename:" in line
+    ]
+    assert shortcuts, "no Start-menu entries found - has [Icons] changed shape?"
+    for target in shortcuts:
+        assert not target.endswith("\\truestill.exe"), (
+            f"the shortcut {target!r} launches the CLI - from a double-click, with Terminal "
+            f"semantics a user never sees, that shows them nothing at all"
+        )
+    assert any(t.endswith("\\truestill-app.exe") for t in shortcuts), (
+        "no Start-menu entry launches the app"
+    )
+    assert "uninstalldeletevalue" not in iss.lower(), (
+        "on an Environment\\Path entry that flag deletes the user's whole PATH"
+    )
+    reason = "a per-user install must not write a machine-wide PATH it did not create"
+    assert "HKCU" in iss, reason
+    assert "HKLM" not in iss, reason
+    assert "NeedsAddPath" in iss, "a repeat install would append a second copy of the directory"
+    assert "CurUninstallStepChanged" in iss, "the PATH entry would outlive the program"

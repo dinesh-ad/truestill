@@ -140,20 +140,19 @@ License: Apache-2.0
 BUNDLE_BINARIES: Final = ("truestill", "truestill-app")
 
 
-def executable_suffix(platform: str | None = None) -> str:
-    """``.exe`` on Windows, nothing elsewhere.
-
-    ⚠ **THE PROMISE IS ABOUT A BINARY; THE EXTENSION IS A PLATFORM DETAIL**, and conflating the
-    two cost a red Windows release lane: the first version of `verify_bundle_binaries` looked for
-    a bare `truestill` on both platforms and reported a tree *"missing truestill, truestill-app"*
-    that in fact held `truestill.exe` and `truestill-app.exe`. Derived rather than passed in by
-    each caller, so the workflow does not have to spell it twice.
-    """
-    return ".exe" if (platform or sys.platform).startswith("win") else ""
+#: How a platform may spell an executable. Order is only for the error message.
+_EXECUTABLE_SUFFIXES: Final = ("", ".exe")
 
 
-def verify_bundle_binaries(dist: Path, *, platform: str | None = None) -> None:
+def verify_bundle_binaries(dist: Path) -> None:
     """Refuse a frozen tree missing anything :data:`BUNDLE_BINARIES` names.
+
+    ⚠ **THE SUFFIX IS READ OFF THE TREE, NEVER OFF THE RUNNING PLATFORM, and that is the second
+    correction rather than the first.** Deriving it from ``sys.platform`` made this pass on Linux
+    and fail on the Windows *test* lane, because the interpreter doing the inspecting and the
+    tree being inspected are **different questions** - a Linux-shaped fixture is entirely
+    legitimate on a Windows runner. The promise is that a binary is THERE; ``.exe`` is one
+    platform's spelling of it, and the artifact can be asked which spelling it used.
 
     ⚠ **THIS IS THE HALF THAT MATTERS, and the reason is the defect's shape rather than its
     size.** A bundler drops what nothing imports, silently and with a zero exit - the CLI going
@@ -162,14 +161,16 @@ def verify_bundle_binaries(dist: Path, *, platform: str | None = None) -> None:
     green in a tree with no CLI at all. The comparison has to happen **against a written promise,
     outside the artifact**, which is what this is.
     """
-    suffix = executable_suffix(platform)
-    expected = [f"{name}{suffix}" for name in BUNDLE_BINARIES]
-    missing = [name for name in expected if not (dist / name).is_file()]
+    missing = [
+        name
+        for name in BUNDLE_BINARIES
+        if not any((dist / f"{name}{suffix}").is_file() for suffix in _EXECUTABLE_SUFFIXES)
+    ]
     if missing:
         message = (
             f"the frozen tree at {dist} is missing {', '.join(missing)} - the package promises "
-            f"{', '.join(expected)}. Build with packaging/truestill.spec, which produces both "
-            f"from one COLLECT."
+            f"{', '.join(BUNDLE_BINARIES)}. Build with packaging/truestill.spec, which produces "
+            f"both from one COLLECT."
         )
         raise SystemExit(message)
 

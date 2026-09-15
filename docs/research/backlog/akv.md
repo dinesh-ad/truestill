@@ -109,11 +109,20 @@ The first Windows dispatch of this fix went red: `verify_bundle_binaries` looked
 `truestill` on every platform and reported a tree *"missing truestill, truestill-app"* that in
 fact held `truestill.exe` and `truestill-app.exe`.
 
-⚠ **The root cause is not the missing four characters; it is a guard tested on one platform.**
-`BUNDLE_BINARIES` names **binaries**, and `.exe` is how one platform spells them - so the suffix
-is derived by `executable_suffix()` and every test around it is now parametrized over `linux` and
-`win32`. A check that only exercises the developer's own platform is how a packaging defect
-reaches CI, which is the same sentence as the entry above one level down.
+⚠ **The root cause is not the missing four characters, and the FIRST fix was also wrong.**
+Deriving the suffix from `sys.platform` fixed the release lane and broke the Windows **check**
+lane - because *the interpreter doing the inspecting* and *the tree being inspected* are
+different questions, and a Linux-shaped fixture is entirely legitimate on a Windows runner.
+
+**The promise is that a binary is THERE; `.exe` is one platform's spelling of it, and the
+artifact can be asked which spelling it used.** `BUNDLE_BINARIES` therefore carries no extension
+and the check accepts either, which is correct for every combination of build host and target
+and has no platform branch left to get wrong. `test_a_complete_tree_is_accepted` is parametrized
+over both spellings, so reintroducing a `sys.platform` branch goes red on **any** runner rather
+than on one - proved by mutation.
+
+Two red lanes for one conflation, in opposite directions. The guard against it is that a check
+about an artifact must read the artifact.
 
 ## WINDOWS: THE PATH QUESTION, ANSWERED
 
