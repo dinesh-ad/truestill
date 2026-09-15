@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import collections
 import re
+import string
 from pathlib import Path
 
 _DOCS = Path(__file__).resolve().parents[3] / "docs"
@@ -139,3 +140,134 @@ def test_the_allocation_line_does_not_point_at_a_taken_letter() -> None:
         f"'Next free: ({free})' points at a letter already declared at {declared[free]}. "
         f"Advance the allocation line before assigning."
     )
+
+
+# ---------------------------------------------------- the allocation line's OTHER half, `(akv)`
+
+#: `Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aku).` - a single letter, or a range.
+#: The separator is a hyphen or an en dash, because the line has been written with both.
+_SPAN = re.compile("\\((\\w+)\\)(?:\\s*[-\u2013]\\s*\\((\\w+)\\))?")
+
+#: The sequence letters are currently being drawn from. Held as a constant so that rolling past
+#: it fails `test_the_frontier_is_still_the_sequence_this_guard_models` loudly, rather than
+#: leaving these checks silently measuring a sequence nobody uses any more.
+_FRONTIER = "a"
+
+
+def _used_spans(text: str) -> list[tuple[str, str]]:
+    """The `Used:` line, as (first, last) pairs. A bare `(aaa)` is a span of one."""
+    line = re.search(r"\*\*Used: (.+?)\. Next free", text)
+    assert line, "the allocation line no longer states what is used"
+    return [(a, b or a) for a, b in _SPAN.findall(line.group(1))]
+
+
+def _covered(letter: str, spans: list[tuple[str, str]]) -> bool:
+    """A span covers a letter of its own width, between its ends inclusive.
+
+    ⚠ **Width is part of the test, and that is what makes this safe.** Comparing `fff` with `akv`
+    as strings is the mistake that got the first version of this guard thrown away - it assumed
+    one ordered sequence where the namespace has several. Within a width the order is real.
+    """
+    return any(len(letter) == len(first) and first <= letter <= last for first, last in spans)
+
+
+def test_every_letter_in_use_falls_inside_the_used_line() -> None:
+    """⚠ **THE HALF THAT WAS STRUCTURALLY BLIND, AND IT HAS NOW FIRED TWICE IDENTICALLY.**
+
+    `test_the_allocation_line_does_not_point_at_a_taken_letter` asks only whether the offered
+    letter is spoken for. Both real failures were in the OTHER half of the same sentence: the
+    `Used:` range went stale while the pointer stayed honest.
+
+    * `(akk)` stood as next free while `(akl)`-`(akp)` were filed past it - five entries.
+    * `(akq)` stood as next free while `(akr)`-`(aku)` were filed past it - four entries, and
+      the second one wrote into the paragraph that recorded the first.
+
+    Nothing reported either. The range is a claim about the whole namespace, so it is the half a
+    reader trusts when deciding what is already taken, and it is checkable in one line: **no
+    declared letter may sit outside it.** `(ago)`'s bar is two instances; this is the second.
+    """
+    spans = _used_spans((_DOCS / "BACKLOG.md").read_text(encoding="utf-8"))
+    outside = {
+        letter: places
+        for letter, places in sorted(_declarations().items())
+        if not _covered(letter, spans)
+    }
+    assert not outside, (
+        f"the 'Used:' range does not cover these declared letters: {outside}. Extend it in the "
+        f"same commit that declares them - the range is what the next person reads to decide "
+        f"what is taken, and a range four letters behind the tree reads exactly like a current one."
+    )
+
+
+def test_the_next_free_letter_is_the_lowest_one_the_used_line_leaves() -> None:
+    """**The pointer, strengthened from *not taken* to *the lowest not taken*.**
+
+    ⚠ **IT IS COMPUTED FROM THE RANGES, NEVER FROM THE DECLARATIONS, and that is not a shortcut.**
+    Measured on the real documents: eight letters inside the `a??` range have no visible
+    declaration, and **every one of them is legitimately unavailable** - `(aah)`, `(aaj)` and
+    `(aav)` are declared mid-title where this file's parser cannot see them, and `(abh)`,
+    `(abp)`, `(abz)`, `(aco)` and `(ags)` are **retired**, which *Item letters* is explicit about:
+    *"a retired letter is not a free one."* A lowest-free check reading declarations would offer
+    `(abh)` on its first run. The `Used:` line is the document's own claim and already accounts
+    for both kinds, which is why it is the thing to measure against - and why the test above,
+    which keeps that claim honest, is the one this one rests on.
+    """
+    text = (_DOCS / "BACKLOG.md").read_text(encoding="utf-8")
+    spans = _used_spans(text)
+    match = re.search(r"Next free: \((\w+)\)", text)
+    assert match, "the allocation line is gone - Item letters no longer records a next free letter"
+
+    width = max(len(first) for first, _ in spans)
+    lowest = next(
+        candidate
+        for candidate in (
+            _FRONTIER + a + b for a in string.ascii_lowercase for b in string.ascii_lowercase
+        )
+        if not _covered(candidate, spans)
+    )
+    assert len(lowest) == width, "the frontier sequence and the widest span disagree"
+    assert match.group(1) == lowest, (
+        f"'Next free: ({match.group(1)})' is not the lowest letter the 'Used:' line leaves free, "
+        f"which is ({lowest}). Advancing the range without advancing the pointer leaves it "
+        f"offering a letter the same sentence has just claimed is taken."
+    )
+
+
+def test_the_frontier_is_still_the_sequence_this_guard_models() -> None:
+    """⚠ **THE MODEL CHECKING ITSELF**, which is the guard the thrown-away first attempt lacked.
+
+    Both tests above assume letters are currently drawn from `a??`. That is true today and will
+    stop being true at `(azz)`. When it does, this fails and names its own assumption, rather than
+    the two above quietly measuring a sequence nobody is allocating from.
+
+    ⚠ **The frontier is the LAST span, never the highest letter**, and writing it the other way
+    is how this test failed on its first run: `fff` sorts above `aku`, so "the highest declared
+    letter" picks the historical `(bbb)`-`(fff)` family rather than the one allocation advances.
+    That is the same wrong model that got the first attempt at this guard thrown away, met again
+    four lines into rebuilding it.
+    """
+    first, last = _used_spans((_DOCS / "BACKLOG.md").read_text(encoding="utf-8"))[-1]
+    moved = f"allocation has moved on to ({first})-({last}), outside the ({_FRONTIER}??) sequence"
+    hint = "these checks model. Move _FRONTIER on, and re-read what 'lowest free' means there."
+    assert first.startswith(_FRONTIER), f"{moved} {hint}"
+    assert last.startswith(_FRONTIER), f"{moved} {hint}"
+
+
+def test_the_used_line_guard_sees_a_letter_filed_past_it() -> None:
+    """The cry-wolf half, and it reproduces the real failure rather than a synthetic one: a
+    pointer that is still honest beside a range that is four letters behind."""
+    stale = "**Used: (aab)-(akp). Next free: (akq).**"
+    spans = _used_spans(stale)
+
+    assert _covered("akp", spans)
+    assert not _covered("aku", spans), "the stale range wrongly covers a letter filed past it"
+    assert not _covered("akq", spans), "the pointer would have passed the old guard, and did"
+
+
+def test_the_lowest_free_guard_sees_a_pointer_left_behind() -> None:
+    """The other real shape: someone extends the range and forgets the pointer, so the sentence
+    claims `(aku)` is used and offers `(akq)` in the same breath."""
+    spans = _used_spans("**Used: (aab)-(aku). Next free: (akq).**")
+
+    assert _covered("akq", spans), "a pointer inside the range is exactly the contradiction"
+    assert not _covered("akv", spans)

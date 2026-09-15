@@ -60,10 +60,19 @@ own text. Replaced with citations verified present on 2026-08-01.)*
 2026-09-14; letters are identifiers, not an ordering.
 ⚠ **AND IT HAPPENED AGAIN, IDENTICALLY**: `(akq)` stood as the declared next free while `(akr)`
 through `(aku)` were filed past it on 2026-09-14/15 - four entries, none of which moved this line.
-Gap filled 2026-09-15 by `(akq)`. **The guard cannot see this class**:
-`test_the_allocation_line_does_not_point_at_a_taken_letter` asks only whether the named letter is
-taken, and `(akq)` never was - so a line four letters behind the tree is green. Whoever files the
-next entry moves this line in the same commit; nothing else will.
+Gap filled 2026-09-15 by `(akq)`. ⚠ **AND THE GUARD NOW SEES IT, which is `(ago)`'s bar met
+rather than waived**: two instances, identical, the second written into the paragraph recording
+the first. `test_the_allocation_line_does_not_point_at_a_taken_letter` asked only whether the
+**pointer** named a taken letter - and both times the pointer was honest and the **`Used:` range**
+was the stale half, four and five letters behind the tree. `test_every_letter_in_use_falls_inside_the_used_line`
+closes it: no declared letter may sit outside the range. `test_the_next_free_letter_is_the_lowest_one_the_used_line_leaves`
+strengthens the pointer from *not taken* to *the lowest not taken*, and
+`test_the_frontier_is_still_the_sequence_this_guard_models` fails at `(azz)` rather than letting
+the other two quietly measure a sequence nobody allocates from. ⚠ **All three measure the `Used:`
+range, never the declarations**, because eight letters inside `(a??)` have no visible declaration
+and **every one is legitimately unavailable** - `(aah)`, `(aaj)`, `(aav)` are declared mid-title,
+and `(abh)`, `(abp)`, `(abz)`, `(aco)`, `(ags)` are retired. A lowest-free check reading
+declarations would have offered `(abh)` on its first run.
 **Retired 2026-09-02 (P190), and named here because a retired letter is not a free one:** `(abz)`
 (*"Organize shows one population three ways and connects none of them"*). False before it was
 filed: `rearrangeNote` in `app.js` (`93635af`, 2026-08-06; `RearrangeNote` in `frontend/src/preview.tsx` since 2026-09-05) prints *"N of M files here are already in
