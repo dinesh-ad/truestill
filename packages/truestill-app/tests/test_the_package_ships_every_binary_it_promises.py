@@ -45,12 +45,12 @@ def _build_deb():
     return module
 
 
-def _frozen_tree(root: Path, *, names: tuple[str, ...]) -> Path:
+def _frozen_tree(root: Path, *, names: tuple[str, ...], suffix: str = "") -> Path:
     """A stand-in for PyInstaller's output: one file per executable it was asked to build."""
     dist = root / "truestill"
     dist.mkdir()
     for name in names:
-        (dist / name).write_bytes(b"\x7fELF-ish")
+        (dist / f"{name}{suffix}").write_bytes(b"\x7fELF-ish")
     return dist
 
 
@@ -62,15 +62,35 @@ def test_the_promise_names_both_surfaces() -> None:
     assert _build_deb().BUNDLE_BINARIES == ("truestill", "truestill-app")
 
 
-def test_a_complete_tree_is_accepted(tmp_path: Path) -> None:
+@pytest.mark.parametrize(("platform", "suffix"), [("linux", ""), ("win32", ".exe")])
+def test_a_complete_tree_is_accepted(tmp_path: Path, platform: str, suffix: str) -> None:
     """The cry-wolf half. Without it a check that refuses everything reports a healthy payload
-    forever, which is exactly the failure mode being fixed one level up."""
+    forever, which is exactly the failure mode being fixed one level up.
+
+    ⚠ **PARAMETRIZED OVER BOTH PLATFORMS BECAUSE THE FIRST VERSION WAS NOT**, and it cost a red
+    Windows release lane: the check looked for a bare `truestill` on every platform and reported
+    a tree *"missing truestill, truestill-app"* that held `truestill.exe` and `truestill-app.exe`.
+    A test that only runs the developer's own platform is how a packaging defect reaches CI.
+    """
     module = _build_deb()
-    module.verify_bundle_binaries(_frozen_tree(tmp_path, names=module.BUNDLE_BINARIES))
+    module.verify_bundle_binaries(
+        _frozen_tree(tmp_path, names=module.BUNDLE_BINARIES, suffix=suffix), platform=platform
+    )
+
+
+def test_the_extension_is_the_platforms_and_not_the_promises() -> None:
+    """`BUNDLE_BINARIES` names binaries; `.exe` is how one platform spells them."""
+    module = _build_deb()
+    assert module.executable_suffix("linux") == ""
+    assert module.executable_suffix("darwin") == ""
+    assert module.executable_suffix("win32") == ".exe"
 
 
 @pytest.mark.parametrize("dropped", ["truestill", "truestill-app"])
-def test_a_tree_missing_a_promised_binary_is_refused(tmp_path: Path, dropped: str) -> None:
+@pytest.mark.parametrize(("platform", "suffix"), [("linux", ""), ("win32", ".exe")])
+def test_a_tree_missing_a_promised_binary_is_refused(
+    tmp_path: Path, dropped: str, platform: str, suffix: str
+) -> None:
     """**The defect, reproduced in each direction.** Parametrized rather than written once
     against the CLI, because a guard that only notices the binary that went missing last time is
     a guard aimed at history."""
@@ -78,9 +98,11 @@ def test_a_tree_missing_a_promised_binary_is_refused(tmp_path: Path, dropped: st
     kept = tuple(name for name in module.BUNDLE_BINARIES if name != dropped)
 
     with pytest.raises(SystemExit) as refusal:
-        module.verify_bundle_binaries(_frozen_tree(tmp_path, names=kept))
+        module.verify_bundle_binaries(
+            _frozen_tree(tmp_path, names=kept, suffix=suffix), platform=platform
+        )
 
-    assert dropped in str(refusal.value)
+    assert f"{dropped}{suffix}" in str(refusal.value)
     assert "truestill.spec" in str(refusal.value), (
         "the refusal must say how to produce both, or it only reports that something is wrong"
     )
@@ -144,4 +166,23 @@ def test_the_spec_the_lane_runs_is_tracked_by_git() -> None:
     assert tracked.returncode == 0, (
         f"the release lane runs packaging/{named[0]}, which git does not track - a fresh clone "
         f"has no such file and the lane fails on it. Check .gitignore: {tracked.stderr.strip()}"
+    )
+
+
+def test_the_desktop_entry_launches_the_app_and_not_the_command_line() -> None:
+    """⚠ **`Terminal=false` IS WHAT MAKES THIS SILENT.** `(akv)` renamed the frozen app to
+    `truestill-app` and gave `truestill` to the CLI, so a desktop entry still pointing at
+    `truestill` would launch a **console application with no arguments** from a double-click -
+    and with `Terminal=false` the user sees nothing at all. No gate covered this line: the
+    installer detector runs binaries directly and never opens the entry.
+    """
+    module = _build_deb()
+    entry = dict(line.split("=", 1) for line in module._DESKTOP.splitlines() if "=" in line)
+
+    assert entry["Exec"] == "/usr/bin/truestill-app", (
+        "the desktop entry launches the command line, which shows a user nothing"
+    )
+    assert entry["Terminal"] == "false"
+    assert entry["Exec"].rsplit("/", 1)[1] in module.BUNDLE_BINARIES, (
+        "the entry names a binary the package does not promise"
     )

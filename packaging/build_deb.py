@@ -140,7 +140,19 @@ License: Apache-2.0
 BUNDLE_BINARIES: Final = ("truestill", "truestill-app")
 
 
-def verify_bundle_binaries(dist: Path) -> None:
+def executable_suffix(platform: str | None = None) -> str:
+    """``.exe`` on Windows, nothing elsewhere.
+
+    ⚠ **THE PROMISE IS ABOUT A BINARY; THE EXTENSION IS A PLATFORM DETAIL**, and conflating the
+    two cost a red Windows release lane: the first version of `verify_bundle_binaries` looked for
+    a bare `truestill` on both platforms and reported a tree *"missing truestill, truestill-app"*
+    that in fact held `truestill.exe` and `truestill-app.exe`. Derived rather than passed in by
+    each caller, so the workflow does not have to spell it twice.
+    """
+    return ".exe" if (platform or sys.platform).startswith("win") else ""
+
+
+def verify_bundle_binaries(dist: Path, *, platform: str | None = None) -> None:
     """Refuse a frozen tree missing anything :data:`BUNDLE_BINARIES` names.
 
     ⚠ **THIS IS THE HALF THAT MATTERS, and the reason is the defect's shape rather than its
@@ -150,12 +162,14 @@ def verify_bundle_binaries(dist: Path) -> None:
     green in a tree with no CLI at all. The comparison has to happen **against a written promise,
     outside the artifact**, which is what this is.
     """
-    missing = [name for name in BUNDLE_BINARIES if not (dist / name).is_file()]
+    suffix = executable_suffix(platform)
+    expected = [f"{name}{suffix}" for name in BUNDLE_BINARIES]
+    missing = [name for name in expected if not (dist / name).is_file()]
     if missing:
         message = (
             f"the frozen tree at {dist} is missing {', '.join(missing)} - the package promises "
-            f"{', '.join(BUNDLE_BINARIES)} in /usr/bin. Build with packaging/truestill.spec, "
-            f"which produces both from one COLLECT."
+            f"{', '.join(expected)}. Build with packaging/truestill.spec, which produces both "
+            f"from one COLLECT."
         )
         raise SystemExit(message)
 

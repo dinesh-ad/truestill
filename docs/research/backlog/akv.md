@@ -88,6 +88,33 @@ which is embedded in the executable.
 
 The increase is the second executable's own archive, near-exactly. **It did not double.**
 
+## WHY NOT `MERGE()`, WHICH IS THE OTHER DOCUMENTED WAY
+
+PyInstaller offers `MERGE()` for sharing between bundled apps and states its price in the same
+place: the other executables get an *"external reference"* to whichever one owns each dependency,
+those references *"include hard-coded paths to the output directory, and cannot be rearranged"*,
+and *"all but one of the apps in the set will have slightly slower launch times"*.
+
+⚠ **Everything this project does with the tree rearranges it.** `build_deb.py` copies
+`dist/truestill` to `/usr/lib/truestill`; the portable archive is unpacked wherever the user puts
+it; the Inno installer writes it under `%LOCALAPPDATA%`. Passing both `Analysis` results into one
+`COLLECT` keeps each executable self-contained and simply writes each shared file once.
+
+**Verified rather than reasoned**: the built tree was copied to a second path and both binaries
+ran from it, and the release lane installs the `.deb` and runs both from `/usr/bin`.
+
+## THE `.exe` SUFFIX, AND A GUARD THAT ONLY RAN ONE PLATFORM
+
+The first Windows dispatch of this fix went red: `verify_bundle_binaries` looked for a bare
+`truestill` on every platform and reported a tree *"missing truestill, truestill-app"* that in
+fact held `truestill.exe` and `truestill-app.exe`.
+
+⚠ **The root cause is not the missing four characters; it is a guard tested on one platform.**
+`BUNDLE_BINARIES` names **binaries**, and `.exe` is how one platform spells them - so the suffix
+is derived by `executable_suffix()` and every test around it is now parametrized over `linux` and
+`win32`. A check that only exercises the developer's own platform is how a packaging defect
+reaches CI, which is the same sentence as the entry above one level down.
+
 ## WINDOWS: THE PATH QUESTION, ANSWERED
 
 `{app}` is `%LOCALAPPDATA%\Programs\Truestill` under `PrivilegesRequired=lowest`, which is **not**

@@ -27,6 +27,17 @@ which de-duplicates by destination name, so numpy, Pillow, the stdlib, the fonts
 exiftool are written once rather than twice. What does NOT de-duplicate is each `EXE`'s own `PYZ`
 - the pure-Python archive is embedded in the executable - so the cost of the second binary is that
 archive plus a bootloader, not a second tree. The measured figures are in `(akv)`'s entry.
+
+⚠ **`MERGE()` IS DELIBERATELY NOT USED, AND THE REASON IS THE `.deb`.** PyInstaller documents a
+second way to share between bundled apps, and documents its price in the same breath: it gives
+the other executables an *"external reference"* to whichever one owns each dependency, those
+references *"include hard-coded paths to the output directory, and cannot be rearranged"*, and
+*"all but one of the apps in the set will have slightly slower launch times"*. **Everything this
+project does with the tree rearranges it** - `build_deb.py` copies `dist/truestill` to
+`/usr/lib/truestill`, and the archive is unpacked wherever a user puts it. Passing both sets into
+one `COLLECT` instead keeps every executable self-contained and merely writes each shared file
+once. Verified rather than assumed: the built tree was copied to a new path and both binaries ran
+from it, and the release lane's own install step runs both from `/usr/bin` after `dpkg -i`.
 """
 
 from pathlib import Path
