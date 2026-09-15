@@ -55,6 +55,18 @@ def test_an_entitled_run_does_not_charge(state: LicenceState) -> None:
     assert files_written() == 300, f"a {state} run drew down the free allowance"
 
 
+def test_a_signed_out_install_charges_again() -> None:
+    """⚠ **SIGN-OUT PUTS AN INSTALL BACK ON THE FREE TIER, and that is the same answer as a lost
+    token wearing a different name.** The entitlement is the token; without one in effect there is
+    nothing to bill against. `remaining_for` already rules this - SIGNED_OUT has a cap - and the
+    guard inherits it rather than restating it, which is exactly why it asks `remaining_for`.
+    """
+    record_files_written(161, licence=_lic(LicenceState.ACTIVE))
+
+    assert record_files_written(12, licence=_lic(LicenceState.SIGNED_OUT)) == 12
+    assert files_written() == 12
+
+
 def test_an_unreadable_token_still_charges() -> None:
     """⚠ **The asymmetry `remaining_for` already rules, applied here rather than re-decided.**
 

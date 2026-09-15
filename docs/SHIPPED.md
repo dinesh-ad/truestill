@@ -54,7 +54,7 @@ recording shipped work as unstarted, which is the more expensive direction of th
   *"Account and licence"*, *"Use this licence file"*), and every sentence comes from
   `licence_notice.account_summary`. ⚠ **Sign-out deliberately absent** - a one-line destructive
   verb with no ceremony is worse than no verb (`reclaim`'s rule).
-  Guards: 7 + 5 + 6 new tests; **six mutations, six caught**.
+  Guards: 8 + 7 + 6 new tests; **nine mutations, nine caught**.
   [Full entry](research/backlog/akq.md)
 
 - **(aku) VERIFY PROVED A COPY CORRUPT AND THE CATALOG HAD NOWHERE TO PUT IT.**

@@ -40,6 +40,36 @@ def _own_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TRUESTILL_DATA_DIR", str(tmp_path))
 
 
+def _mint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, covers_through: int = licence.BUILD_EPOCH
+) -> None:
+    """Write a token this build verifies, against a key injected for the length of one test.
+
+    The identity fields are deliberately distinctive strings rather than plausible ones: the
+    privacy assertion searches the rendered finding for them, and a realistic name would be
+    indistinguishable from an ordinary word if it ever did leak.
+    """
+    signer = nacl.signing.SigningKey.generate()
+    monkeypatch.setitem(licence.PUBLIC_KEYS, _KID, licence.b64url_encode(bytes(signer.verify_key)))
+    fields = {
+        "v": licence.PAYLOAD_VERSION,
+        "kid": _KID,
+        "sub": "account-id-must-not-appear",
+        "lic": "licence-id-may-appear",
+        "name": "Buyer Nameshouldnotappear",
+        "email": "buyer@nowhere.invalid",
+        "edition": "pro",
+        "covers_through": covers_through,
+        "issued_at": "2026-09-15",
+        "updates_until": "2027-09-15",
+    }
+    encoded = licence.encode_payload(fields)
+    signature = signer.sign(licence.signing_input(encoded)).signature
+    (tmp_path / "licence.token").write_text(
+        f"{encoded}.{licence.b64url_encode(signature)}", encoding="utf-8"
+    )
+
+
 def test_self_check_is_no_longer_silent_about_the_licence() -> None:
     """**The headline: the finding exists at all, and core's own list carries it.**
 
@@ -87,24 +117,7 @@ def test_the_finding_never_carries_the_buyers_identity(
     name. Searching for a field name proves nothing; the VALUES are what leak, so they are minted
     into a real payload and searched for by content.
     """
-    signer = nacl.signing.SigningKey.generate()
-    monkeypatch.setitem(licence.PUBLIC_KEYS, _KID, licence.b64url_encode(bytes(signer.verify_key)))
-    fields = {
-        "v": licence.PAYLOAD_VERSION,
-        "kid": _KID,
-        "sub": "account-id-must-not-appear",
-        "lic": "licence-id-may-appear",
-        "name": "Buyer Nameshouldnotappear",
-        "email": "buyer@nowhere.invalid",
-        "edition": "pro",
-        "covers_through": licence.BUILD_EPOCH,
-        "issued_at": "2026-09-15",
-        "updates_until": "2027-09-15",
-    }
-    encoded = licence.encode_payload(fields)
-    signature = signer.sign(licence.signing_input(encoded)).signature
-    token = f"{encoded}.{licence.b64url_encode(signature)}"
-    (tmp_path / "licence.token").write_text(token, encoding="utf-8")
+    _mint(tmp_path, monkeypatch)
 
     finding = licence_finding()
     assert finding.status is Status.OK, f"the minted token did not verify: {finding.detail}"
@@ -131,3 +144,41 @@ def test_the_evidence_is_machine_readable_and_the_detail_is_a_sentence(tmp_path:
     assert finding.evidence["state"] == str(LicenceState.ABSENT)
     assert finding.evidence["path"] == str(tmp_path / "licence.token")
     assert finding.detail.startswith(str(LicenceState.ABSENT))
+
+
+def test_a_lapsed_licence_still_reports_what_it_bought_and_is_not_a_fault(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """⚠ **INFO, NOT DEGRADED**, and D16 §2 is the reason: *"a lapsed licence loses nothing it
+    bought."* Reporting it as a fault would be this module telling a paying customer their install
+    is broken because a ceiling was passed.
+
+    ⚠ **THE ENTITLEMENT IS A VERSION CEILING, NOT A DATE** (`licence.py`'s own opening), which is
+    why the fixture lowers `covers_through` rather than backdating `updates_until` - a first
+    version of this test moved the date, got `ACTIVE`, and would have asserted nothing. The
+    comparison the finding prints - `covers_through` against this build's epoch - is exactly the
+    pair support needs, so both survive into the evidence.
+    """
+    _mint(tmp_path, monkeypatch, covers_through=licence.BUILD_EPOCH - 1)
+
+    finding = licence_finding()
+
+    assert finding.evidence["state"] == str(LicenceState.LAPSED), (
+        "the fixture did not produce a lapsed licence, so this test proves nothing"
+    )
+    assert finding.status is Status.INFO
+    assert finding.evidence["covers_through"] == licence.BUILD_EPOCH - 1
+
+
+def test_a_signed_out_install_says_so_rather_than_reading_as_a_fresh_one(tmp_path: Path) -> None:
+    """Signed out and never licensed are different facts about an install and print differently,
+    which is the whole point of putting `state` in the evidence rather than a boolean."""
+    (tmp_path / "licence.signed-out").write_text("1", encoding="utf-8")
+
+    finding = licence_finding()
+
+    assert finding.evidence["state"] == str(LicenceState.SIGNED_OUT), (
+        "the sign-out marker is not at the name this test writes"
+    )
+    assert finding.status is Status.INFO
+    assert finding.detail.startswith(str(LicenceState.SIGNED_OUT))

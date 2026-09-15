@@ -107,16 +107,24 @@ is printed in every state, so removing the file is already obvious to anyone who
 
 ## WHAT PROVES IT
 
-Six mutations, six caught:
+Nine mutations, nine caught:
 
 | mutation | caught by |
 |---|---|
-| `if False:` - the entitlement guard never fires | 4 of 7 in `test_a_licensed_run_does_not_charge_the_free_counter.py` |
+| `if False:` - the entitlement guard never fires | 4 of 8 in `test_a_licensed_run_does_not_charge_the_free_counter.py` |
 | `if state is not ABSENT:` - a state list instead of `remaining_for` | `test_an_unreadable_token_still_charges` |
+| `if state in (ACTIVE, LAPSED, SIGNED_OUT):` - sign-out keeps the entitlement | `test_a_signed_out_install_charges_again` |
 | `licence_finding()` removed from `core_findings()` | core, app and the new suite, 3 files |
 | `"email": payload.email` added to the evidence | `test_the_finding_never_carries_the_buyers_identity` |
+| `Status.DEGRADED` for a lapsed licence | `test_a_lapsed_licence_still_reports_what_it_bought_and_is_not_a_fault` |
+| the signed-out detail hard-codes `absent` | `test_a_signed_out_install_says_so_rather_than_reading_as_a_fresh_one` |
 | `--use-file` reads instead of installing | 3 of 6 in `test_the_account_command.py` |
 | a `--sign-out` flag appears on the parser | `test_the_command_offers_no_sign_out` |
+
+⚠ **The lapsed fixture had to be corrected before it asserted anything.** Backdating
+`updates_until` produced `ACTIVE`, because **the entitlement is a version ceiling, not a date** -
+`licence.py`'s own opening sentence. Lowering `covers_through` is what produces `LAPSED`, and the
+test now says so in its body so the next person does not repeat it.
 
 ⚠ **The privacy test's first version asserted the substring `"name"` was absent and failed against
 correct code**, because `Finding.as_json()` always carries a `name` **key** - the finding's own
