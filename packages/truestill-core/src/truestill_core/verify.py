@@ -87,6 +87,13 @@ class VerifyResult:
     status: CopyStatus
     actual_hash: str | None  # None when missing or unreadable
     detail: str | None = None  # OSError / pool text for UNREADABLE
+    #: Where the bytes actually are, drive-relative, on MOVED and nowhere else. `(akw)`
+    #:
+    #: ⚠ **A FIELD RATHER THAN A SENTENCE, and that is the whole point.** The location already
+    #: existed, inside ``detail`` as *"found at X"* - so a caller that wanted to record the move
+    #: had to parse prose written for a human, which breaks the moment anyone rewords it. The
+    #: same trap `FRIENDLY_ERRORS` avoids by matching an exception name and never message text.
+    moved_to: str | None = None
 
 
 #: 🔑 **ONE WORDING HOME**, the `migrate.STOP_WORDING` pattern. The two claims `(aba)` is about
@@ -166,9 +173,16 @@ def _relocate(
             except OSError:
                 hashed[candidate] = None
         if hashed[candidate] == copy.expected_hash:
+            # ⚠ **INSIDE ``root`` BY CONSTRUCTION.** Candidates come from ``os.walk(root)``, so
+            # `relative_to` cannot raise and a file moved OUT of the drive stays MISSING - which
+            # is the honest answer: a drive cannot testify about somewhere else.
             where = candidate.relative_to(root).as_posix()
             return VerifyResult(
-                copy, CopyStatus.MOVED, copy.expected_hash, detail=f"found at {where}"
+                copy,
+                CopyStatus.MOVED,
+                copy.expected_hash,
+                detail=f"found at {where}",
+                moved_to=where,
             )
     return result
 
@@ -176,6 +190,22 @@ def _relocate(
 #: Said out loud when the platform cannot be made to read past its own cache, because a verify
 #: that could not reach the device has checked something weaker than it claims. Linux only; see
 #: `hashing.CAN_READ_FROM_THE_MEDIUM` for why macOS and Windows cannot.
+#: Said when a verify corrected recorded locations. `(akw)`
+#:
+#: ⚠ **A CATALOG REWRITE THE USER DID NOT ASK FOR MUST BE NAMED.** This product does not change
+#: things quietly, and "verify" does not sound like a command that writes. The count and the
+#: consequence are both here: how many, and that the catalog now points where the files are.
+MOVES_RECORDED: Final = (
+    "{count} moved file(s): the catalog now points where they actually are. "
+    "Nothing on the drive was touched."
+)
+
+#: Said when a verify corrected nothing, so the old absolute promise stays absolute.
+NEVER_REPAIRS_FILES: Final = (
+    "(read-only on your files: Truestill never repairs them; "
+    "re-copy the source to restore a bad one.)"
+)
+
 MEDIUM_READ_UNAVAILABLE = (
     "This platform cannot force a read past the page cache, so files written very recently may "
     "have been checked from memory rather than from the drive. Eject and reconnect the drive, "

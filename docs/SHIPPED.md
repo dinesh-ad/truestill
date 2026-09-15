@@ -29,6 +29,37 @@ recording shipped work as unstarted, which is the more expensive direction of th
   `test_every_site_calls_run_job_with_on_refuse` - every `await runJob({` must supply `onRefuse:`.
   [Full entry](research/backlog/abr.md)
 
+- **(akw) VERIFY SAW A MOVE, WROTE NOTHING, AND FROZE A VERIFICATION DATE FOR EVER.**
+  ✅ **CLOSED 2026-09-15**, found by breaking the golden rule on the installed build.
+  **What was wrong**: `verify` had write branches for VERIFIED, MISSING and MISMATCH and **none
+  for MOVED**, so a renamed file kept its old `relative` AND its old `last_verified` - and since
+  every later verify reported MOVED and wrote nothing again, **that stamp could never update**.
+  Measured across three verifies: an intact copy's date moved, a renamed copy's stayed at
+  `21:20:52` for ever, and `truestill where` named a path that does not exist **with a
+  verification date attached to it**. ⚠ **A confident, wrong answer with a freshness guarantee is
+  worse than an obviously stale one.**
+  ⚠ **The case that defeats Lightroom is the easy one here**: it relinks by PATH, so renaming
+  outside it means relinking every image by hand. Truestill's identity is the content hash and
+  `_locate_moved` already produced the right answer - **only the write was missing**.
+  **`relocate_copy` is safe from verify**: `file_copies` is `PRIMARY KEY (sha256, drive_uuid)` so
+  the UPDATE reaches exactly one row, and the evidence is the recorded **hash**, which is
+  `(abn)`'s corrective-class argument in its own words. It is an **observation, not a repair** -
+  the drive is untouched.
+  **Named, never silent**: *"N moved file(s): the catalog now points where they actually are.
+  Nothing on the drive was touched."* ⚠ And the closing line *"(read-only: Truestill never
+  repairs...)"* was made FALSE by this and had to move; the promise about a user's files is
+  unchanged and still absolute.
+  **`rescan` is untouched** - *"nothing here writes to a catalog or to a drive"* stands.
+  **Edges**: off-drive is MISSING (a drive cannot testify about elsewhere); identical twins
+  relocate to one, either being true; a file moved onto another's old path leaves the mover
+  verified and the vanished one MISMATCH; a read-only drive still records.
+  **And the names that led nowhere**: a dangling symlink and a symlink loop failed `is_file()`
+  and landed in **no bucket at all** - 287 paths, 287 accounted for, three never mentioned. They
+  now reach `broken_links` and the shared census as **"leads nowhere"**.
+  **Eight mutations, eight caught** - two only after the vacuity check found real gaps in the
+  tests it was checking.
+  [Full entry](research/backlog/akw.md)
+
 - **(akv) EVERY RELEASE SHIPPED THE WEB UI WEARING THE CLI'S NAME, AND NO CLI AT ALL.**
   ✅ **CLOSED 2026-09-15**, found by **installing the product** for the first time.
   **What was wrong**: the lane froze `truestill_app/__main__.py` alone and named it `truestill`,

@@ -55,7 +55,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akv). Next free: (akw).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akw). Next free: (akx).**
 ⚠ **`(akk)` was the declared next free while `(akl)`–`(akp)` were filed past it** - gap filled
 2026-09-14; letters are identifiers, not an ordering.
 ⚠ **AND IT HAPPENED AGAIN, IDENTICALLY**: `(akq)` stood as the declared next free while `(akr)`

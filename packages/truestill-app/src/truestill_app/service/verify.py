@@ -121,6 +121,27 @@ def verify_run(path: Path, db: Path) -> JobTarget[VerifyJobSummary] | DriveUnava
                     catalog.mark_copy_damaged(
                         sha256=result.copy.sha256, drive_uuid=marker.uuid, when=when
                     )
+                elif result.status is CopyStatus.MOVED and result.moved_to is not None:
+                    # ⚠ **THIS BRANCH DID NOT EXIST UNTIL `(akw)`, and its absence FROZE A DATE.**
+                    # MOVED took none of the three above, so a renamed file kept both the old
+                    # `relative` AND whatever `last_verified` it had before the move - and since
+                    # every later verify reports MOVED again and writes nothing, that stamp could
+                    # never update. Measured across three verifies: an intact copy's date moved,
+                    # a renamed copy's stayed at 21:20:52 for ever, and `where` went on naming a
+                    # path that does not exist *with a verification date attached to it*.
+                    #
+                    # **Recording where the bytes are is an OBSERVATION, not a repair** - the same
+                    # class of write as the three branches above. Nothing on the drive is touched;
+                    # the catalog is corrected to match what the drive already says.
+                    #
+                    # `relocate_copy` is safe here because `file_copies` is `PRIMARY KEY (sha256,
+                    # drive_uuid)`, so the UPDATE reaches exactly one row, and because identity is
+                    # the recorded **hash**: `_relocate` narrows by size and decides by sha256, so
+                    # a same-named or same-sized neighbour is never mistaken for the file.
+                    catalog.relocate_copy(result.copy.sha256, marker.uuid, result.moved_to)
+                    catalog.mark_copy_verified(
+                        sha256=result.copy.sha256, drive_uuid=marker.uuid, when=when
+                    )
             catalog.refresh_drive_verified(marker.uuid)
         counts = Counter(r.status.value for r in results)
         problems: list[VerifyProblem] = []

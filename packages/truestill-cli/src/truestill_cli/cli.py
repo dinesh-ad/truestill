@@ -297,6 +297,8 @@ from truestill_core.undo import (
 )
 from truestill_core.verify import (
     MEDIUM_READ_UNAVAILABLE,
+    MOVES_RECORDED,
+    NEVER_REPAIRS_FILES,
     VERIFY_WORDING,
     CopyStatus,
     CopyToVerify,
@@ -2074,6 +2076,27 @@ def _cmd_verify(args: argparse.Namespace) -> int:
                 catalog.mark_copy_damaged(
                     sha256=result.copy.sha256, drive_uuid=marker.uuid, when=when
                 )
+            elif result.status is CopyStatus.MOVED and result.moved_to is not None:
+                # ⚠ **THIS BRANCH DID NOT EXIST UNTIL `(akw)`, and its absence FROZE A DATE.**
+                # MOVED took none of the three above, so a renamed file kept both the old
+                # `relative` AND whatever `last_verified` it had before the move - and since
+                # every later verify reports MOVED again and writes nothing, that stamp could
+                # never update. Measured across three verifies: an intact copy's date moved,
+                # a renamed copy's stayed at 21:20:52 for ever, and `where` went on naming a
+                # path that does not exist *with a verification date attached to it*.
+                #
+                # **Recording where the bytes are is an OBSERVATION, not a repair** - the same
+                # class of write as the three branches above. Nothing on the drive is touched;
+                # the catalog is corrected to match what the drive already says.
+                #
+                # `relocate_copy` is safe here because `file_copies` is `PRIMARY KEY (sha256,
+                # drive_uuid)`, so the UPDATE reaches exactly one row, and because identity is
+                # the recorded **hash**: `_relocate` narrows by size and decides by sha256, so
+                # a same-named or same-sized neighbour is never mistaken for the file.
+                catalog.relocate_copy(result.copy.sha256, marker.uuid, result.moved_to)
+                catalog.mark_copy_verified(
+                    sha256=result.copy.sha256, drive_uuid=marker.uuid, when=when
+                )
         catalog.refresh_drive_verified(marker.uuid)
 
     print(_SEPARATOR)
@@ -2093,7 +2116,15 @@ def _cmd_verify(args: argparse.Namespace) -> int:
         if result.status is not CopyStatus.VERIFIED:
             suffix = f" ({result.detail})" if result.detail else ""
             print(f"  {result.status.value.upper():<10} {result.copy.relative}{suffix}")
-    print("\n  (read-only: Truestill never repairs; re-copy the source to restore a bad file.)")
+    # ⚠ **THE OLD LINE READ "read-only: Truestill never repairs" AND `(akw)` MADE IT FALSE.** A
+    # verify that relocates a moved copy writes to the catalog, so a blanket "read-only" claim
+    # would be exactly the untrue sentence this project keeps finding. The file-level promise is
+    # unchanged and still absolute; the catalog write is named separately, and only when it
+    # happened.
+    moved_count = counts.get("moved", 0)
+    if moved_count:
+        print(f"\n  {MOVES_RECORDED.format(count=moved_count)}")
+    print(f"\n  {NEVER_REPAIRS_FILES}")
     # ⚠ **A VERIFY THAT COULD NOT REACH THE DEVICE HAS CHECKED SOMETHING WEAKER THAN IT CLAIMS**,
     # and the only honest thing to do about a platform limit is name it. Linux forces the read;
     # macOS has no `posix_fadvise` and Windows no unbuffered equivalent that does not demand
