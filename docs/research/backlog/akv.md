@@ -112,6 +112,23 @@ patched anchor but the real thing - **deleting an executable from the real froze
 | `truestill-app` | refuses, names it, names the spec, **writes no package** |
 | nothing | builds, 99,596,414 bytes |
 
+⚠ **AND THE FIRST DISPATCH OF THE FIX FAILED ON BOTH PLATFORMS, FOR THE SAME CLASS OF DEFECT
+ONE LAYER OUT.** `.gitignore` carried `truestill.spec` - correct, because PyInstaller *generates*
+one at the repository root when it is driven by command-line flags, and that is build output.
+Without a leading slash git matches the name at **any depth**, so the moment the spec became a
+**source** file, `git add -A` skipped it in silence: `make check` green, the commit green, the
+three `check` lanes green, and the release lane failing with *"Spec file packaging/truestill.spec
+not found!"*. The rule is now `/truestill.spec`, and
+`test_the_spec_the_lane_runs_is_tracked_by_git` asks `git ls-files` rather than opening the file,
+because every other test in that module reads it from the working tree where it exists whether or
+not git knows about it. **The artifact cannot testify to what is missing from it** - the same
+sentence as the guard above, applied to the repository instead of the payload.
+
+⚠ **Mutating `.gitignore` back does NOT fail that guard, and the reason is worth recording**: git
+does not apply ignore rules to an already-tracked file, so the rule is no longer what can break
+this. The mutation that proves it is `git rm --cached packaging/truestill.spec`, which is the
+actual regression - and it goes red.
+
 Two existing tests went red and both were right to: `test_release_out_holds_only_deliverables`'s
 fixture wrote a single binary - **the defect, modelled faithfully in a fixture** - and now derives
 the pair from `BUNDLE_BINARIES`, so a third name cannot be promised while that file keeps testing

@@ -11,7 +11,12 @@ dist/
 # output of the documented .deb build, and both were missing here until a `git add -A`
 # staged 480 files and an 83 MB package.
 out/
-truestill.spec
+# ⚠ **ANCHORED TO THE ROOT, AND THE LEADING SLASH IS LOAD-BEARING.** This read `truestill.spec`,
+# which git matches at ANY depth - so when `(akv)` made `packaging/truestill.spec` a SOURCE file,
+# `git add -A` skipped it in silence and the release lane failed with *"Spec file not found"* on
+# a commit that was green everywhere else. The generated one still lands at the root when
+# PyInstaller is driven by command-line flags, and that one is still build output.
+/truestill.spec
 build/
 *.egg-info/
 reports/

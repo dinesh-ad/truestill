@@ -42,6 +42,14 @@ _EXEMPT = frozenset(
         # it, which cannot be shown without querying both. Exempted by name rather than by a
         # comment marker, so adding one is a visible decision rather than a line somebody types.
         "test_a_census_sees_the_file_being_added.py",
+        # ⚠ **The second, and tracked-ness IS its subject** (`(akv)`). The release lane runs
+        # `packaging/truestill.spec`; `.gitignore` matched that name at any depth, so `git add -A`
+        # skipped it silently and the lane failed with "Spec file not found" on a commit green
+        # everywhere else. A widened listing would report the file present - it IS present, in the
+        # working tree - and pass while a fresh clone has nothing. The index is precisely the
+        # question, and the failure this exemption permits is a false RED before staging, which is
+        # the safe direction: a source file the lane needs belongs in the commit.
+        "test_the_package_ships_every_binary_it_promises.py",
     }
 )
 

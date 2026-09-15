@@ -27,6 +27,7 @@ instance here rather than two, and deliberately - the instance shipped in two pu
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -104,3 +105,43 @@ def test_the_spec_builds_both_and_collects_them_once() -> None:
     reason = "one console setting cannot serve a CLI and a double-clicked app - that is #6244"
     assert "console=True" in spec, reason
     assert "console=False" in spec, reason
+
+
+def test_the_spec_the_lane_runs_is_tracked_by_git() -> None:
+    """⚠ **A SOURCE FILE THE LANE NEEDS MUST BE IN THE REPOSITORY, and one was not.**
+
+    `.gitignore` carried `truestill.spec` to ignore the spec **PyInstaller generates** when it is
+    driven by command-line flags - build output, correctly ignored. Without a leading slash git
+    matches that name at *any* depth, so the moment `packaging/truestill.spec` became a **source**
+    file, `git add -A` skipped it **in silence**: `make check` was green, the commit was green,
+    the three `check` lanes were green, and the release lane failed with *"Spec file
+    packaging/truestill.spec not found!"*.
+
+    **Reading the file is not enough and that is the whole point** - every other test in this
+    module opens it from the working tree, where it exists whether or not git knows about it. The
+    question is what a fresh clone gets, and only `git ls-files` answers that.
+
+    Same shape as `verify_bundle_binaries` one level up: **the artifact cannot testify to what is
+    missing from it.**
+    """
+    root = _PACKAGING.parent
+    named = [
+        line.split("packaging/")[1].split()[0]
+        for line in (root / ".github/workflows/release.yml")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if "pyinstaller" in line and "packaging/" in line
+    ]
+    assert named, "the release lane no longer names a spec - has the build step changed shape?"
+
+    tracked = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", *[f"packaging/{name}" for name in named]],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert tracked.returncode == 0, (
+        f"the release lane runs packaging/{named[0]}, which git does not track - a fresh clone "
+        f"has no such file and the lane fails on it. Check .gitignore: {tracked.stderr.strip()}"
+    )
