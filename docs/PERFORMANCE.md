@@ -1118,6 +1118,53 @@ they cannot use. The check itself is one `MAX(id)` (`O(1)` on the primary key) a
 read, on a dirty close only. `ANALYZE` costs **1.8 ms** here and **17 ms** against a 172,480-row
 table, so the trigger can afford to be generous.
 
+### 7.1 What Find costs, per row and per term (measured 2026-09-15, `(abj)`)
+
+⚠ **MEASURED AT 300,000 RATHER THAN EXTRAPOLATED FROM 2,574**, because "a full scan is linear" is
+a prediction and this document takes readings. `scripts/measure_find_cost.py` builds a real catalog
+at each size and times **the statement that ships** - `Catalog.find_copies_query`, never a retyped
+twin, which is audit F11's rule and the reason that method is public. n = 7, median reported,
+`ANALYZE` run at build. Local SSD (`/data/tmp/truestill`, ext4), SQLite 3.46.1.
+
+| rows | 1 term | 2 terms | 3 terms | 4 terms |
+|---|---|---|---|---|
+| 2,574 | 1.39 ms | 1.79 ms | 1.96 ms | 2.20 ms |
+| **300,000** | **229 ms** | **270 ms** | **278 ms** | **285 ms** |
+
+*(page query, `LIMIT 50`; the `COUNT(*)` beside it runs 214 / 255 / 262 / 266 ms at 300,000.)*
+
+🔑 **N TERMS IS NOT N TIMES THE COST, and that is the number that decides the design.** Four terms
+cost **1.24x** one term, not 4x: the scan and the two joins dominate, SQLite short-circuits the
+`AND` on the first group that fails, and each extra term is a few string compares on rows it is
+already holding. Terms are close to free; **rows are the whole bill.**
+
+**Rows are linear-ish**: 116x the rows costs 165x the time, the excess being cache behaviour
+rather than a different shape.
+
+⚠ **THE COUNT IS OVER EVERYTHING WHILE THE PAGE IS 50, AND THAT IS DELIBERATE.** `FIND_PAGE_SIZE`
+bounds what is *returned*, never what is *scanned* - it is what makes *"showing 1-50 of 2,269"*
+honest instead of *"more results, somewhere"*. So the count cannot be made cheap by paging.
+
+**NO INDEX, AND NO INDEX CAN HELP.** `EXPLAIN QUERY PLAN` reports `SCAN` for both the one-term and
+the ANDed forms: a leading-wildcard `LIKE '%x%'` defeats a B-tree **by construction**, so an index
+here would cost a write on every organize and buy nothing. `(abj)`'s 2026-08-09 audit reached the
+same conclusion independently, and the rest of that audit found no missing index anywhere else -
+this scan is a *design consequence*, not an oversight.
+
+**What it would take, priced rather than waved at.** The answer is **FTS5 with the `trigram`
+tokenizer**, not an index and not the default tokenizer - a word tokenizer cannot answer `ayan`
+inside `Wayanad`, which is the substring behaviour this search is *for*. Verified available in this
+build (SQLite 3.46.1) and verified to do real infix matching. The bill: a second table roughly the
+size of the indexed text, kept in step with `files` and `file_copies` on every write, plus a
+migration. **Not taken**, because Find fires on a button press rather than a keystroke
+(`app.js`'s `$("where-go").onclick`), and 285 ms on a submitted search at 300,000 files is not a
+wait anyone reports. Revisit it when Find becomes type-ahead, or when a real library passes
+~500,000 copies - with a measurement, not with reputation.
+
+*(The convergence is worth noting: GitLab replaced tokenised code search with Zoekt, whose speed
+comes from **positional trigrams**, for exactly the substring-match reason above. FTS5's trigram
+tokenizer is the same idea in the database we already ship.)*
+
 ### Declined, with the reason, so nobody revisits them as obvious wins
 
 **WAL - CONSIDERED AND DECLINED ON MEASUREMENT.** `journal_mode` is `delete`. WAL is the standard

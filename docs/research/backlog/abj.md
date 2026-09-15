@@ -1,6 +1,38 @@
 # (abj) Find matches one substring; a two-word query finds nothing, and only the CLI is silent about it.
 
-*Body of backlog entry `(abj)`, under **Build next**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(abj)`, closed in [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
+
+> ## ✅ BUILT 2026-09-15 - and the entry below is the reasoning that produced it, kept as written
+>
+> **The rule, from two documented positions rather than invention.** Google Issue Tracker's query
+> language treats *"the space character separating search criteria as an implicit AND operator"*
+> and lets *"quotation marks specify that a multi-word string is to be considered as a single
+> keyword"*. GitLab, on why tokenising alone fails: users *"are actually expecting code search to
+> be more like a grep experience or the find function in their IDE. These almost all behave, by
+> default, as an exact substring match."* Combined: **each word is a substring, the words are
+> ANDed, quotes make a phrase, and order does not matter.**
+>
+> **What shipped**: `catalog.parse_search_terms` splits the box (honouring quotes) and
+> `catalog._search_where` builds one OR-group per term over the three columns, ANDed - **shared by
+> `count_copies` and `find_copies_query`**, which is the "must change together or paging breaks"
+> line below, made structural instead of remembered.
+>
+> ⚠ **TWO HAZARDS THIS ENTRY NAMED, BOTH CONFIRMED ON THE REAL CATALOG AND BOTH CLOSED.** A blank
+> query returned **3,828 of 3,828** rows; a bare `%` did the same, because `LIKE` metacharacters
+> were passed straight through, and `_` silently matched any character inside every `IMG_0001`
+> somebody types. Terms are escaped now, and no terms means no rows.
+>
+> ⚠ **THE COST PREDICTION BELOW WAS RIGHT AND ITS SCALE WAS UNTESTED.** Re-measured at 300,000
+> rows rather than extrapolated: **229 ms for one term, 285 ms for four - N terms is 1.24x, not
+> Nx**, because the scan and the two joins dominate and SQLite short-circuits the AND. `PERFORMANCE.md`
+> §7.1 carries the table, the refusal to index, and the FTS5-trigram price.
+>
+> ⚠ **THE SUBJECT PROBLEM IS REAL AND IS NOT FIXED HERE**, so it is recorded rather than implied:
+> Find searches `original_name`, the drive-**relative** organized path and the source path. It does
+> **not** search the drive root - that lives in `settings` as a `drive_path_hint` and is not
+> joinable - so an **absolute** organized path pasted from a file manager still matches nothing.
+> Nor does it search the drive **label**, which every result line prints. Both measured; neither is
+> what this entry was filed about.
 
 - **(abj) Find matches one substring; a two-word query finds nothing, and only the CLI is silent about it.** Recorded
   2026-08-05. `find_copies_query` builds `%term%` and ORs it across `original_name`, `relative`

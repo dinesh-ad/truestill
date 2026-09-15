@@ -29,6 +29,31 @@ recording shipped work as unstarted, which is the more expensive direction of th
   `test_every_site_calls_run_job_with_on_refuse` - every `await runJob({` must supply `onRefuse:`.
   [Full entry](research/backlog/abr.md)
 
+- **(abj) FIND MATCHED ONE SUBSTRING, SO THE QUERY THAT DESCRIBED THE CORPUS FOUND NOTHING.**
+  ✅ **CLOSED 2026-09-15.** Recorded 2026-08-05, retitled 2026-09-02 (P190).
+  **What was wrong**: `find_copies_query` built a single `%term%` and ORed it across three
+  columns - no whitespace split, no AND. Measured on the big run: `IMG` returned 998 of 2,574
+  and `2014` returned thousands, while **`2014 IMG` returned ZERO** - and every one of those
+  files is named `IMG_xxxx` and sits under a `2014` folder.
+  **The rule, from two documented positions**: Google Issue Tracker treats a space as an
+  *"implicit AND operator"* with quotes for a phrase; GitLab found users expect code search to
+  behave like grep - *"an exact substring match"*. Combined: **each word is a substring, the
+  words are ANDed, quotes make a phrase, order does not matter.**
+  ⚠ **Two hazards closed with it, both measured on the real catalog**: a blank query returned
+  **3,828 of 3,828** rows, and a bare `%` did the same because `LIKE` metacharacters were passed
+  through - `_` silently matched any character in every `IMG_0001` a person types. Terms are now
+  escaped and no terms means no rows.
+  ⚠ **`count_copies` and `find_copies_query` each carried their own copy of the WHERE clause**;
+  two statements that must agree or the pager lies. One builder now feeds both.
+  **Cost, measured at 300,000 rows rather than extrapolated**: 229 ms for one term, 285 ms for
+  four - **N terms is 1.24x, not Nx**, because the scan and joins dominate. **No index, and none
+  can help**: a leading-wildcard `LIKE` defeats a B-tree by construction. FTS5 with the `trigram`
+  tokenizer is the priced answer if Find ever becomes type-ahead; `PERFORMANCE.md` §7.1.
+  Guards: `test_find_ands_its_terms_in_any_order.py` (20, each proven by mutation). The e2e
+  tripwire that pinned the old behaviour is **rewritten, not deleted** - its docstring said it
+  should fail if the search ever learned to split, and it did.
+  [Full entry](research/backlog/abj.md)
+
 - **(akr) THE RUN RECORD WAS BUILT WHOLE IN MEMORY AND SERIALISED AT THE LAST MOMENT.**
   ✅ **CLOSED 2026-09-15**, filed and closed the same day.
   **What was wrong**: `write_run_record` did one `json.dumps` over the entire assembled record.

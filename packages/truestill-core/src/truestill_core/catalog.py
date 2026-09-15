@@ -1102,6 +1102,95 @@ def timeline_label_sql(column: str = "f.category") -> tuple[str, list[str]]:
     return f"{column} NOT IN ({', '.join('?' for _ in labels)})", labels
 
 
+#: The columns a search looks at. ⚠ **This is the SUBJECT of Find, and it is narrower than a
+#: person assumes** - see `(abj)`. It holds the original filename, the organized path **relative
+#: to its drive**, and the source path the file was imported from. It does **not** hold the
+#: drive's root, which lives in `settings` as a `drive_path_hint` and is therefore not joinable
+#: here - so an absolute organized path pasted from a file manager matches nothing - and it does
+#: not hold the drive **label**, which every result line prints.
+_SEARCH_COLUMNS = ("f.original_name", "fc.relative", "f.source_path")
+
+#: `LIKE` treats these as wildcards, so a search box that passes them through is a pattern
+#: language nobody asked for. Measured on the real catalog: a bare ``%`` matched **3,828 of
+#: 3,828** rows, and ``_`` silently matches any single character in every `IMG_0001` a person
+#: types. Escaped rather than stripped, because a filename may legitimately contain either.
+_LIKE_ESCAPE = "\\"
+
+
+def parse_search_terms(query: str) -> list[str]:
+    """Split a search box into terms. **Whitespace separates; double quotes make a phrase.**
+
+    🔑 **The rule, and both halves come from documented practice.** Google Issue Tracker's query
+    language treats *"the space character separating search criteria as an implicit AND
+    operator"* and lets *"quotation marks specify that a multi-word string is to be considered as
+    a single keyword"*. GitLab's code-search work is the other half - users *"are actually
+    expecting code search to be more like a grep experience or the find function in their IDE",
+    which "almost all behave, by default, as an exact substring match"*. So: **each term is a
+    substring, and the terms are ANDed.**
+
+    ⚠ **ORDER MUST NOT MATTER.** ``2014 IMG`` and ``IMG 2014`` are the same query, because AND
+    commutes and nothing here depends on position. `(abj)` is exactly this defect: every file was
+    named ``IMG_xxxx`` and lived under a ``2014`` folder, ``IMG`` returned 998 of 2,574, ``2014``
+    returned thousands, and ``2014 IMG`` returned **zero** - because the two words were matched as
+    one literal string that appears in no path.
+
+    ⚠ **An empty query yields no terms, and `_search_where` turns that into NO ROWS rather than
+    every row.** Today a blank search box returns the entire library (measured: 3,828 of 3,828),
+    which is the unfiltered scan `(abj)` names as the thing not to get wrong.
+
+    Lenient about a trailing quote: ``"unclosed`` is one term rather than an error, because a
+    search box is not a compiler and refusing to search is worse than searching for the obvious
+    thing.
+    """
+    terms: list[str] = []
+    current: list[str] = []
+    quoted = False
+    for char in query:
+        if char == '"':
+            quoted = not quoted
+        elif char.isspace() and not quoted:
+            if current:
+                terms.append("".join(current))
+                current = []
+        else:
+            current.append(char)
+    if current:
+        terms.append("".join(current))
+    return terms
+
+
+def _like_pattern(term: str) -> str:
+    """``term`` as a literal substring pattern, with `LIKE`'s own metacharacters escaped."""
+    escaped = (
+        term.replace(_LIKE_ESCAPE, _LIKE_ESCAPE + _LIKE_ESCAPE)
+        .replace("%", _LIKE_ESCAPE + "%")
+        .replace("_", _LIKE_ESCAPE + "_")
+    )
+    return f"%{escaped}%"
+
+
+def _search_where(terms: list[str]) -> tuple[str, list[object]]:
+    """The shared WHERE for :meth:`Catalog.count_copies` and :meth:`Catalog.find_copies_query`.
+
+    One OR-group over :data:`_SEARCH_COLUMNS` per term, the groups ANDed.
+
+    ⚠ **No terms means NO ROWS, never every row.** `LIKE '%%'` matches everything, so the old
+    shape turned a blank search box into a full dump of the library. Returning nothing is the
+    honest answer to a question nobody asked, and it is what `(abj)` requires.
+    """
+    if not terms:
+        return "0", []
+    groups = []
+    params: list[object] = []
+    for term in terms:
+        columns = " OR ".join(
+            f"{column} LIKE ? ESCAPE '{_LIKE_ESCAPE}'" for column in _SEARCH_COLUMNS
+        )
+        groups.append(f"({columns})")
+        params += [_like_pattern(term)] * len(_SEARCH_COLUMNS)
+    return " AND ".join(groups), params
+
+
 class Catalog:
     """Thin, typed wrapper over the SQLite state file. Use as a context manager."""
 
@@ -2633,17 +2722,24 @@ class Catalog:
     FIND_PAGE_SIZE = 50
 
     def count_copies(self, term: str) -> int:
-        """How many copies match ``term``, for the page count. One indexed scan, no rows built."""
-        like = f"%{term}%"
+        """How many copies match ``term``, for the page count.
+
+        ⚠ **A FULL SCAN, AND THE DOCSTRING SAID "one indexed scan" UNTIL `(abj)`.** A
+        leading-wildcard `LIKE` cannot use a B-tree, so this is `SCAN file_copies` by construction
+        - confirmed by `EXPLAIN QUERY PLAN`, and `(abj)`'s own 2026-08-09 audit found the same.
+        It is the count over **everything**, not over a page, which is what makes *"showing 1-50
+        of 2,269"* honest; the cost is in `PERFORMANCE.md` §7.
+        """
+        where, params = _search_where(parse_search_terms(term))
         row = self._conn.execute(
-            """
+            f"""
             SELECT COUNT(*)
             FROM file_copies fc
             JOIN files f ON f.sha256 = fc.sha256
             JOIN drives d ON d.uuid = fc.drive_uuid
-            WHERE f.original_name LIKE ? OR fc.relative LIKE ? OR f.source_path LIKE ?
+            WHERE {where}
             """,
-            (like, like, like),
+            params,
         ).fetchone()
         return int(row[0])
 
@@ -2654,18 +2750,22 @@ class Catalog:
 
         Exposed so the paging guard can ``EXPLAIN`` the statement that actually ships, not a
         retyped twin that could drift (audit F11).
+
+        ⚠ **The WHERE clause is built by `_search_where` and shared with :meth:`count_copies`.**
+        Until `(abj)` each had its own hand-written copy of the same three-column `OR`, which is
+        two statements that must agree about what "matches" means or the pager lies about how many
+        results there are. One builder, both callers.
         """
-        like = f"%{term}%"
-        sql = """
+        where, params = _search_where(parse_search_terms(term))
+        sql = f"""
             SELECT f.original_name, f.source_path, fc.relative, fc.last_verified,
                    d.label AS drive_label, d.uuid AS drive_uuid
             FROM file_copies fc
             JOIN files f ON f.sha256 = fc.sha256
             JOIN drives d ON d.uuid = fc.drive_uuid
-            WHERE f.original_name LIKE ? OR fc.relative LIKE ? OR f.source_path LIKE ?
+            WHERE {where}
             ORDER BY f.original_name, d.label
         """
-        params: list[object] = [like, like, like]
         if limit is not None:
             sql += " LIMIT ? OFFSET ?"
             params += [limit, offset]

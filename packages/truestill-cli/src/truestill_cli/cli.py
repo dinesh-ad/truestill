@@ -680,7 +680,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     where = sub.add_parser("where", help="find which drive(s) hold a file, even when unplugged")
-    where.add_argument("term", help="filename / path substring to search for")
+    where.add_argument(
+        "term",
+        help="words to search for - every word must match part of a name or path, in any "
+        'order; use "quotes" for an exact phrase',
+    )
     where.add_argument(
         "--db", type=Path, default=default_catalog_path(), help="path to the catalog file"
     )

@@ -4,9 +4,14 @@ Find has nothing to summarise until you search, so the resting state is a search
 nothing else. No metric, no panel, no proportion bar: inventing any of them would mean
 inventing numbers, which is the failure the pattern was written to avoid.
 
-The placeholder taught a query the search cannot answer. `find_copies_query` builds ONE
-substring `LIKE` over three columns - no whitespace split, no AND - so `beach 2019` needs that
-exact substring, and a photo at `2019/2019-07/2019-07-04 - Beach/` never matches it.
+⚠ **THE PLACEHOLDER USED TO TEACH A QUERY THE SEARCH COULD NOT ANSWER, AND `(abj)` REVERSED
+THAT.** `find_copies_query` built ONE substring `LIKE` over three columns - no whitespace split,
+no AND - so `beach 2019` needed that exact substring and a photo at
+`2019/2019-07/2019-07-04 - Beach/` never matched it. The field therefore said *"one word works
+best"*, which was honest advice about a broken search. The search now splits on whitespace and
+ANDs the terms, so the advice inverted with it: these tests pin the NEW claim, and the one that
+pinned the old behaviour in source is rewritten rather than deleted, because the placeholder and
+the query still have to agree.
 """
 
 from __future__ import annotations
@@ -96,15 +101,21 @@ def test_the_search_field_leads_the_screen(ui: Page) -> None:
 
 
 def test_the_placeholder_is_a_query_the_search_can_actually_answer(ui: Page) -> None:
-    """`beach 2019` cannot match anything: the query is one substring, not two terms."""
+    """⚠ **REVERSED BY `(abj)`, and the test name is unchanged because its subject is.**
+
+    It used to demand a SINGLE word, because a multi-word placeholder taught a query that always
+    returned nothing. Now that the terms are ANDed, a multi-word example is the one that teaches
+    the feature - and a single-word one would under-sell it. Same question, opposite answer,
+    which is why this is a rewrite and not a deletion.
+    """
     ui.click('.nav-item[data-screen="find"]')
     placeholder = ui.eval_on_selector("#where-term", "el => el.placeholder")
 
     example = placeholder.split("e.g.")[-1].strip().strip(".")
     assert example, f"no example in the placeholder: {placeholder!r}"
-    assert " " not in example, (
-        f"the placeholder suggests a multi-word query ({example!r}), which the search cannot "
-        "answer - it builds one substring LIKE with no whitespace split"
+    assert " " in example, (
+        f"the placeholder suggests a single-word query ({example!r}); the search ANDs its terms "
+        "now, and the example is where a person learns that"
     )
 
 
@@ -112,20 +123,32 @@ def test_the_search_says_it_matches_part_of_a_name(ui: Page) -> None:
     """The behaviour is a substring match; a user who is told that can use it."""
     ui.click('.nav-item[data-screen="find"]')
     hint = ui.eval_on_selector("#screen-find .hint", "el => el.textContent.toLowerCase()")
-    assert "part of" in hint or "one word" in hint, f"the field does not explain itself: {hint!r}"
+    assert "part of" in hint, f"the field does not explain itself: {hint!r}"
+    # ⚠ **"one word works best" was true and is now false.** A hint that still said it would be
+    # teaching the defect `(abj)` removed, so it is asserted absent rather than merely replaced.
+    assert "one word" not in hint, (
+        f"the hint still advises a single word, which `(abj)` made false: {hint!r}"
+    )
+    assert "every word" in hint or "any order" in hint, (
+        f"the hint does not say that the words are ANDed: {hint!r}"
+    )
 
 
-def test_the_query_really_is_a_single_substring() -> None:
+def test_the_query_really_does_split_and_and_its_terms() -> None:
     """Pins the claim the placeholder is written against, in the source it is a claim about.
 
-    If the search ever learns to split on whitespace, this fails and the placeholder gets
-    revisited with it - which is the point, because the two must agree.
+    ⚠ **This test did its job and is rewritten rather than removed.** It was
+    `test_the_query_really_is_a_single_substring`, and its docstring said *"if the search ever
+    learns to split on whitespace, this fails and the placeholder gets revisited with it - which
+    is the point, because the two must agree."* The search learned; it failed; the placeholder was
+    revisited. It now pins the opposite claim, so the pair still cannot drift apart.
     """
     sql = CATALOG.read_text(encoding="utf-8")
-    body = sql[sql.index("def find_copies_query") : sql.index("def find_copies(")]
-    assert 'like = f"%{term}%"' in body, "the search no longer builds one substring"
-    assert body.count("LIKE ?") == 3, "the LIKE columns changed; revisit the placeholder"
-    assert ".split(" not in body, "the search now splits the term - the placeholder may change"
+    assert "def parse_search_terms" in sql, "the search no longer parses terms"
+    body = sql[sql.index("def _search_where") : sql.index("class Catalog")]
+    assert '" AND ".join(groups)' in body, "the terms are no longer ANDed"
+    assert 'return "0", []' in body, "an empty query no longer refuses to match everything"
+    assert "ESCAPE" in body, "LIKE metacharacters are no longer escaped"
 
 
 # ------------------------------------------------------------------------------- results

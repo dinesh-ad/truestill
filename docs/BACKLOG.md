@@ -298,6 +298,16 @@ rather than treated as a triage failure.
   entry does not claim it. The cascade alternative is a schema migration on a published product.
   Body: [`research/backlog/ajp.md`](research/backlog/ajp.md).
 
+- **(aks) FIND'S SUBJECT IS NARROWER THAN THE SCREEN IMPLIES: IT CANNOT MATCH A DRIVE LABEL IT
+  PRINTS, OR AN ABSOLUTE ORGANIZED PATH.** Filed 2026-09-15 while closing `(abj)`, **no work
+  attached**. Measured on the 3,828-copy catalog: `2014/2014-08` matches 2,062 (the drive-relative
+  organized path), `three` matches 3 (the source path, which may no longer exist), and
+  **`dest-three` - the drive label printed on every result line - matches 0**. The label is one
+  entry in `_SEARCH_COLUMNS` on a table the query already joins. The absolute organized path is
+  harder: the drive root is **not a column on `drives`** at all, it is a `path_hint` in `settings`,
+  so the path that is true *today* is unsearchable while the path that was true *once* is not.
+  Three shapes costed in the body; the entry does not choose. [Full entry](research/backlog/aks.md)
+
 - **(aip) MIGRATE AND BACKUP KEEP A COPY WHOSE METADATA WAS REFUSED AND NEVER SAY SO.**
   Filed 2026-08-29 (P143). **The residue of `(aie)`, and its own letter because it is different
   work.** That fix reached `relocate` and `backup` for free - both go through
@@ -339,9 +349,6 @@ rather than treated as a triage failure.
 
 - **(abd) ONE CATALOG OR MANY - the question is unanswered, and it may be the wrong default.**
   Recorded 2026-08-05. [Full entry](research/backlog/abd.md)
-
-- **(abj) Find matches one substring; a two-word query finds nothing, and only the CLI is silent about it.** ⚠ **Retitled 2026-09-02 (P190)**: the app warns first (`index.html`'s *"One word works best"*, `d95ba7e`); the CLI answers *"No catalogued copies match"* with no hint. Measured on the real library: 9,260 of 10,710 paths contain a space, and `find('2019 IMG')` returns 0 where `find('2019')` returns 1,746. Both `find_copies_query` and `count_copies` must change together or paging breaks. [Full
-  entry](research/backlog/abj.md)
 
 - **(aba) An in-place organize against a fresh catalog quietly undoes a hand-move.** ⚠ **Retitled 2026-09-02 (P190)**: the old title has been false since `372fb22` - `rescan.py:reconcile` reconciles and `(abn)` is that nothing acts on it. Symptom 1 shipped in `f92c232`; symptom 3 died in `4fb1a05` - `migrate.py:apply_moves` refuses the stale path by name and continues. What remains is symptom 2: `organizer.py:_execute_one_write` moves a hand-tidied file back when the catalog is fresh. Population in evidence: 0 hand-moves across 68,000 recorded copies.
   Carries `(agr)` part 3 since 2026-08-23 - the two-identities-at-one-path drive sibling, ruled
