@@ -57,3 +57,8 @@ packages/truestill-app/frontend/node_modules/
 
 # Copies of superseded files, kept for the maintainer to review and delete. Never committed.
 .superseded/
+
+# A second AI tool's per-repo configuration. It belongs to whoever is driving it, not to the
+# project, and it was one `git add -A` from a commit - which is the only reason it is named here
+# rather than left alone.
+.cursor/
