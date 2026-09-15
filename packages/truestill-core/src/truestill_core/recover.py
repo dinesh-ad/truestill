@@ -103,6 +103,13 @@ class Skipped(Enum):
     ALREADY_THERE = "already_there"
     #: The drive's row is a claim the drive did not honour - the file is not on it. `(aiz)`
     NOT_ON_THE_DRIVE = "not_on_the_drive"
+    #: ⚠ **A check has READ this copy and found its bytes wrong, so it is not a source.** `(aku)`
+    #:
+    #: This is Ceph's propagation warning in miniature - *"if a corrupt replica's OSD fails before
+    #: the next deep scrub runs, recovery can rebuild from the corrupt copy and propagate the
+    #: damage."* Pulling from a copy we have already proven corrupt would write that corruption
+    #: into the library, which is the one outcome worse than the gap it was trying to close.
+    DAMAGED_ON_THE_DRIVE = "damaged_on_the_drive"
 
 
 #: One sentence per skip class, for whichever surface is reporting. ⚠ **Keyed on the enum rather
@@ -114,6 +121,10 @@ SKIP_REASONS: dict[Skipped, str] = {
     ),
     Skipped.NOT_ON_THE_DRIVE: (
         "recorded as being on this drive, but not actually there when we looked"
+    ),
+    Skipped.DAMAGED_ON_THE_DRIVE: (
+        "on this drive but damaged - a check read it and the bytes were wrong, so it was not "
+        "copied into your library"
     ),
 }
 
@@ -323,6 +334,21 @@ def _copy_one(
     rel = row.relative
     origin = pair.drive / rel
     target = pair.library / rel
+    if row.damaged_at is not None:
+        # ⚠ **CHECKED BEFORE A BYTE IS READ, AND THIS IS THE PROPAGATION GUARD.** `(aku)`
+        #
+        # Ceph states the hazard exactly: *"if a corrupt replica's OSD fails before the next deep
+        # scrub runs, recovery can rebuild from the corrupt copy and propagate the damage."* A
+        # verify has already READ these bytes and found them wrong; copying them into the library
+        # would turn one damaged copy into two, which is worse than the gap it was closing.
+        #
+        # ⚠ **This is a refusal, not the safety net.** The content check further down - staging,
+        # then comparing what was written against `verify_sha` - still stands and still catches
+        # damage that appeared since the last verify. That one costs a full read of a file we
+        # already know is bad and reports a generic failure; this one is free and says why.
+        # Borg's split: check reports, repair is a separate explicit act.
+        outcome.skipped.append((rel, Skipped.DAMAGED_ON_THE_DRIVE))
+        return
     if not origin.is_file():
         # ⚠ **TWO STATES SHARE THIS BRANCH AND THEY ARE OPPOSITE**, which a rename of the drive
         # folder mid-run is what proved: one file missing is the measured NTFS case - a row the

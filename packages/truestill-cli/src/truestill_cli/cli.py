@@ -1232,6 +1232,7 @@ def _report_recovered(outcome: RecoverOutcome) -> int:
     print(f"\nCopied {outcome.copied} file(s), {_gb(outcome.bytes_copied)}.")
     present = [rel for rel, why in outcome.skipped if why is Skipped.ALREADY_THERE]
     absent = [rel for rel, why in outcome.skipped if why is Skipped.NOT_ON_THE_DRIVE]
+    damaged = [rel for rel, why in outcome.skipped if why is Skipped.DAMAGED_ON_THE_DRIVE]
     if present:
         # ⚠ **Reported, not buried.** These are the files the never-overwrite rule protected, and
         # a person who asked for N and got fewer must be told which rule accounts for the rest -
@@ -1242,6 +1243,19 @@ def _report_recovered(outcome: RecoverOutcome) -> int:
         )
         for relative in present[:RESCAN_SAMPLE_LIMIT]:
             print(f"       kept: {relative}")
+    if damaged:
+        # ⚠ **THE LOUDEST OF THE THREE, AND THE ONLY ONE THAT IS BAD NEWS.** `(aku)`. The other
+        # two skips are the product working correctly; this one says a copy the user is relying on
+        # is corrupt. It is named rather than counted because the remedy is per file, and it says
+        # what was NOT done - Ceph's propagation warning is that recovering from a corrupt replica
+        # spreads it, so refusing is the whole point and must not read as a failure to try.
+        print(
+            f"  {len(damaged)} file(s) on that drive are DAMAGED - a check read them and the\n"
+            f"       bytes were wrong. They were NOT copied into your library, because that\n"
+            f"       would replace a gap with a corrupt file. Find another copy of these."
+        )
+        for relative in damaged[:RESCAN_SAMPLE_LIMIT]:
+            print(f"       damaged: {relative}")
     if absent:
         # ⚠ The measured NTFS case - 429 rows against 124 real files. A claim the drive did not
         # honour is not a failure of this run, and calling it one sends the user hunting a defect.
@@ -2031,6 +2045,13 @@ def _cmd_verify(args: argparse.Namespace) -> int:
                 )
             elif result.status is CopyStatus.MISSING and still_here is not None:
                 catalog.mark_copy_missing(
+                    sha256=result.copy.sha256, drive_uuid=marker.uuid, when=when
+                )
+            elif result.status is CopyStatus.MISMATCH:
+                # ⚠ Added by `(aku)` on BOTH surfaces in one commit: this branch not existing is
+                # what let a copy proven corrupt keep counting as a place. No `still_here` guard -
+                # we read the bytes, so the drive was there.
+                catalog.mark_copy_damaged(
                     sha256=result.copy.sha256, drive_uuid=marker.uuid, when=when
                 )
         catalog.refresh_drive_verified(marker.uuid)

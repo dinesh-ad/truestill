@@ -193,6 +193,20 @@ CREATE TABLE IF NOT EXISTS file_copies (
     -- it is the only clue left to what happened; deleting it would answer "where did my 2,269
     -- files go?" with silence. Absence is remembered, never acted on.
     missing_at    TEXT,
+    -- When a check READ this copy and its bytes were not what we recorded. `(aku)`
+    --
+    -- THREE STATES, NOT TWO, and this column is the third. `last_verified` says *checked and
+    -- clean*; both NULL says *never checked*; this says *checked, and WRONG*. Until `(aku)` a
+    -- MISMATCH set neither column, so a copy verify had just proven corrupt was indistinguishable
+    -- from one nobody had looked at - and every custody count went on counting it as a place.
+    --
+    -- It is PERSISTENT: damage at rest does not heal, so this survives until a later verify reads
+    -- the bytes again and finds them right. `mark_copy_verified` and `record_copy` are the two
+    -- ways back, exactly as they are for `missing_at`.
+    --
+    -- NULL means "not known to be damaged", never "known good" -- that claim needs
+    -- last_verified. Same rule as missing_at above, for the same reason.
+    damaged_at    TEXT,
     PRIMARY KEY (sha256, drive_uuid)
 );
 CREATE INDEX IF NOT EXISTS idx_file_copies_drive ON file_copies (drive_uuid);
@@ -380,8 +394,31 @@ CREATE TABLE IF NOT EXISTS date_confirmations (
 );
 """
 
+
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 23
+def a_place(prefix: str = "") -> str:
+    """SQL for *this copy is a place the file actually lives*. `(aku)`
+
+    ⚠ **ONE DEFINITION, BECAUSE THERE ARE NINE CALLERS AND THEY MUST NOT DISAGREE.** Every custody
+    figure in the product - the at-risk count, the custody floor, the independence verdict, Stats,
+    the drive cards, `where` - answers some version of *how many places does this file have*, and
+    each used to spell the rule out for itself as `missing_at IS NULL`. Adding a second way for a
+    copy to stop being a place meant editing all nine identically, which is
+    `ENGINEERING_STANDARD.md` §4's *a rule applied to two of three surfaces reads as settled, and
+    the third disagrees silently* with the number of surfaces raised.
+
+    **A copy is a place when nothing is known to be wrong with it.** Absent is not a place
+    (`(abg)`); damaged is not a place (`(aku)`). A third state added later edits this function and
+    nothing else.
+
+    ⚠ **NOT "verified".** An unchecked copy still counts - most copies have never been read back,
+    and refusing to count them would report a fresh library as having no custody at all. What
+    disqualifies a copy is a POSITIVE observation that it is gone or wrong.
+    """
+    return f"{prefix}missing_at IS NULL AND {prefix}damaged_at IS NULL"
+
+
+CURRENT_SCHEMA_VERSION = 24
 
 
 class CatalogVersionError(RuntimeError):
@@ -961,6 +998,30 @@ def _add_bake_started_at(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE file_copies ADD COLUMN bake_started_at TEXT")
 
 
+def _add_copy_damaged_at(conn: sqlite3.Connection) -> None:
+    """v23 -> v24: `file_copies.damaged_at`, so a copy verify PROVED wrong stops counting. `(aku)`
+
+    ⚠ **`(abg)`'s argument one column over: absence had nowhere to go; DAMAGE had nowhere to go.**
+    `verify` had exactly two write branches - `VERIFIED` -> `mark_copy_verified` and `MISSING` ->
+    `mark_copy_missing`. **`MISMATCH` fell through and wrote nothing**, on both surfaces, so a copy
+    proven corrupt recorded as `missing_at IS NULL, last_verified IS NULL` - *present, never
+    checked* - which is byte-for-byte the state of a copy nobody has ever looked at. Measured on a
+    real library: after a verify reported *"1 changed"* and named the file, `/api/where` still said
+    that photograph was in **2 places**.
+
+    ⚠ **Additive and NULL on every existing row**, so a v23 catalog answers every question the same
+    way after the migration as before it - the column only ever gains a value from an observation,
+    exactly as `missing_at` and `bake_started_at` do. **No backfill**, per the DDL/DML rule this
+    file states above. NULL means *not known to be damaged*, never *known good*; that claim needs
+    `last_verified`.
+    """
+    columns = _columns_of(conn, "file_copies")
+    if not columns:  # a missing TABLE is not this step's to report - `_add_copy_missing_at`'s rule
+        return
+    if "damaged_at" not in columns:
+        conn.execute("ALTER TABLE file_copies ADD COLUMN damaged_at TEXT")
+
+
 def _add_organize_runs(conn: sqlite3.Connection) -> None:
     """v19 -> v20: a run record for copy-mode organize, so an interruption is legible. `(aem)`.
 
@@ -1047,6 +1108,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (21, _make_the_inplace_journal_an_intent_log),
     (22, _add_bake_started_at),
     (23, _add_authored_decisions),
+    (24, _add_copy_damaged_at),
 )
 
 
@@ -2290,7 +2352,7 @@ class Catalog:
                     COUNT(*) AS copies,
                     MAX(CASE WHEN last_verified IS NOT NULL THEN 1 ELSE 0 END) AS any_verified
                 FROM file_copies
-                WHERE missing_at IS NULL
+                WHERE {a_place()}
                 GROUP BY sha256
             )
             SELECT
@@ -2541,6 +2603,12 @@ class Catalog:
                        COALESCE(SUM(fc.size), 0) AS total_size,
                        COUNT(fc.missing_at) AS missing_count,
                        MAX(fc.missing_at) AS missing_at,
+                       -- ⚠ Counted on `missing_count`'s reasoning, NOT filtered out: a drive
+                       -- carrying damage must be able to say so, and `file_count` keeps counting
+                       -- the row because the row is the record that content was written here.
+                       -- `(aku)`.
+                       COUNT(fc.damaged_at) AS damaged_count,
+                       MAX(fc.damaged_at) AS damaged_at,
                        -- Copies a check has CONFIRMED. This is what separates the two meanings
                        -- of a NULL `last_verified`: "nothing has ever run" (zero) from "a check
                        -- ran and could not confirm everything" (non-zero). `missing_count` alone
@@ -2631,10 +2699,14 @@ class Catalog:
         ``bake_started_at`` travels with them because `verify` must tell *"we could not check"*
         from *"we found damage"*, and only this column separates the two while a date write is
         unfinished. `(agv)`
+
+        ``damaged_at`` travels for the sharper reason: `recover` reads this to refuse a copy a
+        check has already PROVEN corrupt, rather than discovering it again by reading the whole
+        file. `(aku)`
         """
         return list(
             self._conn.execute(
-                "SELECT sha256, relative, copy_sha256, size, bake_started_at "
+                "SELECT sha256, relative, copy_sha256, size, bake_started_at, damaged_at "
                 "FROM file_copies WHERE drive_uuid = ?",
                 (drive_uuid,),
             )
@@ -2695,7 +2767,7 @@ class Catalog:
             SELECT fc.drive_uuid AS drive_uuid, d.label AS label, COUNT(*) AS files
             FROM file_copies fc
             JOIN drives d ON d.uuid = fc.drive_uuid
-            WHERE fc.sha256 IN ({placeholders}) AND fc.missing_at IS NULL
+            WHERE fc.sha256 IN ({placeholders}) AND {a_place("fc.")}
             GROUP BY fc.drive_uuid
         """
 
@@ -2776,6 +2848,7 @@ class Catalog:
         where, params = _search_where(parse_search_terms(term))
         sql = f"""
             SELECT f.original_name, f.source_path, fc.relative, fc.last_verified,
+                   fc.damaged_at,
                    d.label AS drive_label, d.uuid AS drive_uuid
             FROM file_copies fc
             JOIN files f ON f.sha256 = fc.sha256
@@ -2804,19 +2877,19 @@ class Catalog:
     def single_copy_shas(self) -> list[sqlite3.Row]:
         """For ``status``: content that exists on exactly one drive (a single point of loss).
 
-        **A copy looked for and not found is not a place.** This sentence is a promise about now,
-        so it excludes ``missing_at`` rows - see :meth:`list_drives` for why the drive list does
-        the opposite. `(abg)`.
+        **A copy looked for and not found is not a place, and neither is one found DAMAGED.**
+        This sentence is a promise about now, so it excludes both - see :meth:`list_drives` for why
+        the drive list does the opposite. `(abg)`, `(aku)`; the rule itself is :func:`a_place`.
         """
         return list(
             self._conn.execute(
-                """
+                f"""
                 SELECT fc.sha256, f.original_name, d.label AS drive_label, d.uuid AS drive_uuid
                 FROM file_copies fc
                 JOIN files f ON f.sha256 = fc.sha256
                 JOIN drives d ON d.uuid = fc.drive_uuid
-                WHERE fc.missing_at IS NULL AND fc.sha256 IN (
-                    SELECT sha256 FROM file_copies WHERE missing_at IS NULL
+                WHERE {a_place("fc.")} AND fc.sha256 IN (
+                    SELECT sha256 FROM file_copies WHERE {a_place()}
                     GROUP BY sha256 HAVING COUNT(*) = 1
                 )
                 ORDER BY f.original_name
@@ -2843,12 +2916,12 @@ class Catalog:
         """
         return list(
             self._conn.execute(
-                """
+                f"""
                 SELECT holders, COUNT(*) AS files FROM (
                     SELECT sha256, group_concat(drive_uuid) AS holders
                     FROM (
                         SELECT sha256, drive_uuid FROM file_copies
-                        WHERE missing_at IS NULL ORDER BY sha256, drive_uuid
+                        WHERE {a_place()} ORDER BY sha256, drive_uuid
                     )
                     GROUP BY sha256 HAVING COUNT(*) > 1
                 )
@@ -2857,12 +2930,12 @@ class Catalog:
             )
         )
 
-    #: The at-risk predicate, written once. ⚠ **A copy known absent is not a place** -
+    #: The at-risk predicate, written once. ⚠ **A copy known absent or DAMAGED is not a place** -
     #: `single_copy_shas`'s reasoning, and the three queries that ask this question must not
-    #: disagree about it.
-    _SINGLE_COPY_PREDICATE = """
-        fc.missing_at IS NULL AND fc.sha256 IN (
-            SELECT sha256 FROM file_copies WHERE missing_at IS NULL
+    #: disagree about it. Built from :func:`a_place`, so a fourth state edits one function.
+    _SINGLE_COPY_PREDICATE = f"""
+        {a_place("fc.")} AND fc.sha256 IN (
+            SELECT sha256 FROM file_copies WHERE {a_place()}
             GROUP BY sha256 HAVING COUNT(*) = 1
         )
     """
@@ -2951,7 +3024,7 @@ class Catalog:
         """
         cursor = self._conn.execute(
             "SELECT COUNT(*) FROM (SELECT sha256 FROM file_copies "
-            "WHERE missing_at IS NULL GROUP BY sha256 HAVING COUNT(*) = 1)"
+            f"WHERE {a_place()} GROUP BY sha256 HAVING COUNT(*) = 1)"
         )
         return int(cursor.fetchone()[0])
 
@@ -2984,12 +3057,12 @@ class Catalog:
         shape as :meth:`single_copy_count`, one query rather than three.
         """
         cursor = self._conn.execute(
-            """
+            f"""
             WITH per_file AS (
                 SELECT f.sha256 AS sha, COUNT(fc.sha256) AS copies
                 FROM files f
                 LEFT JOIN file_copies fc
-                       ON fc.sha256 = f.sha256 AND fc.missing_at IS NULL
+                       ON fc.sha256 = f.sha256 AND {a_place("fc.")}
                 GROUP BY f.sha256
             )
             SELECT
@@ -3601,6 +3674,34 @@ class Catalog:
                 (when, sha256, drive_uuid),
             )
 
+    def mark_copy_damaged(self, *, sha256: str, drive_uuid: str, when: str) -> None:
+        """Remember that a check READ this copy and its bytes were not what we recorded. `(aku)`
+
+        ⚠ **THE THIRD STATE, AND IT IS THE ONE THAT WAS MISSING.** `verify` had two write branches
+        - VERIFIED and MISSING - and a MISMATCH took neither, so a copy proven corrupt recorded
+        exactly as a copy nobody had looked at. Measured on a real library: verify reported *"1
+        changed"*, named the file, and `/api/where` went on saying that photograph was in 2 places.
+
+        Clears ``last_verified`` in the same statement, for `mark_copy_missing`'s reason: a copy
+        cannot be simultaneously confirmed good and known wrong, and leaving the old date would let
+        :meth:`refresh_drive_verified` keep dating a claim off a confirmation this check disproved.
+
+        ⚠ **PERSISTENT, and that is what separates damage from absence in kind.** A drive that was
+        unplugged comes back; bytes that rotted do not un-rot. This survives until a later verify
+        READS THE BYTES AGAIN and finds them right - :meth:`mark_copy_verified` - or until the copy
+        is written afresh - :meth:`record_copy`. Nothing else clears it, and in particular merely
+        seeing the drive again does not.
+
+        **The row is never deleted**, on `mark_copy_missing`'s reasoning: it is the record that
+        content was written here and the only clue to what happened to it.
+        """
+        with self._tx() as conn:
+            conn.execute(
+                "UPDATE file_copies SET damaged_at = ?, last_verified = NULL "
+                "WHERE sha256 = ? AND drive_uuid = ?",
+                (when, sha256, drive_uuid),
+            )
+
     def record_copy(
         self,
         *,
@@ -3622,7 +3723,12 @@ class Catalog:
                     -- A re-copy re-establishes the place, so a remembered absence is spent.
                     -- Without this, restoring a drive by copying into it would leave every
                     -- restored file uncounted until the user thought to run a verify. `(abg)`.
-                    missing_at = NULL
+                    missing_at = NULL,
+                    -- ⚠ And so is remembered DAMAGE: these bytes were just written, so whatever
+                    -- was wrong with the previous occupant of this path is no longer a fact about
+                    -- what is there. Without this, replacing a corrupt copy from a good source
+                    -- would leave it condemned until a verify happened to run. `(aku)`.
+                    damaged_at = NULL
                 """,
                 (sha256, drive_uuid, relative, copy_sha256, size, _now()),
             )
@@ -3636,8 +3742,8 @@ class Catalog:
         """
         with self._tx() as conn:
             conn.execute(
-                "UPDATE file_copies SET last_verified = ?, missing_at = NULL "
-                "WHERE sha256 = ? AND drive_uuid = ?",
+                "UPDATE file_copies SET last_verified = ?, missing_at = NULL, "
+                "damaged_at = NULL WHERE sha256 = ? AND drive_uuid = ?",
                 (when, sha256, drive_uuid),
             )
 

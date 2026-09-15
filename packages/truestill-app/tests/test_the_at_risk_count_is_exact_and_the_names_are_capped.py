@@ -29,7 +29,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from truestill_app.service.drives import AT_RISK_SAMPLE_LIMIT, at_risk
+from truestill_app.service.drives import (
+    AT_RISK_SAMPLE_LIMIT,
+    at_risk,
+    library_status,
+    where,
+)
 from truestill_core.catalog import Catalog
 
 
@@ -172,3 +177,52 @@ def test_the_total_is_the_sum_of_the_drives(tmp_path: Path) -> None:
         ("BackupA", 18),
         ("BackupB", 12),
     ]
+
+
+# --- a damaged copy is not a place, on the app surfaces too -----------------------------------
+
+
+def test_a_damaged_copy_stops_counting_on_every_app_surface(tmp_path: Path) -> None:
+    """⚠ **THE MEASURED DEFECT, ON THE SURFACES IT WAS MEASURED ON.** `(aku)`
+
+    Walking the product found a verify that reported *"1 changed"*, named the file - and then
+    `/api/where` said that photograph was in **2 places** while the custody band said everything
+    was safe. The report was right and nothing else agreed with it. These are the three surfaces
+    that disagreed, asserted together so they cannot drift apart again.
+    """
+    db = tmp_path / "c.sqlite"
+    _library(db, at_risk_files=0, safe_files=4)  # four files, each on BOTH drives
+
+    before = at_risk(db)
+    assert before["total"] == 0, "the fixture is not four safely-copied files"
+    assert where("IMG_000000", db)["total"] == 2, "the fixture file is not in two places"
+    assert int(library_status(db)["held_floor"]) == 2
+
+    with Catalog(db) as catalog:
+        sha = str(
+            catalog._conn.execute(
+                "SELECT sha256 FROM files WHERE original_name = 'IMG_000000.jpg'"
+            ).fetchone()["sha256"]
+        )
+        catalog.mark_copy_damaged(sha256=sha, drive_uuid="D2", when="2026-09-15T12:00:00+00:00")
+
+    # 1. the at-risk count: one file now has a single good copy
+    after = at_risk(db)
+    assert after["total"] == 1, f"a damaged copy still counts toward custody: {after}"
+    assert after["drives"][0]["drive"] == "BackupA"
+
+    # 2. `/api/where` NAMES the damaged copy rather than hiding it, and that is deliberate.
+    #    ⚠ **Its `total` is a SEARCH RESULT count, not a custody count** - it does not filter
+    #    absent copies either, and its help is *"find which drive(s) hold a file, even when
+    #    unplugged"*. Hiding the row would remove the one screen that can tell a user WHICH of
+    #    their copies is the bad one. What it must not do is present it as healthy.
+    found = where("IMG_000000", db)
+    assert found["total"] == 2, "where stopped listing a copy the user needs to see"
+    by_drive = {c["drive"]: c for c in found["copies"]}
+    assert by_drive["BackupB"]["damaged_at"] == "2026-09-15T12:00:00+00:00", (
+        f"where lists the damaged copy without saying it is damaged: {found['copies']}"
+    )
+    assert by_drive["BackupA"]["damaged_at"] is None, "the good copy was marked damaged"
+
+    # 3. the custody floor behind the band
+    assert int(library_status(db)["held_floor"]) == 1, "the custody band still says two places"

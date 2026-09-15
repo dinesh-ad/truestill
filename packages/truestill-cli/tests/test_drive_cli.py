@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 from truestill_cli.cli import main
+from truestill_core.catalog import Catalog
 from truestill_core.drive import LEGACY_MARKER_NAMES, MARKER_NAME, DriveMarker
 
 
@@ -93,3 +94,45 @@ def test_organize_to_drive_records_copies_then_verify(
     # status: the photo exists on a single drive -> flagged
     assert main(["status", "--db", str(db)]) == 0
     assert "only ONE drive" in capsys.readouterr().out
+
+
+@pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
+def test_cli_verify_records_corruption_rather_than_only_printing_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """⚠ **THE SAME RULE ON THE OTHER SURFACE.** `(aku)`
+
+    `(aku)` wired `MISMATCH -> mark_copy_damaged` on both surfaces in one commit, and a mutation
+    proved the app's branch bites while the CLI's did not - which is §4's *a rule applied to two
+    of three surfaces reads as settled, and the third disagrees silently*, with two surfaces. The
+    CLI's `verify` prints `MISMATCH : 1` whether or not the catalog learns anything, so printing
+    is not evidence and this asserts the row.
+    """
+    src = tmp_path / "src"
+    src.mkdir()
+    Image.new("RGB", (32, 32), (4, 5, 6)).save(src / "photo.jpg", "JPEG")
+    dest = tmp_path / "driveB"
+    db = tmp_path / "c.sqlite"
+
+    main(["drives", "--init", str(dest), "--label", "Drive B", "--db", str(db)])
+    assert main(["organize", str(src), str(dest), "--apply", "--db", str(db)]) == 0
+    capsys.readouterr()
+
+    # Bit-rot: same size, different bytes, so only a content check can see it.
+    copy = next(p for p in dest.rglob("*.jpg"))
+    rotted = bytearray(copy.read_bytes())
+    rotted[20:30] = b"CORRUPTED!"
+    copy.write_bytes(bytes(rotted))
+
+    assert main(["verify", str(dest), "--db", str(db)]) != 0
+    assert "MISMATCH : 1" in capsys.readouterr().out
+
+    with Catalog(db) as catalog:
+        row = catalog._conn.execute("SELECT damaged_at, last_verified FROM file_copies").fetchone()
+        floor = catalog.custody_floor()
+
+    assert row["damaged_at"] is not None, (
+        "the CLI printed MISMATCH and recorded nothing - the defect, on the other surface"
+    )
+    assert row["last_verified"] is None
+    assert int(floor["floor"]) == 0, "the corrupt copy still counts as a place"

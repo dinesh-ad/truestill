@@ -112,6 +112,15 @@ def verify_run(path: Path, db: Path) -> JobTarget[VerifyJobSummary] | DriveUnava
                     catalog.mark_copy_missing(
                         sha256=result.copy.sha256, drive_uuid=marker.uuid, when=when
                     )
+                elif result.status is CopyStatus.MISMATCH:
+                    # ⚠ **THIS BRANCH DID NOT EXIST UNTIL `(aku)`.** A MISMATCH took neither of
+                    # the two above, so the run reported *"1 changed"*, named the file, and wrote
+                    # nothing - leaving a copy proven corrupt recorded as *present, never checked*.
+                    # Unlike MISSING this needs no `still_here` guard: we READ the bytes, so the
+                    # drive was demonstrably there.
+                    catalog.mark_copy_damaged(
+                        sha256=result.copy.sha256, drive_uuid=marker.uuid, when=when
+                    )
             catalog.refresh_drive_verified(marker.uuid)
         counts = Counter(r.status.value for r in results)
         problems: list[VerifyProblem] = []

@@ -288,3 +288,50 @@ def test_recopying_onto_a_drive_also_spends_the_absence(tmp_path: Path) -> None:
                 size=row["size"],
             )
         assert catalog.single_copy_count() == 2, "a re-copied file stayed uncounted"
+
+
+def test_a_verify_that_finds_corruption_records_it_rather_than_only_reporting_it(
+    tmp_path: Path,
+) -> None:
+    """⚠ **THE DEFECT `(aku)` WAS FILED FOR, END TO END, THROUGH THE REAL VERIFY.**
+
+    `verify` had exactly two write branches - VERIFIED and MISSING - and a MISMATCH took neither.
+    So on a real library a check read a photograph, found its bytes wrong, reported *"1 changed"*
+    and named the file, **and wrote nothing**. Every test passed, because every test asserted the
+    REPORT. This one asserts the catalog afterwards, which is what nothing did.
+
+    The corruption is same-size on purpose: a length change would be caught by cheaper means, and
+    bit-rot at rest does not change a file's size.
+    """
+    db, root, _uuid = _drive_with_two_copies(tmp_path)
+    victim = root / RELATIVE
+    original = victim.read_bytes()
+    victim.write_bytes(b"XXXXX")  # same five bytes, different content
+    assert victim.stat().st_size == len(original), "the fixture changed the size, not the bytes"
+
+    summary = _run(verify_run(root, db))
+
+    # The report was always right - assert it, then assert the thing that was not happening.
+    assert summary["mismatch"] == 1, f"the run did not find the corruption: {summary}"
+
+    with Catalog(db) as catalog:
+        rows = {
+            str(r["relative"]): r
+            for r in catalog._conn.execute(
+                "SELECT relative, damaged_at, last_verified FROM file_copies"
+            )
+        }
+        # ⚠ **AND THE CUSTODY COUNT MOVED WITH IT**, which is the half that was measured as broken:
+        # `/api/where` went on saying 2 places after a run exactly like this one.
+        floor = catalog.custody_floor()
+
+    assert rows[RELATIVE]["damaged_at"] is not None, (
+        "verify found corruption, said so, and recorded nothing - the defect is back"
+    )
+    assert rows[RELATIVE]["last_verified"] is None, "a damaged copy is still dated as confirmed"
+    # The clean sibling is untouched: one bad file does not condemn the drive.
+    assert rows[SECOND]["damaged_at"] is None
+    assert rows[SECOND]["last_verified"] is not None
+    assert int(floor["floor"]) == 0, (
+        "the corrupt copy still counts as a place, which is what `(aku)` is about"
+    )

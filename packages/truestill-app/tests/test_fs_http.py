@@ -174,6 +174,10 @@ def test_drives_split_photos_and_videos(client: TestClient, tmp_path: Path) -> N
         # `(aes)` on Backups: Stats already sent this; without it the card prints "Never checked"
         # after a verify that found gaps (null `last_verified` means both).
         "was_checked",
+        # `(aku)`: copies a check READ and found wrong. Distinct from `not_found`, which is
+        # *we looked and it was gone* - and a drive can carry both at once.
+        "damaged",
+        "damaged_at",
     }
     assert drives[0]["photos"] == 2
     assert drives[0]["videos"] == 1

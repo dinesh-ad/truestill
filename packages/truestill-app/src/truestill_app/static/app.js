@@ -2824,6 +2824,18 @@ function driveNotFoundNote(d) {
   }</div>`;
 }
 
+// ⚠ **DAMAGE IS DATED FOR THE SAME REASON ABSENCE IS.** `(aku)`. "3 damaged" with no date is a
+// fact with no age, and the user's first question is *when did that happen* - before or after the
+// last time I copied anything onto this drive. Sits beside `driveNotFoundNote`, which a drive can
+// carry at the same time: gone and wrong are different copies and both are worth saying.
+function driveDamagedNote(d) {
+  if (!d.damaged) return "";
+  const when = (d.damaged_at || "").slice(0, 10);
+  return `<div class="k at-risk" data-testid="drive-damaged">${nfmt(d.damaged)} damaged${
+    when ? ` on ${esc(when)}` : ""
+  } - a check read ${d.damaged === 1 ? "it" : "them"} and the bytes were wrong</div>`;
+}
+
 function lastSeenNote(d) {
   if (d.reach === "connected") return "";
   return d.last_seen
@@ -3210,12 +3222,19 @@ async function loadDrives() {
     const neverChecked = !looked;
     const checked = clean ? dayOf(d.last_verified) : foundGaps ? "checked, gaps" : "never";
     const missing = d.not_found || 0;
+    // ⚠ **DAMAGE OUTRANKS EVERY OTHER STATE ON THIS CARD, INCLUDING MISSING.** `(aku)`. A copy
+    // that is gone is a gap; a copy that is PRESENT AND WRONG is the one a user would otherwise
+    // rely on, and CockroachDB's framing is the right register - *"this is not a transient
+    // condition"*. Reported ahead of `missing` because a drive with both is worse than either.
+    const damaged = d.damaged || 0;
     const health = d.reach === "offline"
       ? "offline"
-      : (foundGaps || missing > 0 ? "gaps" : neverChecked ? "never" : "ok");
+      : (damaged > 0 || foundGaps || missing > 0 ? "gaps" : neverChecked ? "never" : "ok");
     const healthChip = d.reach === "offline"
       ? `<span class="drive-health-chip" data-kind="offline">Offline</span>`
-      : missing > 0
+      : damaged > 0
+        ? `<span class="drive-health-chip" data-kind="damaged">${nfmt(damaged)} damaged</span>`
+        : missing > 0
         ? `<span class="drive-health-chip" data-kind="gaps">${nfmt(missing)} missing</span>`
         : foundGaps
           ? `<span class="drive-health-chip" data-kind="gaps">Checked, found gaps</span>`
@@ -3227,6 +3246,7 @@ async function loadDrives() {
         <div><span class="drive-label">${esc(d.label)}</span> ${driveReachBadge(d.reach)}
           <div class="k mono">${mediaCount(d)} · ${fmtBytes(d.size)}</div>
           <div class="drive-health">${healthChip}</div>
+          ${driveDamagedNote(d)}
           ${driveNotFoundNote(d)}
           ${d.path
             ? `<details class="more inline"${collides ? " open" : ""}>

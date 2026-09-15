@@ -1203,6 +1203,19 @@
           "carried_short": {
             "type": "string"
           },
+          "damaged": {
+            "type": "integer"
+          },
+          "damaged_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "decisions": {
             "anyOf": [
               {
@@ -1290,6 +1303,8 @@
           "carried_full",
           "carried_lead",
           "carried_short",
+          "damaged",
+          "damaged_at",
           "decisions",
           "files",
           "is_library",
@@ -5013,6 +5028,16 @@
       },
       "WhereCopy": {
         "properties": {
+          "damaged_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "drive": {
             "type": "string"
           },
@@ -5037,6 +5062,7 @@
           }
         },
         "required": [
+          "damaged_at",
           "drive",
           "last_verified",
           "name",

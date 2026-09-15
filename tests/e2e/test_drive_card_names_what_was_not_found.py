@@ -33,6 +33,8 @@ def _drive(label: str, uuid: str, **over: Any) -> dict[str, Any]:
         "files": 2269,
         "not_found": 0,
         "not_found_at": None,
+        "damaged": 0,
+        "damaged_at": None,
         "photos": 2269,
         "videos": 0,
         "audio": 0,
@@ -102,3 +104,41 @@ def test_an_ordinary_drive_carries_no_such_line(ui: Page) -> None:
 
     expect(ui.get_by_text("2,269 photos")).to_be_visible(timeout=30_000)
     expect(ui.locator("[data-testid='drive-not-found']")).to_have_count(0)
+
+
+# --- damage, which is a different fact from absence -------------------------------------------
+
+
+def test_the_card_names_damage_and_dates_it(ui: Page) -> None:
+    """⚠ **`(aku)`: a copy READ and found wrong, which is not a copy that was not found.**
+
+    Absence is a gap; damage is the copy the user would otherwise have relied on. The card must
+    say which, and date it - *when* matters, because it tells you whether the damage predates the
+    last time you copied anything here.
+    """
+    _show(ui, [_drive("Output", "u1", damaged=3, damaged_at="2026-09-15T09:00:00+00:00")])
+
+    note = ui.locator("[data-testid='drive-damaged']")
+    expect(note).to_contain_text("3 damaged", timeout=30_000)
+    expect(note).to_contain_text("on 2026-09-15")
+    expect(note).to_contain_text("bytes were wrong")
+
+
+def test_damage_outranks_missing_on_the_health_chip(ui: Page) -> None:
+    """A drive with both is worse than either, and the chip has room for one verdict.
+
+    Damage wins because a present-but-wrong copy is the one that will be trusted.
+    """
+    _show(ui, [_drive("Output", "u1", damaged=1, not_found=5)])
+
+    chip = ui.locator(".drive-health-chip")
+    expect(chip).to_contain_text("1 damaged", timeout=30_000)
+    expect(chip).not_to_contain_text("missing")
+
+
+def test_an_undamaged_drive_carries_no_damage_line(ui: Page) -> None:
+    """CRY-WOLF HALF, on this file's own rule: wait for a positive signal, then assert absence."""
+    _show(ui, [_drive("Output", "u1", not_found=2269, not_found_at="2026-08-11T09:00:00+00:00")])
+
+    expect(ui.locator("[data-testid='drive-not-found']")).to_be_visible(timeout=30_000)
+    assert ui.locator("[data-testid='drive-damaged']").count() == 0

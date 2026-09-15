@@ -26,6 +26,7 @@ from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
 from truestill_core.hashing import sha256_file
 from truestill_core.recover import (
+    SKIP_REASONS,
     RecoverPair,
     RecoverStoppedError,
     Skipped,
@@ -495,3 +496,59 @@ def test_recovering_never_consults_or_charges_the_free_allowance(
     assert allowance.files_written() == before
     source = Path(recover.__file__).read_text(encoding="utf-8")
     assert "allowance" not in source, "D16 §7's mechanism is that this module never reaches it"
+
+
+# --- a corrupt source is refused, not propagated -----------------------------------------------
+
+
+def test_recover_refuses_to_pull_from_a_copy_a_check_proved_corrupt(
+    world: tuple[Path, RecoverPair],
+) -> None:
+    """⚠ **CEPH'S PROPAGATION WARNING, IN THIS PRODUCT.** `(aku)`
+
+    Ceph states the hazard exactly: *"if a corrupt replica's OSD fails before the next deep scrub
+    runs, recovery can rebuild from the corrupt copy and propagate the damage."* Recovering from a
+    copy a verify has already read and found wrong would turn one damaged file into two, which is
+    the one outcome worse than the gap it was closing.
+
+    ⚠ **The refusal is checked BEFORE a byte is read**, so it costs nothing and can say why. The
+    content check further down - staging, then comparing against `verify_sha` - is the backstop
+    for damage that appeared *since* the last verify, and is unchanged.
+    """
+    db, pair = world
+    gap = RELATIVE.format(34)  # on the drive, not in the library
+    with Catalog(db) as catalog:
+        row = next(
+            r for r in catalog.copies_on_drive(pair.drive_marker.uuid) if r["relative"] == gap
+        )
+        catalog.mark_copy_damaged(
+            sha256=str(row["sha256"]),
+            drive_uuid=pair.drive_marker.uuid,
+            when="2026-09-15T12:00:00+00:00",
+        )
+
+    before = _snapshot(pair.library)
+    outcome = recover_into_library(pair, db, progress=lambda _p: None, cancel=threading.Event())
+
+    assert (gap, Skipped.DAMAGED_ON_THE_DRIVE) in outcome.skipped, (
+        f"the damaged copy was not refused by name: {outcome.skipped}"
+    )
+    assert gap not in outcome.written, "a copy proven corrupt was written into the library"
+    assert not (pair.library / gap).exists(), "the corrupt file reached the library"
+    # The other five gaps are unaffected: one bad copy does not stop the run.
+    assert outcome.copied == 5, f"a refusal aborted the rest of the run: {outcome.copied}"
+    # And nothing that was already in the library moved.
+    kept = {k: v for k, v in _snapshot(pair.library).items() if k in before}
+    assert kept == before, "recover altered a file that was already there"
+
+
+def test_the_refusal_says_what_was_not_done_and_why() -> None:
+    """The wording is the deliverable: a skip that reads as a failure sends a user hunting."""
+    reason = SKIP_REASONS[Skipped.DAMAGED_ON_THE_DRIVE]
+    assert "damaged" in reason
+    # It must say the bytes were READ and found wrong - not that we could not look.
+    assert "read it" in reason, reason
+    assert "wrong" in reason, reason
+    # And it must say what did NOT happen, or refusing reads as failing to try.
+    assert "not" in reason, reason
+    assert "librar" in reason, reason

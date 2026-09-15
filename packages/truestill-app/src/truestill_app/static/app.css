@@ -2929,6 +2929,22 @@ details.more.inline {
   background: var(--warning-subtle);
   font-weight: var(--weight-semibold);
 }
+/* ⚠ **PROVEN DAMAGE, AND IT IS THE STRONGEST STATE THIS CHIP HAS.** `(aku)`. "gaps" above is a
+   copy we could not find; this is one we FOUND and whose bytes were wrong - the copy a user
+   would otherwise have relied on. CockroachDB's register: *"not a transient condition."*
+
+   ⚠ **IT SHARES `--warning` WITH "gaps", AND THAT IS A STATED LIMIT RATHER THAN A CHOICE.** This
+   palette has exactly two negative tokens - `--warning` and `--warning-subtle` - and no danger or
+   error family at all. Minting one is a design-system decision (`design-system.md`, the D19/D20
+   line), not something a defect fix gets to do on its way past. So the distinction is carried by
+   the WORD - "3 damaged" against "3 missing" - and by `data-health`, which e2e and CSS can both
+   address. A distinct colour is the right follow-up and is named in `(aku)`. */
+.drive-health-chip[data-kind="damaged"] {
+  color: var(--warning);
+  border-color: var(--warning);
+  background: var(--warning-subtle);
+  font-weight: var(--weight-semibold);
+}
 .drive-health-chip[data-kind="warn"] {
   color: var(--warning);
   border-color: var(--warning);

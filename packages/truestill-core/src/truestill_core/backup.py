@@ -153,17 +153,26 @@ class MissingCopy:
     relative: str
     copy_sha256: str | None
     size: int | None
+    #: When a check read this copy and found its bytes wrong, or ``None``. ⚠ **A source, not a
+    #: target, fact**: `recover` refuses to pull from a copy carrying this. `(aku)`
+    damaged_at: str | None = None
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> MissingCopy:
         """Build from a ``copies_on_drive`` or ``organized_files`` catalog row."""
         size_raw = row["size"]
         copy_raw = row["copy_sha256"]
+        # `organized_files` rows carry no `damaged_at`; absent is the same as NULL here.
+        # ⚠ `sqlite3.Row.__contains__` tests VALUES, not column names, so the key set is taken
+        # explicitly - `"damaged_at" in row` would be asking a different question entirely.
+        columns = set(row.keys())
+        damaged = row["damaged_at"] if "damaged_at" in columns else None
         return cls(
             sha256=str(row["sha256"]),
             relative=str(row["relative"]),
             copy_sha256=None if copy_raw is None else str(copy_raw),
             size=None if size_raw is None else int(size_raw),
+            damaged_at=None if damaged is None else str(damaged),
         )
 
     @property

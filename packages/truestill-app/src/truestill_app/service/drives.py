@@ -518,6 +518,13 @@ class DriveRow(TypedDict):
     not_found: int
     #: When that was observed - the most recent, so the card can date the fact.
     not_found_at: str | None
+    #: Copies on this drive a check READ and found wrong. ⚠ **Not the same as `not_found`**: that
+    #: is *we looked and it was gone*, this is *we looked and the bytes were not ours*. `files`
+    #: still counts them, on `not_found`'s reasoning - the row is the record that content was
+    #: written here - but no custody figure does. `(aku)`
+    damaged: int
+    #: When that was observed - the most recent, so the card can date the fact.
+    damaged_at: str | None
     photos: int
     videos: int
     audio: int
@@ -563,6 +570,15 @@ class WhereCopy(TypedDict):
     drive: str
     relative: str
     last_verified: str | None
+    #: When a check read this copy and found its bytes wrong, or ``None``. `(aku)`
+    #:
+    #: ⚠ **THE ROW IS LISTED, NOT HIDDEN, AND THAT IS DELIBERATE.** `where` is an inventory of
+    #: every copy the catalog has recorded - it does not filter absent ones either, and its help
+    #: is *"find which drive(s) hold a file, even when unplugged"*. Its `total` is a SEARCH RESULT
+    #: count, never a custody count; the custody counters are `custody_floor`, `single_copy_count`
+    #: and their siblings, which `a_place` excludes damaged copies from. Hiding this row would
+    #: remove the one screen that can tell a user WHICH of their copies is the bad one.
+    damaged_at: str | None
     #: ⚠ **Whether that path can be opened RIGHT NOW.** Find's own lede promises it *"works even
     #: when the drives are unplugged"*, and it then rendered a location on an unplugged drive
     #: identically to one on a connected drive - so the screen that keeps its promise about
@@ -807,6 +823,8 @@ def list_drives(db: Path) -> list[DriveRow]:
                     # for the two rules and why they are opposites. `(abg)`.
                     "not_found": d["missing_count"],
                     "not_found_at": d["missing_at"],
+                    "damaged": d["damaged_count"],
+                    "damaged_at": d["damaged_at"],
                     "photos": breakdown["photos"],
                     "videos": breakdown["videos"],
                     "audio": breakdown["audio"],
@@ -877,6 +895,7 @@ def where(term: str, db: Path, *, page: int = 1) -> WhereResult:
                 "drive": r["drive_label"],
                 "relative": r["relative"],
                 "last_verified": r["last_verified"],
+                "damaged_at": r["damaged_at"],
                 "reach": reach(str(r["drive_uuid"])),
             }
             for r in rows

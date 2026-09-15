@@ -596,7 +596,16 @@ def test_find_pages_results_and_reports_the_total(client: TestClient, tmp_path: 
     assert set(first) == {"copies", "total", "page", "pages", "page_size"}
     # ⚠ `reach` since 2026-09-12: Find's lede promises it works with the drives unplugged, and
     # the row had no way to say one was. `(akp)`'s sibling defect - see `WhereCopy`.
-    assert set(first["copies"][0]) == {"name", "drive", "relative", "last_verified", "reach"}
+    # `(aku)`: `damaged_at` rides along per copy so the one screen that lists every recorded copy
+    # can say WHICH of them a check found wrong. `where` deliberately does not hide the row.
+    assert set(first["copies"][0]) == {
+        "name",
+        "drive",
+        "relative",
+        "last_verified",
+        "reach",
+        "damaged_at",
+    }
     assert first["total"] == 120
     assert first["page"] == 1
     assert first["pages"] == 3  # 120 over a page size of 50

@@ -29,6 +29,40 @@ recording shipped work as unstarted, which is the more expensive direction of th
   `test_every_site_calls_run_job_with_on_refuse` - every `await runJob({` must supply `onRefuse:`.
   [Full entry](research/backlog/abr.md)
 
+- **(aku) VERIFY PROVED A COPY CORRUPT AND THE CATALOG HAD NOWHERE TO PUT IT.**
+  ✅ **CLOSED 2026-09-15**, found by **using the product** rather than by a test.
+  **What was wrong**: `file_copies` had `last_verified` and `missing_at` and **no column for
+  *checked, and wrong***. `verify` had two write branches - VERIFIED and MISSING - and a
+  **MISMATCH took neither**, on both surfaces. So a check read a photograph, found its bytes
+  wrong, reported *"1 changed"*, named the file, and wrote nothing; the copy recorded as
+  *present, never checked*, byte-for-byte the state of one nobody had looked at.
+  **Measured**: `/api/where` went on saying that photograph was in **2 places**, and the custody
+  band, the at-risk count and the custody floor all counted a copy just proven to be garbage.
+  ⚠ **`(abg)`'s argument one column over** - absence had nowhere to go; damage had nowhere to go.
+  ⚠ **No test could have caught it**: every test asserted the verify REPORT, which was correct.
+  The defect lived in the gap between two correct components.
+  **Schema v24**, `file_copies.damaged_at`, additive and NULL with no backfill. **Three states**:
+  never checked (both NULL), checked and clean (`last_verified`), checked and wrong (`damaged_at`).
+  **Persistent** - an unplugged drive comes back, rotted bytes do not - and cleared only by a
+  later verify reading the bytes again or by the copy being written afresh. Seeing the drive again
+  does **not** clear it.
+  **A corrupt copy is not a place**: nine counters each spelled the rule out for themselves, so it
+  is now one function, `catalog.a_place()`. With one of two copies corrupt, `custody_floor` goes
+  2 -> 1, `single_copy_count` 0 -> 1, `holder_sets` 1 -> 0, `drives_holding` 2 -> 1.
+  ⚠ **`/api/where` is the deliberate exception and is not a counter** - it lists every recorded
+  copy (it does not filter absent ones either) and its total is a search-result count. It now
+  carries `damaged_at` per row, because hiding it would remove the one screen that says WHICH copy
+  is bad.
+  **recover refuses a corrupt source before a byte is read** - Ceph's *"recovery can rebuild from
+  the corrupt copy and propagate the damage"*. The existing content check already prevented
+  propagation and is unchanged; this avoids reading a file we know is bad, and says why.
+  **reclaim needed no change**, established rather than assumed: it re-hashes live at delete time
+  and never trusts a stored verdict. Pinned anyway.
+  Guards: `test_a_damaged_copy_is_not_a_place.py` (9), end-to-end verify tests on **both**
+  surfaces, a recover refusal test, a reclaim safety test and three browser tests - each proven by
+  mutation. Two of those exist because a mutation **survived** and named a surface with no test.
+  [Full entry](research/backlog/aku.md)
+
 - **(akt) `/api/drives` SENT EVERY AT-RISK FILE TO A SCREEN THAT NAMES THREE.**
   ✅ **CLOSED 2026-09-15**, filed and closed the same day.
   **What was wrong**: `at_risk` was one entry per at-risk file and the browser used

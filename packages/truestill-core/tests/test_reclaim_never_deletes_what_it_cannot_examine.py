@@ -152,3 +152,41 @@ def test_a_refused_copy_survives_apply_as_well_as_plan(
 
         assert outcome.deleted == 0, "a source was deleted against a backup that could not be read"
         assert source.exists(), "the user's only readable copy was removed"
+
+
+def test_reclaim_keeps_a_source_whose_only_backup_copy_is_corrupt(tmp_path: Path) -> None:
+    """⚠ **RECLAIM WAS ALREADY SAFE HERE, AND THIS PINS IT RATHER THAN CLAIMING IT.** `(aku)`
+
+    `(aku)` gave the catalog a way to record *checked, and wrong*, and every counting surface had
+    to learn it. **Reclaim needed no change at all**, and the reason is worth asserting: it never
+    consults a stored verdict. `_verify` re-hashes the destination copy **live, at delete time**,
+    which `IMPLEMENTATION_STANDARDS.md` §1 states as the rule - *"never trusts a stale
+    `last_verified`"*. A corrupt copy fails that comparison however the catalog describes it.
+
+    So this is the safe shape: the delete gate is a fresh read of the bytes, not a flag. Recorded
+    here because *"reclaim is fine"* is exactly the kind of sentence that stops being true when
+    somebody optimises the re-hash away in favour of the new column.
+    """
+    source = tmp_path / "in" / "photo.jpg"
+    drive = tmp_path / "Drive"
+    relative = "Camera/2014/photo.jpg"
+    content = b"the original photograph" * 32
+
+    db = tmp_path / "c.sqlite"
+    with Catalog(db) as catalog:
+        sha = _seed(catalog, source, drive, "D1", relative, content)
+        # Bit-rot on the backup: same size, different bytes - and the catalog does not know yet.
+        copy = drive / relative
+        rotted = bytearray(copy.read_bytes())
+        rotted[10:20] = b"CORRUPTED!"
+        copy.write_bytes(bytes(rotted))
+        assert copy.stat().st_size == len(content), "the fixture changed the size, not the bytes"
+
+        plan = plan_reclaim(catalog, "D1", drive, min_copies=1)
+
+    candidates = [c.relative for c in plan.candidates]
+    assert relative not in candidates, (
+        "reclaim offered to delete a source whose only backup copy is corrupt"
+    )
+    assert source.exists(), "the original was deleted while its only backup was corrupt"
+    assert sha, "the fixture recorded nothing"

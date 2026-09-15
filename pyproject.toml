@@ -166,6 +166,12 @@ unfixable = []
 # own wording. Collapsing them would make one refusal stand for several, which is the exact
 # argument `_cmd_ingest` above is exempted on, one surface over.
 "packages/truestill-core/src/truestill_core/licence.py" = ["PLR0911"]
+# `_copy_one` declines separately for each way one file can be left alone - damaged on the drive,
+# not on the drive at all, already in the library, staging failed, the staged bytes did not match,
+# the commit failed. Each is a different fact the run reports by name, and each is a different
+# remedy; collapsing them would make one skip stand for several, which is the same argument as the
+# two above. `(aku)` added the first of them.
+"packages/truestill-core/src/truestill_core/recover.py" = ["PLR0911"]
 # scan.compute_hashes / verify.verify_copies expose pool/workers/progress/cancel as kw-only.
 "packages/truestill-core/src/truestill_core/scan.py" = ["PLR0913"]
 "packages/truestill-core/src/truestill_core/verify.py" = ["PLR0913"]
