@@ -65,6 +65,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Final
 
 _ROOT = Path(__file__).resolve().parents[1]
 
@@ -97,7 +98,7 @@ _DESKTOP = """[Desktop Entry]
 Type=Application
 Name=Truestill
 Comment=Organise, de-duplicate and back up a photo library
-Exec=/usr/bin/truestill
+Exec=/usr/bin/truestill-app
 Icon=truestill
 Terminal=false
 Categories=Graphics;Photography;
@@ -131,6 +132,34 @@ License: Apache-2.0
 """
 
 
+#: **WHAT THE PACKAGE PROMISES `/usr/bin` WILL CONTAIN, AND THE ONLY PLACE IT IS WRITTEN DOWN.**
+#: `(akv)`: the lane shipped one executable and called it `truestill`, so the CLI was absent from
+#: every release while `make check`, the self-check gate and the install/uninstall detector all
+#: stayed green - nothing compared the payload against a promise, because no promise existed.
+#: The names are `[project.scripts]`, not a choice made here.
+BUNDLE_BINARIES: Final = ("truestill", "truestill-app")
+
+
+def verify_bundle_binaries(dist: Path) -> None:
+    """Refuse a frozen tree missing anything :data:`BUNDLE_BINARIES` names.
+
+    ⚠ **THIS IS THE HALF THAT MATTERS, and the reason is the defect's shape rather than its
+    size.** A bundler drops what nothing imports, silently and with a zero exit - the CLI going
+    missing looked exactly like a successful build. A self-check cannot catch it either: it runs
+    *inside one binary* and can only report on the process it is in, so the app's self-check was
+    green in a tree with no CLI at all. The comparison has to happen **against a written promise,
+    outside the artifact**, which is what this is.
+    """
+    missing = [name for name in BUNDLE_BINARIES if not (dist / name).is_file()]
+    if missing:
+        message = (
+            f"the frozen tree at {dist} is missing {', '.join(missing)} - the package promises "
+            f"{', '.join(BUNDLE_BINARIES)} in /usr/bin. Build with packaging/truestill.spec, "
+            f"which produces both from one COLLECT."
+        )
+        raise SystemExit(message)
+
+
 def build(dist: Path, version: str, out: Path) -> Path:
     """Stage the tree, write the metadata, and hand it to ``dpkg-deb``.
 
@@ -147,9 +176,7 @@ def build(dist: Path, version: str, out: Path) -> Path:
     `TemporaryDirectory` removes it on **every** exit path - a `dpkg-deb` failure is precisely
     when someone re-runs the lane and least wants debris.
     """
-    if not (dist / "truestill").is_file():
-        message = f"no frozen application at {dist} - build it before packaging it"
-        raise SystemExit(message)
+    verify_bundle_binaries(dist)
 
     with tempfile.TemporaryDirectory(dir=out) as scratch:
         return _stage_and_package(dist, version, out, Path(scratch))
@@ -169,7 +196,8 @@ def _stage_and_package(dist: Path, version: str, out: Path, scratch: Path) -> Pa
     # staged tree before install, and dpkg records it either way.
     binaries = staging / "usr" / "bin"
     binaries.mkdir(parents=True)
-    (binaries / "truestill").symlink_to(Path("..") / "lib" / "truestill" / "truestill")
+    for name in BUNDLE_BINARIES:
+        (binaries / name).symlink_to(Path("..") / "lib" / "truestill" / name)
 
     desktop = staging / "usr" / "share" / "applications"
     desktop.mkdir(parents=True)

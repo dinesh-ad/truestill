@@ -44,10 +44,17 @@ def _build_deb() -> Any:
 
 
 def _frozen_app(tmp_path: Path) -> Path:
-    """The one thing `build` checks for before it stages anything."""
+    """What `build` checks for before it stages anything.
+
+    ⚠ **READ FROM `BUNDLE_BINARIES` RATHER THAN LISTING ONE NAME.** This fixture wrote a single
+    `truestill` and passed for as long as the lane shipped a single executable - which was the
+    defect `(akv)` fixed, modelled faithfully in a test fixture. Deriving it means a third binary
+    cannot be added to the promise while this file quietly keeps testing two.
+    """
     dist = tmp_path / "dist" / "truestill"
     dist.mkdir(parents=True)
-    (dist / "truestill").write_text("#!/bin/sh\n", encoding="utf-8")
+    for name in _build_deb().BUNDLE_BINARIES:
+        (dist / name).write_text("#!/bin/sh\n", encoding="utf-8")
     return dist
 
 

@@ -35,6 +35,22 @@ this file - read that before trusting a number here.
 
 ---
 
+⚠ **WHAT THIS DOCUMENT MEASURES CHANGED ON 2026-09-15, AND EVERY ROW BELOW MEANT LESS THAN IT
+SAID UNTIL THEN.** It compares a CLI surface against an app surface, and the released packages
+**contained no CLI at all** - the lane froze `truestill_app/__main__.py` alone and named it
+`truestill`. So for anyone who installed the product, the six rows reading **none** in the route
+column were not *"CLI-only"*; they were **unreachable**, and this table was describing a choice
+nobody outside a clone could make.
+
+`(akv)` ships both executables, so the rows now mean what they always claimed: **a capability you
+reach from a terminal and not from the UI.** That is a gap in the *interface*, which is what this
+document was written to count - and it is the first day the count has been true of a customer.
+
+**Nothing in the table below moved**; only what it describes became real. The six are `reclaim`,
+`repoint-sources`, `rescan`, `carried`, `self-check` and `catalog --move`.
+
+---
+
 ## The short answer
 
 **Five subcommands have no app route at all**, plus one write-half:
@@ -111,7 +127,7 @@ because somebody went looking, and this table still cannot show an app-only capa
 | `rescan` | `cli.py` `add_parser("rescan"` | **none** | |
 | `carried` | `cli.py` `add_parser("carried"` | **none** | the restore arc's stage 1, and the app has the SENTENCE without the answer - `app.js` says a drive carries decisions this computer lacks. Stage 3 |
 | `recover` | `cli.py` `add_parser("recover"` | `/api/recover/{preview,run}` `server.py:create_app.recover_preview` | **covered**, preview and apply, with the drive card's "Bring these back". ⚠ The preview is a JOB here and a plain request on `backup`, because answering it stats the whole library |
-| `self-check` | `cli.py` `add_parser("self-check"` | **none** | process flag only |
+| `self-check` | `cli.py` `add_parser("self-check"` | **none** | process flag only - `truestill-app --self-check`. Both surfaces answer it from `(akv)` on: the subcommand on the CLI, the flag on the app |
 | `account` | `cli.py` `add_parser("account"` | `/api/account`, `/api/account/activate`, `/api/account/sign-out` `server.py:create_app.account` | **covered for what the CLI has**, and the gap runs the OTHER way: the app can sign out and the CLI deliberately cannot (`(akq)` - removing an entitlement is not a thing to do by typing it from memory). That direction is the one this table cannot key, `(ahg)` |
 
 ### Flags missing from covered commands

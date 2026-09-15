@@ -15,6 +15,14 @@ Every screen has been redrawn.
 
 ### Added
 
+- **The command line is in the packages.** Until now the releases contained the web UI only, and
+  the `truestill` they put on your `PATH` was that UI under the CLI's name, so the commands in
+  the Usage section - `analyze`, `organize`, `verify` and the rest - answered *"unrecognized
+  arguments"* on an installed copy. Six features had no other way in at all:
+  `reclaim`, `rescan`, `repoint-sources`, `carried`, `self-check` and `catalog --move`. The
+  packages now install **both** `truestill` (the command line) and `truestill-app` (the web UI),
+  on Windows and on Linux. On Windows the installer puts them on your `PATH` and takes that entry
+  away again when you uninstall.
 - **Bring photographs back from a drive.** Until now a backup drive was somewhere files went.
   `truestill recover`, and *Bring these back* on the drive card, fill gaps in your library from a
   drive that has them - comparing content, never overwriting, and never touching a file that is

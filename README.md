@@ -224,21 +224,18 @@ truestill organize <source> <destination> --apply
 truestill-app                 # the local web UI
 ```
 
-⚠ **THESE ARE CLONE COMMANDS. AN INSTALLED COPY ANSWERS TO NONE OF THEM** - prefix every one
-with `uv run`. **The published packages contain the app and not the CLI**: the frozen entry point
-is `truestill_app/__main__.py`, `truestill-cli` has zero entries in the bundle, and the
-`truestill` the packages put on your `PATH` is the web UI. Measured on the 2026-09-15 dry-run
-`.deb`: `truestill analyze <folder>` exits 2 with *"unrecognized arguments"*, and so do
-`organize`, `verify`, `account` and `self-check`. The one flag that works on both is
-`truestill --self-check`.
+⚠ **These are the commands an installed copy answers to** - the packages put **both**
+`truestill` (this CLI) and `truestill-app` (the web UI) on your `PATH`. **Working from a clone,
+prefix every one with `uv run`.**
 
-⚠ **This paragraph claimed the opposite until 2026-09-15**, and cited the release lane's
-`/usr/bin/truestill` assertion as its evidence - which is true and does not support it. The lane
-asserts the **file exists**; it never asserts what the file accepts, and the only command it runs
-on the installed copy is `--self-check`, the single flag both surfaces share. So CI was green on
-the one path that works while every documented command failed. **The install section above is
-where most people start**, which is why this correction is here rather than in a footnote. This
-block said `uv run` for all readers until 2026-08-30 and was then changed in the wrong direction.
+⚠ **THE CLI WAS ABSENT FROM EVERY RELEASE UNTIL 2026-09-15, AND THIS PARAGRAPH SAID OTHERWISE.**
+The lane froze the app alone and named the result `truestill`, so the binary you got was the web
+UI wearing this one's name: `truestill analyze` exited 2 with *"unrecognized arguments"*, and so
+did `organize`, `verify`, `account` and `self-check`. Six capabilities with no other home -
+`reclaim`, `rescan`, `repoint-sources`, `carried`, `self-check`, `catalog --move` - were
+**unreachable** rather than merely CLI-only. It is fixed by `(akv)`: two executables from one
+PyInstaller `COLLECT`, and `packaging/build_deb.py:verify_bundle_binaries` now refuses a package
+missing either, so it cannot go missing quietly again.
 
 **Start with `analyze`** if you have not used Truestill before. It needs only a folder - no
 destination, no library, no setup.

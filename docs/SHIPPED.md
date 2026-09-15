@@ -29,6 +29,37 @@ recording shipped work as unstarted, which is the more expensive direction of th
   `test_every_site_calls_run_job_with_on_refuse` - every `await runJob({` must supply `onRefuse:`.
   [Full entry](research/backlog/abr.md)
 
+- **(akv) EVERY RELEASE SHIPPED THE WEB UI WEARING THE CLI'S NAME, AND NO CLI AT ALL.**
+  ✅ **CLOSED 2026-09-15**, found by **installing the product** for the first time.
+  **What was wrong**: the lane froze `truestill_app/__main__.py` alone and named it `truestill`,
+  so `/usr/bin` held one binary - the app - and `truestill analyze`, `organize`, `verify`,
+  `account` and `self-check` all exited 2 with *"unrecognized arguments"* on an installed copy.
+  There was no `/usr/bin/truestill-app` either. ⚠ **Six capabilities have no other home** -
+  `reclaim`, `rescan`, `repoint-sources`, `carried`, `self-check`, `catalog --move` - so for a
+  customer they were **unreachable**, not *"CLI-only"*, and `cli-app-parity.md` had been
+  measuring a surface nobody outside a clone had.
+  ⚠ **Why nothing went red, which is the durable part**: a bundler drops what nothing imports
+  **with a zero exit**; a self-check runs INSIDE a process and cannot testify to a sibling's
+  absence, so the app reported `complete: true` in a tree with no CLI; and the install detector
+  asserted `/usr/bin/truestill` **exists** - true, and the wrong conclusion - while the one
+  command CI ran on the installed copy, `--self-check`, is the single flag both surfaces share.
+  **Fixed as the field fixes it**: two `Analysis`/`PYZ`/`EXE` objects into ONE `COLLECT`
+  (`packaging/truestill.spec`), `console=True` for the CLI and `False` for the app - one binary
+  doing both is PyInstaller #6244, where a windowed build has no stdout on Windows.
+  **The names are `[project.scripts]`, not a choice**: `truestill` the CLI, `truestill-app` the
+  app, which is what `CLAUDE.md`'s first paragraph has always said. The freeze had diverged.
+  **Size, measured**: 235,608,504 -> 250,642,749 bytes, **+6.4%** - the second EXE's own embedded
+  archive and nothing else. It did not double.
+  **Windows**: `installer.iss` places both, points the Start-menu entries at `truestill-app.exe`,
+  and puts `{app}` on the per-user `PATH` (`HKCU`, `expandsz`, idempotent `Check`), removing
+  exactly that entry on uninstall - ⚠ deliberately **not** `uninstalldeletevalue`, which would
+  delete the user's whole `PATH`.
+  **Guarded** by `build_deb.verify_bundle_binaries` against `BUNDLE_BINARIES`, a promise held
+  OUTSIDE the artifact because nothing inside one can report what is missing from it.
+  Mutation-proved by deleting each executable from the real frozen tree: refused, named, no
+  package written.
+  [Full entry](research/backlog/akv.md)
+
 - **(akq) A LICENSED RUN CHARGED THE FREE COUNTER, AND SELF-CHECK SAID NOTHING ABOUT THE LICENCE.**
   ✅ **CLOSED 2026-09-15**, all three halves found by **issuing a real licence and using it**.
   **What was wrong**: `allowance.record_files_written` was unconditional, so the first licensed run

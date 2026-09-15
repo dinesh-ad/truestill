@@ -69,12 +69,33 @@ ArchitecturesInstallIn64BitMode=x64compatible
 Source: "dist\truestill\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Icons]
-Name: "{group}\Truestill"; Filename: "{app}\truestill.exe"
+; ⚠ **`truestill.exe` IS THE CLI FROM (akv) ON, AND THE APP IS `truestill-app.exe`.** These
+; entries named `truestill.exe` when that was the only executable in the folder; pointing a
+; Start-menu shortcut at it now would open a console application with no arguments. The names
+; come from `[project.scripts]`, which both packages have always declared.
+Name: "{group}\Truestill"; Filename: "{app}\truestill-app.exe"
 ; The self-check, reachable without a terminal. On a windowed build it writes its report to the
 ; data directory and opens it - see `_run_self_check`. Without this entry the only way to ask a
 ; broken install what is broken would be a command line the user does not have.
-Name: "{group}\Truestill self-check"; Filename: "{app}\truestill.exe"; Parameters: "--self-check"
+Name: "{group}\Truestill self-check"; Filename: "{app}\truestill-app.exe"; Parameters: "--self-check"
 Name: "{group}\Uninstall Truestill"; Filename: "{uninstallexe}"
+
+[Registry]
+; ⚠ **THE PATH QUESTION, ANSWERED RATHER THAN ASSUMED.** `(akv)` ships a CLI on Windows, and a
+; command a user cannot type is the defect this entry exists to fix, one platform over. `{app}`
+; is `%LOCALAPPDATA%\Programs\Truestill` under `PrivilegesRequired=lowest`, which is NOT on
+; PATH, so without this `truestill organize` is unreachable from any terminal.
+;
+; **HKCU, never HKLM**: this is a per-user install and must not touch a machine-wide setting it
+; did not create. `expandsz` preserves the type the shell expects - writing a plain string here
+; is the documented way to break `%SystemRoot%` entries for every other program.
+;
+; `Check: NeedsAddPath` makes a repeat install idempotent rather than appending a second copy,
+; and `CurUninstallStepChanged` removes exactly our entry on the way out. ⚠ There is deliberately
+; **no `uninstalldeletevalue`**: it would delete the user's entire Path, which is the worst thing
+; an uninstaller in this file could do and is one flag away from the correct behaviour.
+Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; \
+  ValueData: "{olddata};{app}"; Check: NeedsAddPath(ExpandConstant('{app}'))
 
 [Code]
 { THE HIGHEST-CONSEQUENCE COPY IN THE ARTIFACT. It is read once, by somebody leaving, and it
@@ -108,4 +129,46 @@ begin
     'To remove the index as well, delete that file yourself after uninstalling.',
     mbInformation, MB_OK, IDOK);
   Result := True;
+end;
+
+{ Is our directory already on the user's Path? Compared with a semicolon on both ends so that a
+  directory whose name merely CONTAINS ours - `...\Truestill-old` - is not mistaken for a match.
+  A missing Path value is not an error: a fresh profile may have none, and the install is the
+  thing that creates it. }
+function NeedsAddPath(Param: string): Boolean;
+var
+  OrigPath: string;
+begin
+  if not RegQueryStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', OrigPath) then
+  begin
+    Result := True;
+    exit;
+  end;
+  Result := Pos(';' + Uppercase(Param) + ';', ';' + Uppercase(OrigPath) + ';') = 0;
+end;
+
+{ Remove exactly our entry and leave every other one alone, including the semicolons around it.
+  Silence is correct when the value is absent or ours is not in it - a user who tidied their own
+  Path is not a failure to report while uninstalling. }
+procedure RemoveOurPath();
+var
+  OrigPath, Ours, Bounded: string;
+  P: Integer;
+begin
+  if not RegQueryStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', OrigPath) then
+    exit;
+  Ours := ExpandConstant('{app}');
+  Bounded := ';' + OrigPath + ';';
+  P := Pos(';' + Uppercase(Ours) + ';', Uppercase(Bounded));
+  if P = 0 then
+    exit;
+  Delete(Bounded, P, Length(Ours) + 1);
+  RegWriteExpandStringValue(HKEY_CURRENT_USER, 'Environment', 'Path',
+    Copy(Bounded, 2, Length(Bounded) - 2));
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usUninstall then
+    RemoveOurPath();
 end;
