@@ -88,7 +88,11 @@ def test_backup_copies_library_and_records_per_drive(client: TestClient, tmp_pat
     # "checked, gaps" and the Backups card lies about a successful copy.
     assert drives["DriveB"]["was_checked"] is True
     assert drives["DriveB"]["last_verified"] is not None
-    assert client.get(f"/api/drives?token={TOKEN}").json()["at_risk"] == []  # now safe in 2 places
+    # `(akt)`: the empty case is a zero TOTAL, not an empty list - the count is the claim.
+    assert client.get(f"/api/drives?token={TOKEN}").json()["at_risk"] == {
+        "total": 0,
+        "drives": [],
+    }  # now safe in 2 places
 
     # second run: everything is already on DriveB -> nothing to copy
     again = client.post("/api/backup/preview", json={"source": str(a), "target": str(b)}).json()

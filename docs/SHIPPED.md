@@ -29,6 +29,34 @@ recording shipped work as unstarted, which is the more expensive direction of th
   `test_every_site_calls_run_job_with_on_refuse` - every `await runJob({` must supply `onRefuse:`.
   [Full entry](research/backlog/abr.md)
 
+- **(akt) `/api/drives` SENT EVERY AT-RISK FILE TO A SCREEN THAT NAMES THREE.**
+  ✅ **CLOSED 2026-09-15**, filed and closed the same day.
+  **What was wrong**: `at_risk` was one entry per at-risk file and the browser used
+  **`rows.length` as the count** - so the custody headline was the length of an array that had to
+  carry the whole library to stay true. Measured: **18,600,370 bytes and 1,198.7 ms at 300,000
+  one-copy files**, on a screen that opens by default, to render twelve names. `at_risk` was
+  **100.0%** of that response.
+  **The rule**: cap the NAMES, never the COUNT. `total` is exact and summed from exact per-drive
+  totals; `shown` is capped at `AT_RISK_SAMPLE_LIMIT = 6`, twice the three the screen prints.
+  `OrganizedSample` is the same shape one surface over - *"tiles plus the count they were taken
+  from, so truncation is never silent."*
+  **Result**: **553 B at 2,574 and 561 B at 300,000** - constant, bounded by drives rather than
+  files. `JSON.parse` of the old array measured **117.6 ms** against **0.0018 ms**, before the
+  300,000 JS objects it left resident.
+  ⚠ **Build time got 5.7% worse** (1,198.7 -> 1,267.5 ms): an exact count plus a capped sample is
+  two statements where the old code ran one. The scan is not avoidable and no index removes it.
+  ⚠ **The first implementation measured faster and was slower.** A single windowed query won on a
+  **warm** connection (1,156 vs 1,181 ms) and lost badly on a **cold** one (1,587 vs 1,262 ms),
+  which is what the route actually pays. Measure the shape the caller uses.
+  **The honesty question**: *"and 299,997 more"* is a number with no way to reach it, so the
+  remedy's scope is now said - *"Copying to another drive covers 300,000 files, not only the ones
+  named here."* The action is the route.
+  **Census**: `at_risk` is the only field on this payload that grows with the library; `drives`
+  grows with drives and `decisions.stale` with a fixed six-word section vocabulary.
+  Guards: `test_the_at_risk_count_is_exact_and_the_names_are_capped.py` (7) plus two e2e, each
+  proven by mutation.
+  [Full entry](research/backlog/akt.md)
+
 - **(abj) FIND MATCHED ONE SUBSTRING, SO THE QUERY THAT DESCRIBED THE CORPUS FOUND NOTHING.**
   ✅ **CLOSED 2026-09-15.** Recorded 2026-08-05, retitled 2026-09-02 (P190).
   **What was wrong**: `find_copies_query` built a single `%term%` and ORed it across three

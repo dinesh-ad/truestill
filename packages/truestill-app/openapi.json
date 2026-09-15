@@ -167,24 +167,50 @@
         "title": "ArmedStatePayload",
         "type": "object"
       },
-      "AtRiskRow": {
+      "AtRiskDrive": {
         "properties": {
           "drive": {
             "type": "string"
           },
-          "name": {
-            "type": "string"
-          },
           "reach": {
             "type": "string"
+          },
+          "shown": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "integer"
           }
         },
         "required": [
           "drive",
-          "name",
-          "reach"
+          "reach",
+          "shown",
+          "total"
         ],
-        "title": "AtRiskRow",
+        "title": "AtRiskDrive",
+        "type": "object"
+      },
+      "AtRiskSummary": {
+        "properties": {
+          "drives": {
+            "items": {
+              "$ref": "#/components/schemas/AtRiskDrive"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "drives",
+          "total"
+        ],
+        "title": "AtRiskSummary",
         "type": "object"
       },
       "BackupPreviewErr": {
@@ -1329,10 +1355,7 @@
       "DrivesPayload": {
         "properties": {
           "at_risk": {
-            "items": {
-              "$ref": "#/components/schemas/AtRiskRow"
-            },
-            "type": "array"
+            "$ref": "#/components/schemas/AtRiskSummary"
           },
           "cannot_name_library": {
             "type": "string"

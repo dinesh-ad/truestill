@@ -207,7 +207,7 @@ def _backups(ui: Page, drives: list[dict[str, Any]]) -> str:
         lambda r: r.fulfill(
             status=200,
             content_type="application/json",
-            body=json.dumps({"drives": drives, "at_risk": []}),
+            body=json.dumps({"drives": drives, "at_risk": {"total": 0, "drives": []}}),
         ),
     )
     _with_library(ui, drives=drives, places=len(drives))

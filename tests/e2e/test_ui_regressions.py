@@ -929,7 +929,7 @@ def test_an_offline_drive_reads_as_not_plugged_in_never_as_missing(ui: Page) -> 
                         "bytes": 100,
                         "by_format": {},
                     },
-                    "at_risk": [],
+                    "at_risk": {"total": 0, "drives": []},
                     "drives": [
                         {
                             "label": "Away HDD",

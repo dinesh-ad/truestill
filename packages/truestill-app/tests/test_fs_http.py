@@ -180,7 +180,11 @@ def test_drives_split_photos_and_videos(client: TestClient, tmp_path: Path) -> N
     # ⚠ `reach` since 2026-09-12. `(akp)`: without it the remedy told a user to copy the library
     # when the at-risk file was on a drive that is not the library - and could not tell them when
     # the only copy was on a drive that is not even connected.
-    assert set(payload["at_risk"][0]) == {"name", "drive", "reach"}
+    # ⚠ **Grouped by drive since `(akt)`**: one entry per DRIVE carrying an exact `total` and a
+    # capped `shown`, instead of one entry per at-risk file. The keys a surface reads changed;
+    # what it can answer did not.
+    assert set(payload["at_risk"]) == {"total", "drives"}
+    assert set(payload["at_risk"]["drives"][0]) == {"drive", "reach", "total", "shown"}
 
 
 def test_fs_dirs_returns_roots_when_no_path(client: TestClient) -> None:

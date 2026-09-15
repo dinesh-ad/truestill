@@ -39,15 +39,23 @@ def _drive(label: str, reach: str, **overrides: Any) -> dict[str, Any]:
     return base
 
 
-def _open(
-    ui: Page, drives: list[dict[str, Any]], at_risk: list[dict[str, Any]] | None = None
-) -> None:
+def _at_risk(*drives: dict[str, Any]) -> dict[str, Any]:
+    """The `(akt)` payload: an exact total beside a capped sample, never a list of files.
+
+    ⚠ **A stub that sent the old flat list would be a fixture that lies about the contract** -
+    `at_risk` has been `{total, drives}` since `(akt)`, and an e2e that asserts against a shape
+    the server cannot send proves nothing about the screen.
+    """
+    return {"total": sum(int(d["total"]) for d in drives), "drives": list(drives)}
+
+
+def _open(ui: Page, drives: list[dict[str, Any]], at_risk: dict[str, Any] | None = None) -> None:
     ui.route(
         "**/api/drives",
         lambda r: r.fulfill(
             status=200,
             content_type="application/json",
-            body=json.dumps({"drives": drives, "at_risk": at_risk or []}),
+            body=json.dumps({"drives": drives, "at_risk": at_risk or _at_risk()}),
         ),
     )
     ui.click('.nav-item[data-screen="backups"]')
@@ -225,7 +233,13 @@ def test_the_at_risk_banner_offers_the_action_that_fixes_it(ui: Page) -> None:
     The banner is the INVENTORY (which drive, which files), not a second copy of the safety
     band's headline - so it names the file rather than repeating "A second copy is what makes…".
     """
-    _open(ui, [_drive("BackupA", "connected")], at_risk=[{"name": "IMG_1.jpg", "drive": "BackupA"}])
+    _open(
+        ui,
+        [_drive("BackupA", "connected")],
+        at_risk=_at_risk(
+            {"drive": "BackupA", "reach": "connected", "total": 1, "shown": ["IMG_1.jpg"]}
+        ),
+    )
     banner = ui.locator("[data-testid='backups-at-risk']")
     expect(banner).to_be_visible()
     expect(banner).to_contain_text("1 file")
@@ -237,6 +251,57 @@ def test_the_at_risk_banner_offers_the_action_that_fixes_it(ui: Page) -> None:
     expect(action).to_be_visible()
     action.click()
     expect(ui.locator("#bk-source")).to_be_focused()
+
+
+def test_the_headline_is_the_exact_count_and_the_names_are_a_sample(ui: Page) -> None:
+    """⚠ **THE `(akt)` CONTRACT, ON SCREEN.** 300,000 at risk, six names sent, three shown.
+
+    The number must be the server's exact `total` - it was `rows.length` over one entry per file,
+    which is why an 18.6 MB payload was needed to keep the headline true. The names are a sample
+    and the screen must say so with a real remainder, never "some" and never a silent truncation.
+    """
+    _open(
+        ui,
+        [_drive("BackupA", "connected")],
+        at_risk=_at_risk(
+            {
+                "drive": "BackupA",
+                "reach": "connected",
+                "total": 300000,
+                "shown": [f"IMG_{i}.jpg" for i in range(6)],
+            }
+        ),
+    )
+    banner = ui.locator("[data-testid='backups-at-risk']")
+    expect(banner).to_be_visible()
+    expect(banner).to_contain_text("300,000 files")
+    expect(banner).to_contain_text("IMG_0.jpg")
+    # Three names render; the remainder is counted against the TOTAL, not against what was sent.
+    expect(banner).to_contain_text("and 299,997 more")
+    expect(banner).not_to_contain_text("IMG_3.jpg")
+    # And the band above it reports the same exact number.
+    expect(ui.locator("#bak-safety-value")).to_have_text("300,000")
+
+
+def test_the_screen_says_the_remedy_covers_the_files_it_did_not_name(ui: Page) -> None:
+    """⚠ **THE HONESTY QUESTION.** *"and 299,997 more"* is a number with no way to reach it
+    unless the remedy's SCOPE is stated - a reader could reasonably think the button copies the
+    three files it just listed. The sentence naming what the copy covers is the route."""
+    _open(
+        ui,
+        [_drive("BackupA", "connected")],
+        at_risk=_at_risk(
+            {
+                "drive": "BackupA",
+                "reach": "connected",
+                "total": 300000,
+                "shown": [f"IMG_{i}.jpg" for i in range(6)],
+            }
+        ),
+    )
+    here = ui.locator("[data-testid='at-risk-here']")
+    expect(here).to_contain_text("covers 300,000 files")
+    expect(here).to_contain_text("not only the ones")
 
 
 def test_no_at_risk_banner_when_nothing_is_at_risk(ui: Page) -> None:

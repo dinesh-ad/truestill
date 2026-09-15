@@ -1165,6 +1165,41 @@ wait anyone reports. Revisit it when Find becomes type-ahead, or when a real lib
 comes from **positional trigrams**, for exactly the substring-match reason above. FTS5's trigram
 tokenizer is the same idea in the database we already ship.)*
 
+### 7.2 What `/api/drives` costs to build and to send (measured 2026-09-15, `(akt)`)
+
+⚠ **A STRUCTURAL COST, NOT A SLOW ONE.** `at_risk` carried one entry per at-risk file, so the
+response grew with the library while the screen has never shown more than three names per drive.
+`scripts/measure_drives_payload.py` builds a catalog whose files all sit on one drive - the worst
+case, and the case a new user is in - and measures the service call the route makes. n = 5, median
+reported. Local SSD (`/data/tmp/truestill`, ext4), Python 3.14.4.
+
+| one-copy files | payload before | payload after | build before | build after |
+|---|---|---|---|---|
+| 2,574 | 159,954 B | **553 B** | 9.4 ms | 10.1 ms |
+| **300,000** | **18,600,370 B** | **561 B** | 1,198.7 ms | 1,267.5 ms |
+
+**The payload is now constant** - bounded by the number of drives, not by the size of the library.
+`at_risk` was **99.8%** of the response at 2,574 and **100.0%** at 300,000; it is 34% of a 561-byte
+reply now.
+
+**The browser side is the larger half and is not in the table.** `JSON.parse` of the old 18.6 MB
+`at_risk` array measured **117.6 ms** (median of 5, node 24.16); the new payload parses in
+**0.0018 ms**. That is before the 300,000 JavaScript objects the old shape left resident on a
+screen that opens by default.
+
+⚠ **BUILD TIME GOT SLIGHTLY WORSE AND THAT IS THE TRADE, STATED.** +0.7 ms at 2,574 and **+68.8 ms
+(+5.7%)** at 300,000, because an exact per-drive `COUNT(*)` plus a capped sample is two statements
+where the old code ran one. The scan itself is not avoidable: the predicate is
+`GROUP BY ... HAVING COUNT(*) = 1` over every copy, a question about the whole table by
+construction, and **no index removes it**.
+
+🔑 **AND THE FIRST IMPLEMENTATION WAS FASTER ON A WARM CONNECTION AND MUCH SLOWER ON A COLD ONE.**
+A single windowed query - `COUNT(*) OVER (PARTITION BY ...)` with `ROW_NUMBER()` - reads better
+and won when measured in a loop on one connection: **1,156 ms against 1,181 ms**. The route builds
+a **fresh** catalog per call, and measured that way it loses badly: **1,587 ms against 1,262 ms**,
+because the window functions must materialise and sort every partition while a `GROUP BY` count
+sorts nothing. **Measure the shape the caller actually uses.** The two-step shipped.
+
 ### Declined, with the reason, so nobody revisits them as obvious wins
 
 **WAL - CONSIDERED AND DECLINED ON MEASUREMENT.** `journal_mode` is `delete`. WAL is the standard

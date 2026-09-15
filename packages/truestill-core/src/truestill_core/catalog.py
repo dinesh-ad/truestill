@@ -1102,6 +1102,23 @@ def timeline_label_sql(column: str = "f.category") -> tuple[str, list[str]]:
     return f"{column} NOT IN ({', '.join('?' for _ in labels)})", labels
 
 
+@dataclass(frozen=True, slots=True)
+class AtRiskGroup:
+    """One drive's at-risk files: the exact count, and a capped sample of names. `(akt)`
+
+    ⚠ **``total`` is never ``len(names)``** - that is the whole distinction this type exists to
+    carry, and a caller reading the wrong one turns the product's custody claim into a sample.
+    """
+
+    drive_uuid: str
+    drive_label: str
+    #: EXACT. Every at-risk file on this drive, counted by SQLite.
+    total: int
+    #: At most the caller's ``sample_limit``. ``total - len(names)`` is what a screen renders as
+    #: *"and N more"*.
+    names: tuple[str, ...]
+
+
 #: The columns a search looks at. ⚠ **This is the SUBJECT of Find, and it is narrower than a
 #: person assumes** - see `(abj)`. It holds the original filename, the organized path **relative
 #: to its drive**, and the source path the file was imported from. It does **not** hold the
@@ -2839,6 +2856,78 @@ class Catalog:
                 """
             )
         )
+
+    #: The at-risk predicate, written once. ⚠ **A copy known absent is not a place** -
+    #: `single_copy_shas`'s reasoning, and the three queries that ask this question must not
+    #: disagree about it.
+    _SINGLE_COPY_PREDICATE = """
+        fc.missing_at IS NULL AND fc.sha256 IN (
+            SELECT sha256 FROM file_copies WHERE missing_at IS NULL
+            GROUP BY sha256 HAVING COUNT(*) = 1
+        )
+    """
+
+    def single_copy_by_drive(self, *, sample_limit: int) -> list[AtRiskGroup]:
+        """At-risk files grouped by the drive holding their only copy. `(akt)`
+
+        Each group carries that drive's **exact total** and at most ``sample_limit`` names.
+
+        🔑 **THE COUNT IS EXACT AND THE NAMES ARE CAPPED, AND THAT ASYMMETRY IS THE POINT.**
+        *"83 files exist in only one place"* is the product's central custody claim - the band,
+        the banner title and the chip all rest on it - so it may never be a sample. The **names**
+        exist only to make the claim actionable, and a screen that prints three per drive does not
+        need three hundred thousand sent to it. :class:`OrganizedSample` is the same shape one
+        surface over: *"tiles plus the count they were taken from, so truncation is never
+        silent."*
+
+        ⚠ **TWO STATEMENTS, NOT ONE WINDOWED SCAN - AND THE FIRST MEASUREMENT SAID THE OPPOSITE.**
+        A single query with `COUNT(*) OVER (PARTITION BY ...)` and `ROW_NUMBER()` reads better and
+        was written first. Measured on a **warm** connection it won: 1,156 ms against 1,181 ms at
+        300,000 one-copy files. **On a COLD connection, which is what the route actually pays
+        because `open_catalog` builds a fresh one per call, it loses badly: 1,587 ms against
+        1,262 ms.** The window functions must materialise and sort every partition; the `GROUP BY`
+        count sorts nothing, and the per-drive sample is a handful of small queries over a
+        predicate SQLite has just evaluated. **Measure the shape the caller uses**, not the one
+        that is convenient in a loop.
+
+        ⚠ **The scan is not avoidable and no index removes it**: the predicate is a
+        `GROUP BY ... HAVING COUNT(*) = 1` over every copy, which is a question about the whole
+        table by construction. What `(akt)` removed is **building and sending** 300,000 rows to
+        render twelve names. `PERFORMANCE.md` §7.2.
+        """
+        totals = self._conn.execute(
+            f"""
+            SELECT d.uuid AS drive_uuid, d.label AS drive_label, COUNT(*) AS total
+            FROM file_copies fc
+            JOIN files f ON f.sha256 = fc.sha256
+            JOIN drives d ON d.uuid = fc.drive_uuid
+            WHERE {self._SINGLE_COPY_PREDICATE}
+            GROUP BY d.uuid
+            ORDER BY d.label
+            """
+        ).fetchall()
+        groups: list[AtRiskGroup] = []
+        for row in totals:
+            names = self._conn.execute(
+                f"""
+                SELECT f.original_name
+                FROM file_copies fc
+                JOIN files f ON f.sha256 = fc.sha256
+                WHERE fc.drive_uuid = ? AND {self._SINGLE_COPY_PREDICATE}
+                ORDER BY f.original_name
+                LIMIT ?
+                """,
+                (str(row["drive_uuid"]), sample_limit),
+            ).fetchall()
+            groups.append(
+                AtRiskGroup(
+                    drive_uuid=str(row["drive_uuid"]),
+                    drive_label=str(row["drive_label"]),
+                    total=int(row["total"]),
+                    names=tuple(str(n["original_name"] or "") for n in names),
+                )
+            )
+        return groups
 
     def single_copy_count(self) -> int:
         """How many files exist on exactly one drive -- the number, without the names.

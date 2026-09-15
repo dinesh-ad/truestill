@@ -57,7 +57,7 @@ def _show(ui: Page, drives: list[dict[str, Any]], cannot_name: str = "") -> None
                         "bytes": 100,
                         "by_format": {},
                     },
-                    "at_risk": [],
+                    "at_risk": {"total": 0, "drives": []},
                     "drives": drives,
                     "cannot_name_library": cannot_name,
                 }

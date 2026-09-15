@@ -2922,11 +2922,28 @@ function restoreOffer(d) {
 
 // Split at-risk rows the way `(akp)` requires: a copy action is only honest when the only
 // copy is on a drive that is HERE. Shared by the reserved safety band and the detail banner.
-function atRiskParts(rows) {
-  const names = (list) => [...new Set(list.map((r) => r.drive).filter(Boolean))].sort();
-  const away = rows.filter((r) => r.reach && r.reach !== "connected");
-  const here = rows.filter((r) => !r.reach || r.reach === "connected");
-  return { here, away, hereNames: names(here), awayNames: names(away) };
+// How many at-risk NAMES this screen prints per drive. The payload carries more
+// (`AT_RISK_SAMPLE_LIMIT`, 6) so this can grow without a contract change; it may never grow past
+// what the payload sends, which is what `and N more` is computed against.
+const AT_RISK_NAMES_SHOWN = 3;
+
+// ⚠ **`summary.drives` IS A LIST OF DRIVES, NOT OF FILES, SINCE `(akt)`** - so every count here
+// comes from `.total`, never from `.length`. Reading the length would report "2 files in only one
+// place" for a library with 300,000, which is the exact lie the cap exists not to tell.
+function atRiskParts(summary) {
+  const drives = (summary && summary.drives) || [];
+  const names = (list) => [...new Set(list.map((d) => d.drive).filter(Boolean))].sort();
+  const files = (list) => list.reduce((n, d) => n + (Number(d.total) || 0), 0);
+  const away = drives.filter((d) => d.reach && d.reach !== "connected");
+  const here = drives.filter((d) => !d.reach || d.reach === "connected");
+  return {
+    here,
+    away,
+    hereFiles: files(here),
+    awayFiles: files(away),
+    hereNames: names(here),
+    awayNames: names(away),
+  };
 }
 
 //: "A", "A and B", "A, B and C" - the drive names read as a sentence rather than a join.
@@ -2939,33 +2956,31 @@ function listOf(names) {
 // Inventory for the DETAIL banner under the drive list - names which drives hold the only
 // copies, and samples the files. Must NOT repeat the safety band's headline ("A second copy
 // is what makes N files safe…"). The band stays the headline; this is the ledger.
-function atRiskByDrive(rows) {
-  const map = new Map();
-  for (const r of rows) {
-    const drive = r.drive || "unknown";
-    if (!map.has(drive)) map.set(drive, []);
-    map.get(drive).push(r.name || "(unnamed)");
-  }
-  return map;
-}
-
-function atRiskSampleLine(drive, names, { away }) {
-  const shown = names.slice(0, 3).map((n) => esc(n));
-  const more = names.length > 3 ? `, and ${names.length - 3} more` : "";
+// ⚠ **THE NAMES ARE A SAMPLE AND THE NUMBER IS NOT.** `entry.total` is exact for this drive;
+// `entry.shown` is capped by the server. `and N more` is computed against the TOTAL, so it stays
+// true however few names travelled - and it is a real count, not "some".
+function atRiskSampleLine(entry, { away }) {
+  const names = entry.shown || [];
+  const shown = names.slice(0, AT_RISK_NAMES_SHOWN).map((n) => esc(n));
+  const remaining = (Number(entry.total) || 0) - shown.length;
+  const more = remaining > 0 ? `, and ${nfmt(remaining)} more` : "";
   const reach = away ? " (not connected)" : "";
-  return `On '${esc(drive)}'${reach}: ${shown.join(", ")}${more}.`;
+  return `On '${esc(entry.drive)}'${reach}: ${shown.join(", ")}${more}.`;
 }
 
 function atRiskInventoryLines(parts) {
   const lines = [];
-  const hereMap = atRiskByDrive(parts.here);
-  const awayMap = atRiskByDrive(parts.away);
-  if (hereMap.size) {
-    const bits = [...hereMap.entries()].map(([d, names]) => atRiskSampleLine(d, names, { away: false }));
-    lines.push(`<div class="k" data-testid="at-risk-here">${bits.join(" ")}</div>`);
+  if (parts.here.length) {
+    const bits = parts.here.map((d) => atRiskSampleLine(d, { away: false }));
+    // ⚠ **WHAT THE SCREEN SAYS ABOUT THE FILES IT DOES NOT NAME.** Naming three and printing
+    // "and 299,997 more" is a number with no way to reach it unless the remedy's SCOPE is said:
+    // the copy covers every one of them, not the named ones. That sentence is the route.
+    lines.push(`<div class="k" data-testid="at-risk-here">${bits.join(" ")}
+      Copying to another drive covers ${plural(parts.hereFiles, "file")}, not only the ones
+      named here.</div>`);
   }
-  if (awayMap.size) {
-    const bits = [...awayMap.entries()].map(([d, names]) => atRiskSampleLine(d, names, { away: true }));
+  if (parts.away.length) {
+    const bits = parts.away.map((d) => atRiskSampleLine(d, { away: true }));
     lines.push(`<div class="k" data-testid="at-risk-away">${bits.join(" ")}
       Connect ${parts.awayNames.length === 1 ? "that drive" : "those drives"} before anything can be
       copied from ${parts.awayNames.length === 1 ? "it" : "them"}.</div>`);
@@ -2973,10 +2988,11 @@ function atRiskInventoryLines(parts) {
   return lines;
 }
 
-function atRiskBanner(rows) {
-  const parts = atRiskParts(rows);
+function atRiskBanner(summary) {
+  const parts = atRiskParts(summary);
+  const total = Number(summary && summary.total) || 0;
   return `<div class="banner warn" data-testid="backups-at-risk"><div>
-      <div class="b-title">${plural(rows.length, "file")} with no second copy - by drive</div>
+      <div class="b-title">${plural(total, "file")} with no second copy - by drive</div>
       ${atRiskInventoryLines(parts).join("")}
       ${parts.here.length ? `<button class="btn btn-secondary" data-risk-action="copy">Copy to another drive</button>` : ""}
     </div></div>`;
@@ -3013,27 +3029,32 @@ function renderBakSafety(at_risk, drives, lib) {
   const anyDrive = ((lib && lib.places) || 0) > 0;
   const heldFloor = (lib && lib.held_floor) || 0;
   const hasFiles = !!(lib && lib.files);
-  const rows = at_risk || [];
+  // ⚠ **THE COUNT COMES FROM `at_risk.total`, NOT FROM AN ARRAY LENGTH, SINCE `(akt)`.** It was
+  // `rows.length` over one entry per at-risk file, which is why the whole library had to travel
+  // for the headline to be true - 18.6 MB at 300,000 files. The names are capped; this number
+  // never is.
+  const summary = at_risk || { total: 0, drives: [] };
+  const total = Number(summary.total) || 0;
 
   value.classList.remove("at-risk", "safe");
   action.innerHTML = "";
 
-  if (rows.length) {
-    const parts = atRiskParts(rows);
+  if (total) {
+    const parts = atRiskParts(summary);
     band.dataset.tone = "at-risk";
     setBakSafetyChip("Needs a second copy");
-    value.textContent = nfmt(rows.length);
+    value.textContent = nfmt(total);
     value.classList.add("at-risk");
-    label.textContent = rows.length === 1 ? "file in only one place" : "files in only one place";
-    title.textContent = `${plural(rows.length, "file")} ${rows.length === 1 ? "exists" : "exist"} in only one place`;
+    label.textContent = total === 1 ? "file in only one place" : "files in only one place";
+    title.textContent = `${plural(total, "file")} ${total === 1 ? "exists" : "exist"} in only one place`;
     const lines = [];
     if (parts.here.length) {
-      lines.push(`<div class="k">A second copy is what makes ${plural(parts.here.length, "file")} safe.
+      lines.push(`<div class="k">A second copy is what makes ${plural(parts.hereFiles, "file")} safe.
         Copy ${listOf(parts.hereNames)} to another drive below.</div>`);
     }
     if (parts.away.length) {
-      lines.push(`<div class="k">${plural(parts.away.length, "file")}
-        ${parts.away.length === 1 ? "has its" : "have their"} only copy on ${listOf(parts.awayNames)}, which
+      lines.push(`<div class="k">${plural(parts.awayFiles, "file")}
+        ${parts.awayFiles === 1 ? "has its" : "have their"} only copy on ${listOf(parts.awayNames)}, which
         ${parts.awayNames.length === 1 ? "is" : "are"} not connected. Connect
         ${parts.awayNames.length === 1 ? "it" : "them"} first - there is nothing to copy from until you do.</div>`);
     }
@@ -3120,7 +3141,7 @@ async function loadDrives() {
   // A stated risk with no way to act on it is a complaint. Stats offers a button for this
   // exact fact; Backups stated the count and stopped. The remedy lives on THIS screen, so the
   // action points at it rather than navigating away.
-  const risk = at_risk.length ? atRiskBanner(at_risk) : "";
+  const risk = (at_risk && at_risk.total) ? atRiskBanner(at_risk) : "";
   // ⚠ **THE REMEDY HAS TO NAME THE DRIVE THE FILE IS ACTUALLY ON.** `(akp)`. See atRiskParts.
 
 // A PATH IS SHOWN UNASKED ONLY WHEN IT IS DOING IDENTITY WORK. `(acs)`.

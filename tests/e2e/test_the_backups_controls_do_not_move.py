@@ -55,7 +55,12 @@ def _drive(label: str, uuid: str) -> dict[str, Any]:
 
 
 def _drives_body(n: int) -> str:
-    return json.dumps({"drives": [_drive(f"Drive {i}", f"u{i}") for i in range(n)], "at_risk": []})
+    return json.dumps(
+        {
+            "drives": [_drive(f"Drive {i}", f"u{i}") for i in range(n)],
+            "at_risk": {"total": 0, "drives": []},
+        }
+    )
 
 
 def _status_body() -> str:

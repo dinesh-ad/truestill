@@ -99,9 +99,12 @@ def test_the_at_risk_row_says_whether_its_one_copy_can_be_reached(tmp_path: Path
     _eject(external)
     absent = drives_service.at_risk(db)
 
-    assert [r["name"] for r in present] == ["only.jpg"], "the fixture lost its single-copy file"
-    assert present[0]["reach"] == "connected"
-    assert absent[0]["reach"] == "offline"
+    # ⚠ **The payload groups by DRIVE since `(akt)`**, so the name lives in the drive's capped
+    # `shown` sample and the count beside it is exact. The question this test asks is unchanged.
+    assert present["total"] == 1, "the fixture lost its single-copy file"
+    assert present["drives"][0]["shown"] == ["only.jpg"]
+    assert present["drives"][0]["reach"] == "connected"
+    assert absent["drives"][0]["reach"] == "offline"
     assert present != absent
 
 

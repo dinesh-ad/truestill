@@ -579,14 +579,50 @@ class WhereResult(TypedDict):
     page_size: int
 
 
-class AtRiskRow(TypedDict):
-    name: str
+#: How many at-risk file NAMES travel per drive. ⚠ **A cap on the names, never on the count.**
+#:
+#: The screen renders three per drive (`app.js`'s `atRiskSampleLine`), so this is twice what is
+#: shown: enough headroom that the sentence can grow a name without a contract change, and small
+#: enough that the payload is bounded by drives rather than by files. `GRID_SAMPLE_LIMIT` is the
+#: same decision one surface over, at a size that surface's job needs.
+AT_RISK_SAMPLE_LIMIT = 6
+
+
+class AtRiskDrive(TypedDict):
+    """One drive's share of the at-risk files: how many, and a few of their names. `(akt)`"""
+
     drive: str
     #: ⚠ **Without this the remedy cannot be right.** `(akp)`: a file at risk on a drive that is
     #: not the library was told to *"copy your library to another drive"*, which backs up a set
     #: the file is not in. The action depends on where the one copy actually is and whether it
     #: can be reached, and neither was sent.
     reach: str
+    #: ⚠ **EXACT, ALWAYS.** Never the length of ``shown`` - that is the point of the split.
+    total: int
+    #: At most :data:`AT_RISK_SAMPLE_LIMIT` names. ``total - len(shown)`` is what the screen
+    #: renders as *"and N more"*, so a reader can always tell a sample from the whole set.
+    shown: list[str]
+
+
+class AtRiskSummary(TypedDict):
+    """The custody claim, plus enough names to act on it. `(akt)`
+
+    ⚠ **THE COUNT IS EXACT AND THE NAMES ARE CAPPED, AND CONFLATING THEM WAS THE DEFECT.** Until
+    `(akt)` this was a flat `list[AtRiskRow]`, one entry per at-risk file, and the browser used
+    **`rows.length` as the count** - so the number in *"83 files exist in only one place"* was the
+    length of an array that had to carry every file to stay true. Measured: 300,000 one-copy files
+    produced an **18.6 MB** response and **1.2 s** of build time, on a screen that opens by
+    default, to render twelve names.
+
+    :class:`OrganizedSample` is the same shape one surface over, and its docstring is the rule:
+    *"tiles plus the count they were taken from, so truncation is never silent."*
+    """
+
+    #: ⚠ **THE PRODUCT'S CENTRAL CLAIM, AND IT IS NEVER A SAMPLE.** The band, the banner title and
+    #: the chip all rest on this number. Summed from the per-drive totals, which SQLite computes
+    #: exactly in the same scan that picks the names.
+    total: int
+    drives: list[AtRiskDrive]
 
 
 def _drive_decisions(
@@ -623,7 +659,7 @@ class DrivesPayload(TypedDict):
     """
 
     drives: list[DriveRow]
-    at_risk: list[AtRiskRow]
+    at_risk: AtRiskSummary
     #: ⚠ **Why no card carries a count, said ONCE.** Empty in the ordinary case. It is a fact
     #: about the catalog - it has organized into more than one folder - not about any one drive,
     #: and the first version repeated all 148 characters of it on every card.
@@ -854,17 +890,31 @@ def where(term: str, db: Path, *, page: int = 1) -> WhereResult:
     }
 
 
-def at_risk(db: Path) -> list[AtRiskRow]:
+def at_risk(db: Path) -> AtRiskSummary:
+    """Files whose only copy is on one drive, grouped by that drive. `(akt)`
+
+    ⚠ **The payload is bounded by the number of DRIVES, not by the size of the library.** It was
+    one entry per at-risk file until `(akt)` - 18.6 MB at 300,000 - and the screen has never shown
+    more than three names per drive.
+    """
     with open_catalog(db) as catalog:
         reach = _reach_per_drive(catalog)
-        return [
-            {
-                "name": r["original_name"] or r["sha256"][:12],
-                "drive": r["drive_label"],
-                "reach": reach(str(r["drive_uuid"])),
-            }
-            for r in catalog.single_copy_shas()
-        ]
+        groups = catalog.single_copy_by_drive(sample_limit=AT_RISK_SAMPLE_LIMIT)
+        return {
+            # ⚠ Summed from the EXACT per-drive totals, never from the sampled names. A `total`
+            # derived from `shown` would be this defect rebuilt: the browser used `rows.length`
+            # as the count, which is why the whole library had to travel to keep it true.
+            "total": sum(group.total for group in groups),
+            "drives": [
+                {
+                    "drive": group.drive_label,
+                    "reach": reach(group.drive_uuid),
+                    "total": group.total,
+                    "shown": list(group.names),
+                }
+                for group in groups
+            ],
+        }
 
 
 class LibraryStatus(TypedDict):
