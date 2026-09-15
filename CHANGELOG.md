@@ -6,6 +6,95 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+The first release with **licensing**, and the release where organizing stops being the only thing
+Truestill can do for you: photographs can now come **back** off a drive, a Google Takeout rescue
+can be **applied** rather than only previewed, and a copy the product has proven is corrupt stops
+being counted as somewhere your photograph lives.
+
+Every screen has been redrawn.
+
+### Added
+
+- **Bring photographs back from a drive.** Until now a backup drive was somewhere files went.
+  `truestill recover`, and *Bring these back* on the drive card, fill gaps in your library from a
+  drive that has them - comparing content, never overwriting, and never touching a file that is
+  already right. `truestill carried` says what a drive is holding that this computer is not.
+- **Apply a Google Takeout rescue.** The Import screen could show you what a Takeout export held
+  and then leave you to the command line. It can now do it, behind a typed confirmation, and it
+  cleans up the unpacked copy after itself.
+- **Every screen that names a drive says whether it is plugged in.** Previously you had to
+  remember which of your drives was connected, on screens that listed all of them alike.
+- **A copy proven corrupt is recorded as corrupt.** `verify` could read a photograph, find its
+  bytes wrong, tell you "1 changed" - and write nothing down, so the next screen still counted
+  that copy as a place your photograph lived. It is now recorded, your custody counts exclude it,
+  and `recover` refuses to pull from it.
+- **Licensing, and a free tier that is a volume cap rather than a crippled product.** The first
+  1,000 files you organize are free, cumulatively; everything else - finding, browsing, verifying,
+  checking where things are - stays unlimited and always will. A licence is a file you save and
+  use; there is no account, no sign-in, and nothing phones home. A lapsed licence keeps every
+  version it paid for.
+- **`truestill account`** shows which licence this installation holds, and `--use-file` installs
+  one. `truestill self-check` now names it too, without printing anything personal - it is a
+  report designed to be pasted into a bug report.
+
+### Changed
+
+- **The whole interface has been redrawn.** A warm canvas, a single dark rail, one accent colour,
+  and a type scale cut from eight sizes to six. The Organize screen is rebuilt around a stepper
+  that says where you are, one card instead of four, counts that stay put while you read them,
+  and a button that stops moving under the pointer.
+- **Every clickable thing is at least 24x24 pixels**, which is WCAG 2.2's floor, measured in a
+  real browser rather than asserted.
+- **The Organize preview shows what your library will actually look like**, per destination,
+  instead of a summary you had to interpret.
+
+### Fixed
+
+- **Searching for two words works.** `2014 IMG` matched nothing at all, because the whole phrase
+  was treated as one literal piece of text. Each word is now matched separately and order does not
+  matter.
+- **Settings shows the version you are running.** Every published build called itself
+  *"unknown (not installed)"* on its own Settings screen, so the one place you would look to
+  report a bug could not tell you what you had.
+- **The Drives screen opens quickly on a large library.** It was sending every at-risk file to a
+  screen that shows three of them - about 18 MB of names at 300,000 files. The count is still
+  exact; only the names are capped.
+- **`verify` reads the disk, not memory.** It could confirm a file it had just written by reading
+  it back out of the operating system's cache, which proves nothing about what is on the drive.
+- **A licensed run no longer spends your free allowance.** Runs made with a licence were still
+  counted against the free 1,000. Nothing looked wrong at the time - but if you ever lost the
+  licence file, you were left with nothing, having paid.
+- **Organizing to a second destination previews correctly**, instead of reusing the first
+  destination's answer.
+- **Changing a setting clears the result it produced**, rather than leaving an answer on screen
+  that no longer describes what you asked for.
+- **The destination tree is a tree on Windows**, not a flat list.
+- **Two spellings of one folder are one folder** in the three places that decide something.
+- **A long email address wraps at the `@` or the dot** in the account panel, instead of breaking
+  mid-word.
+- **A very large run no longer builds its whole record in memory** before writing it.
+
+### A note on how this file is written
+
+⚠ **A commit that changes what a user sees gets a line here. Most commits do not.** The twenty
+lines above stand for every commit in this release a customer would notice. The rest - the large
+majority - are tests, guards, refactors, CI, measurement and documentation: real work, and not
+news to someone deciding whether to upgrade. Count the release rather than trusting a number
+here, which is the same rule the rest of this repository's prose follows:
+
+```sh
+git log --oneline v0.1.1..HEAD | wc -l
+``` Keep a Changelog's own tagline is the rule: *"don't let your friends dump git logs
+into changelogs."* Commit messages here are engineering prose written for the next engineer, and
+they are right to be; this file is written for the person running the product, from the outside
+in, describing **what they gained** rather than what moved.
+
+**Nothing enforces this**, deliberately. A guard would have to decide whether a diff changes what
+a user sees, which no test can answer - the same reasoning `docs/BACKLOG.md` `(ajk)` records for
+quoting evidence. The practice is written down instead, which is what makes it checkable by a
+person at release time: read the log, and for each commit ask whether a customer would notice.
+
+
 ## [0.1.1] - 2026-09-03
 
 A patch release. **If you have 0.1.0, take this one before organizing anything.**
