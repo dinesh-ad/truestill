@@ -224,10 +224,21 @@ truestill organize <source> <destination> --apply
 truestill-app                 # the local web UI
 ```
 
-⚠ **These are the commands an installed copy answers to** - the packages put `truestill` on your
-`PATH` (the release lane asserts `/usr/bin/truestill` exists before it will publish). **Working
-from a clone, prefix every one with `uv run`.** This block said `uv run` for all readers until
-2026-08-30, which is the one prefix a person who downloaded a release does not have.
+⚠ **THESE ARE CLONE COMMANDS. AN INSTALLED COPY ANSWERS TO NONE OF THEM** - prefix every one
+with `uv run`. **The published packages contain the app and not the CLI**: the frozen entry point
+is `truestill_app/__main__.py`, `truestill-cli` has zero entries in the bundle, and the
+`truestill` the packages put on your `PATH` is the web UI. Measured on the 2026-09-15 dry-run
+`.deb`: `truestill analyze <folder>` exits 2 with *"unrecognized arguments"*, and so do
+`organize`, `verify`, `account` and `self-check`. The one flag that works on both is
+`truestill --self-check`.
+
+⚠ **This paragraph claimed the opposite until 2026-09-15**, and cited the release lane's
+`/usr/bin/truestill` assertion as its evidence - which is true and does not support it. The lane
+asserts the **file exists**; it never asserts what the file accepts, and the only command it runs
+on the installed copy is `--self-check`, the single flag both surfaces share. So CI was green on
+the one path that works while every documented command failed. **The install section above is
+where most people start**, which is why this correction is here rather than in a footnote. This
+block said `uv run` for all readers until 2026-08-30 and was then changed in the wrong direction.
 
 **Start with `analyze`** if you have not used Truestill before. It needs only a folder - no
 destination, no library, no setup.
