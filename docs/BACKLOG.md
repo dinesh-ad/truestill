@@ -55,9 +55,15 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akp). Next free: (akq).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aku). Next free: (akv).**
 ⚠ **`(akk)` was the declared next free while `(akl)`–`(akp)` were filed past it** - gap filled
 2026-09-14; letters are identifiers, not an ordering.
+⚠ **AND IT HAPPENED AGAIN, IDENTICALLY**: `(akq)` stood as the declared next free while `(akr)`
+through `(aku)` were filed past it on 2026-09-14/15 - four entries, none of which moved this line.
+Gap filled 2026-09-15 by `(akq)`. **The guard cannot see this class**:
+`test_the_allocation_line_does_not_point_at_a_taken_letter` asks only whether the named letter is
+taken, and `(akq)` never was - so a line four letters behind the tree is green. Whoever files the
+next entry moves this line in the same commit; nothing else will.
 **Retired 2026-09-02 (P190), and named here because a retired letter is not a free one:** `(abz)`
 (*"Organize shows one population three ways and connects none of them"*). False before it was
 filed: `rearrangeNote` in `app.js` (`93635af`, 2026-08-06; `RearrangeNote` in `frontend/src/preview.tsx` since 2026-09-05) prints *"N of M files here are already in

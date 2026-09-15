@@ -29,6 +29,34 @@ recording shipped work as unstarted, which is the more expensive direction of th
   `test_every_site_calls_run_job_with_on_refuse` - every `await runJob({` must supply `onRefuse:`.
   [Full entry](research/backlog/abr.md)
 
+- **(akq) A LICENSED RUN CHARGED THE FREE COUNTER, AND SELF-CHECK SAID NOTHING ABOUT THE LICENCE.**
+  ✅ **CLOSED 2026-09-15**, all three halves found by **issuing a real licence and using it**.
+  **What was wrong**: `allowance.record_files_written` was unconditional, so the first licensed run
+  over a 2,574-file library took the counter from **844 to 3,418**. Invisible at the time - an
+  entitled install never reads the counter - and ruinous the moment the token is lost or signed
+  out, when the free-tier fallback answers **"0 of 1,000 left"**: a paying customer left worse off
+  than someone who had just downloaded truestill. ⚠ **The counter is a CAP, not a meter.**
+  **Ruled** `DECISIONS.md` **D16 §8**, a clarification of §1 and not a change to it: §1's
+  *"cumulative across every run"* is the free tier's own arithmetic, written to close a per-run
+  bypass, never an argument for billing a licence holder against a limit that does not apply.
+  ⚠ **The test is `remaining_for`, never a list of states** - it already owns the asymmetry that
+  ACTIVE and LAPSED are entitlements and UNREADABLE is not, so a garbage token cannot buy a bypass.
+  ⚠ **NOT a reset**: what an install wrote on the free tier survives the purchase; only the adding
+  stops. The 3,418 goes back to **161** by §3's documented means, which is any customer's means.
+  **Second half**: `self-check` was **byte-identical licensed and unlicensed** while printing
+  *"entitlement epoch 1"* - a property of the BUILD, not the install. `licence_finding()` reports
+  state, path, `kid`, licence id, edition, `covers_through`, `updates_until`; it **excludes name,
+  email and account id**, because the report exists to be pasted. `UNREADABLE` is the only
+  `DEGRADED` state - a free user is not a broken user.
+  **Third half**: no CLI licence surface existed at all, so a terminal-only customer had to guess
+  where the token file goes. `truestill account` and `account --use-file PATH` - the smallest
+  honest surface. ⚠ **No second vocabulary**: the name is read off the rail (`/api/account`,
+  *"Account and licence"*, *"Use this licence file"*), and every sentence comes from
+  `licence_notice.account_summary`. ⚠ **Sign-out deliberately absent** - a one-line destructive
+  verb with no ceremony is worse than no verb (`reclaim`'s rule).
+  Guards: 7 + 5 + 6 new tests; **six mutations, six caught**.
+  [Full entry](research/backlog/akq.md)
+
 - **(aku) VERIFY PROVED A COPY CORRUPT AND THE CATALOG HAD NOWHERE TO PUT IT.**
   ✅ **CLOSED 2026-09-15**, found by **using the product** rather than by a test.
   **What was wrong**: `file_copies` had `last_verified` and `missing_at` and **no column for

@@ -44,10 +44,11 @@ from enum import StrEnum
 from pathlib import Path
 
 from truestill_core import __version__, app_paths, binaries
+from truestill_core.app_paths import licence_path
 from truestill_core.binaries import bundled_bin_dirs, is_bundled_install
 from truestill_core.cleanup import trash_backend
 from truestill_core.exif import ExiftoolMissingError, ensure_exiftool
-from truestill_core.licence import BUILD_EPOCH, EPOCH_OPENED_AT
+from truestill_core.licence import BUILD_EPOCH, EPOCH_OPENED_AT, LicenceState, read_licence
 from truestill_core.safe_copy import staging_path
 from truestill_core.version import UNKNOWN_VERSION
 
@@ -366,6 +367,7 @@ def core_findings() -> list[Finding]:
         install_finding(),
         version_finding("truestill-core", __version__),
         entitlement_epoch_finding(),
+        licence_finding(),
         exiftool_finding(),
         trash_finding(),
         *location_findings(),
@@ -395,6 +397,67 @@ def entitlement_epoch_finding() -> Finding:
         f"epoch {BUILD_EPOCH}, opened at {EPOCH_OPENED_AT.get(BUILD_EPOCH, 'unrecorded')}",
         {"epoch": BUILD_EPOCH},
     )
+
+
+def licence_finding() -> Finding:
+    """What entitlement this installation holds. `(akq)`
+
+    ⚠ **THIS OUTPUT WAS BYTE-IDENTICAL LICENSED AND UNLICENSED**, while printing *"entitlement
+    epoch 1"* one line above - a property of the **build**, not of the install. Support's first
+    question is *"what does self-check say"*, and the answer said everything except the thing
+    being asked about.
+
+    **It reports what it HOLDS; the comparison belongs to the caller** - this module's founding
+    rule, unchanged. It says which file is there, which key signed it, what it claims to cover and
+    what that verifies as **on this build**. It does not and cannot say whether that is the
+    licence the customer paid for; only the maintainer's store answers that, from the id below.
+
+    ⚠ **NOTHING PERSONAL, BECAUSE THIS REPORT EXISTS TO BE PASTED.** The payload carries the
+    buyer's **name** and **email** and an **account id**, and all three are excluded: a diagnostic
+    a person is invited to paste into an issue must not carry their identity, and the account id
+    links a person's separate purchases to each other. The **licence id** is included, and it is
+    the one identifier that earns its place - opaque on its own, and the exact key
+    `scripts/licences.py find` resolves, so a support conversation needs no second round trip.
+
+    ⚠ **`UNREADABLE` is the only DEGRADED state here.** Absent, signed-out and lapsed are facts
+    about an install rather than faults in one - `entitlement_epoch_finding`'s reasoning - and a
+    free user is not a broken user. A token that is present and will not verify is a real fault
+    and says so, carrying `reason` so the user knows what to replace.
+    """
+    current = read_licence()
+    path = licence_path()
+    evidence: dict[str, str | int] = {"state": str(current.state), "path": str(path)}
+    payload = current.payload
+    if payload is not None:
+        # Deliberately NOT `name`, `email` or `account` - see the docstring.
+        evidence.update(
+            {
+                "kid": payload.kid,
+                "licence": payload.licence,
+                "edition": payload.edition,
+                "covers_through": payload.covers_through,
+                "updates_until": payload.updates_until,
+            }
+        )
+        detail = (
+            f"{current.state}: {payload.edition}, covers epoch {payload.covers_through}, "
+            f"updates until {payload.updates_until} (kid {payload.kid}, "
+            f"licence {payload.licence})"
+        )
+        status = Status.OK if current.state is LicenceState.ACTIVE else Status.INFO
+        return Finding("licence", status, detail, evidence)
+
+    if current.state is LicenceState.UNREADABLE:
+        if current.reason:
+            evidence["reason"] = current.reason
+        return Finding(
+            "licence",
+            Status.DEGRADED,
+            f"a licence file is present at {path} and this build cannot read it"
+            + (f" - {current.reason}" if current.reason else ""),
+            evidence,
+        )
+    return Finding("licence", Status.INFO, f"{current.state} - no licence file at {path}", evidence)
 
 
 def not_checked_finding(name: str, run_instead: str) -> Finding:

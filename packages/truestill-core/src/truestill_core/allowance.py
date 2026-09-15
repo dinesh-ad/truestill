@@ -36,7 +36,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from truestill_core.app_paths import allowance_path
-from truestill_core.licence import Licence, LicenceState
+from truestill_core.licence import Licence, LicenceState, read_licence
 from truestill_core.models import ActionResult, ActionStatus
 
 #: D16 §1's starting number, and it is deliberately low.
@@ -169,8 +169,24 @@ def files_written() -> int:
     return written
 
 
-def record_files_written(count: int) -> int:
+def record_files_written(count: int, *, licence: Licence | None = None) -> int:
     """Add ``count`` to the cumulative total and return the new one. **Never raises.**
+
+    ⚠ **A RUN AN ENTITLEMENT PAID FOR DOES NOT CHARGE THE FREE COUNTER** (`DECISIONS.md` D16 §8).
+    This was unconditional until `(akq)`, and the consequence was measured on a real install: a
+    licensed run took the counter from 844 to **3,418**, so a paying customer who lost their token
+    file would land on *"0 of 1,000 left"* - **worse off than someone who had just downloaded the
+    product**, at the moment they are already in trouble. D16 §1's *"cumulative across every run"*
+    was written about the free tier; it was never an argument for billing a licence holder against
+    a limit that does not apply to them.
+
+    ⚠ **THE TEST IS `remaining_for`, NOT A LIST OF STATES**, so "entitled" has one definition and a
+    sixth state could never disagree with it. `LAPSED` is uncapped too, and must be: D16 §2 says a
+    lapsed licence loses nothing it bought, and charging it would take the free tier away from
+    someone who had paid.
+
+    ``licence`` is accepted so a caller holding one does not read the file twice; the default
+    reads it, and `read_licence` never raises either.
 
     **Read-modify-write, with the read going through :func:`files_written`**, so a damaged
     counter is replaced by a sound one rather than compounding. Two runs at once can lose an
@@ -181,6 +197,12 @@ def record_files_written(count: int) -> int:
     an organize run that was already permitted - the write is bookkeeping, and the work it
     records has more value than the record.
     """
+    current = licence if licence is not None else read_licence()
+    if remaining_for(current.state, 0) is None:
+        # Entitled: there is no cap to draw down, so there is nothing to charge. The counter is
+        # left exactly as it stands - not reset - because it is the record of what this install
+        # wrote while it WAS on the free tier, and that fact survives a purchase.
+        return files_written()
     total = files_written() + max(0, count)
     target = allowance_path()
     try:

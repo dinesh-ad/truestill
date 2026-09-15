@@ -112,6 +112,7 @@ because somebody went looking, and this table still cannot show an app-only capa
 | `carried` | `cli.py` `add_parser("carried"` | **none** | the restore arc's stage 1, and the app has the SENTENCE without the answer - `app.js` says a drive carries decisions this computer lacks. Stage 3 |
 | `recover` | `cli.py` `add_parser("recover"` | `/api/recover/{preview,run}` `server.py:create_app.recover_preview` | **covered**, preview and apply, with the drive card's "Bring these back". ⚠ The preview is a JOB here and a plain request on `backup`, because answering it stats the whole library |
 | `self-check` | `cli.py` `add_parser("self-check"` | **none** | process flag only |
+| `account` | `cli.py` `add_parser("account"` | `/api/account`, `/api/account/activate`, `/api/account/sign-out` `server.py:create_app.account` | **covered for what the CLI has**, and the gap runs the OTHER way: the app can sign out and the CLI deliberately cannot (`(akq)` - removing an entitlement is not a thing to do by typing it from memory). That direction is the one this table cannot key, `(ahg)` |
 
 ### Flags missing from covered commands
 

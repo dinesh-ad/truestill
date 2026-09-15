@@ -1287,6 +1287,47 @@ the client:** the Account screen, `/api/account*` routes, and the rail's account
 (`renderAccount`). §5's free-tier announcement is a **website** deliverable and the website
 does not exist.
 
+### 8. A LICENSED RUN DOES NOT CHARGE THE FREE COUNTER (2026-09-15, `(akq)`)
+
+**A clarification of §1, not a change to it.** `record_files_written` was unconditional, so every
+applied organize run drew down the free allowance whether or not an entitlement had paid for it.
+
+⚠ **Found by using the product, and the consequence was measured on a real install.** One licensed
+run over a 2,574-file library took the counter from **844 to 3,418**. Nothing was visibly wrong at
+the time - an entitled install never reads the counter - but the moment that token file is lost or
+signed out, the fallback is *"0 of 1,000 left"*: **worse off than someone who had just downloaded
+truestill**, at exactly the moment they are already in trouble and least able to cope with it.
+
+**§1's *"cumulative across every run"* is what was misread, and the misreading was mine to correct
+rather than to obey.** That sentence exists to close one hole and says so in its own words: *"A
+per-run cap is not a cap: a user runs it n times and the free tier is the entire product."* It is
+an argument about **the free tier's** arithmetic. It was never an argument for billing a licence
+holder against a limit that does not apply to them, and reading it that way turns a rule protecting
+the business into one that punishes the customer.
+
+**Ruled: the counter records what this install wrote WHILE ON THE FREE TIER.** An entitled run
+writes files; it does not spend an allowance, because it has none to spend.
+
+- **`ACTIVE` and `LAPSED` do not charge.** Lapsed is included by §2 - *"a lapsed licence loses
+  nothing it bought"* - and charging it would hand someone who paid a smaller free tier than
+  someone who never did.
+- **`UNREADABLE` still charges**, by `remaining_for`'s existing asymmetry: a token that will not
+  verify cannot be told from no token, so it cannot be the basis of an entitlement.
+- **The test is `remaining_for`, never a list of states**, so "entitled" has one definition and a
+  sixth state cannot disagree with it.
+
+⚠ **THE COUNTER IS NOT RESET WHEN A LICENCE IS INSTALLED, and that is deliberate.** What a user
+wrote on the free tier is a fact, and it survives a purchase. What changes is that nothing is added
+to it while the entitlement stands.
+
+⚠ **What happens to the 3,418 already on the maintainer's install.** It is defect residue and test
+noise, not usage: the value before this work began was **161**, and everything above that is a
+licensed run plus walkthrough runs made while proving the cap. It is corrected to **161** - his
+genuine free-tier usage - by the documented means §3 already names, *"deleting it, or editing it to
+zero, restores the full allowance"*. **Correcting it is not a special entitlement**: any user whose
+counter was inflated by this defect may do the same, and the file is plain JSON precisely so they
+can.
+
 ---
 
 ## D17. Import applies in the app too, and it means "into this destination"

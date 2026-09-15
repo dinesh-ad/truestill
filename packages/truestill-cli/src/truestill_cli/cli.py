@@ -23,11 +23,18 @@ from pathlib import Path
 from typing import Any
 
 from truestill_core import decode_noise
-from truestill_core.allowance import files_written_by, record_files_written
+from truestill_core.allowance import (
+    FREE_FILE_ALLOWANCE,
+    files_written,
+    files_written_by,
+    record_files_written,
+    remaining_for_licence,
+)
 from truestill_core.app_paths import (
     LEGACY_CATALOG_PATH,
     cache_path_for,
     default_catalog_path,
+    licence_path,
     record_path_for,
     resolve_catalog_choice,
 )
@@ -185,7 +192,8 @@ from truestill_core.left_behind import (
     files_left_in_source,
     will_remain_line,
 )
-from truestill_core.licence_notice import refusal_before_a_run
+from truestill_core.licence import LicenceState, install_token_from, read_licence
+from truestill_core.licence_notice import account_summary, refusal_before_a_run
 from truestill_core.migrate import (
     ROUTE_SIDE_BIN,
     STOP_WORDING,
@@ -387,6 +395,7 @@ _LOCKS_DRIVE_AT: dict[str, str | None] = {
     "verify": None,  # reads and stamps; a stale stamp is not a lost file
     "status": None,  # a query
     "self-check": None,  # inspects this install, never a library
+    "account": None,  # reads the licence file and this install's own data dir, never a library
     "catalog": None,  # catalog-only
     "config": None,  # settings rows
     "backup": "target",  # writes into the target drive; `(ahf)`
@@ -725,6 +734,17 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser(
         "self-check", help="report what this installation of Truestill actually contains"
+    )
+    # ⚠ **NAMED FOR WHAT THE RAIL ALREADY CALLS IT**, `(akq)`. The app's own surface is the
+    # account slot - `aria-label="Account and licence"`, `/api/account`, `service/account.py` -
+    # and its activation button reads **"Use this licence file"**. A CLI that invented `licence`,
+    # `activate` or `register` would be a second vocabulary for one idea, which §9 forbids and
+    # which `restore`/`recover`/`import` already cost this product once.
+    account = sub.add_parser("account", help="show this installation's licence, or use a new one")
+    account.add_argument(
+        "--use-file",
+        metavar="PATH",
+        help="use this licence file - the same act as the app's 'Use this licence file'",
     )
 
     catalog_cmd = sub.add_parser(
@@ -2267,6 +2287,53 @@ def _recheck_route(catalog: Catalog, holding: list[Any]) -> str | None:
 #: genuinely out of reach here - and taking a dependency on the app to complete one command's
 #: output would trade a boundary worth keeping for a sentence.
 _APP_ASSETS_CHECKER = "truestill-app --self-check"
+
+
+def _cmd_account(args: argparse.Namespace) -> int:
+    """Show this installation's licence, or use a new one. `(akq)`
+
+    ⚠ **THERE WAS NO CLI LICENCE SURFACE AT ALL.** A terminal-only customer received a token file
+    and had to discover, unaided, that it belongs at `app_paths.licence_path()`. `scripts/licences.py`
+    is the **maintainer's** tool and lives outside the product; `whois` is not theirs to run.
+
+    **The smallest honest surface is two things: see the state, and use a file.** Those are the
+    only two the app offers a user who is not signing out, and adding more would be inventing a
+    workflow the product does not have anywhere else.
+
+    ⚠ **SIGN-OUT IS DELIBERATELY ABSENT.** It deletes the licence file, and the app spends a whole
+    paragraph warning before it does - *"Keep a copy - you need it to sign back in."* A one-line
+    destructive verb with no ceremony is worse than no verb, and the path is printed here, so
+    removing the file is already obvious to anyone who means it. `reclaim`'s ceremony rule.
+
+    **Every sentence comes from `licence_notice.account_summary`**, which is what the rail renders,
+    so the two surfaces cannot word one outcome differently (§9).
+    """
+    if args.use_file is not None:
+        chosen = args.use_file.strip()
+        if not chosen:
+            print("No path given. Pass the licence file you downloaded.", file=sys.stderr)
+            return 2
+        result = install_token_from(Path(chosen).expanduser())
+        if result.state is LicenceState.UNREADABLE:
+            # Core's own sentence, not a second wording of it.
+            print(result.reason, file=sys.stderr)
+            return 2
+
+    current = read_licence()
+    summary = account_summary(
+        current, remaining_for_licence(current, files_written()), FREE_FILE_ALLOWANCE
+    )
+    print(summary.headline)
+    if summary.detail:
+        print(f"  {summary.detail}")
+    if summary.allowance:
+        print(f"  {summary.allowance}")
+    if summary.notice is not None:
+        print(f"  {summary.notice.message}")
+    # ⚠ The path is printed in EVERY state, not only when a file is missing: it is where to put
+    # one, where to find the one in use, and what to delete to sign out. One line, three answers.
+    print(f"  licence file: {licence_path()}")
+    return 0
 
 
 def _cmd_self_check(_args: argparse.Namespace) -> int:
@@ -5558,6 +5625,7 @@ def _dispatch(argv: list[str] | None) -> int:
         "verify": _cmd_verify,
         "status": _cmd_status,
         "self-check": _cmd_self_check,
+        "account": _cmd_account,
         "catalog": _cmd_catalog,
         "config": _cmd_config,
         "backup": _cmd_backup,

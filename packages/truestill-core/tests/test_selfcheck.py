@@ -385,6 +385,8 @@ def test_core_findings_covers_every_check_core_can_answer_for() -> None:
         "install",
         "version truestill-core",
         "entitlement epoch",
+        # `(akq)`: which entitlement this INSTALL holds, beside the epoch this BUILD carries.
+        "licence",
         "exiftool",
         "trash",
         "catalog",
