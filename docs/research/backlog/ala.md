@@ -160,6 +160,24 @@ no `skipif` - the injection `(ais)`'s resolution calls for.
 returning the drifted spelling end to end. That is the one step a `sudo mount` would add, and it
 is the step between "the filesystem folds" and "truestill sees two names".
 
+## ⚠ AND THE WINDOWS LANE WENT RED ON MY OWN TEST, WHICH IS THE THIRD INSTANCE OF ONE CLASS
+
+`49d699c` was green on ubuntu and macOS and **failed on Windows** - not on the product, on
+`test_an_unreadable_folder_is_still_reported`. `chmod(0o000)` does not stop Windows listing a
+directory (POSIX mode bits are advisory there), so `unreadable_dirs` came back empty.
+
+**The class was censused two turns earlier and the number was 21 of 39** - Windows skips in this
+repo that exist for POSIX permission bits - and it still did not stop me writing another. It is
+the third instance this session after `os.mkfifo` and the `sys.platform` executable suffix.
+
+**Fixed with the house idiom**, one condition rather than two stacked decorators, which
+`test_platform_skips_collect_everywhere` enforces. ⚠ **And the skip's cost was paid rather than
+only named**: `Path.walk` takes `on_error` as an argument, so the error path is **injectable** -
+`test_a_folder_the_walk_could_not_list_is_reported_on_every_platform` forces it in process and
+runs on every lane, including Windows. `(ais)`'s resolution again: when a seam is forceable,
+forcing it beats a skip. The permission test keeps its own job, which is proving a real `chmod`
+reaches `on_error` at all.
+
 ## VACUITY CHECK
 
 **15 mutations, 15 caught**, one only after a survivor:

@@ -14,8 +14,11 @@ plugged in.
 
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 
+import pytest
 from truestill_app.service.drives import _unrecorded_files
 
 
@@ -63,6 +66,23 @@ def test_a_case_drift_is_judged_the_way_the_mount_judges_it(tmp_path: Path) -> N
     assert [p.name for p in walk.files] == ([] if folds else ["photo.jpg"])
 
 
+# ⚠ **ONE CONDITION, NOT TWO STACKED DECORATORS** - `test_platform_skips_collect_everywhere.py`
+# is the rule, and `or` short-circuits so `os.geteuid` is never called on Windows.
+#
+# ⚠ **THIS SKIP IS THE THIRD INSTANCE OF ONE CLASS IN THIS SESSION, AND IT SHIPPED RED.**
+# `chmod(0o000)` does not stop Windows listing a directory - POSIX mode bits are advisory there -
+# so `unreadable_dirs` came back empty and the Windows lane failed on a test that was asserting
+# about the product correctly. The census two turns earlier counted **21 of 39** Windows skips in
+# this repo as exactly this, and it still did not stop me writing another. The cost is real and
+# is named rather than hidden: **Windows does not run the assertion below**, so nothing there
+# proves the walk still reports a folder it could not list.
+_NEEDS_POSIX_PERMISSIONS = pytest.mark.skipif(
+    sys.platform == "win32" or os.geteuid() == 0,
+    reason="needs POSIX permissions and a non-root user",
+)
+
+
+@_NEEDS_POSIX_PERMISSIONS
 def test_an_unreadable_folder_is_still_reported(tmp_path: Path) -> None:
     """The probe runs over the walk's results, so it must not disturb the error path it shares.
 
@@ -103,3 +123,35 @@ def test_both_surfaces_ask_the_same_question() -> None:
         assert "sys.platform" not in surface.split("folds_case(")[1][:400], (
             "the fold is being decided by platform rather than by the mount"
         )
+
+
+def test_a_folder_the_walk_could_not_list_is_reported_on_every_platform(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same assertion as above, through the seam instead of through the filesystem.
+
+    ⚠ **Written because the skip above costs Windows its only coverage of this path**, and a
+    named cost with a cheap remedy is a cost that should have been paid. `Path.walk` takes
+    `on_error` as an argument, so the error path is **injectable** - no permission bits, no
+    platform, no `skipif`. The one above keeps its job (it proves a real `chmod` reaches
+    `on_error` at all); this one proves what `_unrecorded_files` does with it.
+
+    `(ais)`'s resolution again: when a seam is forceable in process, forcing it beats a skip.
+    """
+    (tmp_path / "photo.jpg").write_bytes(b"x")
+    real = Path.walk
+
+    def walk_with_one_locked_folder(self: Path, **kwargs: object):  # type: ignore[no-untyped-def]
+        on_error = kwargs.get("on_error")
+        assert callable(on_error), "_unrecorded_files stopped passing on_error"
+        failure = OSError(13, "Permission denied")
+        failure.filename = str(self / "Locked")
+        on_error(failure)
+        yield from real(self)
+
+    monkeypatch.setattr(Path, "walk", walk_with_one_locked_folder)
+
+    walk = _unrecorded_files(tmp_path, set())
+
+    assert walk.unreadable_dirs == ("Locked",)
+    assert [p.name for p in walk.files] == ["photo.jpg"], "the rest of the drive was lost with it"
