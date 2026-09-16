@@ -189,9 +189,22 @@ Notes:
   never-fired **publish** job - see §2b.
 - **Python 3.14 since 2026-08-22** (`DECISIONS.md` **D13**, reversing D10). `requires-python` is
   `>=3.14`, the check lane runs one interpreter again, and the release lane builds on it.
-- **Trademark residual (live pre-monetization obligation):** TruStile Doors remains a low-risk
-  residual in different IC classes; attorney clearance is still required before monetization
-  (full analysis in `DECISIONS.md`).
+- **Trademark residual: RULED 2026-09-16, and it is no longer a gate** (`DECISIONS.md` **D21**).
+  Truestill proceeds under its own name, including to monetization; **no attorney clearance is
+  sought**, and **the risk is accepted, not eliminated**. The register was checked for the first
+  time the same day, free: **TRUESTILL returns zero records**, validated by a control query;
+  TruStile Doors holds 13 live marks in **IC 019 / 035 / 040**, all doors, plus two new `TRUSTILE`
+  applications filed 2026-06-09. ⚠ **One of their marks IS live in a software class** - `TRUCAD`,
+  IC 042, *"on-line non-downloadable software for selecting doors"* - which the old record denied
+  and which D21 records as slightly increasing the residual without changing the ruling. **D21 §3
+  is the falsifier table**: a letter, that party entering software under `TRUSTILE`, or Truestill
+  going anywhere near their trade.
+  ⚠ **This bullet read *"attorney clearance is still required before monetization (full analysis in
+  `DECISIONS.md`)"* from 2026-07-30 until 2026-09-16, and there was no analysis in `DECISIONS.md`.**
+  The real five-gate check - PyPI, GitHub, npm, USPTO, EUIPO/TMview, web scan - was written here on
+  2026-07-26 and deleted by `99a6d5b`'s -519-line consolidation four days later; `e66ff63` restored
+  a summary pointing at a file the analysis was never moved to. For 48 days the only copy was
+  `git show f6dfcb3`. D21 §1 re-establishes it **from the register**, not by copying it forward.
 - **Recent critical portability/safety posture:** loud failures are in place (stale hints,
   catalog-open visibility, reclaim/undo stale-path messaging); remaining work is portability
   follow-through, not silent safety failures.
@@ -610,9 +623,15 @@ home is `(afg)`, itself undecided as to whether it blocks). It is detailed below
   could not record so the next run converges instead of duplicating. Measured end to end: run one
   stops at 33 files / 33 rows with no traceback, run two finishes 72 / 72 with no `_1` suffixes.
 
-- **Attorney clearance is required before MONETIZATION, not before a tag.** §1 above: *"attorney
-  clearance is still required before monetization"*. A free release does not wait on it. What is
-  live now is the trademark residual as a **pre-monetization obligation**.
+- ~~**Attorney clearance is required before MONETIZATION, not before a tag.**~~ **REMOVED
+  2026-09-16 by `DECISIONS.md` D21.** The trademark residual is ruled: Truestill proceeds under its
+  own name to monetization, no clearance is sought, and the risk is accepted rather than
+  eliminated. It blocks neither a tag nor a paid release. ⚠ **The row is struck through rather than
+  deleted** - this section's own subject is claims that outlive their evidence, and a gate that
+  simply vanished would leave the next reader unable to tell a ruling from an oversight.
+  ⚠ **It did not clear the OTHER item on the same attorney list**: `(aad)`'s *"Awaiting attorney
+  clearance"* heading also carries the **Windows exiftool GPLv3** question, which D21 §4 explicitly
+  leaves open.
 - **The free tier must be stated on the download page before anyone downloads** - a second
   pre-monetization obligation, ruled 2026-09-11 (`DECISIONS.md` **D16 §5**), and it lands on
   `(afg)`'s page rather than being a task of its own. ⚠ **A cap discovered at file 1,001 reads as

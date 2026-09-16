@@ -453,6 +453,13 @@ the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).**Approved 
 
   ### Awaiting attorney clearance - facts, not a question
 
+  > ⚠ **DATED POINTER, 2026-09-16. THE LIST THIS SECTION SHARES HAS BEEN HALVED, AND THIS HALF IS
+  > NOT THE ONE THAT WENT.** The **trademark residual** is ruled - `DECISIONS.md` **D21**: the name
+  > proceeds to monetization, no attorney clearance is sought, the risk is accepted rather than
+  > eliminated. **The GPLv3 question below is untouched by that**, and D21 §4 says so by name. The
+  > heading keeps its wording because this body is a record and a record is not rewritten to match
+  > the present; what changed is that *"the same list"* now has one item on it, and it is this one.
+
   **The Windows exiftool package carries a GPLv3 component**, and this is recorded for the same
   list as the trademark residual rather than ruled here.
   - **What is established:** ExifTool itself is *"free software; you can redistribute it and/or

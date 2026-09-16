@@ -1177,8 +1177,12 @@ was stated before the download. Stated up front it is a published limit; discove
 of refusal it is a bait-and-switch, and the two are the same number.
 
 **The website does not exist**, so this is recorded as a launch requirement blocking monetization
-- alongside `(afg)`'s download page and the attorney trademark clearance
-(`PROJECT_STATUS.md:604`), not as work with code attached.
+- alongside `(afg)`'s download page, not as work with code attached.
+
+⚠ **This sentence named a third co-blocker, *"the attorney trademark clearance"*, until 2026-09-16,
+and cited it as `PROJECT_STATUS.md:604` - a line number that had already drifted to 613.** The gate
+itself is gone (**D21**: the name proceeds, no clearance is sought, the risk is accepted rather than
+eliminated), so what blocks monetization here is the download page and this announcement on it.
 
 **FILE-IMPORT IS THE FALLBACK, NOT THE FRONT DOOR** (ruled 2026-09-11, third pass).
 
@@ -1502,3 +1506,111 @@ re-derived against the same hex and pinned by `test_the_rail_contrast_is_what_it
 
 **Status:** Settled as a decision, built. The hex is already in `app.css`; living docs that still
 named `#17150f` or `#101012` as current are corrected.
+
+---
+
+## D21. Truestill proceeds under its own name, to monetization. No attorney clearance is sought.
+
+**Decision (the maintainer, 2026-09-16).** Supersedes the standing **pre-monetization obligation**
+recorded in `PROJECT_STATUS.md` §1 since 2026-07-26 - *"attorney clearance is still required before
+monetization"* - and the same gate where D16 §5 and `(afg)` name it as a co-blocker.
+
+**The risk is accepted, not eliminated.** Those are the words, and they are the whole of the
+decision's honesty: nothing below makes the residual go away, and no opinion has been bought. What
+changed is who carries it and whether it stops a release.
+
+### 1. The residual, as it actually stands on the public register
+
+⚠ **The repository said *"full analysis in `DECISIONS.md`"* and there was no analysis here.** The
+five-gate availability check of 2026-07-26 - PyPI, GitHub, npm, USPTO **and** EUIPO/TMview, and a
+web-presence scan, with both trademark negatives validated by a control query - lived in
+`PROJECT_STATUS.md` and was deleted by `99a6d5b` (2026-07-30, *"consolidate onboarding status
+docs"*, -519 lines). `e66ff63` restored a **three-line summary** pointing at this file, where the
+analysis had never been put. So for 48 days the only copy of the reasoning was in `git show
+f6dfcb3`. This section is that reasoning re-established from the register itself, not copied
+forward.
+
+**Checked 2026-09-16 against `tmsearch.uspto.gov`'s own search service** (the public register, no
+key, no fee; the index's newest `recordLoadDate` was **2026-09-15**, so the data was one day old).
+Reproducible:
+
+```sh
+curl -s -X POST https://tmsearch.uspto.gov/prod-stage-v1-0-0/tmsearch \
+  -H 'Content-Type: application/json' \
+  -d '{"size":30,"query":{"match_phrase":{"wordmark":"TRUESTILL"}}}'
+```
+
+**TRUESTILL: zero records.** Exact phrase on `wordmark`, and zero again across
+`wordmark`/`wordmarkAsciiRepresentation`/`wordmarkPseudoText`/`ownerFullText` together; `TRUE
+STILL` and `TRU STILL` are also zero. ⚠ **The negative is validated by a control**, the same
+discipline the 2026-07-26 check used: `LIGHTROOM` returns 3, Adobe's live IC 009 among them, so the
+query reaches real data and an empty answer means empty.
+
+**TRUSTILE: 26 records, 13 live, owned by TruStile Doors, LLC.** Live classes **IC 019** (non-metal
+and wood doors), **IC 035** (online wholesale door retail) and **IC 040** (manufacture of doors to
+order). An active, maintained portfolio - and **two brand-new `TRUSTILE` applications were filed
+2026-06-09** (serials 99874648, 99874659), not yet assigned to an examiner, adding IC 035 and IC
+040. They are doors: *"online wholesale store services featuring doors"*, *"computerized online
+ordering services … in the field of doors."*
+
+⚠ **AND THE OLD RECORD WAS WRONG ABOUT ONE THING, which is the point of looking.** It said their
+live marks carry *"no software or SaaS class"*. They carry one: **`TRUCAD`, serial 77331383, IC 042
+LIVE** - *"providing temporary use of on-line non-downloadable software for selecting doors and
+door styles."* Its IC 009 half is cancelled, and the earlier `TRU CAD` (76143128, IC 009,
+*"computer software for use in selecting doors and door styles"*) was cancelled in 2008.
+
+**This slightly increases the residual and does not change the ruling.** It is a **different mark**
+(`TRUCAD`, not `TRUSTILE`) and the goods are door-selection software sold to people buying doors -
+so it is evidence that this filer reaches for IC 042 when it wants to, not evidence of a conflict
+with a consumer photo organizer. It is recorded because a ruling built on a fact nobody re-checked
+is the failure this repository keeps finding, and because it makes one of the falsifiers below
+concrete rather than hypothetical.
+
+### 2. The reasoning - recorded as reasoning, not as certainty
+
+**None of this is legal advice, and none of it was obtained from a lawyer.** It is the reading the
+maintainer is acting on, written down so a later reader can judge it rather than inherit it.
+
+- **The legal test is LIKELIHOOD OF CONFUSION, not name similarity.** Public sources put it
+  plainly: *"totally unrelated - if the businesses are in entirely separate realms, confusion is
+  unlikely. Using the same name for a coffee shop and a computer software company usually wouldn't
+  confuse consumers, because people do not expect those very different goods or services to come
+  from the same source."*
+- **The precedent everyone cites:** *Delta*, shared by a major airline and a faucet manufacturer.
+- **The one exception, and why it does not apply:** marks in different classes conflict when the
+  products *"are sold in the same marketing channels"*. Doors and photo software share no shop, no
+  shelf and no advertising. A person specifying interior doors and a person sorting a Takeout
+  export are not in the same aisle, and nothing Truestill does would put it there.
+- **The spellings differ:** *TruStile*, *Truestill*. Not identical, and *stile* / *still* are not
+  homophones - a stile is the vertical member of a door frame, and the door company's name says so.
+- **And the maintainer's own, which is a cost judgement rather than a legal one:** paying for
+  clearance on a residual this remote is not a cost this project can carry. That is the real reason
+  the gate is going, and it is stated as such rather than dressed as confidence.
+
+### 3. ⚠ WHAT WOULD CHANGE IT - because a ruling with no falsifier is a hope
+
+| trigger | what it means | what happens |
+|---|---|---|
+| **A letter arrives** - cease-and-desist, opposition, or a USPTO refusal citing TRUSTILE | The residual has stopped being a residual. Nothing above was ever a prediction that no one would write | **Stop and get an attorney.** This decision buys no argument with a real claimant; it only says not to pre-pay for one that has not been made. Do not answer a demand letter out of §2 |
+| **The other party enters software** - a `TRUSTILE`-marked product in IC 009 or IC 042 that is not about doors | The category-distance argument, which is the load-bearing one, weakens by exactly as much as the distance closes | **Re-run the register check and re-rule.** ⚠ Not hypothetical: `TRUCAD` is already live in IC 042, so this party files in software classes. What would matter is the **mark** and the **goods** moving, not the class alone |
+| **Truestill enters anything near their trade** - doors, millwork, building products, architectural specification, or a channel where those are sold | The exception in §2 fires: same marketing channel is the condition under which different classes still conflict | **The ruling is void, not weakened.** This is the one trigger entirely within this project's control, and the remedy is to not do it rather than to re-argue |
+
+**Whose job it is to watch**: nobody's, and that is stated rather than assigned. There is no
+monitoring service, no docket alert and no calendar entry - a **new** `TRUSTILE` filing landed on
+2026-06-09 and this project learned of it 99 days later, by running a query for the first time.
+Re-running §1's command is one line and costs nothing; it is worth doing before a paid release and
+before any public launch page, and nothing enforces that.
+
+### 4. What this does NOT clear
+
+⚠ **The attorney list had two items on it and only one is ruled.** `(aad)` records the second under
+the heading *"Awaiting attorney clearance"*: the **Windows exiftool package carries a GPLv3
+component**. That question is untouched by this decision - its facts are established there
+(separately-invoked process, never linked; GCC Runtime Library Exception v3.1 present), and its own
+reasoning is that *"very likely fine"* is not what a licence question wants when the answer arrives
+after shipping. **Nothing here says to skip it**, and a reader who takes "the attorney gate is
+gone" from this file and applies it to that one has misread both.
+
+**Status:** Settled as a decision. The gate is removed from `PROJECT_STATUS.md` §1 and §2b, from
+D16 §5's co-blocker list and from `(afg)`; `(aad)`'s GPLv3 item keeps its heading and gets a
+pointer here. No code attaches to this.

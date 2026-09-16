@@ -77,5 +77,10 @@
     category a Motion-based library is built for. The 21st.dev catalog (`agent-tooling.md`) carries
     such components; whatever is chosen is recorded here.
   - **Whether the brand assets are cleared for a public page.** `brand/PROVENANCE.md` records the
-    artwork's licence; the trademark residual is a live pre-monetization obligation
-    (`PROJECT_STATUS.md` §1) and a public page is closer to that line than a repository is.
+    artwork's licence. ⚠ **The trademark half of this is RULED and is no longer an obligation**
+    (2026-09-16, `DECISIONS.md` **D21**): the name proceeds to monetization, no attorney clearance
+    is sought, and the risk is accepted rather than eliminated - so the page does not wait on it.
+    **What the page still owes the ruling is the third falsifier**: D21 §3 voids itself if
+    Truestill goes anywhere near the door trade, and a marketing page is the one artifact in this
+    project that could do that by accident - a stock photograph of a hallway, a *"built like a
+    door"* line. The artwork licence question is untouched and stays open here.
