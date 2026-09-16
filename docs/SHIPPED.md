@@ -68,6 +68,40 @@ recording shipped work as unstarted, which is the more expensive direction of th
   survivors is a finding: **the whole `truestill-app` suite passes with `early_rejected` removed
   from the payload.**
   [Full entry](research/backlog/akx.md)
+- **(akz) OPENING THE CATALOG UPGRADES IT, AND NOTHING SAID SO.**
+  ✅ **CLOSED 2026-09-16.** Ranks 2, 3 and 5 of the audit.
+  **1. The migration was silent.** `Catalog.__init__` migrates unconditionally and there is **no
+  read-only catalog open**, so six read-only-sounding commands - `carried`, `config`, `drives`,
+  `rescan`, `status`, `where` - can upgrade a library, after which an older Truestill refuses it.
+  ⚠ **The fix is NOT to stop migrating.** BoxLite ships this defect verbatim (*"no warning before
+  the migration happens"*), and FreeBSD's pkg shows the naive fix is worse - migrating only on
+  read-write opens leaves every read-only command failing with *"no such table"* and the upgrade
+  path *"permanently wedged"*. Forward-migrate-on-open stays; the silence went.
+  ⚠ **AND THE COMMAND IS NOT WHAT MIGRATES**: `_dispatch` calls `inspect_catalog` for every
+  subcommand with `--db`, and that opens a real `Catalog` - **the startup banner upgrades the
+  file** before any handler runs. So the fact rides on `CatalogStartupInfo.opening` and
+  `format_startup_lines` says it on both surfaces. A reporter on `open_catalog` was written,
+  measured and deleted: it would always have found `None`.
+  **The sentence names both versions AND what it costs** - *"An older Truestill will now refuse
+  this catalog"* - plus the copy that is the way back. A failed copy gets its own wording rather
+  than a path that is not there. The browser gets its own host, because `#catalog-notice` is
+  alert-only by the 2026-09-06 ruling.
+  **2. The pre-upgrade copy was undiscoverable.** `_report_pre_upgrade_copy` promised *"a user who
+  wants it can be told where by `truestill catalog`"* and that command printed two lines, neither
+  of them the copy. It now prints three, and says `(none kept)` rather than naming a file that is
+  not there. The app's 0-of-46 `backup_report` gap is not one: the app migrates once, at boot.
+  **3. `analyze` printed a command that does not run.** `truestill organize <folder>
+  --destination <folder>`; `destination` is positional, so argparse exits 2 - from the command the
+  new first screen sends a stranger to first. ⚠ **Censused rather than spotted**: the wider guard
+  had been refused at *"33 failures out of 36"*, measured against a bare `truestill <word>` sweep.
+  Asking the **parser** for the verb list, treating a quoted command as a reference, and cutting a
+  suggestion at the end of its line or the next double space gives **25 suggestions, 0 false
+  positives, 2 real defects** - the second being `backup.py`'s bare `truestill verify`, which is
+  shipped to the browser too. Both tests stay: one asks the runtime's question, one the parser's.
+  **19 mutations, 18 caught**; one named rather than closed, and the two fixed survivors were an
+  unreachable failure branch and `__required_keys__` being vacuous under postponed annotations.
+  [Full entry](research/backlog/akz.md)
+
 - **(akw) VERIFY SAW A MOVE, WROTE NOTHING, AND FROZE A VERIFICATION DATE FOR EVER.**
   ✅ **CLOSED 2026-09-15**, found by breaking the golden rule on the installed build.
   **What was wrong**: `verify` had write branches for VERIFIED, MISSING and MISMATCH and **none

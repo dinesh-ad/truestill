@@ -97,9 +97,14 @@ UNREAD_FOLDERS_TITLE = "Some folders could not be read"
 #: of a file is missing (typical of NTFS) or may actually corrupt the filesystem itself (on FAT
 #: based filesystems)"* - which soaks ten and eleven measured independently, on three filesystems,
 #: at 836 zero-byte files on exFAT and a volume that refused to mount on NTFS.
+#: ⚠ **THE COMMAND NAMES ITS ARGUMENT SINCE `(akz)`, BECAUSE `verify` HAS A REQUIRED ONE.**
+#: This read *"Then run: truestill verify"*, and a user who copied it got
+#: `error: the following arguments are required: path` - the second error from a command the
+#: product chose for them, which is `(aij)`'s defect exactly, on a different subcommand.
+#: Censused rather than spotted: 25 suggestions in the tree, 2 the parser rejects.
 EJECT_BEFORE_UNPLUGGING = (
     "If this drive unplugs, eject it first - that is what finishes the write. "
-    "Then run: truestill verify"
+    "Then run: truestill verify <the drive's folder>"
 )
 
 #: ⚠ **THE FILE COUNT IS TRUE; THE BYTE COUNT IS NOT YET A CLAIM ABOUT THE DRIVE.** Measured on a

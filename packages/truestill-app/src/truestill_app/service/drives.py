@@ -28,6 +28,7 @@ from truestill_core.catalog_startup import (
     inspect_catalog,
     migrate_catalog,
     refuse_unusable_catalog,
+    schema_upgrade_notice,
 )
 from truestill_core.decisions import Decisions, gather_decisions, notice_for
 from truestill_core.drive import (
@@ -1011,6 +1012,19 @@ class LibraryStatus(TypedDict):
     catalog_presence: str
     catalog_detail: str
     catalog_tone: Literal["info", "notice", "alert"]
+    #: What opening this catalog UPGRADED, in core's words, or `""` when nothing was migrated.
+    #: `(akz)`
+    #:
+    #: ⚠ **`str`, REQUIRED, and empty for "nothing happened" - rather than `NotRequired`.**
+    #: `(aky)` measured that a `NotRequired` field is invisible to mypy when its line is deleted
+    #: from the builder, and that four such fields are drawn on a screen with nothing asserting
+    #: them. A required field with an empty value costs one JSON key and keeps the type checker.
+    #:
+    #: ⚠ **It is the BOOT value, not a live reading, and it must be.** `inspect_catalog` is what
+    #: migrates; by the second request the schema is current and a fresh reading would say
+    #: nothing. Same one-way "this is what happened at boot" fact as `boot_catalog` beside it,
+    #: and bounded the same way - it describes this process and dies with it.
+    catalog_upgrade: str
 
 
 def prepare_catalog(db: Path, *, explicit_db: bool = False) -> CatalogStartupInfo:
@@ -1120,6 +1134,10 @@ def library_status(
         "catalog_presence": startup.presence.value,
         "catalog_detail": startup.detail,
         "catalog_tone": startup.tone,
+        # From the BOOT reading, never `startup` - see the field's own note. `(akz)`
+        "catalog_upgrade": (
+            schema_upgrade_notice(boot_catalog.opening) if boot_catalog is not None else ""
+        ),
     }
 
 

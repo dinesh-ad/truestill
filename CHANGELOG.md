@@ -80,6 +80,9 @@ Every screen has been redrawn.
   destination's answer.
 - **Changing a setting clears the result it produced**, rather than leaving an answer on screen
   that no longer describes what you asked for.
+- **`analyze` no longer suggests a command that does not work.** It ended by offering
+  `truestill organize <folder> --destination <folder>`, and copying that gave an error. The
+  backup advice had the same problem, suggesting `truestill verify` without the folder it needs.
 - **The destination tree is a tree on Windows**, not a flat list.
 - **Two spellings of one folder are one folder** in the three places that decide something.
 - **A long email address wraps at the `@` or the dot** in the account panel, instead of breaking
@@ -89,6 +92,12 @@ Every screen has been redrawn.
   when you opened the page, so after organizing 100 photos it still read *"700 of 1,000 left"*
   while 600 were left. It is refreshed when a run finishes - not while one is going, because a
   counter ticking down beside your photographs is not something this product does.
+- **Truestill tells you when it upgrades your library catalog.** Opening your library with a
+  newer version can change the catalog's format in place, and nothing said so. It now says it, in
+  the terminal and in the app, naming the version it came from, the version it is on, and the
+  thing that matters: an older Truestill will no longer open it. It also tells you where the copy
+  of the old one is kept - and `truestill catalog` now names that copy too, which it had always
+  been described as doing and never did.
 - **A photo dated before 1900 says so.** Its date was refused and the file was filed under
   *Undated*, correctly - but the run summary printed a bare `rejected_early` and no explanation,
   and the Import report did not count it in any date row at all. Both now say what was refused

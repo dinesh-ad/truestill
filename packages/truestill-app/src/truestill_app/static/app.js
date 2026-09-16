@@ -1528,6 +1528,33 @@ function renderCatalogNotice(s) {
        <div>${esc(s.catalog_detail)}</div></div>`;
 }
 
+// ⚠ **THE CATALOG WAS UPGRADED BY OPENING IT, AND UNTIL `(akz)` NOTHING SAID SO ON EITHER
+// SURFACE.** BoxLite shipped this defect and named it: "a newer component migrates that database
+// forward in place, and from that moment every older component stops working... no warning before
+// the migration happens." Forward-migrating on open is still right - FreeBSD's pkg migrates only
+// on read-write opens and every read-only command then fails on an old schema with "no such
+// table", leaving the upgrade path "permanently wedged". The defect was the silence.
+//
+// ⚠ **ITS OWN HOST, NOT THE ONE ABOVE.** That banner is `alert`-only by a 2026-09-06 ruling, and
+// reusing it would either demote this to nothing or promote a startup diagnostic back onto the
+// page. The two are different in kind: one asks "is this the catalog you meant", this one says
+// what already happened to it.
+//
+// **The sentence is core's** - `catalog_startup.schema_upgrade_notice` - so the terminal and the
+// browser cannot word one event two ways. It is empty on every boot that migrated nothing.
+function renderCatalogUpgrade(s) {
+  const host = $("catalog-upgrade");
+  if (!host) return;
+  if (!s.catalog_upgrade) {
+    host.className = "banner hidden";
+    host.innerHTML = "";
+    return;
+  }
+  host.className = "banner";
+  host.innerHTML = `<div data-testid="catalog-upgrade"><div class="b-title">Your library catalog was upgraded</div>
+       <div>${esc(s.catalog_upgrade)}</div></div>`;
+}
+
 function refreshCatalogPathFit() {
   const el = $("custody-catalog");
   if (!el) return;
@@ -1861,6 +1888,7 @@ async function loadCustody() {
     ? `<div class="catalog-path mono" id="custody-catalog" data-full="${esc(s.catalog_path)}" title="${esc(s.catalog_path)}">${esc(s.catalog_path)}</div>`
     : "";
   renderCatalogNotice(s);
+  renderCatalogUpgrade(s);
   // `(aiy)`. **A library whose copies share one device is not "safe"**, however many copies the
   // count reports - two folders on one USB stick are two rows and one failure. `NOT_INDEPENDENT`
   // is the only verdict the product can PROVE, so it is the only one that changes the tone;

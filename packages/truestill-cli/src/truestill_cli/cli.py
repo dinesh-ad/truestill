@@ -32,6 +32,7 @@ from truestill_core.allowance import (
 )
 from truestill_core.app_paths import (
     LEGACY_CATALOG_PATH,
+    backup_path_for,
     cache_path_for,
     default_catalog_path,
     licence_path,
@@ -2164,8 +2165,20 @@ def _cmd_catalog(args: argparse.Namespace) -> int:
     # data directory made it fire on a catalog sitting exactly where it belongs. `(aeb)`.
     current = default_catalog_path()
     if not args.move:
-        print(f"Catalog in use : {current}")
-        print(f"Cache          : {cache_path_for(current)}")
+        print(f"Catalog in use   : {current}")
+        print(f"Cache            : {cache_path_for(current)}")
+        # ⚠ **THE PRE-UPGRADE COPY WAS UNDISCOVERABLE, AND THIS COMMAND WAS ALREADY NAMED AS
+        # WHERE TO FIND IT.** `_report_pre_upgrade_copy`'s docstring says *"a user who wants it
+        # can be told where by `truestill catalog`"* - and this command printed two lines, neither
+        # of them that one. The copy is the only route back to the schema a library was on before
+        # an upgrade, it is written without being asked for, and nothing anywhere named its path.
+        #
+        # **Its state is said, not just its location.** A path with nothing at it reads as a
+        # promise, and the honest answer on a library that has never been upgraded is that there
+        # is nothing to keep - which is also how a user tells a missing copy from an unneeded one.
+        copy = backup_path_for(current)
+        state = f"{copy}" if copy.is_file() else f"{copy}  (none kept - nothing has been upgraded)"
+        print(f"Pre-upgrade copy : {state}")
         return 0
 
     result = move_catalog_to_standard(LEGACY_CATALOG_PATH, current)
@@ -4201,7 +4214,10 @@ def _print_not_yet_analysed(*, deep_done: bool) -> None:
     print("  would mean 'none found', and nothing has looked yet.")
     if not deep_done:
         print("\n  To find duplicates and check dates today, preview an organize run:")
-        print("      truestill organize <folder> --destination <folder>")
+        # ⚠ **`destination` IS POSITIONAL, and this line offered it as a flag.** Copying it
+        # answered `error: unrecognized arguments: --destination`, exit 2 - from the command the
+        # first screen sends a new user to first. Ask the parser, never memory. `(akz)`
+        print("      truestill organize <folder> <destination>")
 
 
 def _print_forecast(inventory: SourceInventory, sizes: dict[Path, int]) -> None:

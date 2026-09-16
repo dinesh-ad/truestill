@@ -122,6 +122,15 @@ def open_catalog(
         if backup_report is not None and catalog.pre_migration_backup is not None:
             backup_report(catalog.pre_migration_backup)
 
+        # ⚠ **NO SCHEMA-UPGRADE REPORT HERE, AND THAT IS A MEASUREMENT RATHER THAN AN OMISSION.**
+        # One was written and removed the same day: `_dispatch` calls `inspect_catalog` for every
+        # subcommand carrying `--db`, and that function opens a real `Catalog` to count files and
+        # drives - so **the startup banner is what migrates**, one line before any handler runs,
+        # and an upgrade reported here would always be `None`. The four subcommands without
+        # `--db` - `account`, `analyze`, `catalog`, `self-check` - were checked and none opens a
+        # catalog at all; `analyze` was measured twice against a v20 catalog and left it at v20.
+        # The one home for this is `CatalogStartupInfo.opening`. `(akz)`
+
         # A freshly opened catalog is never dirty: schema migrations commit directly on the
         # connection rather than through `_tx`. A defensive `mark_clean()` here was written and
         # then deleted, because a mutation that removed it killed no test - it could not.

@@ -66,6 +66,13 @@ def test_library_status_is_honest_when_empty(client: TestClient) -> None:
         "catalog_presence",
         "catalog_detail",
         "catalog_tone",
+        # ⚠ **`(akz)`: what opening the catalog UPGRADED, and `""` when it upgraded nothing.**
+        # Required rather than `NotRequired` on `(aky)`'s finding - four `NotRequired` payload
+        # fields are drawn on a screen today with neither mypy nor a test able to see their
+        # deletion. This assertion is the other half of that: an exact key set is what makes a
+        # field added or dropped without a decision fail here, and it is the only one of its kind
+        # on this payload.
+        "catalog_upgrade",
     }
     assert s["photos"] == 0
     assert s["videos"] == 0

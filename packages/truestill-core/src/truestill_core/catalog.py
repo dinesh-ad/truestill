@@ -1270,6 +1270,27 @@ def _search_where(terms: list[str]) -> tuple[str, list[object]]:
     return " AND ".join(groups), params
 
 
+@dataclass(frozen=True, slots=True)
+class SchemaUpgrade:
+    """A catalog was lifted from one schema version to another, in place. `(akz)`
+
+    **Recorded, never printed.** Core owns no surface (`IMPLEMENTATION_STANDARDS` §2), so this is
+    the fact and `catalog_startup.schema_upgrade_notice` is its one wording.
+
+    ⚠ **The interesting half is not that it happened, it is what it costs.** Forward-migrating on
+    open is the right design and stays - the alternative, migrating only on read-write opens, is
+    measurably worse: FreeBSD's pkg does exactly that and every read-only command then fails on an
+    old schema with *"no such table"*, leaving the upgrade path *"permanently wedged"*. What is
+    wrong is doing it in **silence**, which is BoxLite's defect verbatim: *"a newer component
+    migrates that database forward in place, and from that moment every older component stops
+    working... no warning before the migration happens."* `previous` is the number an older build
+    would still accept, and `_refuse_if_newer` is the message the user meets next.
+    """
+
+    previous: int
+    current: int
+
+
 class Catalog:
     """Thin, typed wrapper over the SQLite state file. Use as a context manager."""
 
@@ -1280,6 +1301,10 @@ class Catalog:
         #: different reasons for the same absence rather than a failure. Core prints nothing
         #: (`IMPLEMENTATION_STANDARDS` §2); a surface reads this and decides. `(ady)`
         self.pre_migration_backup: catalog_backup.BackupOutcome | None = None
+        #: What the migration chain lifted this catalog FROM and TO, or ``None`` when no chain
+        #: ran. Set on exactly the condition the copy above is taken on, so the two are reported
+        #: together or not at all: the copy is the only route back to `previous`. `(akz)`
+        self.schema_upgrade: SchemaUpgrade | None = None
         if path != Path(":memory:"):
             try:
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -1458,6 +1483,12 @@ class Catalog:
         # It never raises: a catalog whose safety copy could not be taken must still open, so the
         # outcome is reported rather than thrown. `(ady)`
         if version < CURRENT_SCHEMA_VERSION:
+            # ⚠ **THE ONLY PLACE BOTH VERSIONS ARE IN HAND, which is why the record is made here
+            # and not at a surface.** `version` is re-read under the lock above and is about to
+            # stop being true; after the loop below nothing can say what it was. A surface asking
+            # afterwards would find only `CURRENT_SCHEMA_VERSION` and could not name the number an
+            # older build would still accept. `(akz)`
+            self.schema_upgrade = SchemaUpgrade(version, CURRENT_SCHEMA_VERSION)
             self.pre_migration_backup = catalog_backup.copy_before_migration(conn, self.path)
 
         for target, migrate in _MIGRATIONS:

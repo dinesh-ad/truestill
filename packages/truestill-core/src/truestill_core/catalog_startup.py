@@ -27,13 +27,14 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal
+from typing import Final, Literal
 
 from truestill_core.app_paths import CatalogChoice
-from truestill_core.catalog import Catalog
+from truestill_core.catalog import Catalog, SchemaUpgrade
+from truestill_core.catalog_backup import BackupOutcome
 
 # The default catalog is deliberately **not** a module constant here. It was, briefly, and that
 # froze it at import: an environment override could not reach it and no test could isolate it,
@@ -78,6 +79,21 @@ class CatalogPresence(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class CatalogOpening:
+    """What opening a catalog CHANGED, for a surface to say. `(akz)`
+
+    Both fields are ``None`` on the ordinary open, which is every open after the first on a
+    current build - so a surface that renders this says nothing almost always.
+    """
+
+    #: The schema lift, or ``None`` when nothing was migrated.
+    upgrade: SchemaUpgrade | None = None
+    #: The copy taken before that lift. ``None`` when no lift ran; a ``BackupOutcome`` with
+    #: ``taken=False`` when one ran and the copy could not be made.
+    backup: BackupOutcome | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class CatalogStartupInfo:
     """What to print or show about the catalog path for this process."""
 
@@ -88,6 +104,14 @@ class CatalogStartupInfo:
     explicit_db: bool
     tone: Tone
     detail: str  # situational sentence; empty when presence is READY
+    #: What opening the catalog to answer this question CHANGED. `(akz)`
+    #:
+    #: ⚠ **THIS FUNCTION IS THE FIRST THING THAT OPENS THE CATALOG, so it is the thing that
+    #: migrates it** - `inspect_catalog` reads `count()` and `list_drives()` through a real
+    #: `Catalog`, which runs the chain. The banner that tells a user which catalog they opened
+    #: is what upgraded it, one line before any command ran. Anything asking afterwards finds
+    #: `CURRENT_SCHEMA_VERSION` and cannot say what it was, so the fact rides here.
+    opening: CatalogOpening = field(default_factory=CatalogOpening)
 
 
 def resolve_catalog_path(db: Path) -> Path:
@@ -283,6 +307,9 @@ def inspect_catalog(db: Path, *, explicit_db: bool) -> CatalogStartupInfo:
     with Catalog(absolute) as catalog:
         file_count = catalog.count()
         drive_count = len(catalog.list_drives())
+        # Captured inside the `with`, because the fields belong to this `Catalog` and nothing
+        # outside it can recover them.
+        opening = CatalogOpening(catalog.schema_upgrade, catalog.pre_migration_backup)
 
     if file_count > 0:
         return CatalogStartupInfo(
@@ -293,6 +320,7 @@ def inspect_catalog(db: Path, *, explicit_db: bool) -> CatalogStartupInfo:
             explicit_db=explicit_db,
             tone="info",
             detail="",
+            opening=opening,
         )
 
     if drive_count > 0:
@@ -308,6 +336,7 @@ def inspect_catalog(db: Path, *, explicit_db: bool) -> CatalogStartupInfo:
                 "If your library looks missing, this may not be the catalog you expect "
                 "(check --db and your working folder)."
             ),
+            opening=opening,
         )
 
     if explicit_db:
@@ -326,10 +355,55 @@ def inspect_catalog(db: Path, *, explicit_db: bool) -> CatalogStartupInfo:
         explicit_db=explicit_db,
         tone="notice",
         detail=detail,
+        opening=opening,
     )
 
 
-def migrate_catalog(db: Path) -> None:
+#: The upgrade, said once, for both surfaces. `IMPLEMENTATION_STANDARDS` §9.
+#:
+#: ⚠ **THE SECOND SENTENCE IS THE ONE THE USER NEEDS, and it is the consequence rather than the
+#: event.** BoxLite's remedy for this exact defect asks for *"a one-line log when the schema is
+#: upgraded in place, naming the previous and new versions, so the cause is visible at the moment
+#: it is created rather than later from a different process"* - and naming the versions alone
+#: still leaves a user to work out what it costs them. What it costs is that
+#: `catalog._refuse_if_newer` will turn an older build away from this file, and that refusal is
+#: the next message they will meet if they try one.
+#:
+#: **The remedy is named in the same breath as the cost**, because the pre-upgrade copy is the
+#: only route back to `previous` and it is otherwise undiscoverable - which is why the failed-copy
+#: case gets its own wording rather than being softened into this one.
+_UPGRADED: Final = (
+    "Your library catalog was upgraded from version {previous} to {current} so this "
+    "version of Truestill can open it. An older Truestill will now refuse this catalog."
+)
+_UPGRADED_WITH_COPY: Final = " The catalog as it was is kept at {path}."
+_UPGRADED_NO_COPY: Final = (
+    " The copy that is normally kept of the catalog as it was could not be made, so there is no "
+    "way back to version {previous}: {error}"
+)
+
+
+def schema_upgrade_notice(opening: CatalogOpening) -> str:
+    """One sentence for what an open changed, or ``""`` when it changed nothing.
+
+    ⚠ **Empty is the overwhelmingly common answer and is not a failure.** A fresh catalog, an
+    already-current one, and every open after the first on a given build all return ``""``, so a
+    surface may render this unconditionally and stay silent.
+    """
+    if opening.upgrade is None:
+        return ""
+    said = _UPGRADED.format(previous=opening.upgrade.previous, current=opening.upgrade.current)
+    backup = opening.backup
+    if backup is not None and backup.taken and backup.path is not None:
+        return said + _UPGRADED_WITH_COPY.format(path=backup.path)
+    if backup is not None and not backup.taken:
+        return said + _UPGRADED_NO_COPY.format(
+            previous=opening.upgrade.previous, error=backup.error
+        )
+    return said
+
+
+def migrate_catalog(db: Path) -> CatalogOpening:
     """Create and migrate ``db`` now, so nothing serving requests has to.
 
     **Why a process does this before serving rather than on first use.** `Catalog._migrate` takes
@@ -343,8 +417,12 @@ def migrate_catalog(db: Path) -> None:
     :func:`inspect_catalog` **before** this, never after - see `create_app`, which does exactly
     that and says what bounds the captured value.
     """
-    with Catalog(db):
-        pass
+    with Catalog(db) as catalog:
+        # ⚠ **Returned rather than printed, and this is the app's ONLY migration.** Every later
+        # `open_catalog` in that process finds the schema current and takes `_migrate`'s fast
+        # path, so the app does not need a reporter at each of its call sites - it needs one
+        # here. The CLI reaches the same facts through `catalog_session.open_catalog`. `(akz)`
+        return CatalogOpening(catalog.schema_upgrade, catalog.pre_migration_backup)
 
 
 def format_startup_lines(
@@ -368,4 +446,11 @@ def format_startup_lines(
         lines.append(choice.summary)
         if choice.note:
             lines.append(choice.note)
+    # ⚠ **LAST, AND UNCONDITIONAL.** It is empty on every open that migrated nothing, which is
+    # all of them but the first after an upgrade - so this costs a wasted `if` and never a line
+    # of noise. Placed after the path so a reader has been told WHICH catalog before being told
+    # what happened to it. `(akz)`
+    upgrade = schema_upgrade_notice(info.opening)
+    if upgrade:
+        lines.append(upgrade)
     return lines
