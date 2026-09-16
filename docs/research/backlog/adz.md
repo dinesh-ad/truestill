@@ -2,6 +2,37 @@
 
 *Body of backlog entry `(adz)`, under **Internal / tooling**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
+> ⚠ **THE WINDOW CLOSED ON 2026-08-30, AND NOBODY NOTICED FOR SEVENTEEN DAYS.**
+> Recorded 2026-09-16 by an audit, not by anything that watches.
+>
+> This entry's rule is *"until the first release tag"*. **`v0.1.0` was published 2026-08-30 and
+> `v0.1.1` on 2026-09-03** (`git ls-remote --tags origin`; `gh release list` shows v0.1.1 as
+> Latest). The standing rule below - **THERE ARE NO USERS** - expired with the first of them.
+>
+> **What changes, stated as the entry's own table already ruled it would:**
+>
+> * **A compatibility path is no longer free to refuse.** Before the tag the removal condition
+>   could be *"when the maintainer decides"* and a path could be deleted outright, because the
+>   population who could depend on it was enumerable and was one. It is not enumerable now.
+> * **Every new condition must be a VERSION**, which is the form this entry already reserved for
+>   after the tag - *"the only anchor left"*, on the Kubernetes / GitLab / OpenSSL / Docker
+>   precedent recorded below.
+> * **Anything still carrying *"when the maintainer decides"* has silently become a permanent
+>   promise** - this entry's own words for `(aae)`'s failure, and it has now been repeated here.
+>   ⚠ **The 2026-08-19 audit's removable set was never removed**: (2) `CatalogChoiceReason`'s dead
+>   `"legacy"` member, (1) `LEGACY_MARKER_NAMES` pending the fenced drive, (3)
+>   `LEGACY_CATALOG_PATH` pending one file. All three were free on 2026-08-29 and none is free now.
+> * **The rule itself stands** - a compatibility path still states its removal condition in the
+>   commit that introduces it. Only the permitted *form* of that condition changed.
+>
+> ⚠ **The population is not zero and is not knowable.** Every published asset shows **1-2
+> downloads**, consistent with the maintainer's own checksum verification, so there is no evidence
+> of an outside user - and no way to prove there is none. That asymmetry is exactly the condition
+> the rule anchors on, and it is why "probably nobody" stopped being an argument on 2026-08-30.
+>
+> **Nothing is removed or re-ruled here.** This is the expiry being written down, so the next
+> reader meets a closed window rather than an open one.
+
 - **(adz) A COMPATIBILITY PATH STATES ITS REMOVAL CONDITION WHEN IT IS WRITTEN.** Recorded
   2026-08-19, prompted by `(aae)` and closed out of `(adw)`. **A policy, not a defect** - what it
   fixes is the shape of a decision rather than a line of code.

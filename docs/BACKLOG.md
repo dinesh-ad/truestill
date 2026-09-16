@@ -55,7 +55,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akx). Next free: (aky).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aky). Next free: (akz).**
 ⚠ **`(akk)` was the declared next free while `(akl)`–`(akp)` were filed past it** - gap filled
 2026-09-14; letters are identifiers, not an ordering.
 ⚠ **AND IT HAPPENED AGAIN, IDENTICALLY**: `(akq)` stood as the declared next free while `(akr)`
@@ -335,6 +335,20 @@ rather than treated as a triage failure.
   mount that refuses `copystat` never gave the incumbent its metadata either. Check before
   building; that is a real possible answer.
   Body: [`research/backlog/aip.md`](research/backlog/aip.md).
+
+- **(aky) FOUR PAYLOAD FIELDS NOTHING PROTECTS, AND ALL FOUR ARE DRAWN ON A SCREEN.** Recorded
+  2026-09-16 by an audit, **with no work attached** - so the next person does not rediscover them.
+  `leftover_empty_folders` (the offer to tidy empty folders a move left behind),
+  `second_location` (the *"This drive answers in two places"* banner), `heic_perceptual_skipped`
+  and `groups`. Each is `NotRequired`, so **mypy cannot see its deletion**, and each is read by no
+  assertion in any test tree. ⚠ **The number is four, not the 96 fields no assertion reads**: of
+  788 (schema, field) pairs, a deleted TypedDict key is caught 788/788 by
+  `test_the_committed_spec_is_current.py`, and a deleted dict-literal line is caught 752/788 by
+  mypy under `make check`. ⚠ **`tests/e2e` adds ZERO coverage** - Playwright cannot tell a missing
+  key from a zero value. **Root cause**: `test_no_thirty_fifth_dead_payload_key.py` proves a
+  surface would render the field; nothing proves the server still sends it, and the two ends are
+  never connected through a running payload. The body carries the mutation that proves each.
+  [Full entry](research/backlog/aky.md)
 
 - **(afg) THE DOWNLOAD PAGE HAS NO HOME IN THIS REPOSITORY, AND `truestill.app` EXISTS ONLY IN
   CONVERSATION.** The
@@ -960,7 +974,11 @@ and they are not product defects; keeping them in one drawer stops them competin
   Recorded 2026-08-19. One was fixed; the class was not. [Full entry](research/backlog/aec.md)
 
 - **(adz) A COMPATIBILITY PATH STATES ITS REMOVAL CONDITION WHEN IT IS WRITTEN.** Recorded
-  2026-08-19. ⚠ **The window for free removal closes at the first `v*` tag.** [Full
+  2026-08-19. ⚠ **THE WINDOW FOR FREE REMOVAL IS CLOSED. It shut on 2026-08-30 with `v0.1.0`**
+  and this line said *"closes at the first `v*` tag"* in the future tense for seventeen days after
+  that tag existed. The rule stands; what changed is that a condition must now be a **version**,
+  *"when the maintainer decides"* is no longer available, and the 2026-08-19 audit's three
+  removable paths were never removed while they were free. [Full
   entry](research/backlog/adz.md)
 
 - **(adm) `inspect_catalog` SKIPPED THE FIRST-RUN CASE - FIXED FOR THE APP, UNCHANGED FOR THE

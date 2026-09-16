@@ -654,11 +654,26 @@ home is `(afg)`, itself undecided as to whether it blocks). It is detailed below
 - **`(aad)` item 6, frozen CLI startup, is UNMEASURED** and is a *quotable-number* gap rather than
   a gate: nothing claims a figure, so nothing is wrong yet.
 
-### ⚠ What the first tag COSTS, which is not a blocker but must not be a surprise
+### ⚠ What the first tag COST, which was not a blocker and was a surprise anyway
 
-- **`(adz)` expires at the first tag.** Its rule - no compatibility paths, no legacy fallbacks,
-  because no users exist - holds *"until the first release tag"*. Every entry justified by it stops
-  being justified the moment one is cut.
+⚠ **THIS SECTION WAS WRITTEN IN THE FUTURE TENSE AND STAYED THERE FOR SEVENTEEN DAYS AFTER THE
+TAG.** `v0.1.0` was published **2026-08-30** and `v0.1.1` on **2026-09-03**; the heading still read
+*"What the first tag COSTS"* on 2026-09-16, when an audit ran `git ls-remote --tags origin` rather
+than reading it. **Verify rather than trust a tense**:
+
+```sh
+git ls-remote --tags origin   # v0.1.0, v0.1.1
+gh release list               # which of them is Latest
+```
+
+- **`(adz)` EXPIRED 2026-08-30.** Its rule - no compatibility paths, no legacy fallbacks, because
+  no users exist - held *"until the first release tag"*, and this bullet said *"expires at the
+  first tag"* for seventeen days after one was cut. **Every entry justified by it stopped being
+  justified then.** ⚠ **A compatibility path is no longer free to refuse**: before the tag a
+  removal condition could be *"when the maintainer decides"*, and after it the condition must be a
+  **version**, because the population who can depend on the path is no longer enumerable. The
+  2026-08-19 audit's three removable paths - `CatalogChoiceReason`'s dead `"legacy"` member,
+  `LEGACY_MARKER_NAMES`, `LEGACY_CATALOG_PATH` - were free on 2026-08-29 and are not free now.
 - **A `v*` tag is the PUBLISH trigger, not a dry run.** On a tag push there are no
   `workflow_dispatch` inputs, so `github.event.inputs.dry_run != 'true'` is true and the publish
   job runs. There is no such thing as a rehearsal tag; rehearse with `workflow_dispatch`.
