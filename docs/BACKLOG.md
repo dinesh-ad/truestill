@@ -345,7 +345,7 @@ rather than treated as a triage failure.
   genuinely different file on Linux - which is the counter-example that decided `(ala)`. Also
   `dedup`, `cleanup` (the only directory-removal path), `rclone`'s listing, `albums.name` (one
   `COLLATE NOCASE`), `hash_cache`'s permanent pruning miss, and `backup`'s `resolve() ==
-  resolve()`, which does not normalise case on any platform. **Plus NFD**: macOS stores decomposed
+  resolve()`, which does not normalise case on any platform. **Plus a harness gap**: every case test derives its expectation from the filesystem under it, which is what lets them run with no `skipif` - and is why a green macOS lane cannot say whether the folding branch ran. `conftest.pytest_report_header` already prints one line per run and could name the answer. ⚠ That would close *which branch ran*, **not** `(ala)`'s stated gap - no run shows a folding mount's walk returning the drifted spelling end to end. **Plus NFD**: macOS stores decomposed
   filenames, `casefold` does not fix it, `unicodedata.normalize("NFC", ...)` does, and 0 of 13,405
   files across three corpora are decomposed - so it is real, untestable here, and its Linux
   direction carries the same silent-loss risk. [Full entry](research/backlog/alb.md)

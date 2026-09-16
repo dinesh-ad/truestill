@@ -106,8 +106,48 @@ the probe `(ala)` uses cannot distinguish them.
 **The shape accommodates it**: `rescan.compare_key` is the one place a second normalisation would
 go, and it already carries the rule that the derived form is never stored.
 
+## 4. THE CASE TESTS NEVER SAY WHICH BRANCH THEY TOOK
+
+Every case test in `(ala)` and `(alc)` derives its expectation from the filesystem it is running
+on, deliberately:
+
+```python
+folds = (tmp_path / "Saved/PHOTO.JPG").exists()
+assert [p.name for p in walk.files] == ([] if folds else ["photo.jpg"])
+```
+
+That is what lets them run on every lane with no `skipif` - the shape `(ais)`'s resolution asks
+for. ⚠ **And it is exactly why they cannot tell anyone what the platform did.** A green macOS lane
+proves the assertions hold there; it does not show that APFS folded and the folding branch
+executed. I asserted that it did, twice, before going to look and finding no evidence either way.
+
+**The remedy is an existing mechanism, not a new one.** `conftest.pytest_report_header` already
+prints one line on every run - *"One line, every run, naming where the scratch actually went"* -
+and adding the scratch filesystem's answer to it would make every lane state what it measured:
+
+```
+scratch: /data/tmp/truestill
+case-folding: False        # or True on a macOS or Windows runner
+```
+
+⚠ **WHAT THIS WOULD AND WOULD NOT CLOSE, because the distinction is the whole reason the gap is
+recorded rather than assumed away.** It closes *"which branch did the tests take"* - the header
+plus a green lane says the folding path ran for real on a folding filesystem. It does **not**
+close `(ala)`'s stated gap, which is one step further out: *no run anywhere shows a folding
+mount's **walk** returning the drifted spelling end to end.* That still needs a writable
+case-insensitive mount, and `(ala)` records that every unprivileged route to one on this machine
+is closed.
+
+**Cost**: one line in a hook that already exists, and one probe call at session start. **Not
+done here** because it is a change to the test harness rather than to the product, and because
+its value is entirely in what it would let a future reader claim - which is the kind of thing
+`(ago)` asks to be argued before it is built rather than after.
+
 ## WHAT IS NOT PROPOSED
 
+- **Whether the report line belongs in the header or in a test's own output.** The header is
+  the cheapest place and the one that costs nothing when nobody is looking; a `record_property`
+  into the JUnit XML would be queryable instead of readable. Not decided.
 - **Whether these are one entry or fourteen.** They share a comparison, not a fix: three want
   `folds_case`, one wants `COLLATE NOCASE`, one wants `samefile`, and one is only an
   inconsistency. Bundling them would make the ranking meaningless.
