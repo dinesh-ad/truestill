@@ -28,6 +28,7 @@ import sys
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Final
 
 from truestill_core.units import format_bytes
 
@@ -270,3 +271,66 @@ def preflight_destination(
         # with the real reason rather than a space figure nobody could obtain.
         free_bytes=need if free is None else free,
     )
+
+
+#: How many walked names the case probe will try before giving up. `(ala)`
+#:
+#: More than one because a name may have no cased letter at all - `20140817_120000.jpg` is the
+#: shape this product generates most - and each miss costs one `stat`. Small because a tree whose
+#: first thirty-two names are all caseless is a tree the answer does not matter for.
+CASE_PROBE_SAMPLES: Final = 32
+
+
+def folds_case(walked: Iterable[Path]) -> bool | None:
+    """Does this filesystem treat two spellings of one name as one file? `(ala)`
+
+    ``True`` on NTFS, APFS, HFS+, exFAT and FAT; ``False`` on ext4 and most Linux mounts;
+    ``None`` when it cannot be told.
+
+    **It takes the walked paths and no root**, because the answer belongs to the filesystem each
+    path is on rather than to a directory - a walk that crosses a mount point is answered by the
+    first name that can answer, which is the honest scope for a single flag.
+
+    ⚠ **READ-ONLY, AND THAT IS A REQUIREMENT RATHER THAN A PREFERENCE.** The caller this exists
+    for is `rescan`, whose promise is *"Report only. Nothing here writes to a catalog or to a
+    drive."* The obvious probe - create two files differing only in case and see whether one
+    appears - would break that promise on the one command whose whole value is that it keeps it.
+    So the probe uses a file the walk **already found**: it asks for the same name with its case
+    swapped and compares ``(st_dev, st_ino)``. The kernel answers, which is the same instrument
+    `reclaim`, `catalog_move` and `app_paths` already use for *"same file, not same string"*.
+
+    ⚠ **THE FILESYSTEM TYPE DOES NOT DECIDE THIS AND MUST NOT BE USED TO GUESS IT.** Measured on
+    this machine 2026-09-16: `/boot/efi` is **vfat** and folds; `/mnt/windows` is **NTFS** and
+    does **not**, because the kernel `ntfs3` driver was mounted without ``nocase``. A table from
+    `facts_for` would have answered "NTFS, therefore folds" and been wrong about a real mount on
+    a real machine. The mount decides; only the mount can be asked.
+
+    **Inconclusive is a real answer** (``None``), the way `facts_for` already returns unknown for
+    macOS: every sampled name was caseless, or the tree was empty, or every ``stat`` failed. A
+    caller must decide what to do with it rather than being handed a guess.
+
+    **Complexity: at most** :data:`CASE_PROBE_SAMPLES` ``stat`` calls, once per run - never per
+    file. The walk has already stat'd everything it returned.
+    """
+    tried = 0
+    for path in walked:
+        if tried >= CASE_PROBE_SAMPLES:
+            break
+        swapped = path.name.swapcase()
+        if swapped == path.name:
+            continue  # no cased letter; this name cannot answer the question
+        tried += 1
+        try:
+            here = path.stat()
+            there = (path.parent / swapped).stat()
+        except OSError:
+            # The swapped name is absent, which is what a case-sensitive filesystem says. A
+            # vanished original says nothing, so both are simply "not an answer from this name".
+            if path.exists():
+                return False
+            continue
+        # ⚠ **INODE, NOT "it stat'd".** On a case-SENSITIVE filesystem both spellings can exist
+        # as two genuinely different files, and a probe that stopped at "the swapped name is
+        # there" would call that folding. Identity is the kernel's to state.
+        return (here.st_dev, here.st_ino) == (there.st_dev, there.st_ino)
+    return None

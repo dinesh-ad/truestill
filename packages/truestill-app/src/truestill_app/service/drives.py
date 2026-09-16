@@ -6,6 +6,7 @@ import subprocess
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Literal, NotRequired, TypedDict, cast
 
@@ -47,9 +48,11 @@ from truestill_core.drive import (
     was_ever_checked,
 )
 from truestill_core.drive_adoption import AdoptionOffer, inspect_root, recorded_drive
+from truestill_core.filesystem import folds_case
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import sha256_file
 from truestill_core.progress import Phase, Progress, ProgressCallback
+from truestill_core.rescan import compare_key
 
 from truestill_app.service.drive_support import (
     drive_correction,
@@ -192,7 +195,15 @@ class _DriveWalk:
 
 
 def _unrecorded_files(root: Path, recorded: set[str]) -> _DriveWalk:
-    """Every file on the drive that is not already a recorded copy at that exact path.
+    """Every file on the drive that is not already a recorded copy at that path.
+
+    ⚠ **"AT THAT PATH" USED TO MEAN "AT THAT EXACT STRING", WHICH IS THE WRONG QUESTION ON THE
+    TWO PLATFORMS MOST USERS ARE ON.** NTFS and APFS fold case, so a catalog holding
+    ``Saved/Photo.JPG`` and a walk returning ``Saved/photo.jpg`` describe **one file** - and this
+    comparison called it unrecorded, sending it to be hashed. The cheapness this docstring
+    promises came apart exactly there: on a drive whose case had drifted, *every* file became a
+    candidate. `(ala)`. The structural twin of `rescan.reconcile`, in a different package, with
+    no shared code - which is the census's own finding about this comparison.
 
     ``recorded`` holds ``file_copies.relative`` for this drive - the **per-drive** column, which
     migration keeps current, and the only path in the catalog that can be trusted. A file sitting
@@ -213,7 +224,6 @@ def _unrecorded_files(root: Path, recorded: set[str]) -> _DriveWalk:
     **Complexity: O(entries on the drive)** - one pass, one stat each, no reads, plus the same
     terminal sort ``rglob`` already paid for.
     """
-    files: list[Path] = []
     unreadable: list[str] = []
 
     def _note_unreadable(error: OSError) -> None:
@@ -226,14 +236,23 @@ def _unrecorded_files(root: Path, recorded: set[str]) -> _DriveWalk:
         except ValueError:
             unreadable.append(str(error.filename))
 
+    seen: list[Path] = []
     for dirpath, dirnames, filenames in root.walk(on_error=_note_unreadable):
         dirnames[:] = [name for name in dirnames if not name.startswith(".")]
         for name in filenames:
             if name.startswith("."):
                 continue
             item = dirpath / name
-            if item.is_file() and item.relative_to(root).as_posix() not in recorded:
-                files.append(item)
+            if item.is_file():
+                seen.append(item)
+    # ⚠ **THE PROBE RUNS ONCE, ON WHAT THE WALK ALREADY FOUND, AND READS NO BYTES.** It stats a
+    # returned name with its case swapped and compares inodes, so the mount answers rather than a
+    # table of filesystem names - which matters, because a real NTFS mount without `nocase` does
+    # NOT fold and a vfat one does. `None` (no walked name carried a cased letter) falls back to
+    # exact comparison, which is today's behaviour and correct on Linux.
+    key = partial(compare_key, fold_case=folds_case(seen) is True)
+    recorded_keys = {key(rel) for rel in recorded}
+    files = [item for item in seen if key(item.relative_to(root).as_posix()) not in recorded_keys]
     return _DriveWalk(sorted(files), tuple(sorted(unreadable)))
 
 

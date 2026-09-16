@@ -68,6 +68,40 @@ recording shipped work as unstarted, which is the more expensive direction of th
   survivors is a finding: **the whole `truestill-app` suite passes with `early_rejected` removed
   from the payload.**
   [Full entry](research/backlog/akx.md)
+- **(ala) TWO SPELLINGS OF ONE PATH WERE TWO FILES, ON THE TWO PLATFORMS MOST USERS ARE ON.**
+  ✅ **CLOSED 2026-09-16.** Rank 4 of the audit. `rescan.reconcile` is `Pure: no I/O`, so it
+  compared the catalog's `relative` against the walk as exact strings - and on NTFS and APFS
+  `Saved/Photo.JPG` and `Saved/photo.jpg` are one file.
+  ⚠ **THE RECORDED SYMPTOM WAS WRONG AND MEASURING IT CHANGED THE FIX.** this file's own case-insensitivity row and the
+  audit both said *"both MISSING and STRAY"*; run against a real drive it reports **MOVED**,
+  because the drifted name becomes a candidate, is hashed, and matches. So the harm is a wall of
+  phantom moves, `exit 1` - and **every drifted file read in full**, since `HashCache` is keyed by
+  `str(path)` and misses too. That is the whole library re-hashed by the command whose docstring
+  justifies its design by *not* doing that (*"~15 h for 196 GiB"*). `(ajb)`'s damaged bucket also
+  silently empties, and since `(akw)` `verify` **writes** the phantom move to the catalog.
+  **Censused, not spotted**: 214 raw AST hits triaged to 101 path-identity sites - **20 reachable,
+  41 already handled, 40 not**. 🔑 The three worst are **the same comparison** written
+  independently in three packages with no shared helper; `compare_key` is now that helper.
+  ⚠ **Zero `COLLATE NOCASE` anywhere in the schema.**
+  **The decision is (b) probe the mount, not (a) always fold**, against the tool this research
+  came from. Its Linux collapse is *"unusual and harmless"* for a cache diff; here
+  `organizer._free_relative` would authorise the one sanctioned overwrite onto **the wrong file**,
+  and `recorded={A.jpg, a.jpg}` with only `a.jpg` present would report a missing photograph as
+  present. Silent loss is the direction this product refuses.
+  **`filesystem.folds_case` is READ-ONLY by requirement**, because `rescan` promises *"Nothing was
+  changed"*: it stats a name the walk already returned with its case swapped and compares
+  `(st_dev, st_ino)`. ⚠ **The filesystem TYPE does not decide this** - measured on this machine,
+  `/boot/efi` (vfat) folds and `/mnt/windows` (**ntfs3**, no `nocase`) does not, so a table would
+  have been wrong about a real NTFS mount.
+  **`casefold`, never `lower`** (four German spellings collapse to one key, not two), and the
+  folded form is **never stored** - Unicode 13 added 169 folding entries Unicode 8 lacked.
+  **NFD is exposed, is a DIFFERENT fix** (`casefold` does not equate `café` and `cafe\u0301`;
+  NFC does) **and is out of scope** - 0 decomposed names across 13,405 files in three corpora.
+  Filed with the other 16 reachable sites as `(alb)`.
+  **15 mutations, 15 caught**, one only after a survivor: turning off the CLI's fold was caught by
+  no CLI test, and the test that closes it counts calls to `sha256_file`.
+  [Full entry](research/backlog/ala.md)
+
 - **(akz) OPENING THE CATALOG UPGRADES IT, AND NOTHING SAID SO.**
   ✅ **CLOSED 2026-09-16.** Ranks 2, 3 and 5 of the audit.
   **1. The migration was silent.** `Catalog.__init__` migrates unconditionally and there is **no

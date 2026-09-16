@@ -19,6 +19,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import replace as _dataclass_replace
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from pathlib import Path
 from typing import Any, Final
 
@@ -155,7 +156,7 @@ from truestill_core.drive_adoption import (
 from truestill_core.drive_lock import DriveBusyError, lock_for
 from truestill_core.duplicate_explain import describe_split, origin_phrase, split_by_origin
 from truestill_core.exif import ExiftoolMissingError, read_metadata
-from truestill_core.filesystem import DestinationPreflight
+from truestill_core.filesystem import DestinationPreflight, folds_case
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import (
     CAN_READ_FROM_THE_MEDIUM,
@@ -259,7 +260,7 @@ from truestill_core.recover import (
     plan_recovery,
     recover_into_library,
 )
-from truestill_core.rescan import RescanReport, reconcile
+from truestill_core.rescan import RescanReport, compare_key, reconcile
 from truestill_core.run_record import (
     RunHeader,
     build_run_record,
@@ -1367,9 +1368,24 @@ def _cmd_rescan(args: argparse.Namespace) -> int:
         str(row["relative"]): (None if row["size"] is None else int(row["size"])) for row in rows
     }
     actual_sizes = LocalDestination(root).sizes()
+    # ⚠ **ASK THE MOUNT WHETHER TWO SPELLINGS ARE ONE FILE, ONCE PER RUN.** `folds_case` is
+    # read-only - it stats a name the walk already returned with its case swapped and compares
+    # inodes - which `rescan`'s own promise requires: *"Nothing was changed: not your files, not
+    # the drive, not the catalog."* `None` means no walked name carried a cased letter, and it
+    # falls back to exact comparison, which is today's behaviour and right on Linux. `(ala)`
+    fold_case = folds_case(scan.media) is True
     # The PLACED rule: a file where the catalog says it is, is not read. This subtraction is
     # what makes the cost proportional to what changed rather than to the size of the library.
-    candidates = {rel: path for rel, path in on_disk.items() if rel not in recorded}
+    #
+    # ⚠ **THE FOLD BELONGS HERE MORE THAN ANYWHERE, because this is where the cost is.** On a
+    # folding filesystem a library whose case drifted matched nothing, so every file became a
+    # candidate; `HashCache` is keyed by `str(path)`, so every one also missed the cache and was
+    # read in full. That is the whole library re-hashed on a command that promises to read no
+    # bytes at all - the ~15 h for 196 GiB this module's own docstring cites as the reason the
+    # PLACED rule exists.
+    key = partial(compare_key, fold_case=fold_case)
+    recorded_keys = {key(rel) for rel in recorded}
+    candidates = {rel: path for rel, path in on_disk.items() if key(rel) not in recorded_keys}
     identified, unreadable_files = _rescan_hashes(candidates, args.db)
 
     # `(acz)`: staging gave a survivor a safe name and, with it, moved the seam that found the
@@ -1390,6 +1406,7 @@ def _cmd_rescan(args: argparse.Namespace) -> int:
         debris=debris,
         sizes=actual_sizes,
         recorded_sizes=recorded_sizes,
+        fold_case=fold_case,
     )
     _print_rescan(report, root, marker.label, _CLOCK() - started)
     return 0 if report.reconciled else 1

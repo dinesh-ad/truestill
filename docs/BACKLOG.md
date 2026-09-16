@@ -55,7 +55,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(akz). Next free: (ala).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(alb). Next free: (alc).**
 ⚠ **`(akk)` was the declared next free while `(akl)`–`(akp)` were filed past it** - gap filled
 2026-09-14; letters are identifiers, not an ordering.
 ⚠ **AND IT HAPPENED AGAIN, IDENTICALLY**: `(akq)` stood as the declared next free while `(akr)`
@@ -335,6 +335,19 @@ rather than treated as a triage failure.
   mount that refuses `copystat` never gave the incumbent its metadata either. Check before
   building; that is a real possible answer.
   Body: [`research/backlog/aip.md`](research/backlog/aip.md).
+
+- **(alb) THE REST OF THE CASE CLASS, AND THE NORMALISATION QUESTION BESIDE IT.** Recorded
+  2026-09-16 by `(ala)`'s census, **with no work attached**. 16 of the 20 reachable path-identity
+  sites are unfixed. ⚠ **The one that matters is `organizer.py:_free_relative`**, the only path
+  permitted to overwrite a file: leaving it exact lets `(aja)`'s repair land as `…_1.jpg` beside
+  the corpse on a folding filesystem, and folding it unconditionally authorises overwriting a
+  genuinely different file on Linux - which is the counter-example that decided `(ala)`. Also
+  `dedup`, `cleanup` (the only directory-removal path), `rclone`'s listing, `albums.name` (one
+  `COLLATE NOCASE`), `hash_cache`'s permanent pruning miss, and `backup`'s `resolve() ==
+  resolve()`, which does not normalise case on any platform. **Plus NFD**: macOS stores decomposed
+  filenames, `casefold` does not fix it, `unicodedata.normalize("NFC", ...)` does, and 0 of 13,405
+  files across three corpora are decomposed - so it is real, untestable here, and its Linux
+  direction carries the same silent-loss risk. [Full entry](research/backlog/alb.md)
 
 - **(aky) FOUR PAYLOAD FIELDS NOTHING PROTECTS, AND ALL FOUR ARE DRAWN ON A SCREEN.** Recorded
   2026-09-16 by an audit, **with no work attached** - so the next person does not rediscover them.

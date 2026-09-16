@@ -42,6 +42,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
+from functools import partial
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,6 +133,23 @@ class DamagedCopy:
     actual_size: int
 
 
+def compare_key(relative: str, *, fold_case: bool) -> str:
+    """The form in which two drive-relative paths are compared. `(ala)`
+
+    ⚠ **COMPUTED HERE, NEVER STORED, AND THAT IS A UNICODE CONSTRAINT RATHER THAN A STYLE
+    CHOICE.** Unicode's own guidance is explicit: *"case-folded text should be used solely for
+    internal processing and should not be stored or displayed"* - version 13 added 169
+    case-folding entries that version 8 did not have, so a folded key written into the catalog
+    would mean something different the next time Python's Unicode data moved under it. Every
+    bucket this module returns carries the original spelling; only the comparison folds.
+
+    ⚠ **``casefold`` rather than ``lower``**, which is not pedantry: for
+    ``["straße", "STRASSE", "strasse", "Straße"]`` casefold gives **one** key and lower gives
+    **two**. German filenames are ordinary in a photo library.
+    """
+    return relative.casefold() if fold_case else relative
+
+
 def reconcile(  # noqa: PLR0913 - each argument is a distinct class of observation
     *,
     recorded: Mapping[str, str],
@@ -142,6 +160,7 @@ def reconcile(  # noqa: PLR0913 - each argument is a distinct class of observati
     debris: Collection[str] = (),
     sizes: Mapping[str, int] | None = None,
     recorded_sizes: Mapping[str, int | None] | None = None,
+    fold_case: bool = False,
 ) -> RescanReport:
     """Classify a drive's records and files. Pure: no I/O, no catalog, no filesystem.
 
@@ -154,9 +173,16 @@ def reconcile(  # noqa: PLR0913 - each argument is a distinct class of observati
     anyway; this function does not police the caller's choice of what to read, because doing so
     would make it depend on the very rule it exists to express.
     """
-    disk = set(on_disk)
-    placed = tuple(sorted(rel for rel in recorded if rel in disk))
-    absent_records = sorted(rel for rel in recorded if rel not in disk)
+    # ⚠ **EVERY COMPARISON BELOW GOES THROUGH `compare_key`, AND THE BUCKETS KEEP THE ORIGINAL
+    # SPELLING.** `fold_case` comes from `filesystem.folds_case`, which asks the mount rather than
+    # guessing from its type - measured on this machine, `/boot/efi` (vfat) folds and
+    # `/mnt/windows` (ntfs3, mounted without `nocase`) does not, so a table keyed by filesystem
+    # would have been wrong about a real mount. This function stays **pure**: the probe is the
+    # caller's, its answer arrives as a flag, and nothing here touches a disk. `(ala)`
+    key = partial(compare_key, fold_case=fold_case)
+    disk = {key(rel) for rel in on_disk}
+    placed = tuple(sorted(rel for rel in recorded if key(rel) in disk))
+    absent_records = sorted(rel for rel in recorded if key(rel) not in disk)
 
     where: defaultdict[str, list[str]] = defaultdict(list)
     for relative, sha in identified.items():
@@ -180,8 +206,13 @@ def reconcile(  # noqa: PLR0913 - each argument is a distinct class of observati
     # should never hash a file that is where the catalog says, but a caller that does anyway
     # would otherwise see its own library reported as stray. A bucket that depends on the
     # caller having obeyed an unenforced rule is one wrong call away from a false alarm.
-    claimed = {path for entry in moved for path in entry.found}
-    stray = tuple(sorted(set(identified) - claimed - set(placed)))
+    #
+    # ⚠ **And the subtraction folds too, or the proof holds only under exact identity.** A
+    # `placed` spelled one way and an `identified` spelled another would leave the same file in
+    # both buckets, which is the overlap this derivation exists to make impossible.
+    claimed = {key(path) for entry in moved for path in entry.found}
+    placed_keys = {key(rel) for rel in placed}
+    stray = tuple(sorted(rel for rel in identified if key(rel) not in claimed | placed_keys))
 
     # ⚠ **A subset of `placed`, not a fifth bucket alongside it.** `(ajb)`: the four outcomes stay
     # disjoint and exhaustive over both inputs - location is still fully answered - and this names
@@ -192,10 +223,16 @@ def reconcile(  # noqa: PLR0913 - each argument is a distinct class of observati
     # tuple is then empty and the report says exactly what it said before.
     damaged: tuple[DamagedCopy, ...] = ()
     if sizes is not None and recorded_sizes is not None:
+        # `sizes` is keyed by what the WALK saw and `placed` by what the CATALOG holds, so the
+        # lookup folds like every other crossing above. Without it `(ajb)`'s damaged bucket
+        # silently empties on a folding filesystem - 836 zero-byte files reported `in place`.
+        actual = {key(rel): size for rel, size in sizes.items()}
         damaged = tuple(
-            DamagedCopy(rel, want, sizes[rel])
+            DamagedCopy(rel, want, actual[key(rel)])
             for rel in placed
-            if (want := recorded_sizes.get(rel)) is not None and rel in sizes and sizes[rel] != want
+            if (want := recorded_sizes.get(rel)) is not None
+            and key(rel) in actual
+            and actual[key(rel)] != want
         )
 
     return RescanReport(

@@ -80,6 +80,12 @@ Every screen has been redrawn.
   destination's answer.
 - **Changing a setting clears the result it produced**, rather than leaving an answer on screen
   that no longer describes what you asked for.
+- **On Windows and Mac, a photo whose name changed case is still the same photo.** Those
+  filesystems treat `Photo.JPG` and `photo.jpg` as one file; Truestill did not. `truestill rescan`
+  reported every such file as having moved, exited with an error, and re-read every one of them
+  from disk to work out they had not - which on a large library is hours. It now asks the drive
+  whether two spellings are one file and answers accordingly. On Linux, where they really are two
+  files, nothing changes.
 - **`analyze` no longer suggests a command that does not work.** It ended by offering
   `truestill organize <folder> --destination <folder>`, and copying that gave an error. The
   backup advice had the same problem, suggesting `truestill verify` without the folder it needs.
