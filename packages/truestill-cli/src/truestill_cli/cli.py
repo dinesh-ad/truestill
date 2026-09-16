@@ -20,7 +20,7 @@ from contextlib import AbstractContextManager
 from dataclasses import replace as _dataclass_replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 from truestill_core import decode_noise
 from truestill_core.allowance import (
@@ -371,6 +371,20 @@ DRIVE_BUSY_EXIT = 8
 #: a caller that sees it knows the library is exactly as it was - which is the property that
 #: makes an automated caller able to act on it at all.
 ALLOWANCE_EXHAUSTED_EXIT = 9
+
+#: Nothing was asked for, so the first screen was printed instead of a usage error. `(akx)`
+#:
+#: ⚠ **NOT A TENTH FAMILY - it is argparse's own `2`, kept deliberately.** The codes above are
+#: allocated one per failure a caller would *act on differently*, and there is no different
+#: action here: `2` is already this CLI's "usage or validation error", and a bare invocation is
+#: the plainest one there is. `0` was refused for a reason that is not tidiness - a script that
+#: runs the command with no arguments has done nothing, and `truestill && echo done` must not
+#: print `done`. There is no convention to follow, measured 2026-09-16 rather than assumed: bare
+#: `git` exits 1, `npm` 1, `uv` 2, `docker` 0, `gh` 0.
+#:
+#: The screen itself goes to **stdout**, which is where `git` and `npm` both put theirs: it is
+#: what the person asked to see, not a complaint about what they typed.
+NO_COMMAND_EXIT = 2
 
 #: The drive-lock policy for **every** subcommand, and the value is the `args` attribute naming
 #: the drive. `(aaw)`
@@ -2805,8 +2819,14 @@ def _print_heif_note(resolutions: list[Resolution]) -> None:
 
 
 def _print_date_quality(uploads: list[Resolution]) -> None:
-    """Disclose the two date-quality signals. Each prints only when non-zero, and neither is
-    ever folded into the plain 'undated' count -- that is the whole point of counting them."""
+    """Disclose the date-quality signals. Each prints only when non-zero, and none is ever
+    folded into the plain 'undated' count -- that is the whole point of counting them.
+
+    ⚠ **THE TALLY ABOVE THIS ALREADY NAMED THE TOKEN.** `date sources (organized files)` prints
+    one row per stored ``date_source``, so a refusal with no sentence here is not a silence - it
+    is `rejected_early 1` on screen with nothing saying what was rejected or why, beside two
+    siblings that each say both. `(akx)`
+    """
     quality = date_quality(uploads)
     if quality.sentinel_rejected:
         print(
@@ -2818,6 +2838,12 @@ def _print_date_quality(uploads: list[Resolution]) -> None:
             f"  {quality.future_rejected} file(s) claimed a capture date in the future;"
             " it was refused and they went to Undated/ (a wrong device clock, or edited"
             " metadata -- the original date cannot be recovered)"
+        )
+    if quality.early_rejected:
+        print(
+            f"  {quality.early_rejected} file(s) claimed a capture date before 1900;"
+            " it was refused and they went to Undated/ (a clock that was never set --"
+            " a genuine scan of an old photograph keeps the date it was scanned)"
         )
     if quality.suspect_default:
         print(
@@ -3221,6 +3247,13 @@ def _print_ingest_report(resolutions: list[Resolution], scan: TakeoutScan) -> No
     )
     print(
         f"  future date refused              : {quality.future_rejected}  (after today -> Undated/)"
+    )
+    # ⚠ **A ROW RATHER THAN A CONDITIONAL, because the rows above it are unconditional and this
+    # block is read as an account of every file.** `still undated` counts `DateSource.NONE`
+    # alone, so before this a file refused for a pre-1900 date appeared in `kept` and in **no**
+    # date row at all - not merely unexplained, absent. `(akx)`
+    print(
+        f"  early date refused               : {quality.early_rejected}  (before 1900 -> Undated/)"
     )
     print(f"  suspicious camera-default dates  : {quality.suspect_default}  (filed, worth a look)")
     shifts = inferred_local_shifts(uploads)
@@ -5581,6 +5614,73 @@ def _cmd_reclaim(args: argparse.Namespace) -> int:
         return 0
 
 
+#: What a person sees when they type the command's name and nothing else. `(akx)`
+#:
+#: ⚠ **BEFORE THIS, THE FIRST THING A NEW USER MET WAS AN ERROR.** Bare `truestill` reached
+#: argparse's `the following arguments are required: command`, above every subcommand wrapped
+#: onto one line - a list of what may be typed that says nothing about what to type. `README.md`
+#: has always said *"Start with `analyze`"*; the product said nothing.
+#:
+#: **The shape is clig.dev's "concise help text"**, which names four parts: what the program
+#: does, one or two example invocations, the flags unless there are many, and how to reach the
+#: full help. The flags are the part deliberately dropped - every subcommand carries its own,
+#: and repeating any here would be a second place to keep them correct.
+#:
+#: ⚠ **EVERY COMMAND NAMED HERE IS A REAL ONE, AND A TEST PROVES IT RATHER THAN A REVIEW.**
+#: `test_the_first_screen_only_promises_what_the_product_does` asks the parser whether each
+#: word is a subcommand and runs each example against a real folder, so an invented verb - or a
+#: real one that does not do what the sentence beside it claims - is red.
+FIRST_SCREEN_LEAD: Final = (
+    "Truestill organizes photos and videos into a dated, browsable library,\n"
+    "finds the identical copies, and keeps a second copy on another drive."
+)
+
+#: Three commands, in the order a person meets them, each with what it costs to run.
+#:
+#: ⚠ **THE FIRST ONE CHANGES NOTHING, AND THAT IS WHY IT IS FIRST.** Somebody who has just
+#: installed this has no reason to trust it with a library yet, and `analyze` needs no
+#: destination, no catalog and no decision - `README.md` gives the same advice for the same
+#: reason. The second is a dry run because `organize` without `--apply` IS one, so the sentence
+#: describes the product rather than making a promise on its behalf.
+#:
+#: **Two lines each rather than an aligned column**, because the widest invocation here is 44
+#: characters and a column would leave 32 for the description on an 80-column terminal - which
+#: is how a first screen becomes a wrapped mess on the machine a new user is sitting at.
+FIRST_SCREEN_STEPS: Final = (
+    ("truestill analyze FOLDER", "What is in here? Reads your files and changes none of them."),
+    (
+        "truestill organize FOLDER DESTINATION",
+        "A dry run: says where every file would go, and why.",
+    ),
+    (
+        "truestill organize FOLDER DESTINATION --apply",
+        "Do it. Copies by default, so the originals stay where they are.",
+    ),
+)
+
+#: The other way in, named once. Both are on `PATH` after an install, and a person who wants a
+#: window rather than a terminal would otherwise have to read the README to learn it exists.
+FIRST_SCREEN_APP: Final = "Or truestill-app, for the same library in a browser window."
+
+
+def first_screen(parser: argparse.ArgumentParser | None = None) -> str:
+    """The concise help for a bare invocation.
+
+    ⚠ **THE COMMAND COUNT IS ASKED OF THE PARSER, never written down here.** A number in this
+    string would be wrong the first time anyone added a subcommand, and wrong quietly - the drift
+    `test_subcommand_list_mirrors_the_parser` already exists to catch one surface of.
+    """
+    parser = parser or _build_parser()
+    groups = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
+    count = len(groups[0].choices) if groups else 0
+    lines = [FIRST_SCREEN_LEAD, "", "Three things to try first:", ""]
+    for command, why in FIRST_SCREEN_STEPS:
+        lines += [f"  {command}", f"      {why}"]
+    lines += ["", FIRST_SCREEN_APP, ""]
+    lines.append(f"truestill --help lists all {count} commands, and each takes --help too.")
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI. Returns a process exit code.
 
@@ -5629,6 +5729,14 @@ def main(argv: list[str] | None = None) -> int:
 
 def _dispatch(argv: list[str] | None) -> int:
     argv_list = list(argv) if argv is not None else sys.argv[1:]
+    # ⚠ **AHEAD OF `parse_args`, BECAUSE ARGPARSE CANNOT BE REACHED AFTERWARDS.** The subparsers
+    # are `required=True`, so an empty argv exits inside argparse with its own usage error and
+    # nothing downstream runs at all. Gating on the empty list alone leaves every other argparse
+    # behaviour as it was: `--version`, `-h` and a mistyped command all still take the paths they
+    # always did, which is why this is two lines and not a parser rewrite.
+    if not argv_list:
+        print(first_screen())
+        return NO_COMMAND_EXIT
     args = _build_parser().parse_args(argv_list)
     if hasattr(args, "db"):
         explicit = db_flag_explicit(argv_list)

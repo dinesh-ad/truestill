@@ -44,10 +44,11 @@ export interface PreviewView {
   copiesAgain: boolean;
 }
 
-/** The fields the date-quality notes read; the Import preview carries the same three. */
+/** The fields the date-quality notes read; the Import preview carries the same four. */
 export interface DateQualityCounts {
   future_rejected?: number;
   sentinel_rejected?: number;
+  early_rejected?: number;
   suspect_default?: number;
 }
 export interface InferredShifts {
@@ -73,6 +74,16 @@ export function DateQualityNotes({ s }: { s: DateQualityCounts }): React.JSX.Ele
         {plural(s.sentinel_rejected, "file")} carried only a placeholder date (an all-zero “epoch”
         timestamp). It was refused, so they went to “Undated” rather than being filed under 1904
         or 1970.
+      </div>,
+    );
+  }
+  if (s.early_rejected) {
+    notes.push(
+      <div key="early">
+        {plural(s.early_rejected, "file")} claimed a date before 1900, so it was refused and they
+        went to <span className="mono">Undated/</span>. That means a clock that was never set - a
+        genuine scan of an old photograph carries the date it was scanned, not the day it was
+        taken.
       </div>,
     );
   }

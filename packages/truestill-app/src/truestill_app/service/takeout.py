@@ -84,6 +84,10 @@ class IngestPreviewSummary(TypedDict):
     undated: int
     sentinel_rejected: int
     future_rejected: int
+    #: The pre-1900 refusal, beside the other two rather than folded into `undated`. `(akx)`:
+    #: `undated` counts `DateSource.NONE` alone, so without this the file is in `kept` and in no
+    #: date field at all - the app's half of the row the CLI report was missing.
+    early_rejected: int
     suspect_default: int
     inferred_local_shifts: list[InferredLocalShiftPayload]
     missing_sidecar: int
@@ -173,6 +177,7 @@ def ingest_preview(
         "undated": sources.get("none", 0),
         "sentinel_rejected": quality.sentinel_rejected,
         "future_rejected": quality.future_rejected,
+        "early_rejected": quality.early_rejected,
         "suspect_default": quality.suspect_default,
         "inferred_local_shifts": [
             {

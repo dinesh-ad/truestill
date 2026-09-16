@@ -29,6 +29,45 @@ recording shipped work as unstarted, which is the more expensive direction of th
   `test_every_site_calls_run_job_with_on_refuse` - every `await runJob({` must supply `onRefuse:`.
   [Full entry](research/backlog/abr.md)
 
+- **(akx) THREE THINGS A PERSON MEETS, NONE OF WHICH A TEST COULD HAVE CAUGHT.**
+  ✅ **CLOSED 2026-09-16**, found by using the product rather than by any gate.
+  **1. The rail lied about the allowance.** `loadAccount` had **one call site**, in the boot list:
+  organize 100 files through the app and the rail still read *"700 of 1,000 left"* while the server
+  said 600. ⚠ This is the one number D16 §5 permits, and it justified the Apply-time refusal on the
+  grounds that *"the number was never hidden, it was simply never pushed"* - so a number that is
+  wrong immediately after the only action that changes it is worse than one that is absent. Now
+  repainted in `after`, on both spending doors, **never on a timer** (D6 §3).
+  ⚠ **Every browser test opens the app and then asserts, so each reads the rail exactly once, at
+  boot, when it is correct by construction** - a rail that never repainted passed the whole lane.
+  The guard differs in one word, *afterwards*: one page load, a real organize, and the rail read
+  again from the same document. Three separable assertions - it moved, it moved to what the server
+  says (built from `licence_notice`, not retyped), and it did **not** move during the run.
+  **2. The first thing a person typed was an error.** Bare `truestill` gave argparse's *"the
+  following arguments are required: command"* over 23 subcommands on one line. It now answers with
+  clig.dev's **concise help text**: what the product is, three things to try, and where the full
+  list is - the count asked of the parser, never typed in. **stdout and exit 2**, measured rather
+  than preferred (bare `git` 1, `npm` 1, `uv` 2, `docker` 0, `gh` 0; `git` and `npm` use stdout);
+  `0` would make `truestill && echo done` print `done` after doing nothing. The guard **runs** every
+  example - `analyze` leaves the folder byte-identical, the dry run leaves no destination, `--apply`
+  leaves the originals - so a renamed command or a wrong sentence is red, not merely unreviewed.
+  **3. A photo dated 1899 was refused in silence.** The tally printed `rejected_early 1` with no
+  sentence beside two siblings that each had one - and the import report was worse: its date rows
+  are unconditional and `still undated` counts `NONE` alone, so the file was in `kept` and in **no
+  date row at all**. ⚠ **The deferral this overturns had the trigger *"the day a real library shows
+  one"*, and that trigger still has not fired** - 0 of 7,790 real files. It was built anyway because
+  the rarity argument was never sound: `REJECTED_SENTINEL` measures zero on the same library and has
+  always had its sentence. The tally already prints the token, so rarity is an argument about how
+  often a person meets it, never about whether the sentence is owed.
+  **Censused, not fixed one-for-one**: the class is derived from the enum (`REJECTED_*`);
+  `date_explain` covers all ten `DateSource` members and **nothing pinned that** until now (
+  `REJECTED_FUTURE` sat in that hole once); `drive_unwritable`'s two tables cover five of six and
+  the sixth is a **deliberate** fall-through to the OS's own message; every other table is complete.
+  **Both surfaces in one commit** (`(aku)`) - counter, both CLI reports, both payloads,
+  `preview.tsx`, `openapi.json` and `api.d.ts` regenerated; the frozen oracle untouched.
+  **19 mutations, 19 caught**, three only after a survivor exposed a real gap - and one of those
+  survivors is a finding: **the whole `truestill-app` suite passes with `early_rejected` removed
+  from the payload.**
+  [Full entry](research/backlog/akx.md)
 - **(akw) VERIFY SAW A MOVE, WROTE NOTHING, AND FROZE A VERIFICATION DATE FOR EVER.**
   ✅ **CLOSED 2026-09-15**, found by breaking the golden rule on the installed build.
   **What was wrong**: `verify` had write branches for VERIFIED, MISSING and MISMATCH and **none

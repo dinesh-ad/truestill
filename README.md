@@ -238,7 +238,12 @@ PyInstaller `COLLECT`, and `packaging/build_deb.py:verify_bundle_binaries` now r
 missing either, so it cannot go missing quietly again.
 
 **Start with `analyze`** if you have not used Truestill before. It needs only a folder - no
-destination, no library, no setup.
+destination, no library, no setup. ⚠ **The product says this too since 2026-09-16**: typing
+`truestill` on its own prints a short first screen with these same three commands on it, rather
+than the argparse error and the one-line list of 23 subcommands it used to give. The screen is
+pinned to the parser and to the commands themselves by
+`test_the_first_screen_only_promises_what_the_product_does.py`, which **runs** each example - so
+this paragraph and that screen cannot recommend different things.
 
 **The count, size, photo / video / audio split and every format it found appear in about a
 second**, from file names and sizes alone. It then tells you what it is about to do and roughly

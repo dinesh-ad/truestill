@@ -141,6 +141,21 @@ def test_it_flags_prose_that_lowercases_the_name(tmp_path: Path) -> None:
     assert _guard.offences(page), "a lowercase name in plain prose was not flagged"
 
 
+def test_the_flag_exemption_does_not_swallow_a_sentence(tmp_path: Path) -> None:
+    """The half that keeps `(akx)`'s widening honest.
+
+    `truestill --help` is an invocation; `truestill - a local-first organizer` is a sentence with
+    a dash in it, and a pattern loose enough to read the second as a flag would blind the guard
+    to the commonest prose shape in this repo.
+    """
+    page = tmp_path / "page.md"
+    page.write_text(
+        "truestill - a local-first organizer.\ntruestill --- three dashes is not a flag.\n",
+        encoding="utf-8",
+    )
+    assert len(_guard.offences(page)) == 2
+
+
 def test_it_flags_nothing_in_a_file_of_identifiers(tmp_path: Path) -> None:
     """The cry-wolf half, and the reason the reach is narrow.
 
@@ -152,6 +167,8 @@ def test_it_flags_nothing_in_a_file_of_identifiers(tmp_path: Path) -> None:
     page = tmp_path / "page.md"
     page.write_text(
         "Run `truestill organize` first.\n"
+        # `(akx)`: the CLI's first screen ends with this line, unfenced, in `cli.py`.
+        "truestill --help lists every command, and truestill --version names the build.\n"
         "The package is truestill_core and the command is truestill-cli.\n"
         "See truestill.app for downloads, or /opt/truestill/bin.\n"
         "TRUESTILL_DATA_DIR points at the library.\n"

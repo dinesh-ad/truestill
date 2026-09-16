@@ -340,6 +340,10 @@ class OrganizeDedupCore(TypedDict):
     undated: int
     sentinel_rejected: int
     future_rejected: int
+    #: The pre-1900 refusal, beside the other two rather than folded into `undated`. `(akx)`:
+    #: `undated` counts `DateSource.NONE` alone, so without this the file is in `kept` and in no
+    #: date field at all - the app's half of the row the CLI report was missing.
+    early_rejected: int
     suspect_default: int
     inferred_local_shifts: list[InferredLocalShiftPayload]
     folders: dict[str, int]
@@ -428,6 +432,7 @@ def _summarize(resolutions: list[Resolution], *, skip_undated: bool = False) -> 
         # camera-clock default, are each reported on their own -- never folded into "undated".
         "sentinel_rejected": quality.sentinel_rejected,
         "future_rejected": quality.future_rejected,
+        "early_rejected": quality.early_rejected,
         "suspect_default": quality.suspect_default,
         # Informational: videos shifted from UTC CreateDate (names + offsets). Not a defect;
         # not_proven_utc fallthrough is omitted on purpose.

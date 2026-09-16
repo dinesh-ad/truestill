@@ -124,8 +124,20 @@ NAME = re.compile(r"(?<![\w./-])truestill(?![\w./-])")
 FENCE = re.compile(r"^\s*(```|~~~)")
 CODE_SPAN = re.compile(r"`[^`]*`")
 
-#: The name followed by a subcommand: an invocation, not the product name in a sentence.
-INVOCATION = re.compile(r"truestill (?:" + "|".join(re.escape(s) for s in SUBCOMMANDS) + r")\b")
+#: The name followed by a subcommand **or a long flag**: an invocation, not the product name in
+#: a sentence.
+#:
+#: ⚠ **The flag half joined on 2026-09-16 (`(akx)`), and rule 3's principle already covered it.**
+#: The CLI's new first screen ends with `truestill --help lists all 23 commands`, which is a line
+#: a person types; the rule said "a subcommand after the name makes it an invocation" and the
+#: implementation simply knew about subcommands and not about flags. `truestill --version` was
+#: already carried in :data:`ALLOWED_LITERALS` for exactly this reason, one shape narrower - so
+#: this is the general form of an exception the guard had already granted once.
+#:
+#: **It cannot swallow prose**: a sentence about the product is never followed by `--`.
+INVOCATION = re.compile(
+    r"truestill (?:--[a-z][a-z-]*|" + "|".join(re.escape(s) for s in SUBCOMMANDS) + r")\b"
+)
 
 
 def offences(path: Path) -> list[tuple[int, str]]:

@@ -2781,6 +2781,10 @@ async function startOrganizeRun() {
       $("org-confirm").innerHTML = "";
       loadCustody();
       refreshOrganizeUndoAffordance();
+      // `after` does not run on a REFUSAL - `runJob` returns before it - which is exactly right:
+      // a run the cap refused never started and spent nothing. A cancelled or errored run DID
+      // spend, because `organize_run` records what it managed before the exception leaves.
+      loadAccount();
     },
   });
 }
@@ -3680,6 +3684,10 @@ async function rcRun() {
     // re-running copies only what is still missing.
     onCancelled: (d) => finish(rcCompletion(d.summary, true)),
     onSuccess: (d) => finish(rcCompletion(d.summary, false)),
+    // An import is an organize with a different door on it - same `organize_run`, same charge -
+    // so it repaints for the same reason. Added with organize's rather than after it: a fix that
+    // reaches one of two identical surfaces is the drift this repo keeps finding.
+    after: () => loadAccount(),
   });
 }
 
@@ -5196,6 +5204,30 @@ function renderAccount(a) {
       </div>
     </details>`;
 }
+
+// ⚠ **THE RAIL IS REPAINTED WHEN A RUN THAT WRITES FILES ENDS, and until `(akx)` it never was.**
+// `loadAccount` had exactly one call site - the boot list - so the allowance line described the
+// allowance as it stood when the page was OPENED. Measured: organize 100 files through the app
+// and the rail still read "700 of 1,000 left" while the server said 600.
+//
+// D16 §5 permits this one number to exist at all, and justified the Apply-time refusal precisely
+// on the grounds that "the number was never hidden, it was simply never pushed". A number that
+// is wrong immediately after the only action that changes it is worse than one that is absent.
+//
+// ⚠ **NOT LIVE AND NOT ON A TIMER.** D6 §3 forbids a countdown, so nothing repaints DURING a
+// run: this fires once, after the outcome card is already on the screen.
+//
+// ⚠ **UNCONDITIONAL WITHIN THESE TWO COMMANDS, rather than gated on "did it write anything".**
+// The gate would have to be a second definition of what the cap charges for, and there already
+// is one - `allowance.FILES_WRITTEN_STATUSES`, which deliberately differs from both
+// `_ORGANIZED_STATUSES` (the `organized` count this file can see) and
+// `organizer._BYTES_WRITTEN_STATUSES`. Re-deriving it here in JavaScript is how the two drift.
+// A run that wrote nothing repaints the same number, which costs one GET and tells no lie.
+//
+// **The two commands are the two that spend allowance**, and that is read off the server rather
+// than guessed: `record_files_written` has exactly two call sites in the app, both inside
+// `service/organize.py:organize_run`, which `/api/organize/run` and `/api/ingest/run` are the
+// only routes to reach. `/api/ingest/archives/run` unpacks and organizes nothing.
 
 async function loadAccount() {
   renderAccount(await get("/api/account"));

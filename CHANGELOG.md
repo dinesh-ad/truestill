@@ -44,6 +44,10 @@ Every screen has been redrawn.
 - **`truestill account`** shows which licence this installation holds, and `--use-file` installs
   one. `truestill self-check` now names it too, without printing anything personal - it is a
   report designed to be pasted into a bug report.
+- **Typing `truestill` on its own tells you where to start.** It used to answer with an error
+  and a list of 23 commands wrapped onto one line. It now says what the product does, gives you
+  three things to try - look at a folder, see what a run would do, do it - and points at
+  `--help` for the rest.
 
 ### Changed
 
@@ -81,6 +85,14 @@ Every screen has been redrawn.
 - **A long email address wraps at the `@` or the dot** in the account panel, instead of breaking
   mid-word.
 - **A very large run no longer builds its whole record in memory** before writing it.
+- **The free-files count is right the moment a run ends.** The rail showed the count as it stood
+  when you opened the page, so after organizing 100 photos it still read *"700 of 1,000 left"*
+  while 600 were left. It is refreshed when a run finishes - not while one is going, because a
+  counter ticking down beside your photographs is not something this product does.
+- **A photo dated before 1900 says so.** Its date was refused and the file was filed under
+  *Undated*, correctly - but the run summary printed a bare `rejected_early` and no explanation,
+  and the Import report did not count it in any date row at all. Both now say what was refused
+  and why, the way the placeholder and future-dated cases always have.
 
 ### A note on how this file is written
 

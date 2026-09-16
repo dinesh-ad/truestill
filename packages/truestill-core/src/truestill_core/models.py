@@ -134,12 +134,23 @@ _TRUSTED_DATE_SOURCES = frozenset({DateSource.EXIF, DateSource.TAKEOUT, DateSour
 #: Sources that produced no usable date at all. Excluded from the "approximate date" review
 #: list: there is no date to review.
 #:
-#: The two refusals with a `DateQuality` counter get their own line in a run summary.
-#: ``REJECTED_EARLY`` deliberately does **not** have one: `Catalog.stats_date_provenance` groups
-#: by whatever ``date_source`` string is stored and `date_explain.explain` renders any of them, so
-#: the library's date view surfaces it with no code change, while a run-summary counter would
-#: touch both front-ends and `app.js` for a class measured at **0 of 895** real tag readings
-#: (`date-resolver-corpus-measurement.md` §4.2). One line to add the day a real library shows one.
+#: **All three refusals have a `DateQuality` counter and a sentence in the run summary since
+#: `(akx)`, and the deferral this note used to record is the interesting part.**
+#:
+#: ``REJECTED_EARLY`` was left without one because the class measured **0 of 895** real tag
+#: readings (`date-resolver-corpus-measurement.md` §4.2) against a counter that touches both
+#: front-ends, and the trigger written down was *"the day a real library shows one"*.
+#:
+#: ⚠ **THAT TRIGGER STILL HAS NOT FIRED, AND THE ARGUMENT WAS WRONG ANYWAY.** Re-measured over
+#: `tests/golden/input-dates.tsv` - 7,790 files off one real machine - the census is `exif` 6488,
+#: `none` 1262, `inferred_local` 20, `filename` 17, `rejected_future` 3, and **zero** of both
+#: ``REJECTED_EARLY`` *and* ``REJECTED_SENTINEL``. The rarity argument, applied evenly, would
+#: have taken the placeholder counter away too.
+#:
+#: **What decided it is not frequency.** The run summary prints one line per stored
+#: ``date_source``, so the moment one of these exists the user already reads ``rejected_early 1``
+#: - a token, with no sentence, beside two siblings that each have one. Rarity is an argument
+#: about how often a person meets that, never about whether the sentence is owed when they do.
 _DATELESS_SOURCES = frozenset(
     {
         DateSource.NONE,
@@ -698,11 +709,13 @@ def status_label(status: ActionStatus) -> str:
 
 
 class DateQuality(NamedTuple):
-    """The two date-quality signals a run must disclose, counted over the files it kept.
+    """The date-quality signals a run must disclose, counted over the files it kept.
 
-    Both are deliberately separate from the plain "undated" tally: folding either into it
+    Each is deliberately separate from the plain "undated" tally: folding any of them into it
     would tell the user *how many* files lack a good date while hiding *why*, which is the
-    failure mode the never-silent rule exists to prevent.
+    failure mode the never-silent rule exists to prevent. The three refusals are separate from
+    **each other** for the same reason one layer down - a placeholder, a clock set into the
+    future and a clock never set at all have three different remedies.
     """
 
     #: Files whose only date was a Tier A epoch zero. Refused -> they went to ``Undated/``.
@@ -710,6 +723,11 @@ class DateQuality(NamedTuple):
     #: Files whose only date was **after now**. Refused -> ``Undated/``. Usually a wrong device
     #: clock or edited metadata, which is why it is counted apart from the placeholder case.
     future_rejected: int
+    #: Files whose only date was below ``dates._MIN_SANE_YEAR``. Refused -> ``Undated/``. The
+    #: floor's half of the pair `REJECTED_FUTURE` guards at the ceiling, and counted apart from
+    #: the placeholder for the same reason the other two are: a clock that was never set and a
+    #: clock that was set wrong send the user somewhere different. `(akx)`
+    early_rejected: int
     #: Files dated by a Tier B camera default (exact midnight on a clock-reset day). These
     #: are **filed by that date** -- they may well be right -- and merely flagged for review.
     suspect_default: int
@@ -721,16 +739,23 @@ def date_quality(resolutions: Iterable[Resolution]) -> DateQuality:
     Shared by the CLI and the app so the two front-ends can never drift into reporting
     different numbers for the same run.
     """
-    sentinel = suspect = future = 0
+    sentinel = suspect = future = early = 0
     for resolution in resolutions:
         decision = resolution.decision
         if decision.date_source is DateSource.REJECTED_SENTINEL:
             sentinel += 1
         if decision.date_source is DateSource.REJECTED_FUTURE:
             future += 1
+        if decision.date_source is DateSource.REJECTED_EARLY:
+            early += 1
         if decision.suspect_default:
             suspect += 1
-    return DateQuality(sentinel_rejected=sentinel, future_rejected=future, suspect_default=suspect)
+    return DateQuality(
+        sentinel_rejected=sentinel,
+        future_rejected=future,
+        early_rejected=early,
+        suspect_default=suspect,
+    )
 
 
 class InferredLocalShift(NamedTuple):

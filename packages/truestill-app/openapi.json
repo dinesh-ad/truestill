@@ -2104,6 +2104,9 @@
           "dup_collapsed": {
             "type": "integer"
           },
+          "early_rejected": {
+            "type": "integer"
+          },
           "elapsed_seconds": {
             "type": "number"
           },
@@ -2153,6 +2156,7 @@
           "dates_photo_taken",
           "dates_upload_approx",
           "dup_collapsed",
+          "early_rejected",
           "files",
           "future_rejected",
           "inferred_local_shifts",
@@ -3452,6 +3456,9 @@
           "duplicate_bytes": {
             "$ref": "#/components/schemas/DuplicateBytesPayload"
           },
+          "early_rejected": {
+            "type": "integer"
+          },
           "elapsed_seconds": {
             "type": "number"
           },
@@ -3575,6 +3582,7 @@
           "destination_is_drive",
           "destination_tree",
           "duplicate_bytes",
+          "early_rejected",
           "exact_dup",
           "exact_dup_matches",
           "files",
