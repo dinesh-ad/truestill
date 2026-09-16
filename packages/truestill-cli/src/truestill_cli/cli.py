@@ -3232,6 +3232,12 @@ def _print_execution(results: list[ActionResult], resolutions: list[Resolution])
     # exactly what this needs: 500 identical lines would be that defect again. Selected on
     # `metadata_ok`, never by matching the prose in `detail`.
     _print_capped([r for r in results if not r.metadata_ok], label="METADATA NOT SET")
+    # ⚠ **THE ONE BRANCH THAT MAY DESTROY BYTES, SAYING WHEN IT DID NOT.** `(alc)`: the file at a
+    # recorded path was a photograph this catalog knows, so it was kept and this copy was placed
+    # beside it. On an `--apply` run the per-file `detail` goes to `last-run.json` and nowhere a
+    # person looks, so without this line the refusal is exactly the silence `(aja)` was about.
+    # Selected on the field, never by matching the prose - `metadata_ok`'s rule one line up.
+    _print_capped([r for r in results if r.overwrite_declined], label="KEPT, NOT OVERWRITTEN")
     _print_capped([r for r in results if r.status is ActionStatus.MOVE_KEPT], label="MOVE KEPT")
     failures = [r for r in results if r.status is ActionStatus.FAILED]
     _print_capped(failures, label="FAILED")

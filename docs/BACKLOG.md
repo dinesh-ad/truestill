@@ -55,7 +55,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(alb). Next free: (alc).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(alc). Next free: (ald).**
 ⚠ **`(akk)` was the declared next free while `(akl)`–`(akp)` were filed past it** - gap filled
 2026-09-14; letters are identifiers, not an ordering.
 ⚠ **AND IT HAPPENED AGAIN, IDENTICALLY**: `(akq)` stood as the declared next free while `(akr)`
@@ -338,7 +338,8 @@ rather than treated as a triage failure.
 
 - **(alb) THE REST OF THE CASE CLASS, AND THE NORMALISATION QUESTION BESIDE IT.** Recorded
   2026-09-16 by `(ala)`'s census, **with no work attached**. 16 of the 20 reachable path-identity
-  sites are unfixed. ⚠ **The one that matters is `organizer.py:_free_relative`**, the only path
+  sites are unfixed. ⚠ **Item 1, `organizer.py:_free_relative`, is CLOSED by `(alc)` (2026-09-16) - and this entry was wrong about it twice**: *"both answers are dangerous"* left out `(ala)`'s probe, and the real hazard was never case but a user's own file being overwritten silently on every filesystem. The remaining 15 stand. ⚠ **The count below also does not add up** - see the body. The former text follows.
+  ⚠ **The one that matters is `organizer.py:_free_relative`**, the only path
   permitted to overwrite a file: leaving it exact lets `(aja)`'s repair land as `…_1.jpg` beside
   the corpse on a folding filesystem, and folding it unconditionally authorises overwriting a
   genuinely different file on Linux - which is the counter-example that decided `(ala)`. Also

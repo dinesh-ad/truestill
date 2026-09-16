@@ -80,6 +80,10 @@ Every screen has been redrawn.
   destination's answer.
 - **Changing a setting clears the result it produced**, rather than leaving an answer on screen
   that no longer describes what you asked for.
+- **Truestill will not overwrite a photograph it recognises.** When a run repairs a file that an
+  interrupted copy left broken, it writes over the broken one - which is right. It now checks
+  first: if the file sitting there is a photograph your library knows about, it is kept, the new
+  copy is placed beside it, and the run tells you which file it left alone.
 - **On Windows and Mac, a photo whose name changed case is still the same photo.** Those
   filesystems treat `Photo.JPG` and `photo.jpg` as one file; Truestill did not. `truestill rescan`
   reported every such file as having moved, exited with an error, and re-read every one of them

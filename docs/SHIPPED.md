@@ -68,6 +68,45 @@ recording shipped work as unstarted, which is the more expensive direction of th
   survivors is a finding: **the whole `truestill-app` suite passes with `early_rejected` removed
   from the payload.**
   [Full entry](research/backlog/akx.md)
+- **(alc) THE ONE BRANCH THAT MAY DESTROY BYTES NOW PROVES WHAT IT IS DESTROYING.**
+  ✅ **CLOSED 2026-09-16.** `organizer._free_relative`'s `reclaimable` bypass is the only place a
+  catalog row alone authorises overwriting a file. `(ala)` left it, recording that **both** answers
+  to the case question were dangerous.
+  ⚠ **ONE OF THEM NEVER WAS, AND `(alb)` OVERSTATED IT BY LEAVING OUT THE PROBE ALREADY IN THE
+  TREE.** *"Folding authorises overwriting a genuinely different file on Linux"* is true of
+  **blanket** folding; `filesystem.folds_case` folds only where the mount folds, so Linux is
+  untouched and NTFS/APFS becomes correct. Same question, same answer as `(ala)`.
+  ⚠ **AND A LARGER HAZARD SAT UNDERNEATH, NOT ABOUT CASE AT ALL.** The row proves we once wrote
+  our content at that path; it cannot prove the bytes there now are ours. A user who replaces an
+  organized photograph leaves the row untouched, `credible_copies` is **size-only and says so**, and
+  `StagedCopy.commit` *"replac[es] whatever is there"*. **Nothing read the file first** - on every
+  filesystem, today.
+  ⚠ **THE CONTENT HYPOTHESIS IS INVERTED AS POSED.** *"Overwrite only if the bytes match the
+  record"* can never fire: the branch runs only when the copy is **not** credible. And content
+  cannot prove ownership when the content is wrong - a hash identifies a file only when it is
+  intact, which is when overwriting is unnecessary. **What content can settle is whether destroying
+  the bytes is a loss**, so the test is a refusal rather than a permission.
+  **Four outcomes**: empty/absent/unreadable → repair (never read); already what we would write →
+  leave it; a photograph the catalog knows → **refuse and name it**; anything else → repair.
+  **`copy_relative` asked a CONTENT question and returned a PATH answer**, discarding
+  `copy_sha256` and `size` from the same row - the boundary that forced everything downstream to
+  reason by path. `copy_row` returns the row. `content_is_accounted_for` reads **both**
+  `files.sha256` and `file_copies.copy_sha256`, because a bake rewrites the file by design and
+  asking only the first would call a baked photograph unknown.
+  **Cost: zero in ordinary use, structurally** - the branch needs a row *and* a failed size check,
+  so it fires once per damaged copy. Measured read-only: **4,933 rows, 0 damaged, 0 missing** on
+  the maintainer's catalog. `sha256_file` median **0.58 ms**, 7.8 ms across the 25 largest files;
+  `(aja)`'s 836-file scenario is 1-7 s, and most of those are zero bytes that are never read.
+  **Fail-loud was weighed and refused**: it answers `(aja)`'s silence but leaves damaged files with
+  no repair route, trading a rare destruction for a common failure to repair.
+  ⚠ **The refusal had to be loud in the RIGHT PLACE**: `detail` alone goes to `last-run.json` on an
+  `--apply` run and nowhere a person looks. `overwrite_declined` is the selector and
+  `KEPT, NOT OVERWRITTEN` the block, following `metadata_ok`'s rule - *"selected on the field,
+  never by matching the prose"*.
+  **12 mutations, 12 caught** - three survived first and **all three were tests passing for the
+  wrong reason**, including one invisible on ext4 and tmpfs because every CI lane agrees with the
+  mutant. [Full entry](research/backlog/alc.md)
+
 - **(ala) TWO SPELLINGS OF ONE PATH WERE TWO FILES, ON THE TWO PLATFORMS MOST USERS ARE ON.**
   ✅ **CLOSED 2026-09-16.** Rank 4 of the audit. `rescan.reconcile` is `Pure: no I/O`, so it
   compared the catalog's `relative` against the walk as exact strings - and on NTFS and APFS

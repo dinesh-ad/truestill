@@ -7,6 +7,28 @@ CLI caller, and the app's structural twin - and censused the class while doing i
 reachable; 4 were fixed.** These are the other 16, plus a second problem of the same shape that
 `casefold` does not touch.
 
+> ⚠ **ITEM 1 IS CLOSED (2026-09-16, `DECISIONS`-free: `(alc)`), AND THIS ENTRY WAS WRONG ABOUT IT
+> IN TWO WAYS.** Left standing as written, with the corrections here, because a record edited to
+> match the present stops being one.
+>
+> * **"Both answers are dangerous" overstated it by leaving out a tool already in the tree.**
+>   Folding *unconditionally* would authorise overwriting a different file on Linux - true. But
+>   `(ala)` had already shipped `filesystem.folds_case`, which folds **only where the mount
+>   folds**. With the probe, Linux is untouched and the case question has the same answer it had
+>   in `(ala)`. The danger was in the option I named, not in the question.
+> * **The real hazard was not case at all, and this entry did not see it.** The catalog row
+>   proves *we once wrote our content at that path*; it cannot prove the bytes there now are ours.
+>   A user who replaced an organized photograph was overwritten silently, **on every filesystem**.
+>   `(alc)` reads the occupant and refuses when the catalog accounts for it.
+>
+> ⚠ **AND THE COUNT BELOW DOES NOT ADD UP, WHICH ITS OWN AUTHOR DID NOT CHECK.** The lead says
+> *"the other 16"*, the next heading says *"THE OTHER FOURTEEN"*, and the table has **13 rows**.
+> The 16 came from 20 − 4 on *physical lines* while the table groups them (`albums` ×3,
+> `hash_cache` ×4, two organizer name checks). The re-count is **20 physical sites: 5 could decide
+> by content, 9 cannot, 6 are correctly about a path** - and three of the five need **no extra I/O
+> at all**. The standing rule is that a census is re-run before it is acted on; this one was not,
+> one day after it was written.
+
 ## 1. ⚠ `organizer.py:_free_relative` - THE ONE THAT CAN DESTROY DATA, EITHER WAY
 
 ```python

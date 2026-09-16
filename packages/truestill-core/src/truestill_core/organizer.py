@@ -21,6 +21,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from enum import StrEnum
+from itertools import islice
 from pathlib import Path, PurePosixPath
 from typing import Any, Final, Protocol
 
@@ -38,7 +39,7 @@ from truestill_core.destinations.base import CrossDeviceError, Destination, Dest
 from truestill_core.drive import LEGACY_MARKER_NAMES, MARKER_NAME
 from truestill_core.drive_unwritable import metadata_not_preserved_note, persists_for_the_run
 from truestill_core.exif import WRITE_BATCH_SIZE, build_metadata_args, write_metadata_batch
-from truestill_core.filesystem import DestinationPreflight, sizes_of
+from truestill_core.filesystem import DestinationPreflight, folds_case, sizes_of
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import sha256_file
 from truestill_core.layout import (
@@ -76,6 +77,7 @@ from truestill_core.models import (
 )
 from truestill_core.naming import dated_filename
 from truestill_core.progress import Phase, Progress, ProgressCallback
+from truestill_core.rescan import compare_key
 from truestill_core.run_health import RunHealth, watcher_for
 from truestill_core.scan import DEFAULT_WORKERS, PoolKind, compute_hashes
 from truestill_core.takeout import IngestContext, MetadataWrite, TakeoutSidecar
@@ -1078,6 +1080,7 @@ def _free_relative(
     relative: str,
     *,
     reclaimable: str | None = None,
+    fold_case: bool = False,
 ) -> tuple[str, bool]:
     """Return a relative path that does not collide at ``destination``.
 
@@ -1093,10 +1096,25 @@ def _free_relative(
     self-worsening shape arriving from the dedup side.
 
     **The evidence that it is ours is the catalog's own row for this content on this drive**
-    (``copy_relative``), not a guess about the file: a stranger's zero-byte file at the same path
-    has no such row and is still suffixed around.
+    (``copy_row``), not a guess about the file: a stranger's zero-byte file at the same path has
+    no such row and is still suffixed around.
+
+    ⚠ **THE ROW PROVES WE ONCE WROTE OUR CONTENT AT THAT PATH. IT CANNOT PROVE THE BYTES THERE
+    NOW ARE OURS** - so the caller establishes that separately before handing `reclaimable` over,
+    and passes ``None`` when it could not. This function decides **collisions**; ownership is
+    decided where the catalog is. `(alc)`
+
+    ⚠ **``fold_case`` is asked of the MOUNT, never of the platform** (`filesystem.folds_case`).
+    Without it, `Saved/Photo.JPG` and `Saved/photo.jpg` are one file on NTFS and APFS and two
+    strings here, so the bypass misses, `exists` answers True, and the repair lands beside the
+    corpse as ``…_1.jpg``. **Folding unconditionally would be worse than not folding**: on a
+    case-sensitive filesystem those really are two files, and the guard would authorise
+    overwriting the wrong one. `(ala)` chose the probe for exactly this reason and this is its
+    second caller.
     """
-    if reclaimable is not None and relative == reclaimable:
+    if reclaimable is not None and compare_key(relative, fold_case=fold_case) == compare_key(
+        reclaimable, fold_case=fold_case
+    ):
         return relative, False
     if not destination.exists(relative):
         return relative, False
@@ -1693,6 +1711,7 @@ def _journal_or_delete_source(
     renamed: bool,
     resolution: Resolution,
     metadata_warning: str | None = None,
+    declined: str | None = None,
 ) -> ActionResult:
     """Journal an in-place rename, or verify-and-delete under ``--move``, then build the result.
 
@@ -1707,7 +1726,12 @@ def _journal_or_delete_source(
         # a new `ActionStatus` because the outcome is unchanged - and `detail` is what the run
         # record persists, so the fact survives the terminal that printed it.
         notes.append(metadata_warning)
-    if renamed:
+    if declined is not None:
+        # ⚠ **Before the generic suffix note, because it is the SPECIFIC reason for it.** Without
+        # this the user sees only "suffixed to avoid an unrelated name collision", which is true
+        # and tells them nothing about the photograph that was kept. `(alc)`
+        notes.append(declined)
+    elif renamed:
         notes.append("suffixed to avoid an unrelated name collision")
     if resolution.near_duplicate is not None:
         near = resolution.near_duplicate
@@ -1735,6 +1759,7 @@ def _journal_or_delete_source(
         "; ".join(notes),
         source_sha,
         metadata_ok=metadata_warning is None,
+        overwrite_declined=declined is not None,
     )
 
 
@@ -1761,6 +1786,126 @@ class _WriteRun:
     albums_by_sha: dict[str, set[str]]
     baker: _MetadataBaker
     drive_uuid: str | None
+    #: Whether this destination's mount treats two spellings of one name as one file. Probed
+    #: once per run by `_destination_folds_case`, never per file, never from the platform.
+    fold_case: bool = False
+
+
+#: How much of a destination the case probe may walk before giving up. `(alc)`
+#:
+#: `folds_case` itself stops after the first name that can answer, and `rglob` is a generator, so
+#: the ordinary cost is a handful of stats. This bounds the pathological tree whose first entries
+#: are all directories or all caseless names.
+_CASE_PROBE_ENTRIES: Final = 512
+
+
+#: Said when the one destructive branch declines to fire. `(alc)`
+#:
+#: **Named rather than silent**, which is the half `(aja)` was really about: *"Every automatic
+#: path reports success."* The file is still placed - beside the incumbent, suffixed - so this is
+#: a note on a success, the shape `(aie)` established.
+OVERWRITE_DECLINED: Final = (
+    "did not overwrite {path!r}: the file there is a photograph this catalog knows, "
+    "so it was kept and this copy was placed beside it"
+)
+
+
+def _reclaimable_target(
+    run: _WriteRun, resolution: Resolution, relative: str
+) -> tuple[str | None, str | None]:
+    """The path this content may overwrite, and why not when it may not. `(alc)`
+
+    ⚠ **THE ONE BRANCH IN THIS PRODUCT WHERE A CATALOG ROW ALONE AUTHORISES DESTROYING BYTES**,
+    so the authorisation is assembled here, where the catalog is, rather than inside
+    `_free_relative`, which can only see strings.
+
+    **What the row proves and what it does not.** ``copy_row`` is keyed by content, so a row means
+    *we once wrote this content at that path on this drive*. It does **not** mean the bytes there
+    now are ours: a user who replaced an organized photograph with their own edit leaves the row
+    untouched, and `dedup.credible_copies` - which is size-only and says so - then reports the
+    copy as not credible and sends us straight here.
+
+    ⚠ **CONTENT CANNOT PROVE OWNERSHIP HERE, AND THE INVERSE TEST IS THE ONE THAT WORKS.** Asking
+    *"do the bytes match the record?"* can never authorise this branch: it fires only when the
+    copy is **not** credible, so the bytes are presumed wrong, and a test requiring them to match
+    would never fire at all. What content **can** settle is the opposite - whether destroying
+    them would destroy a photograph the catalog knows about. That is a refusal, not a permission,
+    and it is the only question a hash of a wrong file can answer.
+
+    **Three outcomes**, in the order they are cheapest to establish:
+
+    * no row, or the row names a different path -> ``None``; `_free_relative` suffixes around,
+      exactly as before;
+    * the file there is **already what we were going to write** -> ``None`` and no note. Nothing
+      is repaired because nothing is broken; this is reachable because `credible_copies` compares
+      sizes **by path**, so a case drift makes an intact copy look incredible (`(alb)` item 9);
+    * the bytes are a photograph this catalog knows -> ``None`` **and a note**, so the user is
+      told what was declined rather than finding a suffixed duplicate and guessing.
+
+    **Cost: one read, on a branch that does not fire in ordinary use.** The row must exist *and*
+    have failed the size check, which means a damaged or deleted copy - 0 of 4,933 rows on the
+    maintainer's catalog. An empty file is never read: nothing is lost by overwriting zero bytes,
+    and it is the commonest shape an interrupted write leaves. `reclaim._verify` is the precedent
+    for paying a read before an irreversible step.
+    """
+    catalog, drive_uuid = run.catalog, run.drive_uuid
+    sha = resolution.hashes.sha256
+    if catalog is None or drive_uuid is None or not sha:
+        return None, None
+    row = catalog.copy_row(sha, drive_uuid)
+    if row is None or compare_key(relative, fold_case=run.fold_case) != compare_key(
+        str(row["relative"]), fold_case=run.fold_case
+    ):
+        return None, None
+    recorded = str(row["relative"])
+
+    actual = _occupant_sha(run.destination, recorded)
+    if actual is None:
+        # Empty, absent or unreadable. Nothing there is worth keeping, and an unreadable file at
+        # our own recorded path is the corpse this branch exists to replace.
+        return recorded, None
+    if actual == (row["copy_sha256"] or sha):
+        # Already the bytes we were about to write. Dedup only sent us here because its size
+        # lookup is keyed by path; there is nothing to repair.
+        return None, None
+    if catalog.content_is_accounted_for(actual):
+        return None, OVERWRITE_DECLINED.format(path=recorded)
+    return recorded, None
+
+
+def _occupant_sha(destination: Destination, relative: str) -> str | None:
+    """The hash of whatever is at ``relative``, or ``None`` when there is nothing worth reading.
+
+    **Zero bytes is not read and not a photograph.** It is what an interrupted write leaves, and
+    overwriting it destroys nothing - so the read is skipped, which is also what keeps
+    `(aja)`'s 836-file scenario free.
+    """
+    sizes = destination.sizes()
+    if sizes is not None and sizes.get(relative, 0) == 0:
+        return None
+    try:
+        return destination.checksum(relative)
+    except DestinationError:
+        return None
+
+
+def _destination_folds_case(destination: Destination) -> bool:
+    """Whether this destination treats two spellings of one name as one file. `(alc)`
+
+    ⚠ **Asked of the MOUNT, once per run, and never of the platform.** `(ala)` measured why a
+    table keyed by filesystem is not good enough: on this machine `/boot/efi` is vfat and folds
+    while `/mnt/windows` is NTFS mounted without ``nocase`` and does not.
+
+    **A destination with no local root answers ``False``** - the same stand-down `local_root`'s
+    own docstring describes. An rclone remote cannot be stat'd, and guessing on its behalf could
+    only authorise an overwrite that a wrong guess makes destructive.
+    """
+    root = destination.local_root()
+    if root is None:
+        return False
+    return (
+        folds_case(islice((p for p in root.rglob("*") if p.is_file()), _CASE_PROBE_ENTRIES)) is True
+    )
 
 
 def _record_the_intent(
@@ -1852,15 +1997,15 @@ def _execute_one_write(resolution: Resolution, run: _WriteRun) -> ActionResult:
             "already organized at this path",
         )
 
-    # ⚠ **The path this content already occupies on this drive, if any.** `(aja)`: dedup only lets
-    # us get here when that copy is not credible, so re-writing it in place is the repair - and
-    # `copy_relative` is what proves the file is ours rather than a stranger's collision.
-    reclaimable = (
-        run.catalog.copy_relative(resolution.hashes.sha256, run.drive_uuid)
-        if run.catalog is not None and run.drive_uuid is not None and resolution.hashes.sha256
-        else None
+    # ⚠ **The path this content already occupies on this drive, if any - and whether the bytes
+    # there are ours to destroy.** `(aja)`: dedup only lets us get here when that copy is not
+    # credible, so re-writing it in place is the repair. `(alc)`: the row proves we once wrote
+    # our content there and cannot prove the bytes there now are ours, so `_reclaimable_target`
+    # establishes that before authorising the one branch that overwrites.
+    reclaimable, declined = _reclaimable_target(run, resolution, relative)
+    final_relative, renamed = _free_relative(
+        run.destination, relative, reclaimable=reclaimable, fold_case=run.fold_case
     )
-    final_relative, renamed = _free_relative(run.destination, relative, reclaimable=reclaimable)
     # Source hash is the dedup identity; computed now for any unique-size file the
     # scan skipped, since the file is being read for upload anyway.
     source_sha = resolution.hashes.sha256 or sha256_file(decision.source)
@@ -1933,6 +2078,7 @@ def _execute_one_write(resolution: Resolution, run: _WriteRun) -> ActionResult:
         renamed=renamed,
         resolution=resolution,
         metadata_warning=metadata_warning,
+        declined=declined,
     )
 
 
@@ -2282,6 +2428,9 @@ def execute(
             _bake_queue(resolutions, ingest, skip_undated=skip_undated) if apply else []
         ),
         drive_uuid=drive_uuid,
+        # ⚠ **ONCE PER RUN, AND ONLY WHEN THERE IS A WRITE TO AUTHORISE.** A dry run decides
+        # nothing destructive, so it asks the destination nothing extra. `(alc)`
+        fold_case=_destination_folds_case(destination) if apply else False,
     )
 
     # ⚠ **THE LOOP IS WRAPPED SO A STOP CANNOT TAKE THE RESULTS WITH IT.** `(agj)`

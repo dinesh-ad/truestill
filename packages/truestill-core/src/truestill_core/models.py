@@ -875,3 +875,10 @@ class ActionResult:
     #: sentence in ``detail`` would couple two surfaces to a wording that
     #: `layout.explain_name_too_long` owns and is free to improve.
     name_too_long: bool = False
+    #: Whether the one branch permitted to overwrite a file declined to. `(alc)`
+    #:
+    #: **The fact, not the words**, for the reason the two fields above give: a labelled block on
+    #: screen has to *select* these files, and on an `--apply` run the `detail` sentence goes to
+    #: `last-run.json` and nowhere a person looks. A note that nobody reads is the silence
+    #: `(aja)` was really about - *"Every automatic path reports success."*
+    overwrite_declined: bool = False

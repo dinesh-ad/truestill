@@ -1572,6 +1572,48 @@ class Catalog:
             )
         )
 
+    def copy_row(self, sha256: str, drive_uuid: str) -> sqlite3.Row | None:
+        """The whole recorded copy - ``relative``, ``copy_sha256`` and ``size`` - or ``None``.
+
+        ⚠ **`copy_relative` beside this asks a CONTENT question and returns a PATH answer**, and
+        that single boundary is why the one branch permitted to overwrite a file has to reason by
+        path. The row already holds what the bytes at that path were supposed to be; it was simply
+        thrown away at the `SELECT`. `(alc)`
+
+        ``copy_sha256`` is what is actually on the drive, which is **not** ``sha256`` after a
+        Takeout bake rewrote the file - the same distinction `verify` is built on.
+        """
+        row = self._conn.execute(
+            "SELECT relative, copy_sha256, size FROM file_copies"
+            " WHERE sha256 = ? AND drive_uuid = ?",
+            (sha256, drive_uuid),
+        ).fetchone()
+        return None if row is None else row
+
+    def content_is_accounted_for(self, sha256: str) -> bool:
+        """Whether destroying these bytes would destroy a photograph this catalog knows. `(alc)`
+
+        ⚠ **DELIBERATELY BROADER THAN `knows_content`, WHICH IS NOT THE SAME QUESTION.** That one
+        asks whether this catalog has **scanned** the photo - a `files` row - and its callers in
+        `decisions` need exactly that narrowness to decide whether a correction is about a
+        photograph they have seen. This one is asked before an **irreversible overwrite**, where
+        the honest question is whether the bytes are accounted for *anywhere*.
+
+        ⚠ **BOTH COLUMNS, and the second is not optional.** `files.sha256` is the content as it
+        arrived; `file_copies.copy_sha256` is what a drive actually holds, and a baked copy
+        differs from its source **by design** - the same distinction `verify` is built on. Asking
+        only the first would call a baked photograph unknown, and this predicate's one caller
+        reads "unknown" as *"safe to destroy"*.
+
+        **O(1)** on the first arm (`files.sha256` is `UNIQUE`); the second is one indexed column.
+        """
+        row = self._conn.execute(
+            "SELECT 1 FROM files WHERE sha256 = ?"
+            " UNION ALL SELECT 1 FROM file_copies WHERE copy_sha256 = ? LIMIT 1",
+            (sha256, sha256),
+        ).fetchone()
+        return row is not None
+
     def copy_relative(self, sha256: str, drive_uuid: str) -> str | None:
         """The relative path the catalog currently records for one copy, or ``None``."""
         row = self._conn.execute(
