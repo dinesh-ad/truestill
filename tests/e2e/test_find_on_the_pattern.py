@@ -23,6 +23,8 @@ from typing import Any
 
 from playwright.sync_api import Page, expect
 
+from source_region import function_source, region_between
+
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG = ROOT / "packages/truestill-core/src/truestill_core/catalog.py"
 INDEX = ROOT / "packages/truestill-app/src/truestill_app/templates/index.html"
@@ -145,7 +147,7 @@ def test_the_query_really_does_split_and_and_its_terms() -> None:
     """
     sql = CATALOG.read_text(encoding="utf-8")
     assert "def parse_search_terms" in sql, "the search no longer parses terms"
-    body = sql[sql.index("def _search_where") : sql.index("class Catalog")]
+    body = function_source(sql, "_search_where")
     assert '" AND ".join(groups)' in body, "the terms are no longer ANDed"
     assert 'return "0", []' in body, "an empty query no longer refuses to match everything"
     assert "ESCAPE" in body, "LIKE metacharacters are no longer escaped"
@@ -217,7 +219,7 @@ def test_the_drive_column_is_the_surface_abd_lives_on() -> None:
     shared catalog this column names another machine's drives. `(abd)` owns that question.
     """
     sql = CATALOG.read_text(encoding="utf-8")
-    body = sql[sql.index("def find_copies_query") : sql.index("def find_copies(")]
+    body = function_source(sql, "find_copies_query")
     assert "d.label AS drive_label" in body
     assert "drive_uuid = ?" not in body, (
         "the search now filters by drive - (abd) may have been solved; update this note"
@@ -233,6 +235,6 @@ def test_the_find_screen_declares_no_table_component() -> None:
     look.
     """
     markup = INDEX.read_text(encoding="utf-8")
-    find = markup[markup.index('id="screen-find"') : markup.index('id="screen-stats"')]
+    find = region_between(markup, 'id="screen-find"', 'id="screen-stats"')
     assert "<table" not in find, "the table is built in JS, not in the template - as expected"
     assert re.search(r'id="where-result"', find), "the results host is gone"

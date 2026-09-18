@@ -27,17 +27,15 @@ from pathlib import Path
 from playwright.sync_api import Page, expect
 from truestill_core.layout import EVERYDAY_DAY_THRESHOLD_MIGRATE_WARNING
 
+from source_region import region_between
+
 ROOT = Path(__file__).resolve().parents[2]
 INDEX = ROOT / "packages/truestill-app/src/truestill_app/templates/index.html"
 
 
 def _settings_markup() -> str:
     markup = INDEX.read_text("utf-8")
-    return markup[
-        markup.index('id="screen-settings"') : markup.index(
-            "</section>", markup.index('id="screen-settings"')
-        )
-    ]
+    return region_between(markup, 'id="screen-settings"', "</section>")
 
 
 def _card_headings(ui: Page) -> list[str]:

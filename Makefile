@@ -14,7 +14,7 @@ PACKAGING := packaging
 # suite writes and `conftest.py` decides what every test can reach - neither contains a test,
 # asserts anything, or is collected as one. Both report ZERO errors under `strict`; being
 # unchecked was never a judgement about them. Same shape as `(afu)`.
-ROOT_CODE := conftest.py suite_scratch.py
+ROOT_CODE := conftest.py suite_scratch.py source_region.py
 # The test trees, checked under `mypy-tests.toml` rather than the strict fence above - that file
 # carries the ruling and the measurement behind it. One invocation PER TREE, not one for all of
 # them: the four `conftest.py` files share a module name, and mypy refuses a run that sees two.

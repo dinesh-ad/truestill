@@ -35,6 +35,8 @@ from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
 from truestill_core.hashing import sha256_file
 
+from source_region import region_between
+
 # One condition, never two stacked decorators - see `test_platform_skips_collect_everywhere.py`.
 pytestmark = pytest.mark.skipif(
     sys.platform == "win32" or os.geteuid() == 0,
@@ -252,7 +254,7 @@ def test_both_preview_cards_call_the_warning() -> None:
 
     for phrase in _BACKUP_CARDS:
         assert phrase in app_js, f"the card marked by {phrase!r} moved; this test is now blind"
-        card = app_js[app_js.index(phrase) : app_js.index("`);", app_js.index(phrase))]
+        card = region_between(app_js, phrase, "`);")
         assert "unreadFolders(r)" in card, (
             f"the card marked by {phrase!r} does not warn about folders that could not be read"
         )
