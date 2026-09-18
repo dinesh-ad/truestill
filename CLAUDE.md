@@ -19,7 +19,7 @@ is what resolves the pointer.
 0. [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) - **start here.** Where the project
    stands, what ships next, and the standing rules. Read it before doing anything else.
 1. [`docs/ENGINEERING_STANDARD.md`](docs/ENGINEERING_STANDARD.md) - the portable canon.
-   ⚠ **§4 IS A LOOKUP TABLE - READ ITS INDEX, NOT ALL OF IT.** *The members at a glance* is 89
+   ⚠ **§4 IS A LOOKUP TABLE - READ ITS INDEX, NOT ALL OF IT.** *The members at a glance* is 90
    lines at the top of §4 and each is a member's own opening sentence, held there by
    `test_the_code_standard_index_matches_its_members.py`. Read the index, open the member that
    applies, take the rule from the member. §1-3 and §5 are short and are read in full.
@@ -55,7 +55,7 @@ awk '/^## 4\. Code standard/,/^## 5\./' docs/ENGINEERING_STANDARD.md | grep -cE 
 
 ⚠ **The numerator has no recorded derivation anywhere in the tree** - `27` appears in this
 sentence and nowhere else, and no command reproduces it. The nearest measure that does: **18 of
-89** members name a `test_*.py` or `check_*.py` that resolves in the tree, against §9's 47 of 48
+90** members name a `test_*.py` or `check_*.py` that resolves in the tree, against §9's 47 of 48
 which `test_the_truth_contract_index_matches_its_rules.py` backs. The two may not be counting the
 same thing, so 18 is not offered as a corrected 27 - it is the reading that exists. **The ruling
 does not turn on the exact ratio**: §9 is guard-backed and §4 is not, by an order of magnitude

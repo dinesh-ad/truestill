@@ -419,6 +419,7 @@ and counts are the one thing this section has drifted on repeatedly. Search the 
 - A sweep for a user-facing string covers every value the string interpolates, not the literal
   around them.
 - A `pkill` pattern that can match its own shell will, and it did.
+- A lane that runs when nobody is looking, and reports to nobody, cannot be trusted green.
 
 - **Idioms (Python 3.14, standard build).** `pathlib.Path` for all path manipulation - never
   `os.path.*` in source (an audit on 2026-07-29 found zero call sites; this codifies that
@@ -3282,6 +3283,38 @@ and counts are the one thing this section has drifted on repeatedly. Search the 
   is the classic, because the bracket class matches the process and not the pattern's own text.
   And read `pgrep -fa` output before trusting a count: the count of *"truestill-app processes: 2"*
   seen today was the grep and its shell.
+
+- **A lane that runs when nobody is looking, and reports to nobody, cannot be trusted green.** The ninetieth member, recorded
+  2026-09-18 after three consecutive red nights nobody saw.
+
+  **What happened.** `tests/e2e` is out of `testpaths`, so the browser lane runs only on the
+  nightly cron and on dispatch. A test in it had been failing since the commit that wrote it -
+  every night, the same single assertion, while `make check` stayed green on every push and the
+  pushed runs reported the `e2e` job as `- in 0s`, skipped. It was found by a person opening the
+  Actions tab for an unrelated reason, three days later. The lane had also been red on three
+  earlier nights that month.
+
+  > **A lane's silence is indistinguishable from its success unless something makes the
+  > difference visible, and a green `make check` is not that something - it is the evidence that
+  > the untrusted lane was not consulted.**
+
+  **Two independent halves, and fixing one leaves the other open.** *Nobody looks*: a lane whose
+  result is only in a web UI is read when somebody happens to visit it. *Nobody is told*: a lane
+  that sends no notification on red has no way to interrupt anyone. This repo had both, and the
+  second is the load-bearing one - `(alf)` records that the notification mechanism already existed
+  and was already addressed to the maintainer, and that **zero** of it had ever arrived.
+
+  ⚠ **And the harder case is the lane that STOPS.** A watch for red cannot see a lane that no
+  longer runs: no run, no failure, nothing to notify. GitHub disables a scheduled workflow after
+  60 days of repository inactivity, so the shape is real rather than theoretical. Only a watchdog
+  that alerts on **silence** - a dead-man's switch - closes it, and no amount of failure
+  reporting substitutes.
+
+  *What to do:* before trusting a gate you did not just watch run, ask **when did this last
+  actually execute, and who would know if it went red.** If the second answer is nobody, the lane
+  is documentation rather than a gate. A split gate is still right - `(ajx)` measured the browser
+  lane back onto every push and refused it - but a split gate makes reporting mandatory, because
+  the fast half is no longer evidence about the slow half.
 
 ## 5. When to break a rule
 

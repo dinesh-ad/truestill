@@ -55,7 +55,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(alc). Next free: (ald).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(alf). Next free: (alg).**
 ⚠ **`(akk)` was the declared next free while `(akl)`–`(akp)` were filed past it** - gap filled
 2026-09-14; letters are identifiers, not an ordering.
 ⚠ **AND IT HAPPENED AGAIN, IDENTICALLY**: `(akq)` stood as the declared next free while `(akr)`
@@ -276,6 +276,18 @@ confirmed against today's code by **one decisive check**, named in its body - no
 That is enough to say *still plausible*; it is not enough to say *confirmed*. **Nothing was deleted
 on the strength of it**, and an entry that turns out already built should be closed with its commit
 rather than treated as a triage failure.
+
+- **(alf) THE NIGHTLY LANE REPORTS TO NOBODY, AND A LANE THAT STOPS RUNNING REPORTS EVEN LESS.**
+  Filed 2026-09-18 (P252). The browser lane was red on 09-16, 09-17 and 09-18 with one test, and
+  on 09-08, 09-09 and 09-12 before that; `make check` was green throughout because `testpaths`
+  keeps `tests/e2e` out of it. **The notification mechanism already exists and is already
+  addressed to the maintainer** - GitHub routes a scheduled failure to whoever last edited the
+  cron (`9c30767`, 2026-08-09). Checked, not assumed: `gh api "/notifications?all=true"` returned
+  **20 notifications, zero with `reason: ci_activity`** (2026-09-18); reading the repo setting
+  needs a scope the token lacks and returned 404. ⚠ **And the repo is PUBLIC, so the 60-day
+  inactivity auto-disable applies** - a disabled lane produces no run, so no failure, so every
+  watch-for-red option is blind to it. Five options costed in the body; **the entry does not
+  choose**, but it recommends the free two-minute one first. [Full entry](research/backlog/alf.md)
 
 - **(akj) NO LANE ANYWHERE EXECUTES `app.js` ON WINDOWS, AND THE FOLDER PICKER'S BREADCRUMB IS
   WHAT THAT COST.** Filed 2026-09-09 (P250), **no work attached**. `app.js:pkNavigate` splits
@@ -693,6 +705,16 @@ conditional, and ten rows were absent rather than conditional.
 scripts no gate runs, test corpora, payload typing, documentation keying. These are worth fixing
 and they are not product defects; keeping them in one drawer stops them competing with
 **Build next** for attention.
+
+- **(ale) `ROOT_CODE` IS A HAND-WRITTEN LIST, SO A NEW ROOT MODULE IS UNTYPED UNTIL SOMEBODY
+  REMEMBERS.** Filed 2026-09-18 (P252); the instance is fixed in `0d57696`. `source_region.py`
+  landed at the repo root and `make check` did not type-check it - it passed only because mypy was
+  run by hand. Checked, not assumed: `uv run mypy source_region.py` found it while `make
+  typecheck` reported 76/172/78 files and none was it. **Censused on the day of filing**: of the
+  eight Makefile variables that decide what the gate reads, seven name **directories** (a new file
+  inside is covered automatically) and **`ROOT_CODE` alone names filenames**. So this is a
+  one-site fail-open, not a pattern - which is what keeps it a record rather than a guard under
+  `(ago)`'s bar. Three shapes costed; the entry does not choose. [Full entry](research/backlog/ale.md)
 
 - **(akf) THE LOCAL BROWSER LANE READS 26-28 MINUTES TODAY AND "5:38" IN THE RECORD, AND THE TWO
   ARE NOT THE SAME COMMAND.** Filed 2026-09-05, **no work attached, not investigated**. `make e2e`,
@@ -1141,6 +1163,16 @@ cited letter must resolve.
 **Evidence, and most say so in their own first lines** - *"Record only - do not build"*. They are
 here because a lost answer key corrupts every measurement taken against it, which is `(ait)` and
 `(aiu)`'s ruling. ⚠ **Never delete one to shorten the list.**
+
+- **(ald) A REGEX CENSUS UNDER-COUNTED A SHAPE BY 20%, AND THE GUARD FOUND THE REST ON ITS FIRST
+  RUN.** **Record only - do not build.** Filed 2026-09-18 (P252). A `git grep` census of
+  slice-between-two-markers returned **four** sites and was reported as complete; the AST guard
+  written from it failed on its first run against a **fifth**,
+  `test_settings_is_a_shelf_not_a_task_screen.py:_settings_markup`, an expression spread over four lines that no
+  line-oriented pattern can match. ⚠ **A census of a SYNTACTIC shape is run with a parser; one run
+  with `grep` reports a floor, not a count** - `(aka)`'s sweep rule still owns *string* claims and
+  is untouched. Second instrument-choice failure recorded against a census here, after `(alb)`
+  counted physical lines while its table grouped them. [Full entry](research/backlog/ald.md)
 
 - **(akk) RESTORE'S CANCEL COPY ASSUMES A PARTIAL APPLY THE ENGINE CANNOT DO.** **Record only -
   do not build.** Filed 2026-09-14 from the restore-panel audit. `app.js:startRestore`'s
