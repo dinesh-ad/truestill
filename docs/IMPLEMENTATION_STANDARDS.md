@@ -8,9 +8,10 @@ marked **convention - not yet enforced** (a human-process rule with no automated
 **Scope, tightened so the word "binding" stays precise:** this file owns **product** behaviour
 (copy-only media, catalogs, fences, truth contract, gates). Commit identity, the no-AI
 co-author trailer, and pre-commit install discipline are the maintainer's **portable golden
-floor** - [`GOLDEN_REPO_RULES.md`](GOLDEN_REPO_RULES.md) - copied across product repos. This
-contract **cites** that floor and names how *this* repo enforces it; it does not redefine it.
-On a conflict about those git-hygiene rules, `GOLDEN_REPO_RULES.md` wins.
+floor** - [`GOLDEN_REPO_RULES.md`](GOLDEN_REPO_RULES.md). That file is **standalone** (no
+dependency on this contract or any other standards doc) and is what gets copied into other
+product repos first. This contract **cites** it and names how *this* repo enforces it; it does
+not redefine it. On a conflict about those git-hygiene rules, `GOLDEN_REPO_RULES.md` wins.
 
 Paths are workspace-relative. Symbols are cited over line numbers, which drift.
 
