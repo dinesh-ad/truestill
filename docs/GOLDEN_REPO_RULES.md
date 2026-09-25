@@ -39,7 +39,12 @@ git commit --allow-empty -m "test
 Co-Authored-By: someone <x@y.z>"
 ```
 
-That commit **must be refused**. Then continue with normal product setup.
+That commit **must be refused**.
+
+7. Optional but useful (§5): add a **thin** root `AGENTS.md` that only points at this file (and
+   any product entry doc the repo already has). Do not paste these rules into it.
+
+Then continue with normal product setup.
 
 ---
 
@@ -161,3 +166,31 @@ committed config).
 
 If another document in the same repo restates §1–§3 differently, **this file wins** on those
 topics. If no other standards docs exist, this file is still enough.
+
+---
+
+## 5. Optional thin agent entry (cross-tool discovery)
+
+[AGENTS.md](https://agents.md/) is a common root filename many coding agents auto-load (Codex,
+Cursor, Jules, Aider, goose, opencode, Zed, Warp, and others). Claude Code typically loads
+`CLAUDE.md`. Putting the **same long rules in both** wastes context and drifts.
+
+**What is useful:** a thin root pointer (the pattern used by large repos such as VS Code's
+`AGENTS.md`, which only redirects to the real instructions).
+
+**What is not useful:** a second full copy of this file, or voluntary rule packs that the agent
+may skip (skills / `.claude/rules/` as the only home for a must-follow rule).
+
+### Minimal `AGENTS.md` (adapt paths)
+
+```markdown
+# AGENTS.md
+
+Thin pointer only. Do not paste long rules here.
+
+1. Read docs/GOLDEN_REPO_RULES.md (commit hygiene / no-AI trailer / pre-commit).
+2. Then follow this repo's own product entry doc if it has one (README, CLAUDE.md, etc.).
+```
+
+Hooks still enforce §1. The pointer only helps discovery.
+

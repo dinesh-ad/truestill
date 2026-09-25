@@ -45,7 +45,12 @@ available *"and it still failed, **because consulting it was voluntary**"*. **Th
 rule may be read on demand exactly when something MECHANICAL, not the reading, enforces it. §9
 qualifies at 47 of 48 (`IMPLEMENTATION_STANDARDS.md:1439` states that ratio); §4 does not, which
 is why §4 keeps its index inside the mandated read and no rule anywhere moved out of a binding
-document. `AGENTS.md` was refused too - one agent, and Claude Code does not read it natively.
+document. A **full** `AGENTS.md` that duplicates this file was refused too - one agent entry,
+and Claude Code does not load `AGENTS.md` natively. ⚠ **A thin pointer is now allowed**
+(2026-09-25): root [`AGENTS.md`](AGENTS.md) only redirects to
+[`docs/GOLDEN_REPO_RULES.md`](docs/GOLDEN_REPO_RULES.md) and this file, matching the cross-tool
+[AGENTS.md](https://agents.md/) convention and the VS Code / Thin-Root pattern. It is not a
+second source of truth.
 
 ⚠ **This read *"§4 does not at 27/86"* until 2026-09-06, and BOTH halves were unsound.** The
 denominator was 86 when §4 had **89** members - and the same commit that added the last two,
@@ -114,6 +119,7 @@ On 2026-08-22 those read **183** and **121**, leaving **62** mapped below. ⚠ T
 | How do I work here? (workflow, research order, code standard) | [`docs/ENGINEERING_STANDARD.md`](docs/ENGINEERING_STANDARD.md) |
 | What are the binding rules? (invariants, architecture, data, gates) | [`docs/IMPLEMENTATION_STANDARDS.md`](docs/IMPLEMENTATION_STANDARDS.md) - **product** contract; git hygiene floor is the next row |
 | **What commit / pre-commit rules travel to every product repo?** (no-AI co-author, hook install) | [`docs/GOLDEN_REPO_RULES.md`](docs/GOLDEN_REPO_RULES.md) - **standalone** golden floor (no other docs required); copy as-is into other repos first; wins on those topics if anything else restates them |
+| **Where do Codex / Cursor / other AGENTS.md loaders start?** | [`AGENTS.md`](AGENTS.md) - **thin pointer only** (golden rules → `CLAUDE.md` → status). Not a second rulebook |
 | Why is the product this way? (settled stances: accounts, licensing, monetization, toolchain) | [`docs/DECISIONS.md`](docs/DECISIONS.md) - **D18** yearly subscription with perpetual fallback ($59/yr, annual only; supersedes D6 §1's pay-once), **D10**+**D13** on Python 3.14, **D11** holds mypy, **D12** refuses Aceternity, **D21** proceeds under the name with the trademark risk **accepted rather than eliminated** and removes the attorney gate |
 | What should I build next? | [`docs/BACKLOG.md`](docs/BACKLOG.md) **`## Build next`** - the short list, and the only section that answers this. ⚠ **The file is sectioned by WHAT AN ENTRY IS since P175** - *Build next*, *Conditional, and counted*, *Internal / tooling*, *Blocked*, *Rulings*, *Records*, *Ideas / deferred*. `grep -cE '^- \*\*\([a-z]{1,3}\)' docs/BACKLOG.md` counts them all; the number that matters is the size of **Build next**. `PROJECT_STATUS.md` **§2c** is why. The **index**; each entry's body is [`docs/research/backlog/<letter>.md`](docs/research/backlog). ⚠ **AN ENTRY LINKS ITS OWN BODY, and that is what guards the body's existence** - `test_doc_pointers_resolve.py` already fails on a markdown link that resolves to nothing, so a linked body cannot go missing. On 2026-09-01, **3 of 118 open entries did not link theirs** and `(ajf)` - the top-ranked item in the 2026-08-31 handoff - **had no body at all**, having escaped the guard by not pointing at it. ⚠ **The file now holds 130 open entries and all 130 link a body** (re-measured 2026-09-12; this read *"All 118 link now"*, which was a count of the day it was written standing in for a property that has to hold today). **The property is what to check, never the number** - a block-aware sweep, because the `[Full entry]` link is rarely on the entry's first line. **No new census guard was added and none is wanted**: `(ago)` ruled that a guard is an artifact that has to earn itself, and one green on the day it is written, over a class an existing guard already covers, earns nothing |
 | **Is this already built?** (provenance - read before building anything) | [`docs/SHIPPED.md`](docs/SHIPPED.md) |
