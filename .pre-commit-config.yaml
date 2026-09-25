@@ -84,8 +84,9 @@ repos:
         pass_filenames: false
         always_run: true
 
-  # Non-negotiable project rule: no AI co-author trailer / Anthropic/Claude email in history.
-  # Activate with: uv run pre-commit install --hook-type commit-msg
+  # Portable golden rule (docs/GOLDEN_REPO_RULES.md §1): no AI co-author trailer /
+  # Anthropic/Claude email in history. Activate with:
+  #   uv run pre-commit install --hook-type commit-msg
   - repo: local
     hooks:
       - id: no-ai-coauthor

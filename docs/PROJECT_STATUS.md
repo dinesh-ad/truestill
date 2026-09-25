@@ -864,6 +864,7 @@ while throughput roughly doubled.
   pre-commit never forwards the stdin it read - `check_push_gate.py`'s docstring is the
   full story.
 - **Commit identity policy:** `dinesh-ad`; no co-author/AI signature trailers.
+  Portable floor (copy to any product repo): [`GOLDEN_REPO_RULES.md`](GOLDEN_REPO_RULES.md).
 - **Corpus fence for real-library testing/profiling/soak** (short form; the binding wording is
   `IMPLEMENTATION_STANDARDS.md` §5, which is the source - do not restate it here):
   - test / profile / soak against **only** source `~/TruestillLibrary/Input` → destination

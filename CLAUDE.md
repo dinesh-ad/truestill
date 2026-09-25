@@ -32,7 +32,10 @@ is what resolves the pointer.
    run rather than a shipped defect. Everything else here is read in full - §1 Product invariants
    and §6 Quality gates especially, which are not guard-backed to that standard.
 
-**`IMPLEMENTATION_STANDARDS.md` wins on any conflict.**
+**`IMPLEMENTATION_STANDARDS.md` wins on any conflict** about product behaviour.
+**Exception:** commit identity / no-AI trailer / pre-commit install discipline are owned by
+[`docs/GOLDEN_REPO_RULES.md`](docs/GOLDEN_REPO_RULES.md) (portable across product repos); that
+file wins on those topics.
 
 ⚠ **A SKILL WAS REFUSED FOR ALL OF THIS, ruled 2026-09-04 (P210), and the reason is one level
 up from token cost.** A skill's body loads when the **agent judges its description relevant**, so
@@ -109,7 +112,8 @@ On 2026-08-22 those read **183** and **121**, leaving **62** mapped below. ⚠ T
 |---|---|
 | Where does the project stand? What is next? **What order are we building in?** | [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) - **§1b** is the build order (engine, then contract, then UI), written down 2026-08-25 after being re-argued three times |
 | How do I work here? (workflow, research order, code standard) | [`docs/ENGINEERING_STANDARD.md`](docs/ENGINEERING_STANDARD.md) |
-| What are the binding rules? (invariants, architecture, data, gates) | [`docs/IMPLEMENTATION_STANDARDS.md`](docs/IMPLEMENTATION_STANDARDS.md) |
+| What are the binding rules? (invariants, architecture, data, gates) | [`docs/IMPLEMENTATION_STANDARDS.md`](docs/IMPLEMENTATION_STANDARDS.md) - **product** contract; git hygiene floor is the next row |
+| **What commit / pre-commit rules travel to every product repo?** (no-AI co-author, hook install) | [`docs/GOLDEN_REPO_RULES.md`](docs/GOLDEN_REPO_RULES.md) - portable golden floor; copy into other repos; wins on those topics if a product contract restates them |
 | Why is the product this way? (settled stances: accounts, licensing, monetization, toolchain) | [`docs/DECISIONS.md`](docs/DECISIONS.md) - **D18** yearly subscription with perpetual fallback ($59/yr, annual only; supersedes D6 §1's pay-once), **D10**+**D13** on Python 3.14, **D11** holds mypy, **D12** refuses Aceternity, **D21** proceeds under the name with the trademark risk **accepted rather than eliminated** and removes the attorney gate |
 | What should I build next? | [`docs/BACKLOG.md`](docs/BACKLOG.md) **`## Build next`** - the short list, and the only section that answers this. ⚠ **The file is sectioned by WHAT AN ENTRY IS since P175** - *Build next*, *Conditional, and counted*, *Internal / tooling*, *Blocked*, *Rulings*, *Records*, *Ideas / deferred*. `grep -cE '^- \*\*\([a-z]{1,3}\)' docs/BACKLOG.md` counts them all; the number that matters is the size of **Build next**. `PROJECT_STATUS.md` **§2c** is why. The **index**; each entry's body is [`docs/research/backlog/<letter>.md`](docs/research/backlog). ⚠ **AN ENTRY LINKS ITS OWN BODY, and that is what guards the body's existence** - `test_doc_pointers_resolve.py` already fails on a markdown link that resolves to nothing, so a linked body cannot go missing. On 2026-09-01, **3 of 118 open entries did not link theirs** and `(ajf)` - the top-ranked item in the 2026-08-31 handoff - **had no body at all**, having escaped the guard by not pointing at it. ⚠ **The file now holds 130 open entries and all 130 link a body** (re-measured 2026-09-12; this read *"All 118 link now"*, which was a count of the day it was written standing in for a property that has to hold today). **The property is what to check, never the number** - a block-aware sweep, because the `[Full entry]` link is rarely on the entry's first line. **No new census guard was added and none is wanted**: `(ago)` ruled that a guard is an artifact that has to earn itself, and one green on the day it is written, over a class an existing guard already covers, earns nothing |
 | **Is this already built?** (provenance - read before building anything) | [`docs/SHIPPED.md`](docs/SHIPPED.md) |

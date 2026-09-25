@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """commit-msg hook: keep AI co-authorship and Anthropic/Claude emails out of history.
 
-Project rule (non-negotiable): commit messages must not carry a ``Co-Authored-By`` trailer,
-an ``@anthropic`` email, or a "generated with Claude" signature. Referencing the file
-``CLAUDE.md`` by name is fine -- only trailers/emails/signatures are blocked.
+Portable golden rule (``docs/GOLDEN_REPO_RULES.md`` §1): commit messages must not carry a
+``Co-Authored-By`` trailer, an ``@anthropic`` email, or a "generated with Claude" signature.
+Referencing the file ``CLAUDE.md`` by name is fine -- only trailers/emails/signatures are blocked.
 """
 
 from __future__ import annotations
